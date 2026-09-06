@@ -4,7 +4,7 @@ the rest is the advisor payout. Owners buy from Settings; HQ schedules the slot.
 import html as html_lib
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -78,6 +78,8 @@ class CfgIn(BaseModel):
 
 async def _ledger(cfg: dict) -> dict:
     rows = await _raw_db.advisory_bookings.find({"status": {"$ne": "created"}}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    for r in rows:
+        r["progress"] = await _progress(r)
     live = [r for r in rows if r["status"] != "refunded"]
     gross = sum(r["amount"] for r in live)
     return {"bookings": rows, "stats": {"count": len(live), "gross": gross,
@@ -150,6 +152,73 @@ class StatusIn(BaseModel):
     status: str = Field(pattern="^(completed|refunded|paid)$")
 
 
+# ── 90-day progress tracker ──
+class TrackerIn(BaseModel):
+    target_monthly: int = Field(ge=10000, le=100_000_000)
+    start_date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
+@router.post("/super-admin/growth-advisory/bookings/{booking_id}/tracker")
+async def sa_tracker(booking_id: str, body: TrackerIn, user=Depends(require_super_admin)):
+    r = await _raw_db.advisory_bookings.update_one(
+        {"id": booking_id, "status": {"$in": ["paid", "scheduled", "completed"]}},
+        {"$set": {"tracker": {"target_monthly": body.target_monthly, "start_date": body.start_date, "set_by": user.get("email")}}})
+    if not r.matched_count:
+        raise HTTPException(404, "Booking not found")
+    b = await _raw_db.advisory_bookings.find_one({"id": booking_id}, {"_id": 0})
+    return {"ok": True, "progress": await _progress(b)}
+
+
+async def _revenue_between(tenant_id: str, start_iso: str, end_iso: str) -> float:
+    rows = await _raw_db.invoices.aggregate([
+        {"$match": {"tenant_id": tenant_id, "status": {"$ne": "voided"}, "created_at": {"$gte": start_iso, "$lt": end_iso}}},
+        {"$group": {"_id": None, "s": {"$sum": "$total"}}}]).to_list(1)
+    return float(rows[0]["s"]) if rows else 0.0
+
+
+def _month_start(d: date) -> date:
+    return d.replace(day=1)
+
+
+def _add_months(d: date, n: int) -> date:
+    m = d.month - 1 + n
+    return d.replace(year=d.year + m // 12, month=m % 12 + 1, day=1)
+
+
+async def _progress(b: dict) -> Optional[dict]:
+    if b.get("status") not in ("scheduled", "completed"):
+        return None
+    tr = b.get("tracker") or {}
+    start_s = tr.get("start_date") or ((b.get("session") or {}).get("slot_at") or b.get("paid_at") or b["created_at"])[:10]
+    target = int(tr.get("target_monthly") or 300000)
+    start = date.fromisoformat(start_s)
+    today = datetime.now(timezone.utc).date()
+    end = start + timedelta(days=90)
+    tid = b["tenant_id"]
+    months = []
+    cur = _month_start(today)
+    for i in range(3, -1, -1):
+        ms = _add_months(cur, -i)
+        me = _add_months(ms, 1)
+        rev = await _revenue_between(tid, ms.isoformat(), me.isoformat())
+        months.append({"label": ms.strftime("%b"), "month": ms.isoformat()[:7], "revenue": round(rev), "current": i == 0})
+    current_rev = months[-1]["revenue"]
+    base_start, base_end = _add_months(_month_start(start), -3), _month_start(start)
+    baseline = await _revenue_between(tid, base_start.isoformat(), base_end.isoformat()) / 3
+    milestones = []
+    for day in (30, 60, 90):
+        md = start + timedelta(days=day)
+        reached = today >= md
+        rev = await _revenue_between(tid, (md - timedelta(days=30)).isoformat(), md.isoformat()) if reached else None
+        milestones.append({"day": day, "date": md.isoformat(), "reached": reached, "revenue": round(rev) if rev is not None else None,
+                           "hit_target": (rev >= target) if rev is not None else None})
+    return {"target_monthly": target, "start_date": start.isoformat(), "end_date": end.isoformat(),
+            "day": max(0, min(90, (today - start).days)), "days_left": max(0, (end - today).days),
+            "current_month_revenue": current_rev, "pct_to_target": round(min(100.0, current_rev / target * 100), 1) if target else 0,
+            "baseline_monthly": round(baseline), "months": milestones and months, "milestones": milestones,
+            "custom": bool(tr)}
+
+
 @router.post("/super-admin/growth-advisory/bookings/{booking_id}/status")
 async def sa_status(booking_id: str, body: StatusIn, user=Depends(require_super_admin)):
     r = await _raw_db.advisory_bookings.update_one(
@@ -170,6 +239,8 @@ async def owner_get(user=Depends(require_tenant_admin), t=Depends(current_tenant
     cfg = await get_cfg()
     mine = await _raw_db.advisory_bookings.find({"tenant_id": t["id"], "status": {"$ne": "created"}},
                                                 {"_id": 0, "razorpay_signature": 0}).sort("created_at", -1).to_list(50)
+    for m in mine:
+        m["progress"] = await _progress(m)
     return {"offered": _tenant_offered(cfg, t), "headline": cfg["headline"], "pitch": cfg["pitch"],
             "tiers": _public_tiers(cfg), "bookings": mine,
             "razorpay_enabled": bool(RAZORPAY_KEY_ID), "test_mode": RAZORPAY_KEY_ID.startswith("rzp_test_")}

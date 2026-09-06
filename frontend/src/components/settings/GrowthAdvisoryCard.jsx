@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { TrendingUp, Loader2, Check, CalendarClock, Video, Sparkles } from "lucide-react";
+import { AdvisoryTracker } from "@/components/AdvisoryTracker";
 
 function loadRazorpayScript() {
   return new Promise(resolve => {
@@ -25,15 +26,18 @@ function BookingRow({ b }) {
   const [cls, label] = STATUS[b.status] || STATUS.paid;
   const when = b.session?.slot_at ? new Date(b.session.slot_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : null;
   return (
-    <div className="flex items-center justify-between gap-3 px-3 py-2.5 text-xs" data-testid={`advisory-booking-${b.id}`}>
-      <div className="min-w-0">
-        <div className="font-semibold text-slate-800">{b.tier_name} <span className="text-slate-400 font-normal">· ₹{b.amount.toLocaleString("en-IN")}</span></div>
-        <div className="text-slate-500 flex items-center gap-1.5 mt-0.5">
-          {when ? <><CalendarClock className="w-3 h-3" /> {when} · {b.session.duration_min} min</> : "The Miracurl team will email your slot within 1 business day."}
-          {b.session?.meet_link && <a href={b.session.meet_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-emerald-700 font-semibold ml-1" data-testid={`advisory-join-${b.id}`}><Video className="w-3 h-3" /> Join</a>}
+    <div className="px-3 py-2.5" data-testid={`advisory-booking-${b.id}`}>
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <div className="min-w-0">
+          <div className="font-semibold text-slate-800">{b.tier_name} <span className="text-slate-400 font-normal">· ₹{b.amount.toLocaleString("en-IN")}</span></div>
+          <div className="text-slate-500 flex items-center gap-1.5 mt-0.5">
+            {when ? <><CalendarClock className="w-3 h-3" /> {when} · {b.session.duration_min} min</> : "The Miracurl team will email your slot within 1 business day."}
+            {b.session?.meet_link && <a href={b.session.meet_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-emerald-700 font-semibold ml-1" data-testid={`advisory-join-${b.id}`}><Video className="w-3 h-3" /> Join</a>}
+          </div>
         </div>
+        <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>{label}</span>
       </div>
-      <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${cls}`}>{label}</span>
+      <AdvisoryTracker booking={b} progress={b.progress} dark={false} />
     </div>
   );
 }
@@ -44,7 +48,7 @@ export function GrowthAdvisoryCard() {
   const [goal, setGoal] = useState("");
   const refresh = () => api.get("/settings/growth-advisory").then(r => setD(r.data)).catch(() => {});
   useEffect(() => { refresh(); }, []);
-  if (!d || !d.offered) return null;
+  if (!d || (!d.offered && d.bookings.length === 0)) return null;
 
   async function buy(tier) {
     setBusy(tier.id);
@@ -84,6 +88,7 @@ export function GrowthAdvisoryCard() {
           {d.test_mode && <span className="text-[10px] px-2 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-400/30">Razorpay test mode</span>}
         </div>
 
+        {d.offered && <>
         <div className="grid md:grid-cols-3 gap-3 mt-5">
           {d.tiers.map((t, i) => (
             <div key={t.id} data-testid={`advisory-tier-${t.id}`}
@@ -108,6 +113,7 @@ export function GrowthAdvisoryCard() {
         </label>
         {!d.razorpay_enabled && <p className="text-[11px] text-amber-300 mt-2">Online payment is unavailable right now — message HQ to book manually.</p>}
         <p className="text-[10px] text-slate-500 mt-3">Secure payment via Razorpay · GST invoice on request · Delivered by the Miracurl growth team.</p>
+        </>}
 
         {d.bookings.length > 0 && (
           <div className="mt-5 rounded-2xl bg-white border border-slate-200 divide-y divide-slate-100 text-slate-800" data-testid="advisory-my-bookings">

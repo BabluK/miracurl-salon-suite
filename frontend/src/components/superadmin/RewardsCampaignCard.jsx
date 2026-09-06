@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Gift, Loader2, Trophy, ExternalLink, Settings2, ChevronDown, Search, Users, Store, Sparkles } from "lucide-react";
+import { Gift, Loader2, Trophy, ExternalLink, Settings2, ChevronDown, Search, Users, Store, Sparkles, Share2, Download } from "lucide-react";
+import { fetchCardBlob, downloadBlob, shareWinnerCard, whatsappShareText } from "@/lib/winnerCard";
 
 const inp = "border border-white/10 rounded-lg px-2.5 py-1.5 text-xs !bg-white/5 !text-slate-200 w-full";
 const lbl = "text-[10px] text-slate-500 uppercase tracking-wide";
@@ -63,6 +64,7 @@ export function RewardsCampaignCard() {
   const [tenants, setTenants] = useState([]);
   const [q, setQ] = useState("");
   const [busyId, setBusyId] = useState("");
+  const [cardBusy, setCardBusy] = useState("");
 
   const load = () => api.get("/super-admin/rewards-campaign").then(r => setC(r.data)).catch(() => {});
   const loadTenants = () => api.get("/super-admin/rewards-campaign/tenants").then(r => setTenants(r.data.tenants)).catch(() => {});
@@ -97,8 +99,18 @@ export function RewardsCampaignCard() {
   };
   const loadPeople = () => api.get("/super-admin/rewards-campaign/participants").then(r => setPeople(r.data.participants)).catch(() => {});
   const setWinner = async (p, tier) => {
-    try { await api.post(`/super-admin/rewards-campaign/participants/${p.id}/winner`, { tier: tier || null }); toast.success(tier ? `${p.name} → ${tier} 🏆` : "Winner cleared"); loadPeople(); }
+    try { await api.post(`/super-admin/rewards-campaign/participants/${p.id}/winner`, { tier: tier || null }); toast.success(tier ? `${p.name} → ${tier} 🏆 — share card is ready` : "Winner cleared"); loadPeople(); }
     catch (e) { toast.error(e.response?.data?.detail || "Couldn't set winner"); }
+  };
+  const card = async (p, mode) => {
+    setCardBusy(p.id + mode);
+    try {
+      const blob = await fetchCardBlob(api, `/super-admin/rewards-campaign/participants/${p.id}/card.png`);
+      const filename = `brand-model-${p.name.toLowerCase().replace(/\s+/g, "-")}.png`;
+      if (mode === "dl") { downloadBlob(blob, filename); toast.success("Winner card downloaded"); }
+      else await shareWinnerCard({ blob, filename, text: whatsappShareText({ name: p.name, tier: p.winner_tier, salon: p.salon_name, url: `${window.location.origin}/rewards/${p.salon_slug}` }) });
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't build the card"); }
+    setCardBusy("");
   };
   const onCount = tenants.filter(t => t.on).length;
 
@@ -163,6 +175,11 @@ export function RewardsCampaignCard() {
               </div>
             </div>
             <label className={`block ${lbl}`}>Terms (shown on the campaign page)<textarea value={c.terms} onChange={set("terms")} rows={3} className={inp + " normal-case"} data-testid="rewards-cfg-terms" /></label>
+            <label className={`block ${lbl}`}>Upcoming events (one per line: <code className="normal-case">YYYY-MM-DD | Title | note</code>) — "Casting closes" & "Brand Models announced" are added automatically
+              <textarea rows={3} defaultValue={(c.events || []).map(e => [e.date, e.title, e.note].filter(Boolean).join(" | ")).join("\n")} placeholder={"2026-10-05 | Brand Model photoshoot | At the salon, 4–7 pm\n2026-11-15 | Diwali glam night | Live styling & giveaways"}
+                onBlur={e => setC(s => ({ ...s, events: e.target.value.split("\n").map(l => l.split("|").map(x => x.trim())).filter(p => /^\d{4}-\d{2}-\d{2}$/.test(p[0]) && p[1]).map(([date, title, note]) => ({ date, title, note: note || "" })) }))}
+                className={inp + " normal-case"} data-testid="rewards-cfg-events" />
+            </label>
             <button onClick={() => save()} disabled={saving} data-testid="rewards-save-btn" className="px-5 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-xs font-bold hover:brightness-110 disabled:opacity-50 inline-flex items-center gap-1.5">{saving ? <Loader2 className="w-3 h-3 animate-spin" /> : null} Save campaign</button>
           </div>
         )}
@@ -182,6 +199,12 @@ export function RewardsCampaignCard() {
                 <select value={p.winner_tier || ""} onChange={e => setWinner(p, e.target.value)} className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[11px] text-slate-200" data-testid={`rewards-winner-${p.id}`}>
                   <option value="">— not a winner —</option>{c.rewards.map(r => <option key={r.tier} value={r.tier}>{r.emoji} {r.tier}</option>)}
                 </select>
+                {p.winner_tier && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => card(p, "dl")} disabled={!!cardBusy} title="Download 1080×1080 card" data-testid={`rewards-card-dl-${p.id}`} className="w-7 h-7 rounded-lg border border-[#d4af37]/40 text-[#F0D9A5] hover:bg-[#d4af37]/15 flex items-center justify-center disabled:opacity-50">{cardBusy === p.id + "dl" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}</button>
+                    <button onClick={() => card(p, "share")} disabled={!!cardBusy} data-testid={`rewards-card-share-${p.id}`} className="h-7 px-2.5 rounded-lg bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-[11px] font-bold inline-flex items-center gap-1 disabled:opacity-50">{cardBusy === p.id + "share" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />} Share card</button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

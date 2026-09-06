@@ -36,7 +36,20 @@ DEFAULT_CAMPAIGN = {
              "Miracurl team from all valid entries based on entries earned and the quality of the shared salon experience; "
              "decisions are final. Photos and stories are featured only with the customer's consent. Memberships are "
              "non-transferable and redeemable at the salon where the entry was earned.",
+    "events": [],
 }
+
+
+def _campaign_events(c: dict) -> list:
+    """HQ-defined events + auto milestones (casting closes, models announced), upcoming first."""
+    from datetime import date as _date, timedelta as _td
+    end = _date.fromisoformat(c["end_date"])
+    auto = [{"date": c["end_date"], "title": "Casting closes", "note": "Last day to spend, share your look & apply."},
+            {"date": (end + _td(days=7)).isoformat(), "title": "Brand Models announced", "note": "Winners revealed on this page & the salon's socials."}]
+    today = _date.today().isoformat()
+    ev = [e for e in (c.get("events") or []) if e.get("date") and e.get("title")] + auto
+    ev.sort(key=lambda e: e["date"])
+    return [{**e, "upcoming": e["date"] >= today} for e in ev]
 
 
 def _now() -> str:
@@ -88,6 +101,7 @@ class CampaignIn(BaseModel):
     rewards: list[dict] = Field(default_factory=list)
     entry_rules: list[dict] = Field(default_factory=list)
     terms: str = Field("", max_length=3000)
+    events: list[dict] = Field(default_factory=list, max_length=12)
 
 
 @router.get("/super-admin/rewards-campaign")
@@ -268,14 +282,14 @@ async def _rewards_poster_jpeg(t: dict, c: dict, origin: str) -> bytes:
             y += 28
         y += 8
         lbl_f = _font("FreeSansBold.ttf", 24)
-        lbl = "C U S T O M E R   R E W A R D S"
+        lbl = "B R A N D   M O D E L   C A S T I N G"
         lw = d.textlength(lbl, font=lbl_f)
         center(lbl, y, lbl_f, LIGHT)
         for dx in (-lw / 2 - 30, lw / 2 + 30):
             cx, cy = W / 2 + dx, y + 14
             d.polygon([(cx, cy - 8), (cx + 6, cy), (cx, cy + 8), (cx - 6, cy)], fill=GOLD)
         y += 46
-        center("Spend · Refer · Participate · Win", y, _font("PlayfairDisplay-Bold.ttf", 34), INK)
+        center("Become our Brand Model", y, _font("PlayfairDisplay-Bold.ttf", 40), INK)
         y += 56
         qr = qrcode.make(f"{base}/rewards/{slug}", box_size=10, border=1).convert("RGB").resize((320, 320))
         pad = 18
@@ -285,14 +299,14 @@ async def _rewards_poster_jpeg(t: dict, c: dict, origin: str) -> bytes:
         ImageDraw.Draw(m).rounded_rectangle([0, 0, box.width - 1, box.height - 1], radius=26, fill=255)
         bg.paste(box, ((W - box.width) // 2, y), m)
         y += box.height + 22
-        center(f"Spend ₹{int(c['min_transaction']):,}+ in one bill & scan to enrol", y, _font("FreeSansBold.ttf", 22), LIGHT)
+        center(f"Spend ₹{int(c['min_transaction']):,}+ in one bill & scan to apply", y, _font("FreeSansBold.ttf", 22), LIGHT)
         y += 36
         tiers = "   ·   ".join(f"{r['tier']} ×{r['winners']}" for r in c["rewards"])
         center("WIN A MEMBERSHIP", y, _font("FreeSansBold.ttf", 28), GOLD)
         y += 40
         center(tiers, y, _font("FreeSansBold.ttf", 20), INK)
         y += 34
-        center("Refer friends for extra entries  ·  Top 10 featured on Miracurl", y, _font("FreeSansBold.ttf", 17), LIGHT)
+        center("Share your look · refer friends · get featured on Miracurl", y, _font("FreeSansBold.ttf", 17), LIGHT)
         center(f"{c['start_date']}  →  {c['end_date']}", H - 138, _font("FreeSansBold.ttf", 17), FOOT)
         center(f"{base.replace('https://', '')}/rewards/{slug}", H - 110, _font("FreeSansBold.ttf", 15), FOOT)
         out = io.BytesIO()
@@ -322,10 +336,11 @@ async def public_campaign(slug: str):
     eligible = _tenant_eligible(c, t) and _is_live(c)
     winners = await _raw_db.rewards_participants.find(
         {"winner_tier": {"$nin": [None, ""]}, "consent": True},
-        {"_id": 0, "name": 1, "photo_url": 1, "story": 1, "winner_tier": 1, "salon_name": 1}).to_list(20)
+        {"_id": 0, "name": 1, "photo_url": 1, "story": 1, "winner_tier": 1, "salon_name": 1, "salon_slug": 1, "won_at": 1}).to_list(20)
     order = {r["tier"]: i for i, r in enumerate(c["rewards"])}
     winners.sort(key=lambda w: order.get(w["winner_tier"], 99))
     pub = {k: c[k] for k in ("name", "min_transaction", "start_date", "end_date", "winner_count", "rewards", "entry_rules", "terms")}
+    pub["events"] = _campaign_events(c)
     return {"campaign": pub, "salon": {k: t.get(k) for k in ("name", "slug", "logo_url", "location", "phone", "business_type")},
             "eligible": eligible, "live": _is_live(c), "participants": await _raw_db.rewards_participants.count_documents({}),
             "winners": winners}
@@ -454,3 +469,166 @@ async def public_photo(slug: str, request: Request, phone: str = Form(...), file
         "uploaded_by": f"rewards:{p['id']}", "is_deleted": False, "created_at": _now()})
     await _raw_db.rewards_participants.update_one({"id": p["id"]}, {"$set": {"photo_url": f"/api/files/{fid}"}})
     return {"ok": True, "url": f"/api/files/{fid}"}
+
+
+# ── Winner announcement card (1080×1080, shareable) ──
+async def _winner_card_png(p: dict, t: dict, c: dict, base: str) -> bytes:
+    import asyncio
+    import io
+    from routes.services_catalog import _tenant_logo_bytes
+    from routes.loyalty_stamps import _shaped_logo
+    base = (base or os.environ.get("APP_PUBLIC_URL", "")).rstrip("/")
+    logo_bytes = await _tenant_logo_bytes(t, base)
+    photo_bytes = await _tenant_logo_bytes({"logo_url": p["photo_url"]}, base) if p.get("photo_url") else None
+    slug = t.get("slug") or p.get("salon_slug") or ""
+
+    def _render() -> bytes:
+        import qrcode
+        from PIL import Image, ImageDraw, ImageFont
+        W = H = 1080
+        assets = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
+        bg_path = os.path.join(assets, "posters", "loyalty_bg_midnight.jpg")
+        if os.path.exists(bg_path):
+            bg = Image.open(bg_path).convert("RGB")
+            s = max(W / bg.width, H / bg.height)
+            bg = bg.resize((round(bg.width * s), round(bg.height * s)))
+            lx, ty = (bg.width - W) // 2, (bg.height - H) // 2
+            bg = bg.crop((lx, ty, lx + W, ty + H))
+        else:
+            bg = Image.new("RGB", (W, H), (15, 15, 20))
+        # darken centre band for legibility
+        shade = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        ImageDraw.Draw(shade).rounded_rectangle([60, 60, W - 60, H - 60], radius=40, fill=(10, 10, 16, 150))
+        bg = Image.alpha_composite(bg.convert("RGBA"), shade)
+        d = ImageDraw.Draw(bg)
+        GOLD, LIGHT, INK, FOOT = (212, 175, 55), (232, 224, 210), (255, 255, 255), (170, 158, 138)
+        d.rounded_rectangle([60, 60, W - 60, H - 60], radius=40, outline=GOLD, width=3)
+        d.rounded_rectangle([72, 72, W - 72, H - 72], radius=34, outline=(212, 175, 55, 90), width=1)
+
+        def _font(name, size):
+            try:
+                return ImageFont.truetype(os.path.join(assets, "fonts", name), size)
+            except Exception:  # noqa: BLE001
+                return ImageFont.load_default()
+
+        def center(text, y, f, fill):
+            d.text(((W - d.textlength(text, font=f)) / 2, y), text, font=f, fill=fill)
+
+        def fit(text, name, size, max_w, min_size=24):
+            f = _font(name, size)
+            while d.textlength(text, font=f) > max_w and size > min_size:
+                size -= 3
+                f = _font(name, size)
+            return f, size
+
+        y = 96
+        if logo_bytes:
+            lg = _shaped_logo(logo_bytes, 96, "circle")
+            if lg is not None:
+                bg.paste(lg, ((W - lg.width) // 2, y), lg)
+                y += 104
+        f, sz = fit(t.get("name") or "", "PlayfairDisplay-Bold.ttf", 40, W - 240)
+        center(t.get("name") or "", y, f, GOLD)
+        y += sz + 18
+        loc = (t.get("location") or "").strip()
+        if loc:
+            center(loc.upper()[:40], y, _font("FreeSansBold.ttf", 16), LIGHT)
+            y += 26
+
+        # hero: photo circle or trophy
+        hero_size, hero_y = 310, y + 12
+        if photo_bytes:
+            try:
+                ph = Image.open(io.BytesIO(photo_bytes)).convert("RGB")
+                s = max(hero_size / ph.width, hero_size / ph.height)
+                ph = ph.resize((round(ph.width * s), round(ph.height * s)))
+                lx, ty = (ph.width - hero_size) // 2, (ph.height - hero_size) // 2
+                ph = ph.crop((lx, ty, lx + hero_size, ty + hero_size))
+                m = Image.new("L", (hero_size, hero_size), 0)
+                ImageDraw.Draw(m).ellipse([0, 0, hero_size - 1, hero_size - 1], fill=255)
+                cx = (W - hero_size) // 2
+                d.ellipse([cx - 8, hero_y - 8, cx + hero_size + 8, hero_y + hero_size + 8], outline=GOLD, width=6)
+                bg.paste(ph, (cx, hero_y), m)
+            except Exception:  # noqa: BLE001
+                photo_ok = False
+            else:
+                photo_ok = True
+        else:
+            photo_ok = False
+        if not photo_ok:
+            tp = os.path.join(assets, "posters", "trophy_gold.png")
+            if os.path.exists(tp):
+                tr = Image.open(tp).convert("RGBA").resize((hero_size, hero_size))
+                bg.alpha_composite(tr, ((W - hero_size) // 2, hero_y))
+            else:
+                cx = W // 2
+                d.ellipse([cx - 120, hero_y + 45, cx + 120, hero_y + 285], outline=GOLD, width=8)
+        y = hero_y + hero_size + 34
+
+        lbl = "B R A N D   M O D E L   ·   W I N N E R"
+        lf = _font("FreeSansBold.ttf", 20)
+        lw = d.textlength(lbl, font=lf)
+        center(lbl, y, lf, GOLD)
+        for dx in (-lw / 2 - 26, lw / 2 + 26):
+            cx, cy = W / 2 + dx, y + 12
+            d.polygon([(cx, cy - 7), (cx + 5, cy), (cx, cy + 7), (cx - 5, cy)], fill=GOLD)
+        y += 38
+        f, sz = fit(p["name"], "PlayfairDisplay-Bold.ttf", 66, W - 200, 34)
+        center(p["name"], y, f, INK)
+        y += sz + 26
+        center(f"wins a {p['winner_tier']} Membership", y, _font("FreeSansBold.ttf", 30), GOLD)
+
+        # footer: QR + CTA
+        qr = qrcode.make(f"{base}/rewards/{slug}", box_size=6, border=1).convert("RGB").resize((132, 132))
+        box = Image.new("RGB", (148, 148), (255, 255, 255))
+        box.paste(qr, (8, 8))
+        m = Image.new("L", box.size, 0)
+        ImageDraw.Draw(m).rounded_rectangle([0, 0, 147, 147], radius=16, fill=255)
+        qx, qy = W - 96 - 148, H - 112 - 148
+        bg.paste(box, (qx, qy), m)
+        d.text((96, qy + 22), "Want to be our next Brand Model?", font=_font("FreeSansBold.ttf", 24), fill=INK)
+        d.text((96, qy + 60), f"Spend ₹{int(c['min_transaction']):,}+ at {t.get('name') or 'the salon'}, scan & apply.", font=_font("FreeSansBold.ttf", 18), fill=LIGHT)
+        d.text((96, qy + 92), f"{base.replace('https://', '')}/rewards/{slug}", font=_font("FreeSansBold.ttf", 16), fill=FOOT)
+        center("Powered by Miracurl", H - 96, _font("FreeSansBold.ttf", 15), FOOT)
+        out = io.BytesIO()
+        bg.convert("RGB").save(out, format="PNG", optimize=True)
+        return out.getvalue()
+
+    return await asyncio.to_thread(_render)
+
+
+async def _card_response(p: dict, origin: str):
+    from fastapi import Response
+    if not p.get("winner_tier"):
+        raise HTTPException(400, "This participant hasn't been announced as a winner yet")
+    t = await _raw_db.tenants.find_one({"id": p["tenant_id"]}, {"_id": 0}) or {"slug": p.get("salon_slug"), "name": p.get("salon_name")}
+    c = await get_campaign()
+    png = await _winner_card_png(p, t, c, origin)
+    fname = f"brand-model-{(p['name'] or 'winner').lower().replace(' ', '-')[:30]}.png"
+    return Response(content=png, media_type="image/png", headers={"Content-Disposition": f'inline; filename="{fname}"'})
+
+
+@router.get("/super-admin/rewards-campaign/participants/{pid}/card.png")
+async def sa_winner_card(pid: str, origin: str = "", user=Depends(require_super_admin)):
+    p = await _raw_db.rewards_participants.find_one({"id": pid}, {"_id": 0})
+    if not p:
+        raise HTTPException(404, "Participant not found")
+    return await _card_response(p, origin)
+
+
+@router.get("/settings/rewards-winner-card/{pid}.png")
+async def tenant_winner_card(pid: str, origin: str = "", user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    p = await _raw_db.rewards_participants.find_one({"id": pid, "tenant_id": t["id"]}, {"_id": 0})
+    if not p:
+        raise HTTPException(404, "Participant not found")
+    return await _card_response(p, origin)
+
+
+@router.get("/public/rewards/{slug}/winner-card.png")
+async def public_winner_card(slug: str, phone: str, request: Request, origin: str = ""):
+    await public_rate_limit(request, "rewards-card", limit=10, window_sec=600)
+    ph = "".join(ch for ch in phone if ch.isdigit())[-12:]
+    p = await _raw_db.rewards_participants.find_one({"salon_slug": slug, "phone": ph}, {"_id": 0})
+    if not p:
+        raise HTTPException(404, "No entry for this phone number yet")
+    return await _card_response(p, origin)

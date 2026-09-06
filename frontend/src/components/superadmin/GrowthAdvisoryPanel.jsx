@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { TrendingUp, Loader2, Search, Store, IndianRupee, Wallet, CalendarClock, Settings2, ChevronDown, Plus, Trash2, Video } from "lucide-react";
+import { AdvisoryTracker } from "@/components/AdvisoryTracker";
 
 const inp = "border border-white/10 rounded-lg px-2.5 py-1.5 text-xs !bg-white/5 !text-slate-200 w-full";
 const lbl = "text-[10px] text-slate-500 uppercase tracking-wide";
@@ -83,6 +84,7 @@ function BookingCard({ b, reload }) {
         </div>
       )}
       {open && (b.status === "paid" || b.status === "scheduled") && <ScheduleForm b={b} onDone={() => { setOpen(false); reload(); }} />}
+      <AdvisoryTracker booking={b} progress={b.progress} editable onSaved={reload} />
     </div>
   );
 }

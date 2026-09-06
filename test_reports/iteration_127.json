@@ -1,0 +1,26 @@
+{
+  "summary": "Iteration 127 regression on Winner Announcement Card + Advisory Progress Tracker + 'Become our Brand Model' rebranding. All backend and frontend flows PASS. Backend: /api/public/rewards/{slug}/join, winner-card.png 400-before-winner, super-admin winner (Gold tier 7 slots) → public/tenant/HQ winner-card.png each return 200 image/png 1080x1080, cross-tenant/non-existent id → 404. Advisory: order+HMAC verify creates paid booking with progress=null; HQ schedule → progress with target_monthly=300000 default, 4 months, 3 milestones; sa_tracker with target_monthly=400000 start=2026-07-15 → day 53, milestone[0].reached=true; invalid target 5000 → 422. Cleanup performed (test participant + test advisory booking). Frontend HQ (super@miracurl.com): rewards-campaign-card → rewards-participants-btn → winner row shows rewards-card-dl-<id> (downloaded brand-model-ananya-rao.png) + rewards-card-share-<id>. Growth-advisory tab shows advisory-tracker-<id>, advisory-target-<id>, advisory-days-left-<id>, advisory-trend-<id>, advisory-milestone-<id>-30/60/90; edit → target/start inputs → save reflects new target (verified 450000 then reverted to 400000). Owner (admin@miracurl.com PIN 4321): rewards-qr-card + rewards-winners-section + rewards-winner-row-<id> for Ananya Rao Platinum, dl works (brand-model-ananya-rao.png), share present; growth-advisory-card → advisory-my-bookings → advisory-tracker rendered in light theme with milestones. Public /book/miracurl-marathahalli hero-rewards-banner reads 'Become our Brand Model' with model thumbnail; /rewards/miracurl-marathahalli rewards-hero-title 'Become the Brand Model of Miracurl Unisex', /brand-model-hero.jpg loads (HTTP 200 729KB), 'Apply to be our Brand Model' button present; joining with 9700011299 shows rewards-my-entries + rewards-winner-badge with rewards-winner-card-dl (downloaded) and rewards-winner-card-share.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard (MiraDayOffer)", "issues": ["Pre-existing React hydration warning: <span> cannot be a child of <option> in MiraDayOffer select (line 55). Cosmetic, non-blocking, same as iteration_126."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter127.py"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "rewards-hero-visual testid is on the wrapper <div>, not the <img> (RewardsCampaign.jsx L154 vs L157). Tests using getAttribute('src') on this testid will get null — recommend moving the testid to the <img> or exposing an inner img selector for cleaner asserts.",
+    "public winner-card.png rate limit is 10/10min per IP; documented but tests should not spam. Confirmed 429 seen on repeated public join attempts during rapid retries — expected behavior.",
+    "Non-blocking: consider moving _card_response's 400 vs 404 to be consistent (currently 400 'not a winner yet' when participant exists without winner_tier; ok but 409/conflict semantically closer)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter127.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6; admin@miracurl.com / q6QY@tn3p#9DtL (tenant miracurl-marathahalli, PIN 4321) — both valid.",
+  "seed_data_creation": "Created + cleaned participant phone 9700099127 (Gold winner test) and one starter advisory booking (deleted from advisory_bookings). Preserved existing demo data: Ananya Rao 9700011299 Platinum winner, scheduled Starter booking with tracker target 400000 start 2026-07-15 (temporarily changed to 450000 during HQ edit test then reverted to 400000).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All winner-card + tracker flows fully green E2E. Existing scheduled booking id 431ecdc5-edda-4d96-9d94-ea4b2944ac7f for marathahalli 'Starter Strategy Call' (target 400000, start 2026-07-15) preserved. Public join endpoint IP-rate-limited (~10/10min); use fresh phone or wait between reruns. Owner Settings requires Owner PIN 4321 dialog + optional 'Got it' What's New dismissal before rewards-qr-card is reachable. Include email field when submitting the public rewards form — it is required.",
+  "rca of the issue": "N/A — no bugs found."
+}

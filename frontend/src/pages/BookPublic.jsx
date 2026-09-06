@@ -553,13 +553,17 @@ export default function BookPublic() {
 
           {rewards && (
             <Link to={`/rewards/${slug}`} data-testid="hero-rewards-banner"
-              className="mt-5 max-w-2xl flex items-center gap-3 p-3 pr-4 rounded-2xl border border-[#d4af37]/50 bg-[#d4af37]/10 backdrop-blur-md hover:bg-[#d4af37]/20 transition-colors">
-              <span className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#F0D9A5] to-[#C89B52] flex items-center justify-center shrink-0 text-xl shadow-lg">🎉</span>
-              <span className="min-w-0 flex-1 text-left">
-                <span className="block text-sm font-semibold text-white">Join our Rewards Campaign</span>
-                <span className="block text-[11px] text-white/70">Spend ₹{Number(rewards.campaign.min_transaction).toLocaleString("en-IN")}+, refer friends & win Diamond · Platinum · Gold memberships</span>
+              className="group relative mt-5 max-w-2xl flex items-center gap-4 p-3.5 pr-5 rounded-2xl overflow-hidden border border-[#d4af37]/60 bg-gradient-to-r from-[#1a1508]/80 via-[#2a1f0a]/70 to-[#1a1508]/80 backdrop-blur-md shadow-[0_12px_40px_-12px_rgba(212,175,55,.55)] hover:border-[#F0D9A5] transition-colors">
+              <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,transparent_30%,rgba(240,217,165,.18)_50%,transparent_70%)] translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+              <span className="relative w-14 h-14 rounded-2xl overflow-hidden shrink-0 ring-2 ring-[#d4af37]/70 shadow-lg">
+                <img src="/brand-model-hero.jpg" alt="" className="w-full h-full object-cover object-top" />
               </span>
-              <ArrowRight className="w-4 h-4 text-[#d4af37] shrink-0" />
+              <span className="relative min-w-0 flex-1 text-left">
+                <span className="block text-[10px] tracking-[0.3em] uppercase text-[#F0D9A5]/90">✦ Casting open</span>
+                <span className="block font-playfair text-lg sm:text-xl text-white leading-tight">Become our Brand Model</span>
+                <span className="block text-[11px] text-white/70 mt-0.5">Spend ₹{Number(rewards.campaign.min_transaction).toLocaleString("en-IN")}+, share your look & win a Diamond · Platinum · Gold membership — be the face of {salon.name}</span>
+              </span>
+              <span className="relative shrink-0 w-9 h-9 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] flex items-center justify-center text-[#15151b] group-hover:scale-110 transition-transform"><ArrowRight className="w-4 h-4" /></span>
             </Link>
           )}
           {/* Row D — Gift card & Membership: two matched glass feature cards */}
