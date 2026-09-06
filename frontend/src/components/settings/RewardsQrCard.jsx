@@ -25,11 +25,11 @@ export function RewardsQrCard() {
   };
   const c = d.campaign;
   const winners = d.participants.filter(p => p.winner_tier);
-  const card = async (p, mode) => {
-    setDl(p.id + mode);
+  const card = async (p, mode, fmt = "square") => {
+    setDl(p.id + mode + fmt);
     try {
-      const blob = await fetchCardBlob(api, `/settings/rewards-winner-card/${p.id}.png`);
-      const filename = `brand-model-${p.name.toLowerCase().replace(/\s+/g, "-")}.png`;
+      const blob = await fetchCardBlob(api, `/settings/rewards-winner-card/${p.id}.png`, fmt);
+      const filename = `brand-model-${p.name.toLowerCase().replace(/\s+/g, "-")}${fmt === "story" ? "-story" : ""}.png`;
       if (mode === "dl") { downloadBlob(blob, filename); toast.success("Winner card downloaded"); }
       else await shareWinnerCard({ blob, filename, text: whatsappShareText({ name: p.name, tier: p.winner_tier, salon: p.salon_name, url: `${window.location.origin}/rewards/${d.slug}` }) });
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't build the card"); }
@@ -82,8 +82,9 @@ export function RewardsQrCard() {
                   <div key={p.id} className="flex items-center gap-3 rounded-xl bg-white border border-amber-100 px-3 py-2" data-testid={`rewards-winner-row-${p.id}`}>
                     <img src={`${BACKEND_URL}/api/settings/rewards-winner-card/${p.id}.png?origin=${encodeURIComponent(window.location.origin)}`} alt="" className="w-14 h-14 rounded-lg object-cover border border-amber-100" loading="lazy" data-testid={`rewards-winner-thumb-${p.id}`} />
                     <div className="min-w-0 flex-1"><div className="text-sm font-semibold text-slate-800 truncate">{p.name}</div><div className="text-[11px] text-amber-700">🏆 {p.winner_tier} Membership · Brand Model</div></div>
-                    <button onClick={() => card(p, "dl")} disabled={!!dl} title="Download card" data-testid={`rewards-winner-dl-${p.id}`} className="w-8 h-8 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 flex items-center justify-center disabled:opacity-50">{dl === p.id + "dl" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}</button>
-                    <button onClick={() => card(p, "share")} disabled={!!dl} data-testid={`rewards-winner-share-${p.id}`} className="h-8 px-3 rounded-full bg-emerald-500 text-white text-xs font-semibold inline-flex items-center gap-1 hover:bg-emerald-600 disabled:opacity-50">{dl === p.id + "share" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />} WhatsApp</button>
+                    <button onClick={() => card(p, "dl")} disabled={!!dl} title="Download 1080×1080 post" data-testid={`rewards-winner-dl-${p.id}`} className="w-8 h-8 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 flex items-center justify-center disabled:opacity-50">{dl === p.id + "dlsquare" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}</button>
+                    <button onClick={() => card(p, "dl", "story")} disabled={!!dl} title="Download 1080×1920 Instagram Story" data-testid={`rewards-winner-story-${p.id}`} className="h-8 px-2.5 rounded-lg border border-pink-300 text-pink-700 hover:bg-pink-50 text-[11px] font-semibold flex items-center gap-1 disabled:opacity-50">{dl === p.id + "dlstory" ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="inline-block w-2.5 h-4 rounded-[2px] border-2 border-current" />} Story</button>
+                    <button onClick={() => card(p, "share")} disabled={!!dl} data-testid={`rewards-winner-share-${p.id}`} className="h-8 px-3 rounded-full bg-emerald-500 text-white text-xs font-semibold inline-flex items-center gap-1 hover:bg-emerald-600 disabled:opacity-50">{dl === p.id + "sharesquare" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />} WhatsApp</button>
                   </div>
                 ))}
               </div>

@@ -510,7 +510,7 @@ async def public_photo(slug: str, request: Request, phone: str = Form(...), file
 
 
 # ── Winner announcement card (1080×1080, shareable) ──
-async def _winner_card_png(p: dict, t: dict, c: dict, base: str) -> bytes:
+async def _winner_card_png(p: dict, t: dict, c: dict, base: str, story: bool = False) -> bytes:
     import asyncio
     import io
     from routes.services_catalog import _tenant_logo_bytes
@@ -525,7 +525,7 @@ async def _winner_card_png(p: dict, t: dict, c: dict, base: str) -> bytes:
     def _render() -> bytes:
         import qrcode
         from PIL import Image, ImageDraw, ImageFont
-        W = H = 1080
+        W, H = (1080, 1920) if story else (1080, 1080)
         assets = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
         bg_path = os.path.join(assets, "posters", "loyalty_bg_midnight.jpg")
         if os.path.exists(bg_path):
@@ -561,13 +561,13 @@ async def _winner_card_png(p: dict, t: dict, c: dict, base: str) -> bytes:
                 f = _font(name, size)
             return f, size
 
-        y = 96
+        y = 260 if story else 96
         if logo_bytes:
-            lg = _shaped_logo(logo_bytes, 96, "circle")
+            lg = _shaped_logo(logo_bytes, 140 if story else 96, "circle")
             if lg is not None:
                 bg.paste(lg, ((W - lg.width) // 2, y), lg)
-                y += 104
-        f, sz = fit(t.get("name") or "", "PlayfairDisplay-Bold.ttf", 40, W - 240)
+                y += lg.height + 12
+        f, sz = fit(t.get("name") or "", "PlayfairDisplay-Bold.ttf", 52 if story else 40, W - 240)
         center(t.get("name") or "", y, f, GOLD)
         y += sz + 18
         loc = (t.get("location") or "").strip()
@@ -576,7 +576,7 @@ async def _winner_card_png(p: dict, t: dict, c: dict, base: str) -> bytes:
             y += 26
 
         # hero: photo circle or trophy
-        hero_size, hero_y = 310, y + 12
+        hero_size, hero_y = (560, y + 40) if story else (310, y + 12)
         if photo_bytes:
             try:
                 ph = Image.open(io.BytesIO(photo_bytes)).convert("RGB")
@@ -603,20 +603,23 @@ async def _winner_card_png(p: dict, t: dict, c: dict, base: str) -> bytes:
             else:
                 cx = W // 2
                 d.ellipse([cx - 120, hero_y + 45, cx + 120, hero_y + 285], outline=GOLD, width=8)
-        y = hero_y + hero_size + 34
+        y = hero_y + hero_size + (70 if story else 34)
 
         lbl = "B R A N D   M O D E L   ·   W I N N E R"
-        lf = _font("FreeSansBold.ttf", 20)
+        lf = _font("FreeSansBold.ttf", 26 if story else 20)
         lw = d.textlength(lbl, font=lf)
         center(lbl, y, lf, GOLD)
         for dx in (-lw / 2 - 26, lw / 2 + 26):
             cx, cy = W / 2 + dx, y + 12
             d.polygon([(cx, cy - 7), (cx + 5, cy), (cx, cy + 7), (cx - 5, cy)], fill=GOLD)
-        y += 38
-        f, sz = fit(p["name"], "PlayfairDisplay-Bold.ttf", 66, W - 200, 34)
+        y += 52 if story else 38
+        f, sz = fit(p["name"], "PlayfairDisplay-Bold.ttf", 88 if story else 66, W - 200, 34)
         center(p["name"], y, f, INK)
-        y += sz + 26
-        center(f"wins a {p['winner_tier']} Membership", y, _font("FreeSansBold.ttf", 30), GOLD)
+        y += sz + (40 if story else 26)
+        center(f"wins a {p['winner_tier']} Membership", y, _font("FreeSansBold.ttf", 40 if story else 30), GOLD)
+        if story:
+            y += 70
+            center("Your style. Your story. Your moment.", y, _font("PlayfairDisplay-Bold.ttf", 34), LIGHT)
 
         # footer: QR + CTA
         qr = qrcode.make(f"{base}/rewards/{slug}", box_size=6, border=1).convert("RGB").resize((132, 132))
@@ -624,12 +627,14 @@ async def _winner_card_png(p: dict, t: dict, c: dict, base: str) -> bytes:
         box.paste(qr, (8, 8))
         m = Image.new("L", box.size, 0)
         ImageDraw.Draw(m).rounded_rectangle([0, 0, 147, 147], radius=16, fill=255)
-        qx, qy = W - 96 - 148, H - 112 - 148
+        qx, qy = W - 96 - 148, H - (330 if story else 112) - 148
         bg.paste(box, (qx, qy), m)
         d.text((96, qy + 22), "Want to be our next Brand Model?", font=_font("FreeSansBold.ttf", 24), fill=INK)
         d.text((96, qy + 60), f"Spend ₹{int(c['min_transaction']):,}+ at {t.get('name') or 'the salon'}, scan & apply.", font=_font("FreeSansBold.ttf", 18), fill=LIGHT)
         d.text((96, qy + 92), f"{base.replace('https://', '')}/rewards/{slug}", font=_font("FreeSansBold.ttf", 16), fill=FOOT)
-        center(f"Powered by Miracurl  ·  @{ig_handle}" if ig_handle else "Powered by Miracurl", H - 96, _font("FreeSansBold.ttf", 15), FOOT)
+        center(f"Powered by Miracurl  ·  @{ig_handle}" if ig_handle else "Powered by Miracurl", H - (300 if story else 96), _font("FreeSansBold.ttf", 18 if story else 15), FOOT)
+        if story:  # everything ends above ~1650px — Instagram's bottom UI band (≈1670–1920) stays clear
+            center("Swipe up · link in bio", H - 272, _font("FreeSansBold.ttf", 16), FOOT)
         out = io.BytesIO()
         bg.convert("RGB").save(out, format="PNG", optimize=True)
         return out.getvalue()
@@ -637,41 +642,42 @@ async def _winner_card_png(p: dict, t: dict, c: dict, base: str) -> bytes:
     return await asyncio.to_thread(_render)
 
 
-async def _card_response(p: dict, origin: str):
+async def _card_response(p: dict, origin: str, fmt: str = "square"):
     from fastapi import Response
     if not p.get("winner_tier"):
         raise HTTPException(400, "This participant hasn't been announced as a winner yet")
     t = await _raw_db.tenants.find_one({"id": p["tenant_id"]}, {"_id": 0}) or {"slug": p.get("salon_slug"), "name": p.get("salon_name")}
     c = await get_campaign()
-    png = await _winner_card_png(p, t, c, origin)
-    fname = f"brand-model-{(p['name'] or 'winner').lower().replace(' ', '-')[:30]}.png"
+    story = fmt == "story"
+    png = await _winner_card_png(p, t, c, origin, story=story)
+    fname = f"brand-model-{(p['name'] or 'winner').lower().replace(' ', '-')[:30]}{'-story' if story else ''}.png"
     return Response(content=png, media_type="image/png", headers={"Content-Disposition": f'inline; filename="{fname}"'})
 
 
 @router.get("/super-admin/rewards-campaign/participants/{pid}/card.png")
-async def sa_winner_card(pid: str, origin: str = "", user=Depends(require_super_admin)):
+async def sa_winner_card(pid: str, origin: str = "", fmt: str = "square", user=Depends(require_super_admin)):
     p = await _raw_db.rewards_participants.find_one({"id": pid}, {"_id": 0})
     if not p:
         raise HTTPException(404, "Participant not found")
-    return await _card_response(p, origin)
+    return await _card_response(p, origin, fmt)
 
 
 @router.get("/settings/rewards-winner-card/{pid}.png")
-async def tenant_winner_card(pid: str, origin: str = "", user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def tenant_winner_card(pid: str, origin: str = "", fmt: str = "square", user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     p = await _raw_db.rewards_participants.find_one({"id": pid, "tenant_id": t["id"]}, {"_id": 0})
     if not p:
         raise HTTPException(404, "Participant not found")
-    return await _card_response(p, origin)
+    return await _card_response(p, origin, fmt)
 
 
 @router.get("/public/rewards/{slug}/winner-card.png")
-async def public_winner_card(slug: str, phone: str, request: Request, origin: str = ""):
+async def public_winner_card(slug: str, phone: str, request: Request, origin: str = "", fmt: str = "square"):
     await public_rate_limit(request, "rewards-card", limit=10, window_sec=600)
     ph = "".join(ch for ch in phone if ch.isdigit())[-12:]
     p = await _raw_db.rewards_participants.find_one({"salon_slug": slug, "phone": ph}, {"_id": 0})
     if not p:
         raise HTTPException(404, "No entry for this phone number yet")
-    return await _card_response(p, origin)
+    return await _card_response(p, origin, fmt)
 
 
 # ── Model voting (public) ──

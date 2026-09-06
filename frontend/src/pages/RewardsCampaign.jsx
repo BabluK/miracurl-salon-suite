@@ -47,11 +47,11 @@ function JoinForm({ slug, refCode, onJoined }) {
 
 function WinnerBadge({ slug, phone, me, salon }) {
   const [busy, setBusy] = useState("");
-  const get = async (mode) => {
-    setBusy(mode);
+  const get = async (mode, fmt = "square") => {
+    setBusy(mode + fmt);
     try {
-      const { data: blob } = await PUBLIC.get(`/rewards/${slug}/winner-card.png`, { params: { phone, origin: window.location.origin }, responseType: "blob" });
-      const filename = `brand-model-${me.name.toLowerCase().replace(/\s+/g, "-")}.png`;
+      const { data: blob } = await PUBLIC.get(`/rewards/${slug}/winner-card.png`, { params: { phone, origin: window.location.origin, fmt }, responseType: "blob" });
+      const filename = `brand-model-${me.name.toLowerCase().replace(/\s+/g, "-")}${fmt === "story" ? "-story" : ""}.png`;
       if (mode === "dl") { downloadBlob(blob, filename); toast.success("Your winner card is downloaded ✦"); }
       else await shareWinnerCard({ blob, filename, text: whatsappShareText({ name: me.name, tier: me.winner_tier, salon, url: `${window.location.origin}/rewards/${slug}` }) });
     } catch (err) { toast.error(err.response?.data?.detail || "Couldn't build your card"); }
@@ -64,8 +64,9 @@ function WinnerBadge({ slug, phone, me, salon }) {
       <div className="font-playfair text-2xl text-white mt-1">You're our Brand Model!</div>
       <p className="text-[12.5px] text-white/70 mt-1">You've won a <b className="text-[#F0D9A5]">{me.winner_tier} Membership</b>. Share your moment — every share inspires the next model.</p>
       <div className="flex gap-2 mt-4 flex-wrap">
-        <button onClick={() => get("dl")} disabled={!!busy} data-testid="rewards-winner-card-dl" className="px-4 py-2 rounded-full border border-[#d4af37]/60 text-[#F0D9A5] text-xs font-semibold inline-flex items-center gap-1.5 hover:bg-[#d4af37]/10 disabled:opacity-50">{busy === "dl" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} Download my winner card</button>
-        <button onClick={() => get("share")} disabled={!!busy} data-testid="rewards-winner-card-share" className="px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50">{busy === "share" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />} Share on WhatsApp / Instagram</button>
+        <button onClick={() => get("dl")} disabled={!!busy} data-testid="rewards-winner-card-dl" className="px-4 py-2 rounded-full border border-[#d4af37]/60 text-[#F0D9A5] text-xs font-semibold inline-flex items-center gap-1.5 hover:bg-[#d4af37]/10 disabled:opacity-50">{busy === "dlsquare" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} Download post (1:1)</button>
+        <button onClick={() => get("dl", "story")} disabled={!!busy} data-testid="rewards-winner-card-story" className="px-4 py-2 rounded-full border border-pink-400/60 text-pink-200 text-xs font-semibold inline-flex items-center gap-1.5 hover:bg-pink-500/10 disabled:opacity-50">{busy === "dlstory" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Instagram className="w-3.5 h-3.5" />} Instagram Story (9:16)</button>
+        <button onClick={() => get("share")} disabled={!!busy} data-testid="rewards-winner-card-share" className="px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50">{busy === "sharesquare" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />} Share on WhatsApp</button>
       </div>
     </div>
   );

@@ -102,11 +102,11 @@ export function RewardsCampaignCard() {
     try { await api.post(`/super-admin/rewards-campaign/participants/${p.id}/winner`, { tier: tier || null }); toast.success(tier ? `${p.name} → ${tier} 🏆 — share card is ready` : "Winner cleared"); loadPeople(); }
     catch (e) { toast.error(e.response?.data?.detail || "Couldn't set winner"); }
   };
-  const card = async (p, mode) => {
-    setCardBusy(p.id + mode);
+  const card = async (p, mode, fmt = "square") => {
+    setCardBusy(p.id + mode + fmt);
     try {
-      const blob = await fetchCardBlob(api, `/super-admin/rewards-campaign/participants/${p.id}/card.png`);
-      const filename = `brand-model-${p.name.toLowerCase().replace(/\s+/g, "-")}.png`;
+      const blob = await fetchCardBlob(api, `/super-admin/rewards-campaign/participants/${p.id}/card.png`, fmt);
+      const filename = `brand-model-${p.name.toLowerCase().replace(/\s+/g, "-")}${fmt === "story" ? "-story" : ""}.png`;
       if (mode === "dl") { downloadBlob(blob, filename); toast.success("Winner card downloaded"); }
       else await shareWinnerCard({ blob, filename, text: whatsappShareText({ name: p.name, tier: p.winner_tier, salon: p.salon_name, url: `${window.location.origin}/rewards/${p.salon_slug}` }) });
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't build the card"); }
@@ -207,8 +207,9 @@ export function RewardsCampaignCard() {
                 </select>
                 {p.winner_tier && (
                   <div className="flex items-center gap-1 shrink-0">
-                    <button onClick={() => card(p, "dl")} disabled={!!cardBusy} title="Download 1080×1080 card" data-testid={`rewards-card-dl-${p.id}`} className="w-7 h-7 rounded-lg border border-[#d4af37]/40 text-[#F0D9A5] hover:bg-[#d4af37]/15 flex items-center justify-center disabled:opacity-50">{cardBusy === p.id + "dl" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}</button>
-                    <button onClick={() => card(p, "share")} disabled={!!cardBusy} data-testid={`rewards-card-share-${p.id}`} className="h-7 px-2.5 rounded-lg bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-[11px] font-bold inline-flex items-center gap-1 disabled:opacity-50">{cardBusy === p.id + "share" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />} Share card</button>
+                    <button onClick={() => card(p, "dl")} disabled={!!cardBusy} title="Download 1080×1080 post" data-testid={`rewards-card-dl-${p.id}`} className="w-7 h-7 rounded-lg border border-[#d4af37]/40 text-[#F0D9A5] hover:bg-[#d4af37]/15 flex items-center justify-center disabled:opacity-50">{cardBusy === p.id + "dlsquare" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}</button>
+                    <button onClick={() => card(p, "dl", "story")} disabled={!!cardBusy} title="Download 1080×1920 Instagram Story" data-testid={`rewards-card-story-${p.id}`} className="h-7 px-2 rounded-lg border border-pink-400/40 text-pink-200 hover:bg-pink-500/10 text-[10px] font-bold flex items-center justify-center gap-1 disabled:opacity-50">{cardBusy === p.id + "dlstory" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span className="inline-block w-2 h-3.5 rounded-[2px] border border-current" />} Story</button>
+                    <button onClick={() => card(p, "share")} disabled={!!cardBusy} data-testid={`rewards-card-share-${p.id}`} className="h-7 px-2.5 rounded-lg bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-[11px] font-bold inline-flex items-center gap-1 disabled:opacity-50">{cardBusy === p.id + "sharesquare" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />} Share card</button>
                   </div>
                 )}
               </div>

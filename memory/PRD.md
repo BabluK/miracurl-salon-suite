@@ -2811,3 +2811,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - `site_info._get_info` falls back to the super-admin's `instagram` handle (HQ → Edit Profile) and exposes `instagram_handle`; data set: site_info.instagram = https://www.instagram.com/miracurl.ai/, super-admin instagram = miracurl.ai.
 - Shown on: casting page header icon + footer "Follow @miracurl.ai" + bottom bar, booking-page footer (`powered-by-instagram-link`), Landing footer (existing site.instagram), winner card PNG footer ("Powered by Miracurl · @miracurl.ai").
 - Code review #2 caught a HIGH regression in `_entries_batch` (exact phone match vs raw-formatted customer phones) → fixed by normalising digits in Python over a single per-tenant customers query; regression verified with "+91 97000-11288" customer → purchases = 1.
+
+## 2026-09-06 — 📱 Instagram Story winner card (1080×1920)
+- `fmt=story|square` query param on all three winner-card endpoints (`_winner_card_png(..., story=True)`): larger logo/hero/type, "Your style. Your story. Your moment." line, QR + footer kept above ~1650px (Instagram bottom UI safe-zone). Unknown fmt → square.
+- Story buttons: HQ participants (`rewards-card-story-{id}`), owner Settings winners (`rewards-winner-story-{id}`), public winner badge (`rewards-winner-card-story`). Download verified in browser (brand-model-ananya-rao-story.png). Code review: READY (LOW safe-zone note fixed).

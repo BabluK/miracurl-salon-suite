@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 
-export async function fetchCardBlob(api, path) {
-  const { data } = await api.get(path, { params: { origin: window.location.origin }, responseType: "blob" });
+export async function fetchCardBlob(api, path, fmt = "square") {
+  const { data } = await api.get(path, { params: { origin: window.location.origin, fmt }, responseType: "blob" });
   return data;
 }
 
