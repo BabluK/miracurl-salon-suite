@@ -38,6 +38,13 @@ DEFAULT_CAMPAIGN = {
              "decisions are final. Photos and stories are featured only with the customer's consent. Memberships are "
              "non-transferable and redeemable at the salon where the entry was earned.",
     "events": [],
+    "tenant_terms": "Miracurl funds the Diamond / Platinum / Gold memberships awarded to winners. Salons redeem winner memberships "
+                    "at their own outlet. Salons display the printable QR poster and record eligible bills in Miracurl POS. "
+                    "After the campaign closes, Miracurl HQ shares the settlement and payment link for the salon's share of "
+                    "reward fulfilment (if any). Entries are audited from POS invoices; disputes are settled by Miracurl HQ.",
+    "payment_link": "",
+    "payment_note": "",
+    "updates": [],
 }
 
 
@@ -103,6 +110,10 @@ class CampaignIn(BaseModel):
     entry_rules: list[dict] = Field(default_factory=list)
     terms: str = Field("", max_length=3000)
     events: list[dict] = Field(default_factory=list, max_length=12)
+    tenant_terms: str = Field("", max_length=4000)
+    payment_link: str = Field("", max_length=500, pattern=r"^(https?://\S+)?$")
+    payment_note: str = Field("", max_length=600)
+    updates: list[dict] = Field(default_factory=list, max_length=30)
 
 
 @router.get("/super-admin/rewards-campaign")
@@ -258,8 +269,27 @@ async def tenant_campaign(user=Depends(require_tenant_admin), t=Depends(current_
     parts.sort(key=lambda p: (-p["entries"]["total"], p["joined_at"]))
     pub = {k: c[k] for k in ("name", "min_transaction", "start_date", "end_date", "winner_count", "rewards", "eligible_plans")}
     nudges = await _raw_db.rewards_nudges.find({"tenant_id": t["id"], "wa_done": False}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    today = date.today().isoformat()
+    status = ("live" if _is_live(c) else "upcoming" if c.get("enabled") and c["start_date"] > today
+              else "ended" if c.get("enabled") and c["end_date"] < today else "off")
+    pub.update({k: c.get(k) or ("" if k != "updates" else []) for k in ("tenant_terms", "payment_link", "payment_note", "updates")})
+    pub["updates"] = sorted(pub["updates"], key=lambda u: u.get("date", ""), reverse=True)
+    popup_key = f"{c.get('updated_at', '')}|{c['start_date']}|{bool(c.get('payment_link'))}"
+    acked = await _raw_db.rewards_tenant_acks.find_one({"tenant_id": t["id"], "user_id": user["id"], "key": popup_key}, {"_id": 1})
     return {"campaign": pub, "enabled": bool(c.get("enabled")), "live": _is_live(c), "eligible": _tenant_eligible(c, t) and _is_live(c),
-            "plan_ok": _tenant_eligible(c, t), "participants": parts, "slug": t.get("slug"), "nudges": nudges}
+            "plan_ok": _tenant_eligible(c, t), "status": status, "participants": parts, "slug": t.get("slug"), "nudges": nudges,
+            "popup_key": popup_key, "show_popup": bool(c.get("enabled")) and _tenant_eligible(c, t) and not acked}
+
+
+class AckIn(BaseModel):
+    key: str = Field(min_length=1, max_length=200)
+
+
+@router.post("/settings/rewards-campaign/ack")
+async def tenant_campaign_ack(body: AckIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    await _raw_db.rewards_tenant_acks.update_one({"tenant_id": t["id"], "user_id": user["id"], "key": body.key},
+                                                 {"$set": {"acked_at": _now()}}, upsert=True)
+    return {"ok": True}
 
 
 async def _rewards_poster_jpeg(t: dict, c: dict, origin: str) -> bytes:

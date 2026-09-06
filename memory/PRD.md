@@ -2822,3 +2822,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - `email_service.py`: `_resolve_recipients` decomposed into `_real / _user_inbox / _staff_inbox / _tenant_inbox / _inboxes_for_login` (complexity 24 → ~5 each).
 - `routes/growth_advisory.py`: `_progress` split into `_tracker_window / _monthly_trend / _milestones`.
 - ruff --fix (imports, `X | None` annotations) on the touched files. Not done (deliberately, too broad/risky for a hot production codebase): server.py router-module split, service-layer extraction of lead_gen/hq_documents, global type-hint pass — tracked as backlog P2.
+
+## 2026-09-06 — 📣 "Miracurl Updates" for tenants (popup + dashboard section)
+- Campaign config: `tenant_terms` (T&C for salons, posted by HQ), `payment_link` (http/https only, validated server + client), `payment_note`, `updates[]` feed. HQ editor block in Rewards card (`rewards-cfg-tenant-*`, `rewards-cfg-updates`).
+- Tenant `GET /settings/rewards-campaign` → `status`, `popup_key` (changes on HQ save / start date / payment link), `show_popup` (eligible & not acked). `POST /settings/rewards-campaign/ack` stores ack per owner in `rewards_tenant_acks`.
+- `MiracurlUpdates.jsx` on owner Dashboard: one-time popup (waits until What's New / notice modals close) with T&C + "Get my QR poster" / "Pay now" (when ended + link); persistent "Miracurl Updates" section with status, enrolled count, updates feed, collapsible T&C, "Pay settlement" button. Code review → READY (payment_link scheme fix applied).

@@ -8,6 +8,7 @@ import ReviewBlastModal from "./ReviewBlastModal";
 import DailyReportBanner from "@/components/DailyReportBanner";
 import { CelebrationsCard } from "@/components/CelebrationsCard";
 import { MorningBriefing } from "@/components/MorningBriefing";
+import { MiracurlUpdates } from "@/components/MiracurlUpdates";
 import { getSelectedBranch } from "@/lib/branch";
 import { WhatsAppApprovals } from "@/components/WhatsAppApprovals";
 import { BranchSwitchApprovals } from "@/components/BranchSwitchApprovals";
@@ -113,6 +114,7 @@ export default function Dashboard() {
       <ReferralNudgeBanner />
       {isOwner && <MySalonsOverview />}
       {(isOwner || user?.role === "manager") && <MorningBriefing />}
+      {isOwner && <MiracurlUpdates />}
       {isOwner && <SetupBanner />}
       {isOwner && <SmsPointsWidget />}
       {isOwner && <MiraSocialNudge />}

@@ -186,6 +186,20 @@ export function RewardsCampaignCard() {
                 onBlur={e => setC(s => ({ ...s, events: e.target.value.split("\n").map(l => l.split("|").map(x => x.trim())).filter(p => /^\d{4}-\d{2}-\d{2}$/.test(p[0]) && p[1]).map(([date, title, note]) => ({ date, title, note: note || "" })) }))}
                 className={inp + " normal-case"} data-testid="rewards-cfg-events" />
             </label>
+            <div className="rounded-xl border border-[#d4af37]/30 bg-[#d4af37]/[.06] p-3 space-y-3" data-testid="rewards-cfg-tenant-block">
+              <div className="text-[10px] uppercase tracking-[2px] text-[#F0D9A5] font-semibold">Miracurl Updates → shown to every eligible salon (popup + dashboard section)</div>
+              <label className={`block ${lbl}`}>Terms & conditions for salons<textarea value={c.tenant_terms || ""} onChange={set("tenant_terms")} rows={4} className={inp + " normal-case"} data-testid="rewards-cfg-tenant-terms" /></label>
+              <div className="grid sm:grid-cols-[1fr_1.4fr] gap-3">
+                <label className={lbl}>Settlement payment link (sent when the campaign ends)<input value={c.payment_link || ""} onChange={set("payment_link")} placeholder="https://rzp.io/l/…" className={inp + " normal-case"} data-testid="rewards-cfg-payment-link" /></label>
+                <label className={lbl}>Payment note<input value={c.payment_note || ""} onChange={set("payment_note")} placeholder="Your share for 2 Gold memberships redeemed — ₹4,000, due by 15 Jan" className={inp + " normal-case"} data-testid="rewards-cfg-payment-note" /></label>
+              </div>
+              <label className={`block ${lbl}`}>Updates feed (one per line: <code className="normal-case">YYYY-MM-DD | Title | message</code>)
+                <textarea rows={3} defaultValue={(c.updates || []).map(u => [u.date, u.title, u.body].filter(Boolean).join(" | ")).join("\n")} placeholder={"2026-09-10 | Posters shipped | Print-ready QR posters are in Settings → Rewards\n2026-10-15 | Mid-campaign leaderboard | Top 10 salons by entries announced"}
+                  onBlur={e => setC(s => ({ ...s, updates: e.target.value.split("\n").map(l => l.split("|").map(x => x.trim())).filter(p => /^\d{4}-\d{2}-\d{2}$/.test(p[0]) && p[1]).map(([date, title, body]) => ({ date, title, body: body || "" })) }))}
+                  className={inp + " normal-case"} data-testid="rewards-cfg-updates" />
+              </label>
+              <p className="text-[10px] text-slate-500">Saving re-triggers the popup for eligible salons (shown once per owner until acknowledged). Add the payment link only after the end date — it appears as “Pay settlement”.</p>
+            </div>
             <button onClick={() => save()} disabled={saving} data-testid="rewards-save-btn" className="px-5 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-xs font-bold hover:brightness-110 disabled:opacity-50 inline-flex items-center gap-1.5">{saving ? <Loader2 className="w-3 h-3 animate-spin" /> : null} Save campaign</button>
           </div>
         )}
