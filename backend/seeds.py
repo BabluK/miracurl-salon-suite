@@ -90,6 +90,14 @@ async def backfill_tenant_ids(tenant_id: str):
 async def seed_super_admin():
     """Seed the super-admin ONCE from env. Never re-writes an existing hash so operators can rotate it."""
     email = os.environ.get("SUPER_ADMIN_EMAIL", "super@miracurl.com").lower()
+    # Auto-heal: an older seed re-created the default super-admin after the real one was renamed
+    # (e.g. → admin@miracurl-suite.com). Remove the never-used duplicate so only one HQ login exists.
+    admins = await db.users.find({"role": "super_admin"}, {"_id": 0, "id": 1, "email": 1, "must_change_password": 1, "last_login_at": 1}).to_list(10)
+    if len(admins) > 1:
+        for a in admins:
+            if a.get("email") == email and a.get("must_change_password") and not a.get("last_login_at"):
+                await db.users.delete_one({"id": a["id"]})
+                logging.warning("[seed] removed duplicate default super-admin %s (renamed HQ login exists)", email)
     existing = await db.users.find_one({"$or": [{"email": email}, {"role": "super_admin"}]})
     if existing:
         # Never touch an existing super-admin (it may have been renamed, e.g. admin@miracurl-suite.com,

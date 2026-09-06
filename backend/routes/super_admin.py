@@ -109,11 +109,11 @@ async def security_clear_lockout(body: dict, user=Depends(require_super_admin)):
 
 @router.put("/super-admin/profile")
 async def update_super_profile(body: SuperProfileIn, user=Depends(require_super_admin)):
-    await db.users.update_one(
-        {"id": user["id"]},
-        {"$set": {"name": body.name.strip(), "phone": body.phone.strip(),
-                  "occupation": body.occupation.strip(), "photo_url": body.photo_url,
-                  "updated_at": datetime.now(timezone.utc).isoformat()}})
+    upd = {"name": body.name.strip(), "phone": body.phone.strip(), "occupation": body.occupation.strip(),
+           "updated_at": datetime.now(timezone.utc).isoformat()}
+    if body.photo_url:  # never wipe an existing photo with an empty value (stale client state after a password reset)
+        upd["photo_url"] = body.photo_url
+    await db.users.update_one({"id": user["id"]}, {"$set": upd})
     return {"ok": True}
 
 

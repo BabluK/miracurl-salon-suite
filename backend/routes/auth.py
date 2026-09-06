@@ -566,6 +566,7 @@ async def _register_failed_login(request: Request, email: str, ident: str, acct_
 async def _issue_session(user: dict, email: str, request: Request, response: Response, remember: bool) -> dict:
     await _subscription_gate(user)
     sid = await start_session(user["id"], email, user.get("tenant_id"), request)
+    await db.users.update_one({"id": user["id"]}, {"$set": {"last_login_at": datetime.now(timezone.utc).isoformat()}})
     access = make_access(user["id"], email, sid)
     refresh = make_refresh(user["id"], sid)
     set_auth_cookies(response, access, refresh, persistent=remember)
@@ -846,10 +847,11 @@ async def change_login_email(body: LoginEmailIn, request: Request, user=Depends(
 
 
 class ProfileIn(BaseModel):
-    name: str = Field("", max_length=80)
-    notify_email: str = Field("", max_length=200)
-    instagram: str = Field("", max_length=60)
-    phone: str = Field("", max_length=20)
+    """Fields omitted (None) are left untouched; send "" to clear."""
+    name: str | None = Field(None, max_length=80)
+    notify_email: str | None = Field(None, max_length=200)
+    instagram: str | None = Field(None, max_length=60)
+    phone: str | None = Field(None, max_length=20)
 
 
 def _validate_notify_email(raw: str) -> str | None:
@@ -880,10 +882,50 @@ def _normalize_phone(raw: str) -> str | None:
 @router.put("/auth/me/profile")
 async def update_my_profile(body: ProfileIn, user=Depends(get_current_user)) -> dict:
     """Own profile: display name, real inbox (Gmail), Instagram handle, WhatsApp number."""
-    upd: dict = {"notify_email": _validate_notify_email(body.notify_email),
-                 "instagram": _validate_instagram(body.instagram),
-                 "phone": _normalize_phone(body.phone)}
-    if body.name.strip():
+    upd: dict = {}
+    if body.notify_email is not None:
+        upd["notify_email"] = _validate_notify_email(body.notify_email)
+    if body.instagram is not None:
+        upd["instagram"] = _validate_instagram(body.instagram)
+    if body.phone is not None and body.phone.strip():
+        upd["phone"] = _normalize_phone(body.phone)
+    if body.name and body.name.strip():
         upd["name"] = body.name.strip()
-    await db.users.update_one({"id": user["id"]}, {"$set": upd})
+    if upd:
+        await db.users.update_one({"id": user["id"]}, {"$set": upd})
     return {"ok": True, **upd, "name": upd.get("name", user.get("name"))}
+
+
+@router.get("/auth/super-admins")
+async def list_super_admins(user=Depends(get_current_user)) -> dict:
+    """HQ logins (super-admin only) so the owner can spot & remove duplicates."""
+    if user.get("role") != "super_admin":
+        raise HTTPException(403, "Super-admin only")
+    rows = await db.users.find({"role": "super_admin"}, {"_id": 0, "id": 1, "email": 1, "name": 1, "must_change_password": 1,
+                                                       "last_login_at": 1, "created_at": 1, "photo_url": 1}).to_list(20)
+    for r in rows:
+        r["is_me"] = r["id"] == user["id"]
+    return {"accounts": rows}
+
+
+class RemoveSuperIn(BaseModel):
+    current_password: str = Field(min_length=1, max_length=200)
+
+
+@router.delete("/auth/super-admins/{account_id}")
+async def remove_super_admin(account_id: str, body: RemoveSuperIn, user=Depends(get_current_user)) -> dict:
+    """Remove another super-admin login (e.g. the old super@miracurl.com re-created by an older seed)."""
+    if user.get("role") != "super_admin":
+        raise HTTPException(403, "Super-admin only")
+    if account_id == user["id"]:
+        raise HTTPException(400, "You can't remove the login you're using right now")
+    me = await db.users.find_one({"id": user["id"]}, {"_id": 0, "password_hash": 1})
+    if not me or not verify_pw(body.current_password, me["password_hash"]):
+        raise HTTPException(400, "Current password is incorrect")
+    target = await db.users.find_one({"id": account_id, "role": "super_admin"}, {"_id": 0, "id": 1, "email": 1})
+    if not target:
+        raise HTTPException(404, "Super-admin login not found")
+    await db.users.delete_one({"id": account_id})
+    await _raw_db.sessions.delete_many({"user_id": account_id})
+    logging.warning("[Miracurl] super-admin login %s removed by %s", target["email"], user.get("email"))
+    return {"ok": True, "removed": target["email"]}

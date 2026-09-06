@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { KeyRound, Loader2, ShieldCheck, UserRound, Mail, Instagram, Phone, Save } from "lucide-react";
+import { KeyRound, Loader2, ShieldCheck, UserRound, Mail, Instagram, Phone, Save, Users, Trash2 } from "lucide-react";
 
 const inp = "mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm normal-case";
 const lbl = "text-[10px] uppercase tracking-wide text-slate-500 block";
@@ -12,6 +12,18 @@ export function SuperAdminProfileCard() {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState("");
+  const [accounts, setAccounts] = useState([]);
+  const [rmPw, setRmPw] = useState("");
+  const loadAccounts = () => api.get("/auth/super-admins").then(r => setAccounts(r.data.accounts)).catch(() => {});
+  useEffect(() => { loadAccounts(); }, []);
+  const removeAccount = async (a) => {
+    if (!rmPw) return toast.error("Enter your current password first");
+    if (!window.confirm(`Remove the HQ login ${a.email}? It will no longer be able to sign in.`)) return;
+    setBusy("rm" + a.id);
+    try { const { data } = await api.delete(`/auth/super-admins/${a.id}`, { data: { current_password: rmPw } }); toast.success(`Removed ${data.removed}`); setRmPw(""); loadAccounts(); }
+    catch (e) { toast.error(typeof e.response?.data?.detail === "string" ? e.response.data.detail : "Couldn't remove"); }
+    setBusy("");
+  };
   useEffect(() => { api.get("/auth/me").then(r => { setMe(r.data); setF({ name: r.data.name || "", notify_email: r.data.notify_email || "", instagram: r.data.instagram || "", phone: r.data.phone || "" }); }).catch(() => {}); }, []);
   if (!me || me.role !== "super_admin") return null;
 
@@ -51,6 +63,25 @@ export function SuperAdminProfileCard() {
           </div>
         </div>
       </div>
+
+      {accounts.length > 1 && (
+        <div className="flex items-start gap-3 pt-6 border-t border-slate-100" data-testid="super-admin-accounts">
+          <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0"><Users className="w-5 h-5" /></div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-semibold text-slate-800">HQ logins <span className="text-xs font-normal text-rose-600">· {accounts.length} super-admin accounts exist</span></h2>
+            <p className="text-xs text-slate-500 mt-1">Only one HQ login should exist. If an old address (e.g. <code>super@miracurl.com</code>) still works after you renamed yours, remove it here.</p>
+            <div className="mt-3 space-y-2">
+              {accounts.map(a => (
+                <div key={a.id} className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${a.is_me ? "border-emerald-200 bg-emerald-50/50" : "border-slate-200"}`} data-testid={`super-admin-account-${a.id}`}>
+                  <div className="min-w-0 flex-1"><div className="text-sm font-semibold text-slate-800 truncate">{a.email} {a.is_me && <span className="text-[10px] text-emerald-700 font-bold ml-1">YOU</span>}</div><div className="text-[11px] text-slate-500">{a.name || "—"} · {a.last_login_at ? `last login ${new Date(a.last_login_at).toLocaleDateString("en-IN")}` : "never logged in"}{a.must_change_password ? " · one-time password pending" : ""}</div></div>
+                  {!a.is_me && <button onClick={() => removeAccount(a)} disabled={!!busy} data-testid={`super-admin-account-remove-${a.id}`} className="h-8 px-3 rounded-full bg-rose-600 text-white text-xs font-semibold inline-flex items-center gap-1 hover:bg-rose-700 disabled:opacity-50">{busy === "rm" + a.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Remove login</button>}
+                </div>
+              ))}
+              <input type="password" value={rmPw} onChange={e => setRmPw(e.target.value)} placeholder="Your current password (required to remove a login)" className={inp} data-testid="super-admin-account-password" />
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-start gap-3 pt-6 border-t border-slate-100">
         <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0"><KeyRound className="w-5 h-5" /></div>

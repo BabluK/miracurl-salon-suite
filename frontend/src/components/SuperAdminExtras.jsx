@@ -324,16 +324,37 @@ export function SuperProfileCard() {
   );
 }
 
+const PF_INPUT = "w-full h-11 rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 text-[14px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#d4af37]/50 focus:border-[#d4af37] focus:bg-white transition";
+const PfField = ({ label, hint, children, testId }) => (
+  <label className="block" data-testid={testId}>
+    <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 mb-1.5">{label}</span>
+    {children}
+    {hint && <span className="block text-[11px] text-slate-400 mt-1 leading-snug">{hint}</span>}
+  </label>
+);
+const PfSection = ({ title, accent, children }) => (
+  <section className="rounded-2xl border border-slate-200/80 bg-white p-5">
+    <div className={`text-[10px] font-bold uppercase tracking-[0.22em] mb-4 ${accent || "text-slate-500"}`}>{title}</div>
+    {children}
+  </section>
+);
+
 function ProfileEditModal({ user, onClose, onSaved }) {
-  const [form, setForm] = useState({
-    name: user?.name || "", phone: user?.phone || "",
-    occupation: user?.occupation || "", photo_url: user?.photo_url || "",
-  });
+  const [form, setForm] = useState({ name: user?.name || "", phone: user?.phone || "", occupation: user?.occupation || "", photo_url: user?.photo_url || "" });
   const [contact, setContact] = useState({ notify_email: user?.notify_email || "", instagram: user?.instagram || "" });
   const [login, setLogin] = useState({ new_email: "", current_password: "" });
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const fileRef = useRef(null);
+
+  // Always prefill from the server so a stale/slim session object can never wipe saved fields.
+  useEffect(() => {
+    api.get("/auth/me").then(({ data }) => {
+      setForm({ name: data.name || "", phone: data.phone || "", occupation: data.occupation || "", photo_url: data.photo_url || "" });
+      setContact({ notify_email: data.notify_email || "", instagram: data.instagram || "" });
+    }).catch(() => {}).finally(() => setLoaded(true));
+  }, []);
 
   async function uploadPhoto(e) {
     const file = e.target.files?.[0];
@@ -351,6 +372,7 @@ function ProfileEditModal({ user, onClose, onSaved }) {
 
   async function save(e) {
     e.preventDefault();
+    if (!form.name.trim()) return toast.error("Name is required");
     setBusy(true);
     try {
       await api.put("/super-admin/profile", form);
@@ -363,59 +385,67 @@ function ProfileEditModal({ user, onClose, onSaved }) {
       }
       onSaved();
     } catch (err) {
-      toast.error(typeof err.response?.data?.detail === "string" ? err.response.data.detail : "Couldn't save profile");
+      const d = err.response?.data?.detail;
+      toast.error(typeof d === "string" ? d : "Couldn't save profile");
     } finally { setBusy(false); }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-3" onClick={onClose}>
-      <form onSubmit={save} className="card-light w-full max-w-md" onClick={e => e.stopPropagation()} data-testid="super-profile-modal">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-playfair text-xl text-slate-800">Edit Profile</h3>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700"><X className="w-5 h-5" /></button>
+    <div className="fixed inset-0 z-[120] flex items-start sm:items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto" onClick={onClose} data-testid="super-profile-modal">
+      <form onSubmit={save} onClick={e => e.stopPropagation()} className="relative w-full max-w-2xl rounded-3xl bg-[#f6f5f1] shadow-2xl overflow-hidden my-6">
+        <div className="relative h-28 bg-[#15151b]">
+          <div className="absolute inset-0 opacity-60" style={{ backgroundImage: "radial-gradient(circle at 15% 20%, rgba(212,175,55,.55), transparent 45%), radial-gradient(circle at 90% 90%, rgba(122,45,78,.6), transparent 50%)" }} />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,#C89B52,#F0D9A5,#C89B52,transparent)]" />
+          <button type="button" onClick={onClose} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center" data-testid="super-profile-close-btn">✕</button>
+          <div className="absolute left-7 top-6 text-white">
+            <div className="text-[10px] tracking-[0.35em] uppercase text-[#F0D9A5]">Miracurl HQ</div>
+            <div className="font-playfair text-2xl leading-tight">Edit profile</div>
+          </div>
         </div>
-        <div className="flex justify-center mb-4">
-          <button type="button" onClick={() => fileRef.current?.click()} className="relative group" data-testid="super-photo-upload-btn">
-            <img
-              src={form.photo_url || "https://ui-avatars.com/api/?background=0ea5e9&color=fff&size=160&name=" + encodeURIComponent(form.name || "SA")}
-              alt="profile" className="w-24 h-24 rounded-2xl object-cover border-2 border-sky-300"
-            />
-            <span className="absolute inset-0 rounded-2xl bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-              {uploading ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <Camera className="w-6 h-6 text-white" />}
-            </span>
+        <div className="px-7 -mt-12 flex items-end gap-5">
+          <button type="button" onClick={() => fileRef.current?.click()} className="relative group shrink-0" data-testid="super-photo-upload-btn">
+            <div className="w-24 h-24 rounded-full ring-4 ring-[#f6f5f1] bg-white shadow-lg overflow-hidden flex items-center justify-center">
+              {form.photo_url ? <img src={form.photo_url} alt="" className="w-full h-full object-cover" /> : <span className="font-playfair text-3xl text-[#C89B52]">{(form.name || "S")[0]}</span>}
+            </div>
+            <span className="absolute inset-0 rounded-full bg-black/45 text-white text-[11px] font-semibold flex items-center justify-center opacity-0 group-hover:opacity-100 transition">{uploading ? "Uploading…" : "Change photo"}</span>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={uploadPhoto} data-testid="super-photo-input" />
           </button>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={uploadPhoto} data-testid="super-photo-file-input" />
+          <div className="pb-2 min-w-0">
+            <div className="font-playfair text-xl text-slate-800 truncate">{form.name || "Super Admin"}</div>
+            <div className="text-xs text-slate-500 truncate">{user?.email}{form.occupation ? ` · ${form.occupation}` : ""}</div>
+          </div>
         </div>
-        <div className="space-y-3">
-          <div><label className="label-light block mb-1">Full name *</label>
-            <input data-testid="super-profile-name-input" required minLength={2} className="input-light w-full" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="label-light block mb-1">Phone</label>
-              <input data-testid="super-profile-phone-input" className="input-light w-full" placeholder="+91 98…" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} /></div>
-            <div><label className="label-light block mb-1">Occupation</label>
-              <input data-testid="super-profile-occupation-input" className="input-light w-full" placeholder="Founder & CEO" value={form.occupation} onChange={e => setForm(f => ({ ...f, occupation: e.target.value }))} /></div>
-          </div>
-          <div className="pt-3 border-t border-slate-100">
-            <div className="text-[10px] uppercase tracking-[2px] text-slate-500 font-semibold mb-2">Contact & inbox</div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="label-light block mb-1">Support / notification email</label>
-                <input data-testid="super-profile-notify-email-input" type="email" className="input-light w-full" placeholder="admin@miracurl-suite.com" value={contact.notify_email} onChange={e => setContact(c => ({ ...c, notify_email: e.target.value }))} />
-                <p className="text-[10px] text-slate-500 mt-1">Real inbox for HQ alerts & reset links (login IDs like @miracurl.com can't receive mail).</p></div>
-              <div><label className="label-light block mb-1">Instagram ID</label>
-                <input data-testid="super-profile-instagram-input" className="input-light w-full" placeholder="@miracurl.suite" value={contact.instagram} onChange={e => setContact(c => ({ ...c, instagram: e.target.value }))} /></div>
+
+        <div className="p-7 pt-5 space-y-4">
+          <PfSection title="Profile">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2"><PfField label="Full name *"><input data-testid="super-profile-name-input" className={PF_INPUT} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required /></PfField></div>
+              <PfField label="Phone / WhatsApp"><input data-testid="super-profile-phone-input" className={PF_INPUT} value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+91 …" /></PfField>
+              <PfField label="Occupation"><input data-testid="super-profile-occupation-input" className={PF_INPUT} value={form.occupation} onChange={e => setForm(f => ({ ...f, occupation: e.target.value }))} placeholder="Founder & CEO" /></PfField>
             </div>
-          </div>
-          <div className="pt-3 border-t border-slate-100">
-            <div className="text-[10px] uppercase tracking-[2px] text-amber-700 font-semibold mb-2">Login email · currently <span className="normal-case tracking-normal font-bold">{user?.email}</span></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="label-light block mb-1">New login email</label>
-                <input data-testid="super-profile-login-email-input" type="email" className="input-light w-full" placeholder="admin@miracurl-suite.com" value={login.new_email} onChange={e => setLogin(l => ({ ...l, new_email: e.target.value }))} /></div>
-              <div><label className="label-light block mb-1">Current password</label>
-                <input data-testid="super-profile-login-password-input" type="password" className="input-light w-full" autoComplete="current-password" value={login.current_password} onChange={e => setLogin(l => ({ ...l, current_password: e.target.value }))} /></div>
+          </PfSection>
+          <PfSection title="Contact & inbox">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <PfField label="Support / notification email" hint="Real inbox for HQ alerts & reset links — login IDs like @miracurl.com can't receive mail.">
+                <input data-testid="super-profile-notify-email-input" type="email" className={PF_INPUT} placeholder="admin@miracurl-suite.com" value={contact.notify_email} onChange={e => setContact(c => ({ ...c, notify_email: e.target.value }))} />
+              </PfField>
+              <PfField label="Instagram ID">
+                <div className="relative"><span className="absolute left-3.5 top-0 h-11 flex items-center text-slate-400 text-sm">@</span><input data-testid="super-profile-instagram-input" className={PF_INPUT + " pl-8"} placeholder="miracurl.ai" value={contact.instagram} onChange={e => setContact(c => ({ ...c, instagram: e.target.value }))} /></div>
+              </PfField>
             </div>
-            <p className="text-[10px] text-slate-500 mt-1">Leave blank to keep <b>{user?.email}</b>. Password and sessions stay the same; the old ID stops working immediately.</p>
+          </PfSection>
+          <PfSection title={<>Login email · <span className="normal-case tracking-normal text-slate-700">currently {user?.email}</span></>} accent="text-amber-700">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <PfField label="New login email"><input data-testid="super-profile-login-email-input" type="email" className={PF_INPUT} placeholder="admin@miracurl-suite.com" value={login.new_email} onChange={e => setLogin(l => ({ ...l, new_email: e.target.value }))} /></PfField>
+              <PfField label="Current password" hint={<>Leave both blank to keep <b>{user?.email}</b>. Password & sessions stay the same; the old ID stops working immediately.</>}>
+                <input data-testid="super-profile-login-password-input" type="password" className={PF_INPUT} autoComplete="current-password" value={login.current_password} onChange={e => setLogin(l => ({ ...l, current_password: e.target.value }))} />
+              </PfField>
+            </div>
+          </PfSection>
+          <div className="flex items-center justify-end gap-3 pt-1">
+            <button type="button" onClick={onClose} className="h-11 px-5 rounded-full text-sm font-semibold text-slate-600 hover:bg-slate-200/60" data-testid="super-profile-cancel-btn">Cancel</button>
+            <button data-testid="super-profile-save-btn" disabled={busy || uploading || !loaded} className="h-11 px-7 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-sm font-bold shadow-[0_10px_30px_-12px_rgba(212,175,55,.9)] hover:brightness-110 disabled:opacity-50">{busy ? "Saving…" : "Save profile"}</button>
           </div>
-          <button data-testid="super-profile-save-btn" disabled={busy || uploading} className="btn-blue w-full">{busy ? "Saving…" : "Save Profile"}</button>
         </div>
       </form>
     </div>
