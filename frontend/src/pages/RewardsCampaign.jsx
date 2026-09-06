@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
-import { Sparkles, Trophy, Camera, Loader2, CheckCircle2, Download, Share2, Crown, Star, CalendarDays, MapPin, Phone, Quote, ArrowRight, Scissors, UtensilsCrossed, Heart, Vote } from "lucide-react";
+import { Sparkles, Trophy, Camera, Loader2, CheckCircle2, Download, Share2, Crown, Star, CalendarDays, MapPin, Phone, Quote, ArrowRight, Scissors, UtensilsCrossed, Heart, Vote, Instagram } from "lucide-react";
 import { downloadBlob, shareWinnerCard, whatsappShareText } from "@/lib/winnerCard";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -205,19 +205,17 @@ function VoteGallery({ slug, phone, live, salon, highlight }) {
   );
 }
 
-function SiteHeader({ salon, slug, platformLogo }) {
+function SiteHeader({ salon, slug, platformLogo, site }) {
   const logo = salon.logo_url ? (salon.logo_url.startsWith("http") ? salon.logo_url : `${API}${salon.logo_url}`) : null;
   const nav = [["#models", "Models"], ["#vote", "Vote"], ["#journey", "Journey"], ["#events", "Events"], ["#apply", "Apply"]];
   return (
     <header className="sticky top-0 z-40" data-testid="rewards-header">
       <div className="h-[3px] bg-[linear-gradient(90deg,transparent,#C89B52_20%,#F0D9A5_50%,#C89B52_80%,transparent)]" />
       <div className="border-b border-[#d4af37]/20 bg-[#0b0b10]/75 backdrop-blur-2xl shadow-[0_10px_40px_-20px_rgba(212,175,55,.5)]">
-        <div className="max-w-6xl mx-auto px-5 h-[72px] flex items-center gap-4">
+        <div className="max-w-6xl mx-auto px-5 h-[96px] flex items-center gap-5">
           <Link to={`/book/${slug}`} className="flex items-center gap-3 min-w-0 group" data-testid="rewards-header-salon">
-            <span className="relative shrink-0">
-              <span className="absolute -inset-1 rounded-full bg-[conic-gradient(from_0deg,#F0D9A5,#C89B52,#F0D9A5)] opacity-80 blur-[2px] group-hover:animate-spin [animation-duration:4s]" />
-              {logo ? <img src={logo} alt="" className="relative w-11 h-11 rounded-full object-cover ring-2 ring-[#0b0b10]" /> : <span className="relative w-11 h-11 rounded-full bg-[#15151b] ring-2 ring-[#0b0b10] text-[#F0D9A5] font-playfair text-lg flex items-center justify-center">{salon.name[0]}</span>}
-            </span>
+            {logo ? <img src={logo} alt={salon.name} className="h-16 sm:h-20 w-auto max-w-[240px] object-contain shrink-0 drop-shadow-[0_0_14px_rgba(212,175,55,.45)]" data-testid="rewards-header-logo" />
+              : <span className="h-14 w-14 rounded-xl bg-[#15151b] text-[#F0D9A5] font-playfair text-2xl flex items-center justify-center shrink-0">{salon.name[0]}</span>}
             <span className="min-w-0"><span className="block font-playfair text-lg sm:text-xl text-white truncate leading-tight">{salon.name}</span><span className="block text-[9px] tracking-[0.35em] uppercase text-[#d4af37] truncate">Brand Model Casting{salon.location ? ` · ${salon.location}` : ""}</span></span>
           </Link>
           <nav className="hidden md:flex items-center gap-1 ml-6">{nav.map(([h, l]) => <a key={h} href={h} className="px-3 py-1.5 rounded-full text-[12px] tracking-wide text-white/65 hover:text-[#F0D9A5] hover:bg-white/5 transition-colors">{l}</a>)}</nav>
@@ -225,6 +223,7 @@ function SiteHeader({ salon, slug, platformLogo }) {
             <a href="https://miracurl-suite.com" target="_blank" rel="noreferrer" className="hidden sm:flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border border-white/10 bg-white/[.04] hover:border-[#d4af37]/50 transition-colors" data-testid="rewards-header-powered">
               <img src={platformLogo || "/ms-logo.png"} alt="Miracurl" className="h-7 w-7 rounded-full object-cover bg-white" /><span className="text-[9px] tracking-[0.25em] uppercase text-white/45 leading-none">Powered by<br /><span className="text-[#F0D9A5] normal-case tracking-normal text-[12px] font-semibold">Miracurl</span></span>
             </a>
+            {site?.instagram && <a href={site.instagram} target="_blank" rel="noreferrer" title={`@${site.instagram_handle} on Instagram`} data-testid="rewards-header-instagram" className="hidden sm:flex w-10 h-10 rounded-full border border-white/10 bg-white/[.04] items-center justify-center text-[#F0D9A5] hover:border-pink-400/60 hover:text-pink-300 transition-colors"><Instagram className="w-4 h-4" /></a>}
             <a href="#apply" className="relative px-5 py-2.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-xs font-bold shadow-[0_8px_24px_-8px_rgba(212,175,55,.9)] hover:brightness-110 transition" data-testid="rewards-header-apply">Apply now</a>
           </div>
         </div>
@@ -279,7 +278,7 @@ function Events({ events }) {
   );
 }
 
-function SiteFooter({ salon, slug, platformLogo }) {
+function SiteFooter({ salon, slug, platformLogo, site }) {
   return (
     <footer className="relative mt-16 overflow-hidden" data-testid="rewards-footer">
       <img src="/brand-models-group.jpg" alt="" className="absolute inset-0 w-full h-full object-cover object-top" />
@@ -288,7 +287,10 @@ function SiteFooter({ salon, slug, platformLogo }) {
       <div className="relative max-w-6xl mx-auto px-5 pt-20 pb-12">
         <div className="grid lg:grid-cols-[1.25fr_1fr] gap-10 items-end">
           <div>
-            <div className="inline-flex items-center gap-3 rounded-full border border-[#d4af37]/40 bg-black/40 backdrop-blur px-4 py-2"><img src={platformLogo || "/ms-logo.png"} alt="Miracurl" className="h-8 w-8 rounded-full object-cover bg-white" /><span className="text-[10px] tracking-[0.35em] uppercase text-[#F0D9A5]">Powered by Miracurl</span></div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="inline-flex items-center gap-3 rounded-full border border-[#d4af37]/40 bg-black/40 backdrop-blur px-4 py-2"><img src={platformLogo || "/ms-logo.png"} alt="Miracurl" className="h-8 w-8 rounded-full object-cover bg-white" /><span className="text-[10px] tracking-[0.35em] uppercase text-[#F0D9A5]">Powered by Miracurl</span></div>
+              {site?.instagram && <a href={site.instagram} target="_blank" rel="noreferrer" data-testid="rewards-footer-instagram" className="inline-flex items-center gap-2 rounded-full border border-pink-400/40 bg-black/40 backdrop-blur px-4 py-2 text-xs text-pink-200 hover:bg-pink-500/10 transition-colors"><Instagram className="w-4 h-4" /> Follow @{site.instagram_handle}</a>}
+            </div>
             <h3 className="font-playfair text-4xl sm:text-5xl text-white mt-6 leading-[1.05]">Own a salon or restaurant?<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F0D9A5] via-[#d4af37] to-[#C89B52]">Get onboard & grow your business.</span></h3>
             <p className="text-sm sm:text-base text-white/70 mt-4 max-w-xl">Bookings, POS, memberships, Mira AI marketing and campaigns like this one — everything {salon.name} uses to grow, ready for you in minutes.</p>
             <div className="mt-7 flex gap-3 flex-wrap">
@@ -308,7 +310,7 @@ function SiteFooter({ salon, slug, platformLogo }) {
         </div>
         <div className="mt-14 pt-5 border-t border-white/10 flex items-center justify-between gap-3 flex-wrap text-[11px] text-white/45">
           <span>© {new Date().getFullYear()} {salon.name} · Brand Model Casting</span>
-          <span>Campaign hosted on <a href="https://miracurl-suite.com" className="text-[#d4af37] hover:text-[#F0D9A5]">Miracurl</a> · Salon & Restaurant Management Suite</span>
+          <span>Campaign hosted on <a href="https://miracurl-suite.com" className="text-[#d4af37] hover:text-[#F0D9A5]">Miracurl</a>{site?.instagram && <> · <a href={site.instagram} target="_blank" rel="noreferrer" className="text-pink-300 hover:text-pink-200">@{site.instagram_handle}</a></>} · Salon & Restaurant Management Suite</span>
         </div>
       </div>
     </footer>
@@ -320,11 +322,11 @@ export default function RewardsCampaign() {
   const [sp] = useSearchParams();
   const [d, setD] = useState(null);
   const [err, setErr] = useState("");
-  const [platformLogo, setPlatformLogo] = useState("");
+  const [site, setSite] = useState({});
   const [phone, setPhone] = useState(() => localStorage.getItem(`rewards_phone_${slug}`) || "");
   useEffect(() => {
     PUBLIC.get(`/rewards/${slug}`).then(r => setD(r.data)).catch(e => setErr(e.response?.data?.detail || "Campaign not found"));
-    PUBLIC.get("/site-info").then(r => setPlatformLogo(r.data.platform_logo || "")).catch(() => {});
+    PUBLIC.get("/site-info").then(r => setSite(r.data || {})).catch(() => {});
   }, [slug]);
   const joined = (ph) => { localStorage.setItem(`rewards_phone_${slug}`, ph); setPhone(ph); };
   if (err) return <div className="min-h-screen bg-[#0f0f14] text-white flex items-center justify-center">{err}</div>;
@@ -339,7 +341,7 @@ export default function RewardsCampaign() {
         <div className="absolute inset-0 bg-gradient-to-b from-[#0b0b10]/40 via-[#0b0b10]/75 to-[#0b0b10]" />
       </div>
       <div className="relative z-10">
-      <SiteHeader salon={d.salon} slug={slug} platformLogo={platformLogo} />
+      <SiteHeader salon={d.salon} slug={slug} platformLogo={site.platform_logo} site={site} />
 
       {/* HERO */}
       <div className="relative overflow-hidden">
@@ -435,7 +437,7 @@ export default function RewardsCampaign() {
         </aside>
       </div>
 
-      <SiteFooter salon={d.salon} slug={slug} platformLogo={platformLogo} />
+      <SiteFooter salon={d.salon} slug={slug} platformLogo={site.platform_logo} site={site} />
       </div>
     </div>
   );

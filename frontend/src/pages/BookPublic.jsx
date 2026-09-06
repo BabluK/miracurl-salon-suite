@@ -888,6 +888,8 @@ export default function BookPublic() {
             className="text-gold/80 hover:text-gold underline underline-offset-2">
             Powered by Miracurl — get this for your salon ✦
           </a>
+          {" · "}
+          <a href="https://www.instagram.com/miracurl.ai/" target="_blank" rel="noreferrer" data-testid="powered-by-instagram-link" className="text-gold/80 hover:text-gold">@miracurl.ai</a>
         </div>
       </footer>
       <InstallAppPrompt />

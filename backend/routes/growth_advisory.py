@@ -78,8 +78,13 @@ class CfgIn(BaseModel):
 
 async def _ledger(cfg: dict) -> dict:
     rows = await _raw_db.advisory_bookings.find({"status": {"$ne": "created"}}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    budget = 12  # progress needs ~8 aggregations each; keep HQ page load bounded
     for r in rows:
-        r["progress"] = await _progress(r)
+        if r["status"] in ("scheduled", "completed") and budget > 0:
+            r["progress"] = await _progress(r)
+            budget -= 1
+        else:
+            r["progress"] = None
     live = [r for r in rows if r["status"] != "refunded"]
     gross = sum(r["amount"] for r in live)
     return {"bookings": rows, "stats": {"count": len(live), "gross": gross,

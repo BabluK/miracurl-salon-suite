@@ -741,8 +741,8 @@ async def forgot(body: ForgotIn, request: Request):
         try:
             await _send_reset_email(email, reset_recipient, token)
         except Exception as e:
-            logging.error(f"reset email send failed for {reset_recipient}: {e}")
-        logging.info("[Miracurl] Password reset requested for %s (token %d chars)", email, len(token))
+            logging.error(f"reset email send failed (user {user['id']}): {e}")
+        logging.info("[Miracurl] Password reset requested for user %s", user["id"])
     return {"message": "If that email exists, a reset link was sent."}
 
 @router.post("/auth/reset-password")

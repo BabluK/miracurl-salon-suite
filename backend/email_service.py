@@ -124,7 +124,7 @@ async def _resolve_recipients(to: list) -> list:
                 if t and t.get(k) and not _is_login_only(t[k]):
                     real = [t[k]]
                     break
-        if not real and (low.startswith("super@") or (user or {}).get("role") == "super_admin"):
+        if not real and (user or {}).get("role") == "super_admin":
             real = hq_notify_emails("admin") + hq_notify_emails("support")
         if real:
             out.extend(real)

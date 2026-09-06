@@ -163,8 +163,7 @@ async def sa_put_campaign(body: CampaignIn, user=Depends(require_super_admin)):
 async def sa_participants(user=Depends(require_super_admin)):
     c = await get_campaign()
     rows = await _raw_db.rewards_participants.find({}, {"_id": 0}).sort("joined_at", -1).to_list(500)
-    for p in rows:
-        p["entries"] = await _compute_entries(c, p)
+    await _entries_batch(c, rows)
     rows.sort(key=lambda p: (-p["entries"]["total"], p["joined_at"]))
     return {"participants": rows}
 
@@ -193,29 +192,61 @@ async def sa_set_winner(pid: str, body: WinnerIn, user=Depends(require_super_adm
 
 
 # ── Entries (computed live, nothing to sync) ──
-async def _compute_entries(c: dict, p: dict) -> dict:
+def _digits10(phone: str) -> str:
+    return "".join(ch for ch in (phone or "") if ch.isdigit())[-10:]
+
+
+async def _entries_batch(c: dict, parts: list) -> None:
+    """Attach p["entries"] to every participant with a bounded number of queries (no N+1)."""
+    if not parts:
+        return
     rules = {r["key"]: r["entries"] for r in c["entry_rules"]}
-    phone = p.get("phone", "")
-    cust_ids = [x["id"] async for x in _raw_db.customers.find(
-        {"tenant_id": p["tenant_id"], "phone": {"$regex": phone[-10:] + "$"}}, {"_id": 0, "id": 1})] if phone else []
-    purchases = await _raw_db.invoices.count_documents({
-        "tenant_id": p["tenant_id"], "customer_id": {"$in": cust_ids}, "status": {"$nin": ["voided", "open"]},
-        "created_at": {"$gte": c["start_date"], "$lte": c["end_date"] + "T23:59:59"},
-        "total": {"$gte": float(c["min_transaction"])}}) if cust_ids else 0
-    referred = await _raw_db.rewards_participants.count_documents({"referred_by": p["id"], "first_purchase_at": {"$nin": [None, ""]}})
-    breakdown = {
-        "purchase": purchases * rules.get("purchase", 1),
-        "referral": referred * rules.get("referral", 1),
-        "referral3": (rules.get("referral3", 3) if referred >= 3 else 0),
-        "review": rules.get("review", 1) if p.get("review_at") else 0,
-        "profile": rules.get("profile", 1) if (p.get("name") and p.get("email") and p.get("photo_url")) else 0,
-        "follow": rules.get("follow", 1) if p.get("followed_at") else 0,
-    }
-    votes = await _raw_db.rewards_votes.count_documents({"participant_id": p["id"]})
-    breakdown["votes"] = min(5, votes // 10) * rules.get("votes", 1)
-    if purchases and not p.get("first_purchase_at"):
-        await _raw_db.rewards_participants.update_one({"id": p["id"]}, {"$set": {"first_purchase_at": _now()}})
-    return {**breakdown, "purchases": purchases, "referred": referred, "vote_count": votes, "total": sum(breakdown.values())}
+    pids = [p["id"] for p in parts]
+    votes = await _vote_counts(pids)
+    ref_rows = await _raw_db.rewards_participants.aggregate([
+        {"$match": {"referred_by": {"$in": pids}, "first_purchase_at": {"$nin": [None, ""]}}},
+        {"$group": {"_id": "$referred_by", "n": {"$sum": 1}}}]).to_list(len(pids))
+    referred = {r["_id"]: r["n"] for r in ref_rows}
+    tenant_ids = list({p["tenant_id"] for p in parts})
+    # customers keep raw phone formatting ("+91 98765-43210"); normalise in Python — one indexed query per batch
+    cust_by_key: dict = {}
+    async for x in _raw_db.customers.find({"tenant_id": {"$in": tenant_ids}}, {"_id": 0, "id": 1, "tenant_id": 1, "phone": 1}):
+        k = (x["tenant_id"], _digits10(x.get("phone", "")))
+        if k[1]:
+            cust_by_key.setdefault(k, []).append(x["id"])
+    cust_by_pid = {p["id"]: cust_by_key.get((p["tenant_id"], _digits10(p.get("phone", ""))), []) for p in parts}
+    cust_ids = sorted({cid for ids in cust_by_pid.values() for cid in ids})
+    inv_rows = await _raw_db.invoices.aggregate([
+        {"$match": {"customer_id": {"$in": cust_ids}, "status": {"$nin": ["voided", "open"]},
+                    "created_at": {"$gte": c["start_date"], "$lte": c["end_date"] + "T23:59:59"},
+                    "total": {"$gte": float(c["min_transaction"])}}},
+        {"$group": {"_id": "$customer_id", "n": {"$sum": 1}}}]).to_list(len(cust_ids) or 1) if cust_ids else []
+    inv_by_cust = {r["_id"]: r["n"] for r in inv_rows}
+    newly_purchased = []
+    for p in parts:
+        purchases = sum(inv_by_cust.get(cid, 0) for cid in cust_by_pid[p["id"]])
+        ref = referred.get(p["id"], 0)
+        v = votes.get(p["id"], 0)
+        breakdown = {
+            "purchase": purchases * rules.get("purchase", 1),
+            "referral": ref * rules.get("referral", 1),
+            "referral3": (rules.get("referral3", 3) if ref >= 3 else 0),
+            "review": rules.get("review", 1) if p.get("review_at") else 0,
+            "profile": rules.get("profile", 1) if (p.get("name") and p.get("email") and p.get("photo_url")) else 0,
+            "follow": rules.get("follow", 1) if p.get("followed_at") else 0,
+            "votes": min(5, v // 10) * rules.get("votes", 1),
+        }
+        p["entries"] = {**breakdown, "purchases": purchases, "referred": ref, "vote_count": v, "total": sum(breakdown.values())}
+        if purchases and not p.get("first_purchase_at"):
+            newly_purchased.append(p["id"])
+    if newly_purchased:  # referral credit depends on this flag; single write for the batch
+        await _raw_db.rewards_participants.update_many({"id": {"$in": newly_purchased}, "first_purchase_at": {"$in": [None, ""]}},
+                                                        {"$set": {"first_purchase_at": _now()}})
+
+
+async def _compute_entries(c: dict, p: dict) -> dict:
+    await _entries_batch(c, [p])
+    return p["entries"]
 
 
 # ── Tenant (salon owner): status + printable QR poster ──
@@ -223,8 +254,7 @@ async def _compute_entries(c: dict, p: dict) -> dict:
 async def tenant_campaign(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     c = await get_campaign()
     parts = await _raw_db.rewards_participants.find({"tenant_id": t["id"]}, {"_id": 0}).to_list(500)
-    for p in parts:
-        p["entries"] = await _compute_entries(c, p)
+    await _entries_batch(c, parts)
     parts.sort(key=lambda p: (-p["entries"]["total"], p["joined_at"]))
     pub = {k: c[k] for k in ("name", "min_transaction", "start_date", "end_date", "winner_count", "rewards", "eligible_plans")}
     nudges = await _raw_db.rewards_nudges.find({"tenant_id": t["id"], "wa_done": False}, {"_id": 0}).sort("created_at", -1).to_list(50)
@@ -489,6 +519,8 @@ async def _winner_card_png(p: dict, t: dict, c: dict, base: str) -> bytes:
     logo_bytes = await _tenant_logo_bytes(t, base)
     photo_bytes = await _tenant_logo_bytes({"logo_url": p["photo_url"]}, base) if p.get("photo_url") else None
     slug = t.get("slug") or p.get("salon_slug") or ""
+    from routes.site_info import _get_info
+    ig_handle = (await _get_info()).get("instagram_handle") or ""
 
     def _render() -> bytes:
         import qrcode
@@ -597,7 +629,7 @@ async def _winner_card_png(p: dict, t: dict, c: dict, base: str) -> bytes:
         d.text((96, qy + 22), "Want to be our next Brand Model?", font=_font("FreeSansBold.ttf", 24), fill=INK)
         d.text((96, qy + 60), f"Spend ₹{int(c['min_transaction']):,}+ at {t.get('name') or 'the salon'}, scan & apply.", font=_font("FreeSansBold.ttf", 18), fill=LIGHT)
         d.text((96, qy + 92), f"{base.replace('https://', '')}/rewards/{slug}", font=_font("FreeSansBold.ttf", 16), fill=FOOT)
-        center("Powered by Miracurl", H - 96, _font("FreeSansBold.ttf", 15), FOOT)
+        center(f"Powered by Miracurl  ·  @{ig_handle}" if ig_handle else "Powered by Miracurl", H - 96, _font("FreeSansBold.ttf", 15), FOOT)
         out = io.BytesIO()
         bg.convert("RGB").save(out, format="PNG", optimize=True)
         return out.getvalue()
@@ -652,6 +684,7 @@ async def _vote_counts(pids: list) -> dict:
 @router.get("/public/rewards/{slug}/applicants")
 async def public_applicants(slug: str, request: Request, voter: str = ""):
     """Applicants with a photo + consent, ranked by public votes."""
+    await public_rate_limit(request, "rewards-applicants", limit=120, window_sec=600)
     rows = await _raw_db.rewards_participants.find(
         {"salon_slug": slug, "consent": True, "photo_url": {"$nin": [None, ""]}},
         {"_id": 0, "id": 1, "name": 1, "photo_url": 1, "story": 1, "winner_tier": 1, "joined_at": 1}).to_list(300)
@@ -689,14 +722,16 @@ async def public_vote(slug: str, body: VoteIn, request: Request):
         raise HTTPException(404, "Applicant not found")
     if p.get("phone", "").endswith(vp[-10:]):
         raise HTTPException(400, "You can't vote for yourself — share your link with friends instead")
-    existing = await _raw_db.rewards_votes.find_one({"participant_id": p["id"], "voter_phone": vp}, {"_id": 1})
-    if existing:
-        await _raw_db.rewards_votes.delete_one({"_id": existing["_id"]})
+    removed = await _raw_db.rewards_votes.delete_one({"participant_id": p["id"], "voter_phone": vp})
+    if removed.deleted_count:
         voted = False
     else:
-        await _raw_db.rewards_votes.create_index([("participant_id", 1), ("voter_phone", 1)], unique=True)
-        await _raw_db.rewards_votes.insert_one({"id": str(uuid.uuid4()), "participant_id": p["id"], "voter_phone": vp,
-                                               "tenant_id": p["tenant_id"], "salon_slug": slug, "at": _now()})
+        from pymongo.errors import DuplicateKeyError
+        try:
+            await _raw_db.rewards_votes.insert_one({"id": str(uuid.uuid4()), "participant_id": p["id"], "voter_phone": vp,
+                                                   "tenant_id": p["tenant_id"], "salon_slug": slug, "at": _now()})
+        except DuplicateKeyError:
+            pass  # concurrent duplicate — already counted
         voted = True
     votes = await _raw_db.rewards_votes.count_documents({"participant_id": p["id"]})
     milestone = await _check_vote_milestones(p["id"], votes, slug) if voted else None
@@ -765,3 +800,12 @@ async def tenant_nudge_done(nid: str, user=Depends(require_tenant_admin), t=Depe
     if not r.matched_count:
         raise HTTPException(404, "Nudge not found")
     return {"ok": True}
+
+
+async def ensure_rewards_indexes():
+    await _raw_db.rewards_votes.create_index([("participant_id", 1), ("voter_phone", 1)], unique=True)
+    await _raw_db.rewards_votes.create_index([("salon_slug", 1), ("voter_phone", 1)])
+    await _raw_db.rewards_participants.create_index([("salon_slug", 1), ("phone", 1)])
+    await _raw_db.rewards_participants.create_index("referred_by")
+    await _raw_db.rewards_nudges.create_index([("tenant_id", 1), ("wa_done", 1)])
+    await _raw_db.customers.create_index([("tenant_id", 1), ("phone", 1)])

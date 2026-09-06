@@ -1,0 +1,25 @@
+{
+  "summary": "Iteration 130 regression pass after code-review refactor fixes. Backend 10/10 pytest cases pass (rewards entries batch, vote toggle atomic, public status/salon_on, super/tenant participants entries, auth profile notify_email+instagram, login-email wrong-password 400, growth-advisory ledger progress). Frontend HQ profile card shows notify_email + @instagram, Edit Profile modal contains all 4 new inputs (notify email, instagram, login email, login password), Save updates header instagram (@miracurl.official → reverted to @miracurl.suite), Tenants tab renders rewards-campaign-card with no scheduled warning (campaign live) and 2 inbox-health badges. Public /rewards/miracurl-marathahalli renders header, models, vote gallery and apply form (no 'Casting opens' banner since live).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter130_regression.py",
+    "/app/test_reports/pytest/iter130_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "_entries_batch keyed by tenant_id + participant_id — good perf improvement over per-row lookups; ensure indexes on rewards_entries (tenant_id, participant_id) exist (ensure_rewards_indexes covers this).",
+    "public_vote delete-then-insert with DuplicateKeyError tolerance is a pragmatic atomicity substitute; consider MongoDB transaction if replica set is guaranteed, otherwise leave as-is.",
+    "public_applicants rate limit (120/10min per IP) is reasonable for public traffic; keep an eye on shared-IP office/campus environments.",
+    "growth_advisory ledger correctly filters to scheduled/completed and caps at 12 — matches request.",
+    "Super-admin login email change requires current_password + returns 400 on mismatch — solid; recommend logging failed attempts for audit."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter130_regression.py"],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "100% (HQ profile card + modal + tenants tab + public rewards page)"},
+  "test_credentials": "Used credentials from /app/memory/test_credentials.md — super@miracurl.com and admin@miracurl.com. Owner PIN 4321. Never renamed the super-admin login email (only tested 400 on wrong password).",
+  "seed_data_creation": "Vote toggle test used a fresh phone (per-run timestamp-based) and reverted the vote in the same run; Instagram was changed to miracurl.official during UI test then reverted to miracurl.suite.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Tests at /app/backend/tests/test_iter130_regression.py cover the iteration-130 regression surface. Backend CSRF is required for state-changing endpoints (fetch csrf_token cookie after login and send as X-CSRF-Token). Rate limit 120/10min on /api/public/rewards/{slug}/applicants. Preserved state: Ananya Rao participant, super admin instagram=@miracurl.suite, notify_email=delivered@resend.dev.",
+  "rca of the issue": "N/A — no bugs found."
+}

@@ -256,6 +256,8 @@ export function SuperProfileCard() {
             )}
             {user?.phone && <span className="text-slate-600">|</span>}
             <span className="flex items-center gap-1.5" data-testid="super-profile-email"><Mail className="w-4 h-4 text-sky-400" /> {user?.email}</span>
+            {user?.notify_email && <><span className="text-slate-600">|</span><span className="flex items-center gap-1.5 text-emerald-300" title="Support / notification inbox" data-testid="super-profile-notify-email">✉ {user.notify_email}</span></>}
+            {user?.instagram && <><span className="text-slate-600">|</span><a href={`https://instagram.com/${user.instagram}`} target="_blank" rel="noreferrer" className="text-pink-300 hover:underline" data-testid="super-profile-instagram">@{user.instagram}</a></>}
           </div>
           <div className="flex items-center gap-2 flex-wrap mt-4">
             {chips.map(c => (
@@ -327,6 +329,8 @@ function ProfileEditModal({ user, onClose, onSaved }) {
     name: user?.name || "", phone: user?.phone || "",
     occupation: user?.occupation || "", photo_url: user?.photo_url || "",
   });
+  const [contact, setContact] = useState({ notify_email: user?.notify_email || "", instagram: user?.instagram || "" });
+  const [login, setLogin] = useState({ new_email: "", current_password: "" });
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef(null);
@@ -350,6 +354,13 @@ function ProfileEditModal({ user, onClose, onSaved }) {
     setBusy(true);
     try {
       await api.put("/super-admin/profile", form);
+      await api.put("/auth/me/profile", { name: form.name, phone: form.phone, ...contact });
+      if (login.new_email.trim()) {
+        if (!login.current_password) { toast.error("Enter your current password to change the login email"); setBusy(false); return; }
+        if (!window.confirm(`Change your login email from ${user?.email} to ${login.new_email.trim()}? You'll sign in with the new address from now on.`)) { setBusy(false); return; }
+        const { data } = await api.put("/auth/me/login-email", { new_email: login.new_email.trim(), current_password: login.current_password });
+        toast.success(`Login email is now ${data.email} ✦`);
+      }
       onSaved();
     } catch (err) {
       toast.error(typeof err.response?.data?.detail === "string" ? err.response.data.detail : "Couldn't save profile");
@@ -383,6 +394,26 @@ function ProfileEditModal({ user, onClose, onSaved }) {
               <input data-testid="super-profile-phone-input" className="input-light w-full" placeholder="+91 98…" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} /></div>
             <div><label className="label-light block mb-1">Occupation</label>
               <input data-testid="super-profile-occupation-input" className="input-light w-full" placeholder="Founder & CEO" value={form.occupation} onChange={e => setForm(f => ({ ...f, occupation: e.target.value }))} /></div>
+          </div>
+          <div className="pt-3 border-t border-slate-100">
+            <div className="text-[10px] uppercase tracking-[2px] text-slate-500 font-semibold mb-2">Contact & inbox</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="label-light block mb-1">Support / notification email</label>
+                <input data-testid="super-profile-notify-email-input" type="email" className="input-light w-full" placeholder="admin@miracurl-suite.com" value={contact.notify_email} onChange={e => setContact(c => ({ ...c, notify_email: e.target.value }))} />
+                <p className="text-[10px] text-slate-500 mt-1">Real inbox for HQ alerts & reset links (login IDs like @miracurl.com can't receive mail).</p></div>
+              <div><label className="label-light block mb-1">Instagram ID</label>
+                <input data-testid="super-profile-instagram-input" className="input-light w-full" placeholder="@miracurl.suite" value={contact.instagram} onChange={e => setContact(c => ({ ...c, instagram: e.target.value }))} /></div>
+            </div>
+          </div>
+          <div className="pt-3 border-t border-slate-100">
+            <div className="text-[10px] uppercase tracking-[2px] text-amber-700 font-semibold mb-2">Login email · currently <span className="normal-case tracking-normal font-bold">{user?.email}</span></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="label-light block mb-1">New login email</label>
+                <input data-testid="super-profile-login-email-input" type="email" className="input-light w-full" placeholder="admin@miracurl-suite.com" value={login.new_email} onChange={e => setLogin(l => ({ ...l, new_email: e.target.value }))} /></div>
+              <div><label className="label-light block mb-1">Current password</label>
+                <input data-testid="super-profile-login-password-input" type="password" className="input-light w-full" autoComplete="current-password" value={login.current_password} onChange={e => setLogin(l => ({ ...l, current_password: e.target.value }))} /></div>
+            </div>
+            <p className="text-[10px] text-slate-500 mt-1">Leave blank to keep <b>{user?.email}</b>. Password and sessions stay the same; the old ID stops working immediately.</p>
           </div>
           <button data-testid="super-profile-save-btn" disabled={busy || uploading} className="btn-blue w-full">{busy ? "Saving…" : "Save Profile"}</button>
         </div>

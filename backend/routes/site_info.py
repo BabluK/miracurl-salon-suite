@@ -46,7 +46,15 @@ class SiteInfoIn(BaseModel):
 
 async def _get_info() -> dict:
     doc = await _raw_db.platform_settings.find_one({"key": "site_info"}, {"_id": 0}) or {}
-    return {**_DEFAULTS, **{k: v for k, v in doc.items() if k in _DEFAULTS and v is not None}}
+    info = {**_DEFAULTS, **{k: v for k, v in doc.items() if k in _DEFAULTS and v is not None}}
+    if not info.get("instagram"):
+        # fall back to the super-admin's Instagram handle (HQ → Edit Profile)
+        sa = await _raw_db.users.find_one({"role": "super_admin", "instagram": {"$nin": [None, ""]}}, {"_id": 0, "instagram": 1})
+        if sa:
+            info["instagram"] = f"https://www.instagram.com/{sa['instagram']}/"
+    handle = (info.get("instagram") or "").rstrip("/").split("/")[-1].lstrip("@")
+    info["instagram_handle"] = handle
+    return info
 
 
 @router.get("/public/site-info")

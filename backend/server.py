@@ -216,6 +216,11 @@ async def on_startup():
     async def _ensure_indexes():
         await db.users.create_index("email", unique=True)
         await db.tenants.create_index("slug", unique=True)
+        try:
+            from routes.rewards_campaign import ensure_rewards_indexes
+            await ensure_rewards_indexes()
+        except Exception as e:  # noqa: BLE001
+            logging.warning(f"rewards indexes: {e}")
         # Drop legacy single-field unique sku index if present (multi-tenancy needs composite)
         try:
             existing_indexes = await _raw_db.products.index_information()

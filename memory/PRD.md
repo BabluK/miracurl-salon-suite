@@ -2800,3 +2800,14 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-06 — ⏳ Scheduled-campaign clarity
 - User confusion: campaign "ON · scheduled" (start 2026-10-01) showed "Applications open when the casting is live" with no reason. Public API now returns `status` (live|upcoming|ended|off) + `salon_on`; page shows "Casting opens {date}" / "Casting closed" with a Book-appointment CTA (`rewards-apply-closed`). HQ card shows an amber "Scheduled, not live" strip with a one-click **Go live today** (`rewards-go-live-now`) that sets start_date = today (and extends end_date if past).
+
+## 2026-09-06 — Code review fixes (pre-push) + HQ Edit Profile + header logo
+- Code review (read-only agent) → fixed: N+1 in rewards entries (`_entries_batch`: batched votes/referrals/customers/invoices, indexed exact phone variants instead of suffix regex, single write for first_purchase_at), advisory ledger progress bounded (scheduled/completed, max 12), vote toggle atomic (delete→insert, DuplicateKeyError tolerated) with indexes created at startup (`ensure_rewards_indexes` in server.py), `/applicants` rate-limited, super-admin email reroute gated on role only, reset-request logs no longer include email.
+- HQ profile header "Edit Profile" modal: Support/notification email, Instagram ID, Login email change (new email + current password); header shows ✉ notify email and @instagram.
+- Casting page header: salon logo unframed (no circle/ring), h-16/h-20, bigger than the salon name.
+- Rule from user: ALWAYS run code review before finishing/pushing.
+
+## 2026-09-06 — 📸 Instagram @miracurl.ai everywhere + review fix
+- `site_info._get_info` falls back to the super-admin's `instagram` handle (HQ → Edit Profile) and exposes `instagram_handle`; data set: site_info.instagram = https://www.instagram.com/miracurl.ai/, super-admin instagram = miracurl.ai.
+- Shown on: casting page header icon + footer "Follow @miracurl.ai" + bottom bar, booking-page footer (`powered-by-instagram-link`), Landing footer (existing site.instagram), winner card PNG footer ("Powered by Miracurl · @miracurl.ai").
+- Code review #2 caught a HIGH regression in `_entries_batch` (exact phone match vs raw-formatted customer phones) → fixed by normalising digits in Python over a single per-tenant customers query; regression verified with "+91 97000-11288" customer → purchases = 1.
