@@ -13,6 +13,7 @@ from pymongo import ReturnDocument
 
 from database import _raw_db
 from email_service import _send_email, hq_notify_emails
+from services.pdf_brand import draw_brand_band, draw_powered_footer, draw_watermark, platform_logo_bytes
 
 log = logging.getLogger("sub_invoice")
 
@@ -97,22 +98,8 @@ def _fmt(inv: dict, v: float) -> str:
 
 
 def _pdf_header(c, W, H, mm, title: str, inv: dict):
-    c.setFillColorRGB(*INK)
-    c.rect(0, H - 38 * mm, W, 38 * mm, stroke=0, fill=1)
-    c.setFillColorRGB(*GOLD)
-    c.setFont("Helvetica-Bold", 20)
-    c.drawString(18 * mm, H - 17 * mm, "MIRACURL")
-    c.setFillColorRGB(0.9, 0.9, 0.9)
-    c.setFont("Helvetica", 8.5)
-    c.drawString(18 * mm, H - 23 * mm, "Salon & Restaurant Management Suite  ·  miracurl-suite.com")
-    c.setFillColorRGB(1, 1, 1)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawRightString(W - 18 * mm, H - 17 * mm, title)
-    c.setFont("Helvetica", 9)
-    c.setFillColorRGB(*GOLD)
-    c.drawRightString(W - 18 * mm, H - 23 * mm, f"No. {inv['number']}")
-    c.setFillColorRGB(0.85, 0.85, 0.85)
-    c.drawRightString(W - 18 * mm, H - 29 * mm, f"Date: {inv['issued_on']}")
+    draw_watermark(c, inv.get("_logo"), W, H, 110 * mm)
+    draw_brand_band(c, W, H, mm, logo=inv.get("_logo"), title=title, meta=[f"No. {inv['number']}", f"Date: {inv['issued_on']}"])
 
 
 def _pdf_block(c, x, y, mm, heading: str, lines: list, width_chars=44):
@@ -134,17 +121,10 @@ def _pdf_block(c, x, y, mm, heading: str, lines: list, width_chars=44):
 
 
 def _pdf_footer(c, W, mm, inv: dict, note: str):
-    c.setStrokeColorRGB(*GOLD)
-    c.setLineWidth(0.6)
-    c.line(18 * mm, 30 * mm, W - 18 * mm, 30 * mm)
-    c.setFillColorRGB(*GREY)
-    c.setFont("Helvetica", 7.8)
-    c.drawString(18 * mm, 25 * mm, note)
-    c.drawString(18 * mm, 20.5 * mm, f"Terms: {_app_url()}/terms   ·   Refund policy: {_app_url()}/refund-policy   ·   Privacy: {_app_url()}/privacy")
-    c.drawString(18 * mm, 16 * mm, f"Questions? {inv['biller'].get('email') or 'billing@miracurl-suite.com'}"
-                 + (f"  ·  {inv['biller']['phone']}" if inv['biller'].get('phone') else ""))
-    c.setFont("Helvetica-Oblique", 7.5)
-    c.drawCentredString(W / 2, 10 * mm, "This is a computer-generated document and does not require a physical signature.")
+    b = inv["biller"]
+    contact = f"Questions? {b.get('email') or 'billing@miracurl-suite.com'}" + (f"  ·  {b['phone']}" if b.get("phone") else "")
+    draw_powered_footer(c, W, mm, inv.get("_logo"), [
+        note, f"Terms: {_app_url()}/terms   ·   Refund policy: {_app_url()}/refund-policy   ·   Privacy: {_app_url()}/privacy", contact])
 
 
 def _buyer_lines(inv: dict) -> list:
@@ -308,9 +288,9 @@ def build_receipt_pdf(inv: dict) -> bytes:
     return buf.getvalue()
 
 
-def build_terms_pdf() -> bytes:
+def build_terms_pdf(logo: bytes | None = None) -> bytes:
     from routes.hq_documents import DOCS, _doc_pdf
-    return _doc_pdf(DOCS["terms_conditions"])
+    return _doc_pdf(DOCS["terms_conditions"], logo=logo)
 
 
 def _kit_email_html(inv: dict) -> str:
@@ -363,12 +343,13 @@ def _attachments(inv: dict) -> list:
     return [
         {"filename": f"Miracurl-Invoice-{safe}.pdf", "content": base64.b64encode(build_invoice_pdf(inv)).decode()},
         {"filename": f"Miracurl-Payment-Receipt-{safe}.pdf", "content": base64.b64encode(build_receipt_pdf(inv)).decode()},
-        {"filename": "Miracurl-Terms-and-Conditions.pdf", "content": base64.b64encode(build_terms_pdf()).decode()},
+        {"filename": "Miracurl-Terms-and-Conditions.pdf", "content": base64.b64encode(build_terms_pdf(inv.get("_logo"))).decode()},
     ]
 
 
 async def email_invoice_kit(inv: dict, resend: bool = False) -> dict:
     to = [inv.get("notify_email") or inv.get("owner_email") or ""]
+    inv["_logo"] = await platform_logo_bytes()
     attachments = await asyncio.to_thread(_attachments, inv)
     subject = f"{'[Resent] ' if resend else ''}✅ Your Miracurl subscription is active — Invoice {inv['number']} ({inv['plan_label']})"
     status = await _send_email(to, subject, _kit_email_html(inv), attachments=attachments,
@@ -416,6 +397,7 @@ async def issue_subscription_kit(pay: dict, sub: dict, *, plan_label: str | None
         await _raw_db.subscription_invoices.insert_one(dict(inv))
         if send:
             inv["email"] = await email_invoice_kit(inv)
+        inv.pop("_logo", None)
         return inv
     except Exception as e:  # billing docs must never break payment activation
         log.exception("invoice kit failed for payment %s: %s", pay.get("id"), e)

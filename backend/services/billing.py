@@ -284,8 +284,8 @@ async def _send_billing_receipts(inv: dict, cust: dict, tenant_doc: Optional[dic
         out["whatsapp_url"] = None
     try:
         if cust.get("email"):
-            from receipt_email import send_invoice_receipt_email
-            out["email"] = await send_invoice_receipt_email(t, inv, cust["email"], points_earned)
+            from services.guest_invoice import email_guest_invoice
+            out["email"] = await email_guest_invoice(inv, t, cust["email"])
         else:
             out["email"] = {"sent": False, "error": "no_email"}
     except Exception as e:  # noqa: BLE001 — receipts must never break checkout

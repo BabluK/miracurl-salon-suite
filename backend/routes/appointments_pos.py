@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 from starlette.responses import StreamingResponse
 
 from database import db, _current_tenant_id, _clean
@@ -23,7 +23,6 @@ from services.billing import (
     _queue_review_request,
     _apply_membership_cashback,
 )
-from services.pdf import _render_invoice_pdf
 
 router = APIRouter()
 
@@ -317,12 +316,37 @@ async def invoice_pdf(inv_id: str, user=Depends(get_current_user), t=Depends(cur
     inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
     if not inv:
         raise HTTPException(404, "Invoice not found")
-    pdf_bytes = await asyncio.to_thread(_render_invoice_pdf, inv, t)
+    from services.guest_invoice import guest_invoice_pdf
+    pdf_bytes = await guest_invoice_pdf(inv, t)
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{inv.get("invoice_no") or inv_id}.pdf"'},
     )
+
+
+class InvoiceEmailIn(BaseModel):
+    email: Optional[EmailStr] = None
+
+
+@router.post("/invoices/{inv_id}/email")
+async def invoice_email(inv_id: str, body: InvoiceEmailIn, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """One-tap: email the GST-ready invoice PDF to the guest (saves the email on the customer if missing)."""
+    inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+    cust = await db.customers.find_one({"id": inv.get("customer_id")}, {"_id": 0, "id": 1, "email": 1}) or {}
+    to = (body.email or cust.get("email") or "").strip().lower()
+    if not to:
+        raise HTTPException(400, "No email on file — enter the guest's email")
+    if cust.get("id") and not cust.get("email"):
+        await db.customers.update_one({"id": cust["id"]}, {"$set": {"email": to}})
+    from services.guest_invoice import email_guest_invoice
+    res = await email_guest_invoice(inv, t, to)
+    if not res.get("sent"):
+        raise HTTPException(400, res.get("error") or "Email could not be sent")
+    await db.invoices.update_one({"id": inv_id}, {"$set": {"receipts.email": {"sent": True, "to": to, "id": res.get("id")}}})
+    return {"ok": True, "to": to}
 
 
 def _check_wallet_balance(cust: dict, total: float):

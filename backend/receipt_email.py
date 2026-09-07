@@ -149,14 +149,23 @@ async def _review_tent_card_attachment(t: dict, inv: dict) -> dict | None:
         return None
 
 
-async def send_invoice_receipt_email(t: dict, inv: dict, to_email: str, points_earned: int = 0) -> dict:
-    subject = f"Your receipt from {t.get('name') or 'your salon'} — {inv.get('invoice_no')}"
+async def send_invoice_receipt_email(t: dict, inv: dict, to_email: str, points_earned: int = 0,
+                                     extra_attachments: list | None = None) -> dict:
+    gst = bool(t.get("tax_enabled") and t.get("gst_number"))
+    subject = f"Your {'GST invoice' if gst else 'invoice'} from {t.get('name') or 'your salon'} — {inv.get('invoice_no')}"
     card = await _review_tent_card_attachment(t, inv)
     html = _receipt_email_html(t, inv, points_earned)
+    if extra_attachments:
+        note = ('<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">'
+                '<tr><td style="padding:12px 34px 0;text-align:center;font-size:12px;color:#8a8a93">'
+                f'&#128206; Your <b>{"GST tax invoice" if gst else "invoice"} PDF</b> is attached &mdash; keep it for your records'
+                f'{" or business expense claims" if gst else ""}.</td></tr></table>')
+        html = html.replace("</td></tr></table></body></html>", "</td></tr></table>" + note + "</body></html>")
     if card:
         note = ('<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">'
                 '<tr><td style="padding:12px 34px 0;text-align:center;font-size:12px;color:#8a8a93">'
                 '&#128206; We\'ve attached a scannable <b>rate-us card</b> to this email &mdash; '
                 'scan it anytime to share your experience!</td></tr></table>')
         html = html.replace("</td></tr></table></body></html>", "</td></tr></table>" + note + "</body></html>")
-    return await _send_email([to_email], subject, html, attachments=[card] if card else None)
+    attachments = list(extra_attachments or []) + ([card] if card else [])
+    return await _send_email([to_email], subject, html, attachments=attachments or None)

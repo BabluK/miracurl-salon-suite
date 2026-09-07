@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-07.215"
-BUILD_TIME = "07 Sep 2026, 10:00 AM IST"
+BUILD = "2026-09-07.216"
+BUILD_TIME = "07 Sep 2026, 11:00 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-07.216", "note": "Guest GST invoice PDF + one-tap email; Miracurl logo on all PDFs; Brand Model Settlement Tracker with Mira nudges"},
     {"build": "2026-09-07.215", "note": "Subscription Invoice Kit (invoice + receipt + T&C PDFs by email); HQ Edit Profile modal scroll fix"},
     {"build": "2026-09-05.214", "note": "Referral leaderboard + thank-you gift; Settings plan prices always live"},
     {"build": "2026-09-05.213", "note": "Refer & Earn: 1→+1 mo, 3→+2 mo, 5→+3 mo; share hint"},
@@ -38,6 +39,9 @@ RELEASES = [
             "📂 Salon owners can download Invoice / Receipt / T&C anytime from Settings → Subscription → Invoices & receipts",
             "🏢 HQ → Billing & Subscriptions: Billing identity editor (legal name, address, GSTIN, PAN, signatory), invoice list with download + one-tap resend, and 'Generate for older payments'",
             "🩹 HQ Edit Profile modal no longer cuts off the photo / header on shorter screens; save errors now show the exact reason",
+            "🧾 Guest GST invoices: POS bills now render as a polished A4 tax invoice (salon logo, GSTIN, HSN/SAC, CGST/SGST split, amount in words) and are attached as PDF to the automatic receipt email; new one-tap 'Email invoice' button in the POS receipt",
+            "✨ Every PDF (subscription invoice, receipt, T&C, guest invoice) now carries the HQ platform logo (Site Info upload or the gold monogram) with a soft watermark and 'Powered by Miracurl' footer",
+            "💰 Brand Model Settlement Tracker in HQ → Tenants → Rewards: per-salon amount / due date / note, outstanding & collected totals, Mark paid / Waive / Reopen, and Mira-written nudges by email or WhatsApp; salons see their settlement in Miracurl Updates",
         ],
     },
     {

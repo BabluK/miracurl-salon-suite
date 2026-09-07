@@ -21,108 +21,204 @@ def screens_tour_attachment() -> dict | None:
         return None
 
 
-def _render_invoice_pdf(inv: dict, tenant: dict) -> bytes:
-    """A5 receipt PDF for printing / sharing."""
-    from reportlab.lib.pagesizes import A5
+def _render_invoice_pdf(inv: dict, tenant: dict, assets: dict | None = None) -> bytes:
+    """Polished A4 GST-ready guest invoice: salon logo + GSTIN, itemised table, CGST/SGST split, Miracurl footer."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
     from reportlab.lib.utils import simpleSplit
     from reportlab.pdfgen import canvas as _canvas
+    from services.pdf_brand import GOLD, GREY, INK, LIGHT, draw_logo, draw_powered_footer, draw_watermark
+    from services.subscription_invoice import amount_in_words
 
+    assets = assets or {}
     buf = io.BytesIO()
-    W, H = A5
-    c = _canvas.Canvas(buf, pagesize=A5)
-    INK = (0.09, 0.1, 0.13)
-    MUTED = (0.45, 0.47, 0.52)
-    LEFT, RIGHT = 30, W - 30
-    y = H - 40
+    W, H = A4
+    c = _canvas.Canvas(buf, pagesize=A4)
+    L, R = 16 * mm, W - 16 * mm
+    cur = tenant.get("currency") or "INR"
+    sym = {"INR": "Rs. ", "USD": "$", "EUR": "EUR ", "GBP": "GBP ", "AED": "AED "}.get(cur, cur + " ")
+    money = lambda v: f"{sym}{float(v or 0):,.2f}"
+    gst_on = bool(tenant.get("tax_enabled") and tenant.get("gst_number"))
+    tax = float(inv.get("tax") or 0)
+    created = str(inv.get("created_at") or "")
+    try:
+        from datetime import timedelta as _td
+        dt = datetime.fromisoformat(created.replace("Z", "+00:00")).astimezone(timezone(_td(hours=5, minutes=30)))
+        date_txt = dt.strftime("%d %b %Y, %I:%M %p")
+    except Exception:
+        date_txt = created[:16].replace("T", " ")
 
+    draw_watermark(c, assets.get("brand_logo"), W, H, 110 * mm)
+    # ---- Salon header (white, salon-branded) ----
+    y = H - 18 * mm
+    x = L
+    if draw_logo(c, assets.get("salon_logo"), L, y - 22 * mm, 26 * mm, 24 * mm):
+        x = L + 30 * mm
     c.setFillColorRGB(*INK)
-    c.setFont("Helvetica-Bold", 15)
-    c.drawCentredString(W / 2, y, tenant.get("name") or "Salon")
-    y -= 14
-    c.setFillColorRGB(*MUTED)
-    c.setFont("Helvetica", 8)
-    for ln in simpleSplit(tenant.get("location") or "", "Helvetica", 8, RIGHT - LEFT):
-        c.drawCentredString(W / 2, y, ln)
-        y -= 10
-    if tenant.get("phone"):
-        c.drawCentredString(W / 2, y, f"Ph: {tenant['phone']}")
-        y -= 10
-    if tenant.get("tax_enabled") and tenant.get("gst_number"):
-        c.drawCentredString(W / 2, y, f"GSTIN: {tenant['gst_number']}")
-        y -= 10
-    y -= 4
-    c.setStrokeColorRGB(0.8, 0.8, 0.85)
-    c.setDash(2, 2)
-    c.line(LEFT, y, RIGHT, y)
-    c.setDash()
-    y -= 16
-
+    name_sz, name_txt, name_w = 20, tenant.get("name") or "Salon", (W / 2 + 30 * mm) - x
+    while c.stringWidth(name_txt, "Helvetica-Bold", name_sz) > name_w and name_sz > 11:
+        name_sz -= 1
+    c.setFont("Helvetica-Bold", name_sz)
+    c.drawString(x, y - 6 * mm, name_txt)
+    c.setFillColorRGB(*GREY)
     c.setFont("Helvetica", 9)
-    created = str(inv.get("created_at") or "")[:16].replace("T", " ")
-    for label, val in (("Invoice", inv.get("invoice_no")), ("Date", created),
-                       ("Branch", inv.get("branch_name") or "Main"),
-                       ("Customer", inv.get("customer_name")), ("Payment", _pay_label(inv.get("payment_mode")))):
-        if val:
-            c.setFillColorRGB(*MUTED)
-            c.drawString(LEFT, y, label)
-            c.setFillColorRGB(*INK)
-            c.drawRightString(RIGHT, y, str(val))
-            y -= 13
-    y -= 6
-    c.line(LEFT, y, RIGHT, y)
-    y -= 15
-
-    for it in inv.get("items", []):
-        name = f"{it.get('name')} x {it.get('qty', 1)}"
-        amt = f"Rs {(it.get('qty', 1) * it.get('price', 0)):,.2f}"
-        c.setFont("Helvetica", 9)
+    yy = y - 11.5 * mm
+    for ln in simpleSplit(tenant.get("location") or "", "Helvetica", 9, 95 * mm)[:2]:
+        c.drawString(x, yy, ln)
+        yy -= 4.5 * mm
+    contact = "  ·  ".join(v for v in (tenant.get("phone") and f"Ph: {tenant['phone']}", tenant.get("owner_email") or tenant.get("notify_email")) if v)
+    if contact:
+        c.drawString(x, yy, contact)
+        yy -= 4.5 * mm
+    if gst_on:
         c.setFillColorRGB(*INK)
-        lines = simpleSplit(name, "Helvetica", 9, RIGHT - LEFT - 70)
-        c.drawString(LEFT, y, lines[0])
-        c.drawRightString(RIGHT, y, amt)
-        y -= 12
-        for extra in lines[1:]:
-            c.drawString(LEFT, y, extra)
-            y -= 12
-        if it.get("staff_name"):
-            c.setFillColorRGB(*MUTED)
-            c.setFont("Helvetica-Oblique", 7.5)
-            c.drawString(LEFT + 6, y, f"by {it['staff_name']}")
-            y -= 11
-        if y < 130:
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(x, yy, f"GSTIN: {tenant['gst_number']}")
+    # title block right
+    c.setFillColorRGB(*INK)
+    c.setFont("Helvetica-Bold", 22)
+    c.drawRightString(R, y - 6 * mm, "TAX INVOICE" if gst_on else "INVOICE")
+    c.setFillColorRGB(*GOLD)
+    c.setFont("Helvetica-Bold", 10)
+    c.drawRightString(R, y - 12.5 * mm, f"No. {inv.get('invoice_no') or inv.get('id', '')[:8]}")
+    c.setFillColorRGB(*GREY)
+    c.setFont("Helvetica", 9)
+    c.drawRightString(R, y - 17.5 * mm, date_txt)
+    if inv.get("branch_name"):
+        c.drawRightString(R, y - 22.5 * mm, f"Branch: {inv['branch_name']}")
+    c.setFillColorRGB(0.13, 0.6, 0.35) if inv.get("paid", True) else c.setFillColorRGB(0.8, 0.3, 0.2)
+    c.setFont("Helvetica-Bold", 9)
+    c.drawRightString(R, y - 28 * mm, "PAID" if inv.get("paid", True) else "UNPAID")
+    y -= 34 * mm
+    c.setStrokeColorRGB(*GOLD)
+    c.setLineWidth(1)
+    c.line(L, y, R, y)
+    y -= 9 * mm
+
+    # ---- Billed to + payment ----
+    c.setFillColorRGB(*GOLD)
+    c.setFont("Helvetica-Bold", 8.5)
+    c.drawString(L, y, "BILLED TO")
+    c.drawString(W / 2 + 6 * mm, y, "PAYMENT")
+    y -= 5.5 * mm
+    c.setFillColorRGB(*INK)
+    c.setFont("Helvetica-Bold", 10.5)
+    c.drawString(L, y, inv.get("customer_name") or "Guest")
+    c.setFont("Helvetica", 9.5)
+    c.drawString(W / 2 + 6 * mm, y, f"{_pay_label(inv.get('payment_mode'))}" + (f"  ·  {inv['payment_ref']}" if inv.get("payment_ref") else ""))
+    y -= 5 * mm
+    c.setFillColorRGB(*GREY)
+    c.setFont("Helvetica", 9)
+    cust = assets.get("customer") or {}
+    for ln in [v for v in (cust.get("phone"), cust.get("email"), cust.get("gstin") and f"GSTIN: {cust['gstin']}") if v][:3]:
+        c.drawString(L, y, str(ln))
+        y -= 4.5 * mm
+    if inv.get("staff_name"):
+        c.drawString(W / 2 + 6 * mm, y + 4.5 * mm * min(3, len([v for v in (cust.get("phone"), cust.get("email")) if v])), f"Served by {inv['staff_name']}")
+    y -= 6 * mm
+
+    # ---- Items table ----
+    cols = {"desc": L + 2 * mm, "sac": L + 90 * mm, "qty": L + 104 * mm, "rate": L + 126 * mm, "amt": R - 2 * mm}
+    def table_head():
+        nonlocal y
+        c.setFillColorRGB(*INK)
+        c.rect(L, y - 2.5 * mm, R - L, 8 * mm, stroke=0, fill=1)
+        c.setFillColorRGB(*GOLD)
+        c.setFont("Helvetica-Bold", 8.3)
+        c.drawString(cols["desc"], y, "DESCRIPTION")
+        c.drawString(cols["sac"], y, "HSN/SAC")
+        c.drawRightString(cols["qty"] + 8 * mm, y, "QTY")
+        c.drawRightString(cols["rate"] + 14 * mm, y, "RATE")
+        c.drawRightString(cols["amt"], y, "AMOUNT")
+        y -= 9.5 * mm
+    table_head()
+    for i, it in enumerate(inv.get("items", [])):
+        if y < 75 * mm:
             c.showPage()
-            y = H - 50
-    y -= 4
-    c.setStrokeColorRGB(0.8, 0.8, 0.85)
-    c.line(LEFT, y, RIGHT, y)
-    y -= 15
-
-    rows = [("Subtotal", inv.get("subtotal")),
-            ("Discount", -(inv.get("discount") or 0) if inv.get("discount") else None),
-            ("GST", inv.get("tax") if inv.get("tax") else None)]
-    c.setFont("Helvetica", 9)
-    for label, val in rows:
-        if val is None:
-            continue
-        c.setFillColorRGB(*MUTED)
-        c.drawString(LEFT, y, label)
+            draw_watermark(c, assets.get("brand_logo"), W, H, 110 * mm)
+            y = H - 25 * mm
+            table_head()
+        if i % 2 == 1:
+            c.setFillColorRGB(*LIGHT)
+            c.rect(L, y - 3 * mm, R - L, 9.5 * mm, stroke=0, fill=1)
+        qty = int(it.get("qty") or 1)
+        price = float(it.get("price") or 0)
         c.setFillColorRGB(*INK)
-        c.drawRightString(RIGHT, y, f"Rs {val:,.2f}")
-        y -= 13
-    y -= 4
-    c.setFont("Helvetica-Bold", 13)
-    c.setFillColorRGB(*INK)
-    c.drawString(LEFT, y, "Total")
-    c.drawRightString(RIGHT, y, f"Rs {(inv.get('total') or 0):,.2f}")
-    y -= 20
+        c.setFont("Helvetica", 9.5)
+        lines = simpleSplit(str(it.get("name") or ""), "Helvetica", 9.5, 84 * mm)
+        c.drawString(cols["desc"], y, lines[0])
+        c.setFillColorRGB(*GREY)
+        c.setFont("Helvetica", 8.5)
+        c.drawString(cols["sac"], y, "999721" if it.get("type") in ("service", "package", "membership", "package_redeem") else "—" if it.get("type") == "gift_card" else "3305")
+        c.setFillColorRGB(*INK)
+        c.setFont("Helvetica", 9.5)
+        c.drawRightString(cols["qty"] + 8 * mm, y, str(qty))
+        c.drawRightString(cols["rate"] + 14 * mm, y, money(price))
+        c.drawRightString(cols["amt"], y, money(qty * price))
+        y -= 4.5 * mm
+        sub = " · ".join(v for v in (lines[1] if len(lines) > 1 else "", it.get("staff_name") and f"by {it['staff_name']}") if v)
+        if sub:
+            c.setFillColorRGB(*GREY)
+            c.setFont("Helvetica-Oblique", 7.8)
+            c.drawString(cols["desc"], y, sub)
+        y -= 5.5 * mm
+    c.setStrokeColorRGB(0.85, 0.85, 0.85)
+    c.setLineWidth(0.5)
+    c.line(L, y + 1 * mm, R, y + 1 * mm)
+    y -= 6 * mm
+
+    # ---- Totals ----
+    def row(label, val, bold=False, color=INK):
+        nonlocal y
+        c.setFillColorRGB(*color)
+        c.setFont("Helvetica-Bold" if bold else "Helvetica", 11 if bold else 9.2)
+        c.drawRightString(R - 48 * mm, y, label)
+        c.drawRightString(R - 2 * mm, y, val)
+        y -= 5.8 * mm
+    row("Subtotal", money(inv.get("subtotal")))
+    if float(inv.get("discount") or 0):
+        row("Discount", "- " + money(inv.get("discount")))
+    if tax > 0:
+        pct = float(tenant.get("tax_pct") or 0)
+        if gst_on:
+            half = round(tax / 2, 2)
+            row(f"CGST @ {pct / 2:g}%", money(half))
+            row(f"SGST @ {pct / 2:g}%", money(tax - half))
+        else:
+            row(f"Tax @ {pct:g}%" if pct else "Tax", money(tax))
+    elif gst_on:
+        row("GST", "Nil")
+    if float(inv.get("wallet_applied") or 0):
+        row("Paid from wallet", "- " + money(inv.get("wallet_applied")), color=(0.13, 0.6, 0.35))
+    c.setFillColorRGB(*LIGHT)
+    c.rect(R - 96 * mm, y - 2.5 * mm, 96 * mm, 7.5 * mm, stroke=0, fill=1)
+    row("TOTAL", money(inv.get("total")), bold=True)
+    if float(inv.get("tip") or 0):
+        tip_for = f" for {inv['tip_staff_name']}" if inv.get("tip_staff_name") else ""
+        row(f"Tip{tip_for}", money(inv.get("tip")), color=GREY)
+        row("Total incl. tip", money(float(inv.get("total") or 0) + float(inv.get("tip") or 0)), bold=True)
+    y -= 1 * mm
+    c.setFillColorRGB(*GREY)
+    c.setFont("Helvetica-Oblique", 8.3)
+    c.drawRightString(R - 2 * mm, y, f"In words: {amount_in_words(float(inv.get('total') or 0), cur)}")
+    y -= 12 * mm
     if inv.get("points_earned"):
-        c.setFont("Helvetica", 8)
-        c.setFillColorRGB(0.1, 0.5, 0.3)
-        c.drawCentredString(W / 2, y, f"You earned {inv['points_earned']} loyalty points on this visit!")
-        y -= 14
-    c.setFillColorRGB(*MUTED)
-    c.setFont("Helvetica-Oblique", 8)
-    c.drawCentredString(W / 2, y, "Thank you for visiting - see you again soon")
+        c.setFillColorRGB(0.13, 0.6, 0.35)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(L, y, f"You earned {inv['points_earned']} loyalty points on this visit!")
+        y -= 6 * mm
+    c.setFillColorRGB(*INK)
+    c.setFont("Helvetica", 9.5)
+    c.drawString(L, y, tenant.get("invoice_footer") or "Thank you for visiting - we look forward to seeing you again soon.")
+    y -= 14 * mm
+    c.setFont("Helvetica-Bold", 9)
+    c.drawRightString(R, max(y, 50 * mm), f"For {tenant.get('name') or 'Salon'}")
+    c.setFont("Helvetica", 8.5)
+    c.drawRightString(R, max(y, 50 * mm) - 5 * mm, "Authorised Signatory")
+    notes = ["Goods once sold are not returnable. Services are non-refundable once rendered."]
+    if gst_on:
+        notes.append("SAC 999721 - Beauty & physical well-being services  ·  HSN 3305 - Hair-care products  ·  GST charged as per applicable rates.")
+    draw_powered_footer(c, W, mm, assets.get("brand_logo"), notes + ["Book online, view bills and rewards at miracurl-suite.com"])
     c.showPage()
     c.save()
     return buf.getvalue()

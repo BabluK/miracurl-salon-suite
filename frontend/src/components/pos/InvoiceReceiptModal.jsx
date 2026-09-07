@@ -12,6 +12,22 @@ export default function InvoiceReceiptModal({ invoice, tenant, customer, onEmail
   const [email, setEmail] = useState("");
   const [emailBusy, setEmailBusy] = useState(false);
   const [emailAdded, setEmailAdded] = useState(false);
+  const [sendBusy, setSendBusy] = useState(false);
+  const [sentTo, setSentTo] = useState(invoice.receipts?.email?.sent ? (invoice.receipts.email.to || customer?.email || "") : "");
+
+  async function emailInvoice() {
+    const target = (customer?.email || email).trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(target)) { toast.error("Enter the guest's email address first"); return; }
+    setSendBusy(true);
+    try {
+      const { data } = await api.post(`/invoices/${invoice.id}/email`, { email: target });
+      setSentTo(data.to);
+      if (!customer?.email) { setEmailAdded(true); onEmailSaved?.(customer?.id, data.to); }
+      toast.success(`GST invoice PDF emailed to ${data.to}`);
+    } catch (e) {
+      toast.error(typeof e.response?.data?.detail === "string" ? e.response.data.detail : "Couldn't email the invoice");
+    } finally { setSendBusy(false); }
+  }
 
   async function saveEmail() {
     const clean = email.trim();
@@ -81,7 +97,7 @@ export default function InvoiceReceiptModal({ invoice, tenant, customer, onEmail
         {customer && !customer.email && !emailAdded && (
           <div className="pb-3" data-testid="receipt-add-email-section">
             <p className="text-[11px] text-slate-500 mb-1.5 flex items-center gap-1">
-              <Mail className="w-3 h-3" /> No email on file — add one to auto-email bills to this guest
+              <Mail className="w-3 h-3" /> No email on file — enter one, then tap “Email invoice” below (it's saved for next time)
             </p>
             <div className="flex gap-2">
               <input data-testid="receipt-email-input" type="email" value={email} onChange={e => setEmail(e.target.value)}
@@ -126,6 +142,10 @@ export default function InvoiceReceiptModal({ invoice, tenant, customer, onEmail
         <ThermalPrintButton invoice={invoice} tenant={tenant} />
         <div className="flex items-center gap-2 mt-3">
           <button data-testid="invoice-print-btn" onClick={onPrint} className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center justify-center gap-1.5"><Printer className="w-3.5 h-3.5" /> Print</button>
+          <button data-testid="invoice-email-btn" onClick={emailInvoice} disabled={sendBusy} title={sentTo ? `Sent to ${sentTo} — tap to resend` : "Email the GST-ready invoice PDF to the guest"}
+            className={`flex-1 px-3 py-2 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 disabled:opacity-50 ${sentTo ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 text-slate-700 hover:bg-slate-50"}`}>
+            {sendBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : sentTo ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Mail className="w-3.5 h-3.5" />} {sentTo ? "Emailed" : "Email invoice"}
+          </button>
           <button data-testid="invoice-pdf-btn" onClick={downloadPdf} disabled={pdfBusy} className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center justify-center gap-1.5 disabled:opacity-50">{pdfBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />} PDF</button>
           {onShare && (
             <button data-testid="invoice-whatsapp-btn" onClick={onShare} className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-50 flex items-center justify-center gap-1.5"><Share2 className="w-3.5 h-3.5" /> WhatsApp</button>

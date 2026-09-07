@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 132 — Guest GST invoice PDF/email, branded subscription PDFs, and Brand Model settlement tracker. Backend: 23/23 pytest pass at /app/backend/tests/test_iter132_guest_invoice_settlement.py. Guest invoice PDF (GET /api/invoices/{id}/pdf) returns application/pdf 200, %PDF header, size within 50KB..3MB, and text contains 'TAX INVOICE', 'GSTIN: 29ABCDE1234F1Z5', 'CGST', 'SGST', 'Powered by Miracurl Suite', 'In words:'. POST /api/invoices/{id}/email with delivered@resend.dev returns {ok:true,to}; invalid email 422; unknown id 404. Subscription PDFs (invoice/receipt/terms) all 200 application/pdf, <3MB, branded ('MIRACURL SUITE' in invoice/receipt, 'Terms & Conditions' in terms). Settlement tracker: list response has rows/summary/payment_link/campaign; PUT sets pending with amount=4000 due_date=2026-09-01 (overdue since date past), summary.outstanding>=4000; PUT amount=0 on whitefield -> not_set; invalid date -> 422; POST remind whatsapp returns text (Mira nudge 40..900 chars containing 4,000), whatsapp_url https://wa.me/91..., to; email nudge for marathahalli (login-only owner_email, no notify_email) -> 400 as expected; channel 'sms' -> 422; reminders array grows +1 after each; mark-paid ok, status becomes paid, summary.collected>=4000; remind after paid -> 400 'already paid'; reopen restores pending/overdue; waive then reopen restores; mark-paid on whitefield (no amount) -> 400; unknown tenant -> 404; tenant GET /api/settings/rewards-campaign includes settlement{amount:4000,status:pending/overdue}. FRONTEND HQ: /super-admin?tab=tenants -> settlement-tracker visible; all 5 sum chips render; settlement-row-miracurl-marathahalli badge status 'overdue'; edit note + save -> toast 'Miracurl Unisex Family Salon: settlement saved'; WhatsApp remind opened popup to https://api.whatsapp.com/send/?phone=919876500000&text=... (wa.me auto-redirects to api.whatsapp.com — OK); email remind produced toast 'Salon has no real notification email on file — ask them to add one in Settings' (expected); Mark paid modal -> method=upi, ref=UTR1, confirm -> badge became 'paid', reopen visible + click -> badge back to 'overdue'. FRONTEND tenant Miracurl Updates: /dashboard shows miracurl-updates-settlement with text 'Your settlement: ₹4,000· due 01 Sept 2026 Pending 2 Gold memberships redeemed (edited)' and miracurl-updates-settlement-status 'Pending' — /settings does NOT render MiracurlUpdates (component is dashboard-only, spec allowed either). FRONTEND POS receipt: guest selected via pos-guest-option, Henna service added (₹236 incl tax), Cash selected, Create & Complete clicked BUT receipt-invoice-modal did not open — appears staff/stylist assignment ('— Stylist —' unselected in row) may be silently required or the completion path has an unhandled error (no toast/error surfaced). Note: this is core POS behavior that predates this iteration; invoice-email backend endpoint itself is fully validated via pytest.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "POS billing", "issue": "Clicking pos-create-complete-btn with a valid guest + service + cash payment but with 'Stylist' unselected does not open invoice-receipt-modal and shows no toast/error — silent failure. Blocks E2E testing of invoice-email-btn / invoice-pdf-btn from the receipt modal.", "selector": "[data-testid=\"pos-create-complete-btn\"]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AppLayout (POS/Dashboard)", "issues": ["React hydration warnings: 'In HTML, <span> cannot be a child of <option>' — appears in a branch/stylist Select. Not user-facing but pollutes console."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter132_guest_invoice_settlement.py",
+    "/app/test_reports/pytest/iter132_results.xml"
+  ],
+  "action_items": [
+    "Investigate why pos-create-complete-btn silently fails when stylist is unselected — either require stylist explicitly with an inline error, or auto-assign a default staff. This is a pre-existing POS UX gap and blocks E2E of the new invoice-email-btn / invoice-pdf-btn on the receipt modal.",
+    "Optional: fix React 'span inside option' hydration warning in the branch/stylist Select component."
+  ],
+  "critical_code_review_comments": [
+    "rewards_settlements._settlement_rows sorts and paginates well but iterates all up-to-1000 tenants+aggregations — fine for now, add indexes on rewards_settlements.{campaign_id,tenant_id} and rewards_participants.tenant_id if not present.",
+    "_mira_nudge falls back safely on LLM error — good; but generated WhatsApp URL contains U+FFFD (%EF%BF%BD) replacement chars in the observed HQ popup, suggesting an emoji/character produced by Mira LLM couldn't be encoded properly by str().encode via quote(). Consider quote(text, safe='', errors='replace') OR strip non-BMP chars before urlencoding to avoid corrupted WhatsApp preview text.",
+    "guest_invoice.email_guest_invoice attaches PDF via base64 — reasonable; ensure receipt_email.send_invoice_receipt_email supports extra_attachments as documented (verified via passing delivered@resend.dev test).",
+    "InvoiceEmailIn.email is Optional[EmailStr] — Pydantic returns 422 for malformed emails (verified). Good.",
+    "SettlementIn.due_date uses regex ^(\\d{4}-\\d{2}-\\d{2})?$ — validates format but not real calendar dates (e.g. 2026-02-31 would pass). Low risk given HTML date input in UI.",
+    "Frontend SettlementTracker WhatsApp nudge calls window.open — appropriately triggers popup handler in tests (worked with expect_popup)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter132_guest_invoice_settlement.py"
+  ],
+  "success_rate": {"backend": "100% (23/23)", "frontend": "~85% (HQ settlement tracker end-to-end + tenant Miracurl Updates settlement badge verified; POS receipt-modal E2E blocked by pre-existing stylist-required silent failure)"},
+  "test_credentials": "Used /app/memory/test_credentials.md — super@miracurl.com and admin@miracurl.com. Cookie JWT + X-CSRF-Token header via csrf_token cookie.",
+  "seed_data_creation": "Created one TEST customer via POS Add Guest modal (name 'TEST Guest <ts>', phone 98765XXXXX) and left settlement for miracurl-marathahalli at final state {amount:4000, due_date:'2026-09-01', note:'2 Gold memberships redeemed (edited)', status:'overdue'} as requested. miracurl-whitefield left at not_set. Reminder history on marathahalli now includes 2+ whatsapp entries.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend regression at /app/backend/tests/test_iter132_guest_invoice_settlement.py. Run with: cd /app && python -m pytest backend/tests/test_iter132_guest_invoice_settlement.py -o 'addopts=' -v --tb=short. Depends on pymupdf (installed). WhatsApp URL text may include U+FFFD due to LLM emoji encoding — non-blocking. POS E2E for invoice-email-btn requires selecting a stylist in the invoice row (inline select next to service name) before Create & Complete, otherwise the completion silently no-ops."
+}

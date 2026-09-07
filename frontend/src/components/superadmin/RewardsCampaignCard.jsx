@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { Gift, Loader2, Trophy, ExternalLink, Settings2, ChevronDown, Search, Users, Store, Sparkles, Share2, Download } from "lucide-react";
 import { fetchCardBlob, downloadBlob, shareWinnerCard, whatsappShareText } from "@/lib/winnerCard";
+import { SettlementTracker } from "@/components/superadmin/SettlementTracker";
 
 const inp = "border border-white/10 rounded-lg px-2.5 py-1.5 text-xs !bg-white/5 !text-slate-200 w-full";
 const lbl = "text-[10px] text-slate-500 uppercase tracking-wide";
@@ -203,6 +204,8 @@ export function RewardsCampaignCard() {
             <button onClick={() => save()} disabled={saving} data-testid="rewards-save-btn" className="px-5 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-xs font-bold hover:brightness-110 disabled:opacity-50 inline-flex items-center gap-1.5">{saving ? <Loader2 className="w-3 h-3 animate-spin" /> : null} Save campaign</button>
           </div>
         )}
+
+        <SettlementTracker />
 
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={loadPeople} data-testid="rewards-participants-btn" className="px-4 py-2 rounded-full border border-white/15 text-slate-300 text-xs font-semibold hover:border-[#d4af37]/60 inline-flex items-center gap-1.5 transition-colors"><Trophy className="w-3.5 h-3.5 text-[#d4af37]" /> Participants & winners</button>

@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from database import _raw_db
 from security import current_tenant, require_super_admin, require_tenant_admin
+from services.pdf_brand import platform_logo_bytes
 from services.subscription_invoice import (
     build_invoice_pdf, build_receipt_pdf, build_terms_pdf, email_invoice_kit,
     get_biller, issue_subscription_kit, save_biller,
@@ -18,7 +19,7 @@ _PUBLIC_FIELDS = {"_id": 0, "biller": 0}
 
 def _pdf_response(inv: dict, kind: str) -> Response:
     if kind == "terms":
-        pdf, name = build_terms_pdf(), "Miracurl-Terms-and-Conditions.pdf"
+        pdf, name = build_terms_pdf(inv.get("_logo")), "Miracurl-Terms-and-Conditions.pdf"
     elif kind in _BUILDERS:
         pdf, name = _BUILDERS[kind](inv), f"Miracurl-{kind.title()}-{inv['number']}.pdf"
     else:
@@ -38,6 +39,7 @@ async def my_invoice_pdf(iid: str, kind: str, user=Depends(require_tenant_admin)
     inv = await _raw_db.subscription_invoices.find_one({"id": iid, "tenant_id": t["id"]}, {"_id": 0})
     if not inv:
         raise HTTPException(404, "Invoice not found")
+    inv["_logo"] = await platform_logo_bytes()
     return await asyncio.to_thread(_pdf_response, inv, kind)
 
 
@@ -53,6 +55,7 @@ async def hq_invoice_pdf(iid: str, kind: str, user=Depends(require_super_admin))
     inv = await _raw_db.subscription_invoices.find_one({"id": iid}, {"_id": 0})
     if not inv:
         raise HTTPException(404, "Invoice not found")
+    inv["_logo"] = await platform_logo_bytes()
     return await asyncio.to_thread(_pdf_response, inv, kind)
 
 
@@ -64,7 +67,7 @@ async def hq_invoice_resend(iid: str, user=Depends(require_super_admin)):
     inv["biller"] = await get_biller()
     rec = await email_invoice_kit(inv, resend=True)
     if not rec["sent"]:
-        raise HTTPException(502, rec.get("error") or "Email failed")
+        raise HTTPException(400, rec.get("error") or "Email failed")
     return {"ok": True, "sent_to": rec["to"], "hq_to": rec.get("hq_to")}
 
 

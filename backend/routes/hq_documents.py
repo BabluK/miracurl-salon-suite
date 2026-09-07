@@ -156,17 +156,21 @@ DOCS = {
 _PDF_GOLD, _PDF_INK, _PDF_GREY = (0.72, 0.6, 0.25), (0.12, 0.12, 0.14), (0.4, 0.4, 0.45)
 
 
-def _pdf_doc_header(c, doc: dict, W, H, mm):
+def _pdf_doc_header(c, doc: dict, W, H, mm, logo: bytes | None = None):
+    from services.pdf_brand import draw_logo
     c.setFillColorRGB(*_PDF_INK)
     c.rect(0, H - 40 * mm, W, 40 * mm, stroke=0, fill=1)
+    x = 20 * mm
+    if logo and draw_logo(c, logo, x, H - 36 * mm, 28 * mm, 32 * mm):
+        x += 32 * mm
     c.setFillColorRGB(*_PDF_GOLD)
     c.setFont("Helvetica-Bold", 19)
-    c.drawString(20 * mm, H - 20 * mm, doc["title"])
+    c.drawString(x, H - 20 * mm, doc["title"])
     c.setFillColorRGB(0.92, 0.92, 0.92)
     c.setFont("Helvetica", 10)
-    c.drawString(20 * mm, H - 27 * mm, doc["subtitle"])
+    c.drawString(x, H - 27 * mm, doc["subtitle"])
     c.setFont("Helvetica-Oblique", 8.5)
-    c.drawString(20 * mm, H - 34 * mm,
+    c.drawString(x, H - 34 * mm,
                  f"Miracurl Suite · miracurl-suite.com · issued {datetime.now(timezone.utc).strftime('%d %b %Y')}")
 
 
@@ -198,7 +202,7 @@ def _pdf_doc_sections(c, doc: dict, W, H, mm):
         y -= 4 * mm
 
 
-def _doc_pdf(doc: dict) -> bytes:
+def _doc_pdf(doc: dict, logo: bytes | None = None) -> bytes:
     import io
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
@@ -207,7 +211,7 @@ def _doc_pdf(doc: dict) -> bytes:
     buf = io.BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=A4)
     W, H = A4
-    _pdf_doc_header(c, doc, W, H, mm)
+    _pdf_doc_header(c, doc, W, H, mm, logo)
     _pdf_doc_sections(c, doc, W, H, mm)
     c.setFillColorRGB(*_PDF_GREY)
     c.setFont("Helvetica-Oblique", 8)

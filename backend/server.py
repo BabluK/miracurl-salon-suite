@@ -91,6 +91,7 @@ from routes.payments_intl import router as payments_intl_router  # noqa: E402
 from routes.employee_portal import router as employee_portal_router  # noqa: E402
 from routes.hq_documents import router as hq_documents_router  # noqa: E402
 from routes.subscription_invoices import router as subscription_invoices_router  # noqa: E402
+from routes.rewards_settlements import router as rewards_settlements_router  # noqa: E402
 from routes.mira_builder import router as mira_builder_router  # noqa: E402
 from routes.setup_wizard import router as setup_wizard_router  # noqa: E402
 from routes.lead_gen import router as lead_gen_router  # noqa: E402
@@ -136,7 +137,7 @@ for _r in (
     pay_links_router,
     passkeys_router, eod_digests_router, wallet_pass_router, site_info_router,
     blog_router, cash_register_router, rewards_campaign_router, growth_advisory_router,
-    subscription_invoices_router,
+    subscription_invoices_router, rewards_settlements_router,
 ):
     api.include_router(_r)
 

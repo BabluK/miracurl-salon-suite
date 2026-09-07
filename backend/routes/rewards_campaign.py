@@ -276,9 +276,11 @@ async def tenant_campaign(user=Depends(require_tenant_admin), t=Depends(current_
     pub["updates"] = sorted(pub["updates"], key=lambda u: u.get("date", ""), reverse=True)
     popup_key = f"{c.get('updated_at', '')}|{c['start_date']}|{bool(c.get('payment_link'))}"
     acked = await _raw_db.rewards_tenant_acks.find_one({"tenant_id": t["id"], "user_id": user["id"], "key": popup_key}, {"_id": 1})
+    from routes.rewards_settlements import tenant_settlement
     return {"campaign": pub, "enabled": bool(c.get("enabled")), "live": _is_live(c), "eligible": _tenant_eligible(c, t) and _is_live(c),
             "plan_ok": _tenant_eligible(c, t), "status": status, "participants": parts, "slug": t.get("slug"), "nudges": nudges,
-            "popup_key": popup_key, "show_popup": bool(c.get("enabled")) and _tenant_eligible(c, t) and not acked}
+            "popup_key": popup_key, "show_popup": bool(c.get("enabled")) and _tenant_eligible(c, t) and not acked,
+            "settlement": await tenant_settlement(t["id"], c["id"])}
 
 
 class AckIn(BaseModel):
