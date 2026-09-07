@@ -77,21 +77,22 @@ const FLAG = {
   no_baseline: ["bg-white/5 border-white/10 text-slate-400", "No baseline"],
 };
 
-function EarningsWatch({ onViewBills }) {
+function EarningsWatch({ onViewBills, campaign = "main" }) {
+  const q = `?campaign=${campaign}`;
   const [d, setD] = useState(null);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
-  const load = useCallback(() => api.get("/super-admin/rewards-campaign/anomalies").then(r => setD(r.data)).catch(() => {}), []);
+  const load = useCallback(() => api.get(`/super-admin/rewards-campaign/anomalies${q}`).then(r => setD(r.data)).catch(() => {}), [q]);
   useEffect(() => { load(); }, [load]);
   if (!d) return null;
   const alertNow = async () => {
     setBusy(true);
-    try { const { data: x } = await api.post("/super-admin/rewards-campaign/anomalies/alert"); toast.success(x.flagged ? `Mira emailed HQ about ${x.flagged} salon(s)` : "Nothing to flag — all salons look healthy"); load(); }
+    try { const { data: x } = await api.post(`/super-admin/rewards-campaign/anomalies/alert${q}`); toast.success(x.flagged ? `Mira emailed HQ about ${x.flagged} salon(s)` : "Nothing to flag — all salons look healthy"); load(); }
     catch (e) { toast.error(typeof e.response?.data?.detail === "string" ? e.response.data.detail : "Couldn't send"); }
     setBusy(false);
   };
   return (
-    <div className={`rounded-2xl border p-3 space-y-2 ${d.flagged ? "border-rose-400/40 bg-rose-500/[.05]" : "border-white/10 bg-white/[.02]"}`} data-testid="earnings-watch">
+    <div className={`rounded-2xl border p-3 space-y-2 ${d.flagged ? "border-rose-400/40 bg-rose-500/[.05]" : "border-white/10 bg-white/[.02]"}`} data-testid={campaign === "restaurant" ? "earnings-watch-restaurant" : "earnings-watch"}>
       <div className="flex items-center gap-2 flex-wrap">
         <Activity className={`w-4 h-4 ${d.flagged ? "text-rose-300" : "text-[#d4af37]"}`} />
         <button onClick={() => setOpen(o => !o)} className="text-sm font-bold text-slate-100 hover:text-[#F0D9A5]" data-testid="earnings-watch-toggle">Mira earnings watch {d.flagged ? <span className="ml-1 px-1.5 py-0.5 rounded-full bg-rose-500/30 text-rose-200 text-[10px]" data-testid="earnings-watch-flagged">{d.flagged} flagged</span> : <span className="ml-1 text-[10px] text-emerald-300">· all clear</span>}</button>
@@ -181,12 +182,13 @@ function Row({ r, busy, onSave, onAction, onRemind, onSendDocs, onEarnings }) {
   );
 }
 
-export function SettlementTracker() {
+export function SettlementTracker({ campaign = "main" }) {
+  const q = `?campaign=${campaign}`;
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState("");
   const [payBox, setPayBox] = useState(null);
   const [earnRow, setEarnRow] = useState(null);
-  const load = useCallback(() => api.get("/super-admin/rewards-campaign/settlements").then(r => setData(r.data)).catch(() => setData({ rows: [], summary: {} })), []);
+  const load = useCallback(() => api.get(`/super-admin/rewards-campaign/settlements${q}`).then(r => setData(r.data)).catch(() => setData({ rows: [], summary: {} })), [q]);
   useEffect(() => { load(); }, [load]);
   if (!data) return null;
   const { rows, summary: s } = data;
@@ -220,7 +222,7 @@ export function SettlementTracker() {
   };
   const sendAll = async () => {
     setBusy("sendall");
-    try { const { data: d } = await api.post("/super-admin/rewards-campaign/docs/send-all"); toast.success(`Pack sent to ${d.sent.length} salon(s)${d.skipped.length ? ` · skipped ${d.skipped.length} (no email / already accepted)` : ""}`); await load(); }
+    try { const { data: d } = await api.post(`/super-admin/rewards-campaign/docs/send-all${q}`); toast.success(`Pack sent to ${d.sent.length} salon(s)${d.skipped.length ? ` · skipped ${d.skipped.length} (no email / already accepted)` : ""}`); await load(); }
     catch (e) { err(e, "Couldn't send"); }
     setBusy("");
   };
@@ -236,7 +238,7 @@ export function SettlementTracker() {
   };
 
   return (
-    <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[.02] p-4" data-testid="settlement-tracker">
+    <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[.02] p-4" data-testid={campaign === "restaurant" ? "settlement-tracker-restaurant" : "settlement-tracker"}>
       <div className="flex items-center gap-2 flex-wrap">
         <Wallet className="w-4 h-4 text-[#d4af37]" />
         <div className="text-sm font-bold text-slate-100">Settlement tracker</div>
@@ -256,11 +258,11 @@ export function SettlementTracker() {
       </div>
       <div className="flex items-center gap-2 flex-wrap text-[11px]" data-testid="settlement-docs-bar">
         <FileText className="w-3.5 h-3.5 text-[#d4af37]" /><span className="text-slate-400">Campaign documents (v{data.agreement_version}):</span>
-        <button onClick={() => dlDoc("/super-admin/rewards-campaign/docs/guide.pdf", "Miracurl-Brand-Model-Campaign-Guide.pdf")} className="px-2.5 py-1 rounded-full border border-white/15 text-slate-200 hover:border-[#d4af37]/60" data-testid="settlement-dl-guide">Salon guide PDF</button>
-        <button onClick={() => dlDoc("/super-admin/rewards-campaign/docs/agreement.pdf", "Miracurl-Participation-Agreement-Template.pdf")} className="px-2.5 py-1 rounded-full border border-white/15 text-slate-200 hover:border-[#d4af37]/60" data-testid="settlement-dl-agreement">Agreement template PDF</button>
+        <button onClick={() => dlDoc(`/super-admin/rewards-campaign/docs/guide.pdf${q}`, "Miracurl-Campaign-Guide.pdf")} className="px-2.5 py-1 rounded-full border border-white/15 text-slate-200 hover:border-[#d4af37]/60" data-testid="settlement-dl-guide">Salon guide PDF</button>
+        <button onClick={() => dlDoc(`/super-admin/rewards-campaign/docs/agreement.pdf${q}`, "Miracurl-Participation-Agreement-Template.pdf")} className="px-2.5 py-1 rounded-full border border-white/15 text-slate-200 hover:border-[#d4af37]/60" data-testid="settlement-dl-agreement">Agreement template PDF</button>
         <button onClick={sendAll} disabled={!!busy} className="px-2.5 py-1 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] font-bold inline-flex items-center gap-1 disabled:opacity-50" data-testid="settlement-sendall">{busy === "sendall" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Send pack to all pending salons</button>
       </div>
-      <EarningsWatch onViewBills={setEarnRow} />
+      <EarningsWatch onViewBills={setEarnRow} campaign={campaign} />
       <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
         {rows.length === 0 && <p className="text-xs text-slate-500 italic" data-testid="settlement-empty">No participating salons yet — turn salons on above and their settlements appear here.</p>}
         {rows.map(r => <Row key={r.tenant_id} r={r} busy={busy} onSave={onSave} onAction={onAction} onRemind={onRemind} onSendDocs={onSendDocs} onEarnings={setEarnRow} />)}

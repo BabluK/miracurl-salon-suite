@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-07.221"
-BUILD_TIME = "07 Sep 2026, 9:30 PM IST"
+BUILD = "2026-09-07.222"
+BUILD_TIME = "07 Sep 2026, 10:30 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-07.222", "note": "Restaurant campaign: separate 'Taste Ambassador — Diner Rewards' campaign with own settings, casting pages, settlements, agreement pack and earnings watch"},
     {"build": "2026-09-07.221", "note": "Salary fix: commission always paid on services; overtime only when a rate is set; month-wise slip download for owners with full deductions"},
     {"build": "2026-09-07.220", "note": "Mira earnings watch (off-app billing anomaly alerts, Monday HQ email); restaurants excluded from the salon Brand Model campaign; polished Onboard modal"},
     {"build": "2026-09-07.219", "note": "HQ sees each salon's total campaign earnings (bill drill-down + CSV); agreement gate locks casting page/QR poster until accepted; agreement clause 5.3 data authorisation"},
@@ -46,6 +47,7 @@ RELEASES = [
             "🩹 HQ Edit Profile modal no longer cuts off the photo / header on shorter screens; save errors now show the exact reason",
             "🧾 Guest GST invoices: POS bills now render as a polished A4 tax invoice (salon logo, GSTIN, HSN/SAC, CGST/SGST split, amount in words) and are attached as PDF to the automatic receipt email; new one-tap 'Email invoice' button in the POS receipt",
             "✨ Every PDF (subscription invoice, receipt, T&C, guest invoice) now carries the HQ platform logo (Site Info upload or the gold monogram) with a soft watermark and 'Powered by Miracurl' footer",
+            "🍽️ Restaurant campaign: HQ → Tenants now has a second card 'Miracurl Taste Ambassador — Diner Rewards' for restaurants only, with its own dates/rewards/terms, per-restaurant casting pages (/rewards/<slug>, restaurant wording), settlement tracker, Razorpay links, agreement pack and Mira earnings watch — completely separate from the salon Brand Model campaign",
             "💵 Salary slip corrected: service commission is now always paid on the month's service gross (the target bonus is an extra on top, no longer a condition); overtime is paid ONLY when the owner has set an ₹/hr overtime rate for that staff — otherwise no overtime, late fines still apply",
             "📄 Owners can download any staff member's salary slip month-wise (Staff card → month picker → Slip); the PDF now lists gross earnings, target bonus, late fines, half-day deductions, advances and total deductions",
             "🕵️ Mira earnings watch: flags salons whose campaign-period POS billing runs ≥30% below their 3-month pre-campaign average (or goes silent) — possible off-app billing — with a Monday email to HQ and 'Email HQ now'",

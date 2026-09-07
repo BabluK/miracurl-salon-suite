@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from database import _raw_db
 from email_service import _inboxes_for_login, _is_login_only, _send_email, hq_notify_emails
-from routes.rewards_campaign import _tenant_eligible, get_campaign
+from routes.rewards_campaign import _tenant_eligible, get_campaign, get_campaign_for
 from security import require_super_admin
 
 router = APIRouter()
@@ -209,8 +209,8 @@ def _summary(rows: list) -> dict:
 
 
 @router.get("/super-admin/rewards-campaign/settlements")
-async def sa_settlements(user=Depends(require_super_admin)):
-    c = await get_campaign()
+async def sa_settlements(campaign: str = "main", user=Depends(require_super_admin)):
+    c = await get_campaign(campaign)
     rows = await _settlement_rows(c)
     from services.campaign_docs import agreement_version
     ver = agreement_version(c)
@@ -224,7 +224,7 @@ async def sa_settlements(user=Depends(require_super_admin)):
 async def sa_settlement_earnings(tenant_id: str, user=Depends(require_super_admin)):
     """Campaign-period earnings proof for HQ: totals, monthly split and bill list (no customer personal data)."""
     t = await _tenant_or_404(tenant_id)
-    c = await get_campaign()
+    c = await get_campaign_for(t)
     start, end = f"{c['start_date']}T00:00:00", f"{c['end_date']}T23:59:59.999999+00:00"
     flt = {"tenant_id": tenant_id, "created_at": {"$gte": start, "$lte": end}, "paid": {"$ne": False}, "status": {"$nin": ["open", "void", "cancelled"]}}
     bills = await _raw_db.invoices.find(flt, {"_id": 0, "id": 1, "invoice_no": 1, "created_at": 1, "total": 1, "payment_mode": 1, "items": 1, "branch_name": 1}).sort("created_at", -1).to_list(5000)
@@ -341,26 +341,27 @@ async def detect_earnings_anomalies(c: dict) -> list:
 
 
 @router.get("/super-admin/rewards-campaign/anomalies")
-async def sa_anomalies(user=Depends(require_super_admin)):
-    c = await get_campaign()
+async def sa_anomalies(campaign: str = "main", user=Depends(require_super_admin)):
+    c = await get_campaign(campaign)
     rows = await detect_earnings_anomalies(c)
-    last = await _raw_db.system_flags.find_one({"key": "rewards_anomaly_alert"}, {"_id": 0})
+    last = await _raw_db.system_flags.find_one({"key": "rewards_anomaly_alert" if c["id"] == "main" else f"rewards_anomaly_alert_{c['id']}"}, {"_id": 0})
     return {"rows": rows, "flagged": sum(1 for r in rows if r["flag"] in ("drop", "silent")),
             "threshold_pct": ANOMALY_DROP_PCT, "min_baseline": ANOMALY_MIN_BASELINE, "last_alert": (last or {}).get("value")}
 
 
-async def send_anomaly_alert(force: bool = False) -> dict:
-    """Weekly Mira email to HQ listing salons whose campaign billing dropped sharply. Dedupes per ISO week."""
-    c = await get_campaign()
+async def send_anomaly_alert(force: bool = False, campaign: str = "main") -> dict:
+    """Weekly Mira email to HQ listing salons whose campaign billing dropped sharply. Dedupes per ISO week (per campaign)."""
+    c = await get_campaign(campaign)
     if not c.get("enabled"):
         return {"skipped": "campaign off"}
     week = datetime.now(timezone.utc).strftime("%G-W%V")
-    flag = await _raw_db.system_flags.find_one({"key": "rewards_anomaly_alert"})
+    flag_key = "rewards_anomaly_alert" if c["id"] == "main" else f"rewards_anomaly_alert_{c['id']}"
+    flag = await _raw_db.system_flags.find_one({"key": flag_key})
     if not force and flag and flag.get("value") == week:
         return {"skipped": "already sent this week"}
     rows = [r for r in await detect_earnings_anomalies(c) if r["flag"] in ("drop", "silent")]
     if not rows:
-        await _raw_db.system_flags.update_one({"key": "rewards_anomaly_alert"}, {"$set": {"value": week, "flagged": 0, "ran_at": _now()}}, upsert=True)
+        await _raw_db.system_flags.update_one({"key": flag_key}, {"$set": {"value": week, "flagged": 0, "ran_at": _now()}}, upsert=True)
         return {"sent": False, "flagged": 0}
     items = ""
     for r in rows:
@@ -380,14 +381,14 @@ async def send_anomaly_alert(force: bool = False) -> dict:
     res = await _send_email(list(dict.fromkeys(hq_notify_emails("billing") + hq_notify_emails("admin"))),
                             f"⚠️ Mira earnings watch — {len(rows)} salon{'s' if len(rows) != 1 else ''} billing far below pre-campaign levels",
                             html, book_url=f"{_app_url()}/super-admin?tab=tenants", book_label="Open Settlement tracker ✦")
-    await _raw_db.system_flags.update_one({"key": "rewards_anomaly_alert"},
+    await _raw_db.system_flags.update_one({"key": flag_key},
                                          {"$set": {"value": week, "flagged": len(rows), "ran_at": _now(), "sent": bool(res.get("sent"))}}, upsert=True)
     return {"sent": bool(res.get("sent")), "flagged": len(rows), "error": res.get("error")}
 
 
 @router.post("/super-admin/rewards-campaign/anomalies/alert")
-async def sa_anomaly_alert_now(user=Depends(require_super_admin)):
-    out = await send_anomaly_alert(force=True)
+async def sa_anomaly_alert_now(campaign: str = "main", user=Depends(require_super_admin)):
+    out = await send_anomaly_alert(force=True, campaign=campaign)
     if out.get("skipped"):
         raise HTTPException(400, out["skipped"])
     return {"ok": True, **out}
@@ -409,7 +410,7 @@ async def _tenant_or_404(tenant_id: str) -> dict:
 @router.put("/super-admin/rewards-campaign/settlements/{tenant_id}")
 async def sa_settlement_put(tenant_id: str, body: SettlementIn, user=Depends(require_super_admin)):
     t = await _tenant_or_404(tenant_id)
-    c = await get_campaign()
+    c = await get_campaign_for(t)
     cur = await _raw_db.rewards_settlements.find_one({"campaign_id": c["id"], "tenant_id": tenant_id}, {"_id": 0, "status": 1})
     status = cur["status"] if cur and cur.get("status") in ("paid", "waived") else ("pending" if body.amount > 0 else "not_set")
     await _raw_db.rewards_settlements.update_one(
@@ -429,8 +430,7 @@ class MarkPaidIn(BaseModel):
 
 @router.post("/super-admin/rewards-campaign/settlements/{tenant_id}/mark-paid")
 async def sa_settlement_paid(tenant_id: str, body: MarkPaidIn, user=Depends(require_super_admin)):
-    await _tenant_or_404(tenant_id)
-    c = await get_campaign()
+    c = await get_campaign_for(await _tenant_or_404(tenant_id))
     r = await _raw_db.rewards_settlements.update_one(
         {"campaign_id": c["id"], "tenant_id": tenant_id, "amount": {"$gt": 0}},
         {"$set": {"status": "paid", "paid_at": _now(), "paid_method": body.method, "paid_ref": body.ref.strip(),
@@ -443,7 +443,7 @@ async def sa_settlement_paid(tenant_id: str, body: MarkPaidIn, user=Depends(requ
 
 @router.post("/super-admin/rewards-campaign/settlements/{tenant_id}/reopen")
 async def sa_settlement_reopen(tenant_id: str, user=Depends(require_super_admin)):
-    c = await get_campaign()
+    c = await get_campaign_for(await _tenant_or_404(tenant_id))
     r = await _raw_db.rewards_settlements.update_one(
         {"campaign_id": c["id"], "tenant_id": tenant_id},
         {"$set": {"status": "pending", "updated_at": _now()}, "$unset": {"paid_at": "", "paid_method": "", "paid_ref": ""}})
@@ -455,7 +455,7 @@ async def sa_settlement_reopen(tenant_id: str, user=Depends(require_super_admin)
 
 @router.post("/super-admin/rewards-campaign/settlements/{tenant_id}/waive")
 async def sa_settlement_waive(tenant_id: str, user=Depends(require_super_admin)):
-    c = await get_campaign()
+    c = await get_campaign_for(await _tenant_or_404(tenant_id))
     r = await _raw_db.rewards_settlements.update_one(
         {"campaign_id": c["id"], "tenant_id": tenant_id},
         {"$set": {"status": "waived", "updated_at": _now(), "updated_by": user.get("email")}})
@@ -504,7 +504,7 @@ class RemindIn(BaseModel):
 @router.post("/super-admin/rewards-campaign/settlements/{tenant_id}/remind")
 async def sa_settlement_remind(tenant_id: str, body: RemindIn, user=Depends(require_super_admin)):
     t = await _tenant_or_404(tenant_id)
-    c = await get_campaign()
+    c = await get_campaign_for(t)
     d = await _raw_db.rewards_settlements.find_one({"campaign_id": c["id"], "tenant_id": tenant_id}, {"_id": 0})
     if not d or not d.get("amount"):
         raise HTTPException(400, "Set the settlement amount first")

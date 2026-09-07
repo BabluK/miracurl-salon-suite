@@ -58,7 +58,9 @@ function TenantTile({ t, busy, onFlag }) {
   );
 }
 
-export function RewardsCampaignCard() {
+export function RewardsCampaignCard({ campaign = "main" }) {
+  const cq = `?campaign=${campaign}`;
+  const isResto = campaign === "restaurant";
   const [c, setC] = useState(null);
   const [saving, setSaving] = useState(false);
   const [people, setPeople] = useState(null);
@@ -69,9 +71,9 @@ export function RewardsCampaignCard() {
   const [busyId, setBusyId] = useState("");
   const [cardBusy, setCardBusy] = useState("");
 
-  const load = () => api.get("/super-admin/rewards-campaign").then(r => setC(r.data)).catch(() => {});
-  const loadTenants = () => api.get("/super-admin/rewards-campaign/tenants").then(r => { setTenants(r.data.tenants); setRestaurants(r.data.restaurants || []); }).catch(() => {});
-  useEffect(() => { load(); loadTenants(); }, []);
+  const load = () => api.get(`/super-admin/rewards-campaign${cq}`).then(r => setC(r.data)).catch(() => {});
+  const loadTenants = () => api.get(`/super-admin/rewards-campaign/tenants${cq}`).then(r => { setTenants(r.data.tenants); setRestaurants(r.data.restaurants || []); }).catch(() => {});
+  useEffect(() => { load(); loadTenants(); }, [campaign]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = useMemo(() => tenants.filter(t => !q || `${t.name} ${t.slug} ${t.location}`.toLowerCase().includes(q.toLowerCase())), [tenants, q]);
   if (!c) return null;
@@ -85,7 +87,7 @@ export function RewardsCampaignCard() {
     setSaving(true);
     try {
       const body = { ...c, ...patch, min_transaction: Number(c.min_transaction), budget: Number(c.budget), winner_count: Number(c.winner_count), salon_share_pct: Number(c.salon_share_pct ?? 10) };
-      const { data } = await api.put("/super-admin/rewards-campaign", body);
+      const { data } = await api.put(`/super-admin/rewards-campaign${cq}`, body);
       setC(data); loadTenants();
       toast.success(data.enabled ? `Campaign ${data.live ? "is LIVE" : "scheduled"} · ${data.eligible_tenants} salon${data.eligible_tenants === 1 ? "" : "s"} ON` : "Campaign switched OFF");
     } catch (e) { toast.error(errMsg(e, "Couldn't save")); }
@@ -101,7 +103,7 @@ export function RewardsCampaignCard() {
     } catch (e) { toast.error(errMsg(e, "Couldn't update")); }
     setBusyId("");
   };
-  const loadPeople = () => api.get("/super-admin/rewards-campaign/participants").then(r => setPeople(r.data.participants)).catch(() => {});
+  const loadPeople = () => api.get(`/super-admin/rewards-campaign/participants${cq}`).then(r => setPeople(r.data.participants)).catch(() => {});
   const setWinner = async (p, tier) => {
     try { await api.post(`/super-admin/rewards-campaign/participants/${p.id}/winner`, { tier: tier || null }); toast.success(tier ? `${p.name} → ${tier} 🏆 — share card is ready` : "Winner cleared"); loadPeople(); }
     catch (e) { toast.error(errMsg(e, "Couldn't set winner")); }
@@ -119,7 +121,7 @@ export function RewardsCampaignCard() {
   const onCount = tenants.filter(t => t.on).length;
 
   return (
-    <div className="relative rounded-3xl border border-[#d4af37]/30 bg-[#15151b] overflow-hidden" data-testid="rewards-campaign-card">
+    <div className="relative rounded-3xl border border-[#d4af37]/30 bg-[#15151b] overflow-hidden" data-testid={isResto ? "rewards-campaign-card-restaurant" : "rewards-campaign-card"}>
       <div className="pointer-events-none absolute -top-24 -right-24 w-72 h-72 rounded-full bg-[#d4af37]/10 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-32 -left-20 w-80 h-80 rounded-full bg-[#C89B52]/10 blur-3xl" />
 
@@ -223,7 +225,7 @@ export function RewardsCampaignCard() {
           </div>
         )}
 
-        <SettlementTracker />
+        <SettlementTracker campaign={campaign} />
 
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={loadPeople} data-testid="rewards-participants-btn" className="px-4 py-2 rounded-full border border-white/15 text-slate-300 text-xs font-semibold hover:border-[#d4af37]/60 inline-flex items-center gap-1.5 transition-colors"><Trophy className="w-3.5 h-3.5 text-[#d4af37]" /> Participants & winners</button>

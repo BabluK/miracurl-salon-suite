@@ -727,6 +727,7 @@ export default function SuperAdmin() {
         </div>
 
         <RewardsCampaignCard />
+              <RewardsCampaignCard campaign="restaurant" />
         <SmsCreditLog />
           </>
         )}

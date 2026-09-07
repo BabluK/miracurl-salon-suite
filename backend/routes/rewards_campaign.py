@@ -20,7 +20,7 @@ router = APIRouter()
 log = logging.getLogger("rewards")
 
 DEFAULT_CAMPAIGN = {
-    "id": "main", "name": "Miracurl Customer Rewards – 2026", "enabled": False,
+    "id": "main", "vertical": "salon", "tagline": "", "name": "Miracurl Customer Rewards – 2026", "enabled": False,
     "eligible_plans": ["annual"], "min_transaction": 1500, "budget": 8000,
     "start_date": "2026-10-01", "end_date": "2026-12-31", "winner_count": 10,
     "rewards": [{"tier": "Diamond", "emoji": "💎", "winners": 1}, {"tier": "Platinum", "emoji": "🪩", "winners": 2},
@@ -65,9 +65,62 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-async def get_campaign() -> dict:
-    c = await _raw_db.rewards_campaign.find_one({"id": "main"}, {"_id": 0})
-    return {**DEFAULT_CAMPAIGN, **(c or {})}
+DEFAULT_RESTAURANT_CAMPAIGN = {
+    **DEFAULT_CAMPAIGN,
+    "id": "restaurant", "vertical": "restaurant",
+    "name": "Miracurl Taste Ambassador — Diner Rewards",
+    "tagline": "Dine, share your plate, get cast as a Taste Ambassador.",
+    "min_transaction": 500,
+    "rewards": [{"tier": "Diamond", "emoji": "💎", "winners": 1}, {"tier": "Platinum", "emoji": "🪩", "winners": 2},
+                {"tier": "Gold", "emoji": "🥇", "winners": 7}],
+    "tenant_flags": {},
+}
+CAMPAIGN_DEFAULTS = {"main": DEFAULT_CAMPAIGN, "restaurant": DEFAULT_RESTAURANT_CAMPAIGN}
+
+
+def campaign_id_for(t: dict) -> str:
+    return "restaurant" if (t or {}).get("business_type") == "restaurant" else "main"
+
+
+async def get_campaign(cid: str = "main") -> dict:
+    cid = cid if cid in CAMPAIGN_DEFAULTS else "main"
+    c = await _raw_db.rewards_campaign.find_one({"id": cid}, {"_id": 0})
+    return {**CAMPAIGN_DEFAULTS[cid], **(c or {}), "id": cid}
+
+
+async def get_campaign_for(t: dict) -> dict:
+    """The campaign a tenant belongs to — salons → 'main' (Brand Model), restaurants → 'restaurant' (Taste Ambassador)."""
+    return await get_campaign(campaign_id_for(t))
+
+
+async def get_campaign_for_slug(slug: str) -> dict:
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "business_type": 1})
+    return await get_campaign_for(t or {})
+
+
+_RESTO_WORDS = [("Brand Models", "Taste Ambassadors"), ("Brand Model", "Taste Ambassador"), ("salon's", "restaurant's"),
+                ("Salons", "Restaurants"), ("salons", "restaurants"), ("Salon", "Restaurant"), ("salon", "restaurant"),
+                ("stylist", "chef"), ("appointment", "table")]
+
+
+def verticalise_text(v, c: dict):
+    """Restaurant campaign copy: swap salon wording in any str / list / dict (server-stored defaults are salon-worded)."""
+    if c.get("vertical") != "restaurant":
+        return v
+    if isinstance(v, str):
+        for a, b in _RESTO_WORDS:
+            v = v.replace(a, b)
+        return v
+    if isinstance(v, list):
+        return [verticalise_text(x, c) for x in v]
+    if isinstance(v, dict):
+        return {k: verticalise_text(x, c) for k, x in v.items()}
+    return v
+
+
+def _pfilter(c: dict) -> dict:
+    """Participants of this campaign (legacy salon participants have no campaign_id)."""
+    return {"campaign_id": "restaurant"} if c["id"] == "restaurant" else {"campaign_id": {"$ne": "restaurant"}}
 
 
 def _is_live(c: dict) -> bool:
@@ -81,7 +134,8 @@ def _plan_matches(plan: str, eligible: list) -> bool:
 
 def _tenant_eligible(c: dict, t: dict) -> bool:
     """Brand Model casting is a SALON campaign — restaurants are never part of it (they get their own campaign)."""
-    if t.get("business_type") == "restaurant" or t.get("status") not in ("active", "trial"):
+    is_resto = t.get("business_type") == "restaurant"
+    if is_resto != (c.get("vertical") == "restaurant") or t.get("status") not in ("active", "trial"):
         return False
     flag = (c.get("tenant_flags") or {}).get(t["id"])
     if flag is not None:
@@ -110,6 +164,7 @@ class CampaignIn(BaseModel):
     winner_count: int = Field(10, ge=1, le=100)
     rewards: list[dict] = Field(default_factory=list)
     salon_share_pct: float = Field(10, ge=0, le=100)
+    tagline: str = Field("", max_length=200)
     entry_rules: list[dict] = Field(default_factory=list)
     terms: str = Field("", max_length=3000)
     events: list[dict] = Field(default_factory=list, max_length=12)
@@ -120,10 +175,10 @@ class CampaignIn(BaseModel):
 
 
 @router.get("/super-admin/rewards-campaign")
-async def sa_get_campaign(user=Depends(require_super_admin)):
-    c = await get_campaign()
+async def sa_get_campaign(campaign: str = "main", user=Depends(require_super_admin)):
+    c = await get_campaign(campaign)
     c["live"] = _is_live(c)
-    c["participants"] = await _raw_db.rewards_participants.count_documents({})
+    c["participants"] = await _raw_db.rewards_participants.count_documents(_pfilter(c))
     c["eligible_tenants"] = await _count_eligible(c)
     c["rzp_enabled"] = bool(os.environ.get("RAZORPAY_KEY_ID") and os.environ.get("RAZORPAY_KEY_SECRET"))
     c["rzp_key"] = (os.environ.get("RAZORPAY_KEY_ID") or "")[:12]
@@ -131,15 +186,16 @@ async def sa_get_campaign(user=Depends(require_super_admin)):
 
 
 @router.get("/super-admin/rewards-campaign/tenants")
-async def sa_campaign_tenants(user=Depends(require_super_admin)):
-    c = await get_campaign()
+async def sa_campaign_tenants(campaign: str = "main", user=Depends(require_super_admin)):
+    c = await get_campaign(campaign)
     flags = c.get("tenant_flags") or {}
     ts = await _raw_db.tenants.find({"status": {"$ne": "deleted"}},
                                     {"_id": 0, "id": 1, "name": 1, "slug": 1, "plan": 1, "status": 1, "location": 1, "logo_url": 1, "business_type": 1}).to_list(1000)
     counts = {r["_id"]: r["n"] for r in await _raw_db.rewards_participants.aggregate(
         [{"$group": {"_id": "$tenant_id", "n": {"$sum": 1}}}]).to_list(1000)}
-    restaurants = [{k: t.get(k) for k in ("id", "name", "slug", "location", "logo_url", "status")} for t in ts if t.get("business_type") == "restaurant"]
-    ts = [t for t in ts if t.get("business_type") != "restaurant"]
+    want_resto = c.get("vertical") == "restaurant"
+    restaurants = [] if want_resto else [{k: t.get(k) for k in ("id", "name", "slug", "location", "logo_url", "status")} for t in ts if t.get("business_type") == "restaurant"]
+    ts = [t for t in ts if (t.get("business_type") == "restaurant") == want_resto]
     out = []
     for t in ts:
         plan_ok = _plan_matches(t.get("plan") or "", c.get("eligible_plans") or [])
@@ -158,16 +214,15 @@ async def sa_campaign_tenant_flag(tenant_id: str, body: TenantFlagIn, user=Depen
     t = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0, "id": 1, "plan": 1, "status": 1, "business_type": 1})
     if not t:
         raise HTTPException(404, "Tenant not found")
-    if t.get("business_type") == "restaurant":
-        raise HTTPException(400, "Restaurants are not part of the Brand Model salon campaign — the restaurant campaign runs separately")
+    cid = campaign_id_for(t)
     op = {"$unset": {f"tenant_flags.{tenant_id}": ""}} if body.on is None else {"$set": {f"tenant_flags.{tenant_id}": body.on}}
-    await _raw_db.rewards_campaign.update_one({"id": "main"}, {**op, "$setOnInsert": {"id": "main"}}, upsert=True)
-    c = await get_campaign()
+    await _raw_db.rewards_campaign.update_one({"id": cid}, {**op, "$setOnInsert": {"id": cid}}, upsert=True)
+    c = await get_campaign(cid)
     return {"ok": True, "on": _tenant_eligible(c, t), "manual": body.on, "on_count": await _count_eligible(c)}
 
 
 @router.put("/super-admin/rewards-campaign")
-async def sa_put_campaign(body: CampaignIn, user=Depends(require_super_admin)):
+async def sa_put_campaign(body: CampaignIn, campaign: str = "main", user=Depends(require_super_admin)):
     if body.end_date < body.start_date:
         raise HTTPException(400, "End date must be after start date")
     doc = {**body.model_dump(), "id": "main", "updated_at": _now(), "updated_by": user.get("email", "")}
@@ -175,14 +230,16 @@ async def sa_put_campaign(body: CampaignIn, user=Depends(require_super_admin)):
         doc["rewards"] = DEFAULT_CAMPAIGN["rewards"]
     if not doc["entry_rules"]:
         doc["entry_rules"] = DEFAULT_CAMPAIGN["entry_rules"]
-    await _raw_db.rewards_campaign.update_one({"id": "main"}, {"$set": doc}, upsert=True)
-    return await sa_get_campaign(user)
+    cid = campaign if campaign in CAMPAIGN_DEFAULTS else "main"
+    doc["id"], doc["vertical"] = cid, CAMPAIGN_DEFAULTS[cid]["vertical"]
+    await _raw_db.rewards_campaign.update_one({"id": cid}, {"$set": doc}, upsert=True)
+    return await sa_get_campaign(cid, user)
 
 
 @router.get("/super-admin/rewards-campaign/participants")
-async def sa_participants(user=Depends(require_super_admin)):
-    c = await get_campaign()
-    rows = await _raw_db.rewards_participants.find({}, {"_id": 0}).sort("joined_at", -1).to_list(500)
+async def sa_participants(campaign: str = "main", user=Depends(require_super_admin)):
+    c = await get_campaign(campaign)
+    rows = await _raw_db.rewards_participants.find(_pfilter(c), {"_id": 0}).sort("joined_at", -1).to_list(500)
     await _entries_batch(c, rows)
     rows.sort(key=lambda p: (-p["entries"]["total"], p["joined_at"]))
     return {"participants": rows}
@@ -194,7 +251,8 @@ class WinnerIn(BaseModel):
 
 @router.post("/super-admin/rewards-campaign/participants/{pid}/winner")
 async def sa_set_winner(pid: str, body: WinnerIn, user=Depends(require_super_admin)):
-    c = await get_campaign()
+    _pp = await _raw_db.rewards_participants.find_one({"id": pid}, {"_id": 0, "tenant_id": 1}) or {}
+    c = await get_campaign_for(await _raw_db.tenants.find_one({"id": _pp.get("tenant_id")}, {"_id": 0, "business_type": 1}) or {})
     tiers = {r["tier"] for r in c["rewards"]}
     if body.tier and body.tier not in tiers:
         raise HTTPException(400, "Unknown tier")
@@ -272,16 +330,16 @@ async def _compute_entries(c: dict, p: dict) -> dict:
 # ── Tenant (salon owner): status + printable QR poster ──
 @router.get("/settings/rewards-campaign")
 async def tenant_campaign(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    c = await get_campaign()
+    c = await get_campaign_for(t)
     parts = await _raw_db.rewards_participants.find({"tenant_id": t["id"]}, {"_id": 0}).to_list(500)
     await _entries_batch(c, parts)
     parts.sort(key=lambda p: (-p["entries"]["total"], p["joined_at"]))
-    pub = {k: c[k] for k in ("name", "min_transaction", "start_date", "end_date", "winner_count", "rewards", "eligible_plans")}
+    pub = verticalise_text({k: c[k] for k in ("name", "min_transaction", "start_date", "end_date", "winner_count", "rewards", "eligible_plans")}, c)
     nudges = await _raw_db.rewards_nudges.find({"tenant_id": t["id"], "wa_done": False}, {"_id": 0}).sort("created_at", -1).to_list(50)
     today = date.today().isoformat()
     status = ("live" if _is_live(c) else "upcoming" if c.get("enabled") and c["start_date"] > today
               else "ended" if c.get("enabled") and c["end_date"] < today else "off")
-    pub.update({k: c.get(k) or ("" if k != "updates" else []) for k in ("tenant_terms", "payment_link", "payment_note", "updates")})
+    pub.update(verticalise_text({k: c.get(k) or ("" if k != "updates" else []) for k in ("tenant_terms", "payment_link", "payment_note", "updates")}, c))
     pub["updates"] = sorted(pub["updates"], key=lambda u: u.get("date", ""), reverse=True)
     popup_key = f"{c.get('updated_at', '')}|{c['start_date']}|{bool(c.get('payment_link'))}"
     acked = await _raw_db.rewards_tenant_acks.find_one({"tenant_id": t["id"], "user_id": user["id"], "key": popup_key}, {"_id": 1})
@@ -395,7 +453,7 @@ async def _rewards_poster_jpeg(t: dict, c: dict, origin: str) -> bytes:
 @router.get("/settings/rewards-qr-poster.png")
 async def rewards_qr_poster(origin: str = "", user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     from fastapi import Response
-    c = await get_campaign()
+    c = await get_campaign_for(t)
     from routes.campaign_agreement import agreement_ok
     if not await agreement_ok(t["id"], c):
         raise HTTPException(403, "Accept the Participation Agreement first (Settings → Brand Model Campaign) to unlock the QR poster")
@@ -407,7 +465,7 @@ async def rewards_qr_poster(origin: str = "", user=Depends(require_tenant_admin)
 # ── Public ──
 @router.get("/public/rewards/{slug}")
 async def public_campaign(slug: str):
-    c = await get_campaign()
+    c = await get_campaign_for_slug(slug)
     t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "slug": 1, "plan": 1, "status": 1, "business_type": 1,
                                                        "logo_url": 1, "location": 1, "phone": 1})
     if not t:
@@ -416,19 +474,19 @@ async def public_campaign(slug: str):
     agreed = await agreement_ok(t["id"], c)
     eligible = _tenant_eligible(c, t) and _is_live(c) and agreed
     winners = await _raw_db.rewards_participants.find(
-        {"winner_tier": {"$nin": [None, ""]}, "consent": True},
+        {"winner_tier": {"$nin": [None, ""]}, "consent": True, **_pfilter(c)},
         {"_id": 0, "name": 1, "photo_url": 1, "story": 1, "winner_tier": 1, "salon_name": 1, "salon_slug": 1, "won_at": 1}).to_list(20)
     order = {r["tier"]: i for i, r in enumerate(c["rewards"])}
     winners.sort(key=lambda w: order.get(w["winner_tier"], 99))
-    pub = {k: c[k] for k in ("name", "min_transaction", "start_date", "end_date", "winner_count", "rewards", "entry_rules", "terms")}
-    pub["events"] = _campaign_events(c)
+    pub = verticalise_text({k: c.get(k) for k in ("name", "min_transaction", "start_date", "end_date", "winner_count", "rewards", "entry_rules", "terms", "tagline")}, c)
+    pub["events"] = verticalise_text(_campaign_events(c), c)
     today = date.today().isoformat()
     status = ("live" if _is_live(c) else "upcoming" if c.get("enabled") and c["start_date"] > today
               else "ended" if c.get("enabled") and c["end_date"] < today else "off")
     return {"campaign": pub, "salon": {k: t.get(k) for k in ("name", "slug", "logo_url", "location", "phone", "business_type")},
             "eligible": eligible, "live": _is_live(c), "status": status, "salon_on": _tenant_eligible(c, t),
-            "agreement_pending": _tenant_eligible(c, t) and not agreed,
-            "participants": await _raw_db.rewards_participants.count_documents({}),
+            "agreement_pending": _tenant_eligible(c, t) and not agreed, "vertical": c.get("vertical", "salon"),
+            "participants": await _raw_db.rewards_participants.count_documents(_pfilter(c)),
             "winners": winners}
 
 
@@ -466,7 +524,7 @@ def _welcome_html(name: str, salon: str, c: dict, link: str) -> str:
 @router.post("/public/rewards/{slug}/join")
 async def public_join(slug: str, body: JoinIn, request: Request):
     await public_rate_limit(request, "rewards-join", limit=6, window_sec=600)
-    c = await get_campaign()
+    c = await get_campaign_for_slug(slug)
     t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "plan": 1, "status": 1, "business_type": 1})
     if not t:
         raise HTTPException(404, "Salon not found")
@@ -485,7 +543,7 @@ async def public_join(slug: str, body: JoinIn, request: Request):
     referrer = await _raw_db.rewards_participants.find_one({"ref_code": body.ref}, {"_id": 0, "id": 1}) if body.ref else None
     p = {"id": str(uuid.uuid4()), "tenant_id": t["id"], "salon_name": t["name"], "salon_slug": slug, "name": body.name.strip(),
          "phone": phone, "email": email, "consent": bool(body.consent), "ref_code": uuid.uuid4().hex[:8],
-         "referred_by": (referrer or {}).get("id"), "joined_at": _now(), "photo_url": None, "story": "",
+         "referred_by": (referrer or {}).get("id"), "joined_at": _now(), "campaign_id": c["id"], "photo_url": None, "story": "",
          "review_at": None, "followed_at": None, "first_purchase_at": None, "winner_tier": None}
     await _raw_db.rewards_participants.insert_one({**p})
     base = os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
@@ -522,7 +580,7 @@ async def public_story(slug: str, body: StoryIn, request: Request):
 @router.get("/public/rewards/{slug}/me")
 async def public_me(slug: str, phone: str, request: Request):
     await public_rate_limit(request, "rewards-me", limit=20, window_sec=600)
-    c = await get_campaign()
+    c = await get_campaign_for_slug(slug)
     ph = "".join(ch for ch in phone if ch.isdigit())[-12:]
     p = await _raw_db.rewards_participants.find_one({"salon_slug": slug, "phone": ph}, {"_id": 0})
     if not p:
@@ -698,7 +756,7 @@ async def _card_response(p: dict, origin: str, fmt: str = "square"):
     if not p.get("winner_tier"):
         raise HTTPException(400, "This participant hasn't been announced as a winner yet")
     t = await _raw_db.tenants.find_one({"id": p["tenant_id"]}, {"_id": 0}) or {"slug": p.get("salon_slug"), "name": p.get("salon_name")}
-    c = await get_campaign()
+    c = await get_campaign_for(t)
     story = fmt == "story"
     png = await _winner_card_png(p, t, c, origin, story=story)
     fname = f"brand-model-{(p['name'] or 'winner').lower().replace(' ', '-')[:30]}{'-story' if story else ''}.png"
@@ -768,7 +826,7 @@ class VoteIn(BaseModel):
 @router.post("/public/rewards/{slug}/vote")
 async def public_vote(slug: str, body: VoteIn, request: Request):
     await public_rate_limit(request, "rewards-vote", limit=40, window_sec=600)
-    c = await get_campaign()
+    c = await get_campaign_for_slug(slug)
     if not _is_live(c):
         raise HTTPException(400, "Voting is closed")
     vp = "".join(ch for ch in body.phone if ch.isdigit())[-12:]

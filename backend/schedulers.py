@@ -829,9 +829,10 @@ async def _earnings_anomaly_scheduler() -> None:
         try:
             now_ist = datetime.now(IST_TZ)
             if now_ist.weekday() == 0 and now_ist.hour >= 9:
-                out = await send_anomaly_alert()
-                if out.get("sent"):
-                    logging.info(f"earnings anomaly alert sent: {out}")
+                for cid in ("main", "restaurant"):
+                    out = await send_anomaly_alert(campaign=cid)
+                    if out.get("sent"):
+                        logging.info(f"earnings anomaly alert sent ({cid}): {out}")
         except Exception as e:
             logging.error(f"earnings anomaly scheduler error: {e}")
         await asyncio.sleep(3600)

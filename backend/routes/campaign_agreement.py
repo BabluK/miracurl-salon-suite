@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from database import _raw_db
-from routes.rewards_campaign import _tenant_eligible, get_campaign
+from routes.rewards_campaign import _tenant_eligible, get_campaign, get_campaign_for
 from security import current_tenant, require_super_admin, require_tenant_admin
 from services.campaign_docs import (
     agreement_version, build_agreement_pdf, build_guide_pdf, email_doc_pack, get_acceptance,
@@ -60,13 +60,13 @@ async def _real_to(t: dict) -> list[str]:
 # ---------------- tenant ----------------
 @router.get("/settings/rewards-campaign/agreement")
 async def my_agreement(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    c = await get_campaign()
+    c = await get_campaign_for(t)
     return {**(await agreement_state(t, c)), "eligible": _tenant_eligible(c, t), "enabled": bool(c.get("enabled"))}
 
 
 @router.get("/settings/rewards-campaign/docs/{kind}.pdf")
 async def my_doc(kind: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    c = await get_campaign()
+    c = await get_campaign_for(t)
     logo = await platform_logo_bytes()
     if kind == "guide":
         return _pdf(await asyncio.to_thread(build_guide_pdf, c, logo), "Miracurl-Brand-Model-Campaign-Guide.pdf")
@@ -90,7 +90,7 @@ class AcceptIn(BaseModel):
 async def accept_agreement(body: AcceptIn, request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     if not body.agree:
         raise HTTPException(400, "Tick 'I agree' to accept the agreement")
-    c = await get_campaign()
+    c = await get_campaign_for(t)
     if not c.get("enabled"):
         raise HTTPException(400, "The campaign is not open for participation yet")
     ver = agreement_version(c)
@@ -118,13 +118,14 @@ async def accept_agreement(body: AcceptIn, request: Request, user=Depends(requir
 
 # ---------------- HQ ----------------
 @router.get("/super-admin/rewards-campaign/docs/{kind}.pdf")
-async def hq_doc(kind: str, user=Depends(require_super_admin)):
-    c = await get_campaign()
+async def hq_doc(kind: str, campaign: str = "main", user=Depends(require_super_admin)):
+    c = await get_campaign(campaign)
     logo = await platform_logo_bytes()
     if kind == "guide":
         return _pdf(await asyncio.to_thread(build_guide_pdf, c, logo), "Miracurl-Brand-Model-Campaign-Guide.pdf")
     if kind == "agreement":
-        blank = {"name": "[Salon name]", "slug": "salon", "location": "[Salon address]"}
+        noun = "Restaurant" if c.get("vertical") == "restaurant" else "Salon"
+        blank = {"name": f"[{noun} name]", "slug": noun.lower(), "location": f"[{noun} address]", "business_type": c.get("vertical", "salon")}
         return _pdf(await asyncio.to_thread(build_agreement_pdf, c, blank, await get_biller(), None, logo), "Miracurl-Participation-Agreement-Template.pdf")
     raise HTTPException(404, "Unknown document")
 
@@ -132,15 +133,15 @@ async def hq_doc(kind: str, user=Depends(require_super_admin)):
 @router.get("/super-admin/rewards-campaign/docs/agreement/{tenant_id}.pdf")
 async def hq_tenant_agreement(tenant_id: str, user=Depends(require_super_admin)):
     t = await _find_tenant(tenant_id)
-    c = await get_campaign()
+    c = await get_campaign_for(t)
     acc = await get_acceptance(t["id"], c["id"])
     pdf = await asyncio.to_thread(build_agreement_pdf, c, t, await get_biller(), acc, await platform_logo_bytes())
     return _pdf(pdf, f"Miracurl-Participation-Agreement-{t.get('slug')}{'-SIGNED' if acc else ''}.pdf")
 
 
 @router.get("/super-admin/rewards-campaign/agreements")
-async def hq_agreements(user=Depends(require_super_admin)):
-    c = await get_campaign()
+async def hq_agreements(campaign: str = "main", user=Depends(require_super_admin)):
+    c = await get_campaign(campaign)
     rows = await _raw_db.rewards_agreements.find({"campaign_id": c["id"]}, {"_id": 0, "user_agent": 0}).sort("accepted_at", -1).to_list(1000)
     return {"version": agreement_version(c), "agreements": rows}
 
@@ -148,7 +149,7 @@ async def hq_agreements(user=Depends(require_super_admin)):
 @router.post("/super-admin/rewards-campaign/docs/send/{tenant_id}")
 async def hq_send_pack(tenant_id: str, user=Depends(require_super_admin)):
     t = await _find_tenant(tenant_id)
-    c = await get_campaign()
+    c = await get_campaign_for(t)
     to = await _real_to(t)
     acc = await get_acceptance(t["id"], c["id"])
     res = await email_doc_pack(c, t, acc if acc and acc.get("version") == agreement_version(c) else None, to)
@@ -163,9 +164,9 @@ async def hq_send_pack(tenant_id: str, user=Depends(require_super_admin)):
 
 
 @router.post("/super-admin/rewards-campaign/docs/send-all")
-async def hq_send_pack_all(user=Depends(require_super_admin)):
+async def hq_send_pack_all(campaign: str = "main", user=Depends(require_super_admin)):
     """Email the pack to every participating salon that has not accepted the current version."""
-    c = await get_campaign()
+    c = await get_campaign(campaign)
     ver = agreement_version(c)
     ts = await _raw_db.tenants.find({"status": {"$ne": "deleted"}}, {"_id": 0}).to_list(1000)
     sent, skipped = [], []

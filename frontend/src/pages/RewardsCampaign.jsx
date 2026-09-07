@@ -5,6 +5,11 @@ import { toast } from "sonner";
 import { Sparkles, Trophy, Camera, Loader2, CheckCircle2, Download, Share2, Crown, Star, CalendarDays, MapPin, Phone, Quote, ArrowRight, Scissors, UtensilsCrossed, Heart, Vote, Instagram } from "lucide-react";
 import { downloadBlob, shareWinnerCard, whatsappShareText } from "@/lib/winnerCard";
 
+const RESTO_WORDS = [["Brand Models", "Taste Ambassadors"], ["Brand Model", "Taste Ambassador"], ["salon's", "restaurant's"], ["Salon", "Restaurant"], ["salon", "restaurant"], ["appointment", "table"], ["stylist", "chef"]];
+let __resto = false;
+const setVertical = (v) => { __resto = v === "restaurant"; };
+const W = (s) => (__resto && typeof s === "string" ? RESTO_WORDS.reduce((acc, [a, b]) => acc.split(a).join(b), s) : s);
+
 const API = process.env.REACT_APP_BACKEND_URL;
 const PUBLIC = axios.create({ baseURL: `${API}/api/public` });
 const fmtDate = (d) => new Date(`${d}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
@@ -35,9 +40,9 @@ function JoinForm({ slug, refCode, onJoined }) {
   return (
     <form onSubmit={submit} className="space-y-3" data-testid="rewards-join-form">
       <input required value={f.name} onChange={set("name")} placeholder="Your name" className={cls} data-testid="rewards-name" />
-      <input required value={f.phone} onChange={set("phone")} placeholder="Mobile number (same as used at the salon)" className={cls} data-testid="rewards-phone" />
+      <input required value={f.phone} onChange={set("phone")} placeholder={W("Mobile number (same as used at the salon)")} className={cls} data-testid="rewards-phone" />
       <input required type="email" value={f.email} onChange={set("email")} placeholder="Email for your casting details" className={cls} data-testid="rewards-email" />
-      <label className="flex items-start gap-2 text-[12px] text-white/60"><input type="checkbox" checked={f.consent} onChange={set("consent")} className="mt-0.5 accent-[#d4af37]" data-testid="rewards-consent" />With my permission, my photo and salon story may be featured on the salon's page and the Miracurl website.</label>
+      <label className="flex items-start gap-2 text-[12px] text-white/60"><input type="checkbox" checked={f.consent} onChange={set("consent")} className="mt-0.5 accent-[#d4af37]" data-testid="rewards-consent" />{W("With my permission, my photo and salon story may be featured on the salon's page and the Miracurl website.")}</label>
       <button disabled={busy} data-testid="rewards-join-btn" className="w-full py-3.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] font-bold text-sm hover:brightness-110 disabled:opacity-60 inline-flex items-center justify-center gap-2 shadow-[0_10px_30px_-10px_rgba(212,175,55,0.8)]">
         {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Apply to be our Brand Model
       </button>
@@ -61,7 +66,7 @@ function WinnerBadge({ slug, phone, me, salon }) {
     <div className="relative overflow-hidden rounded-3xl border border-[#d4af37] bg-gradient-to-br from-[#d4af37]/25 via-[#15151b] to-[#7a2d4e]/30 p-5" data-testid="rewards-winner-badge">
       <Crown className="absolute -right-4 -top-4 w-28 h-28 text-[#d4af37]/15" />
       <div className="text-[10px] tracking-[0.35em] uppercase text-[#F0D9A5]">✦ Congratulations</div>
-      <div className="font-playfair text-2xl text-white mt-1">You're our Brand Model!</div>
+      <div className="font-playfair text-2xl text-white mt-1">{W("You're our Brand Model!")}</div>
       <p className="text-[12.5px] text-white/70 mt-1">You've won a <b className="text-[#F0D9A5]">{me.winner_tier} Membership</b>. Share your moment — every share inspires the next model.</p>
       <div className="flex gap-2 mt-4 flex-wrap">
         <button onClick={() => get("dl")} disabled={!!busy} data-testid="rewards-winner-card-dl" className="px-4 py-2 rounded-full border border-[#d4af37]/60 text-[#F0D9A5] text-xs font-semibold inline-flex items-center gap-1.5 hover:bg-[#d4af37]/10 disabled:opacity-50">{busy === "dlsquare" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} Download post (1:1)</button>
@@ -110,7 +115,7 @@ function MyEntries({ slug, phone, salon }) {
         <div className="rounded-2xl border border-[#d4af37]/40 bg-[#d4af37]/10 p-3 flex items-center gap-3" data-testid="rewards-my-votes">
           <Heart className="w-6 h-6 text-[#F0D9A5] fill-current shrink-0" />
           <div className="min-w-0 flex-1"><div className="text-sm font-semibold text-white">{e.vote_count || 0} public vote{e.vote_count === 1 ? "" : "s"} · {e.votes || 0} bonus entr{e.votes === 1 ? "y" : "ies"}{(me.vote_milestones || []).length > 0 && <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full bg-[#F0D9A5] text-[#15151b] font-bold" data-testid="rewards-milestone-badge">🎉 {Math.max(...me.vote_milestones)}+ votes</span>}</div><div className="text-[11px] text-white/60">{me.photo_url ? "Every 10 votes = +1 entry. Ask friends to vote for your look!" : "Add your photo below to appear in the public vote."}</div></div>
-          {me.photo_url && <button onClick={() => { const url = `${window.location.origin}/rewards/${slug}?vote=${me.id}`; const text = `❤ Vote for me to become the Brand Model of ${salon}! ${url}`; if (navigator.share) navigator.share({ text, url }).catch(() => {}); else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener"); }} className="shrink-0 h-8 px-3 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-xs font-bold inline-flex items-center gap-1" data-testid="rewards-get-votes-btn"><Share2 className="w-3.5 h-3.5" /> Get votes</button>}
+          {me.photo_url && <button onClick={() => { const url = `${window.location.origin}/rewards/${slug}?vote=${me.id}`; const text = W(`❤ Vote for me to become the Brand Model of ${salon}! ${url}`); if (navigator.share) navigator.share({ text, url }).catch(() => {}); else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener"); }} className="shrink-0 h-8 px-3 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-xs font-bold inline-flex items-center gap-1" data-testid="rewards-get-votes-btn"><Share2 className="w-3.5 h-3.5" /> Get votes</button>}
         </div>
         <div className="text-[12px] text-white/60">Your referral link: <code className="text-[#d4af37] break-all" data-testid="rewards-ref-link">{window.location.origin}/rewards/{slug}?ref={me.ref_code}</code></div>
         <div className="grid sm:grid-cols-[120px_1fr] gap-3 items-start">
@@ -119,7 +124,7 @@ function MyEntries({ slug, phone, salon }) {
             <input type="file" accept="image/*" className="hidden" onChange={upload} data-testid="rewards-photo-input" />
           </label>
           <div className="space-y-2">
-            <textarea value={story} onChange={e2 => setStory(e2.target.value)} maxLength={600} rows={3} placeholder="Your style. Your story. Tell us about your salon experience…" className="w-full rounded-xl bg-white/5 border border-white/15 px-3 py-2 text-sm text-white placeholder:text-white/40" data-testid="rewards-story" />
+            <textarea value={story} onChange={e2 => setStory(e2.target.value)} maxLength={600} rows={3} placeholder={W("Your style. Your story. Tell us about your salon experience…")} className="w-full rounded-xl bg-white/5 border border-white/15 px-3 py-2 text-sm text-white placeholder:text-white/40" data-testid="rewards-story" />
             <button onClick={saveStory} disabled={busy} className="px-4 py-2 rounded-full bg-white/10 border border-white/15 text-white text-xs font-semibold hover:bg-white/15 disabled:opacity-50" data-testid="rewards-story-save">{busy ? "Saving…" : "Save my story"}</button>
           </div>
         </div>
@@ -151,7 +156,7 @@ function VoteGallery({ slug, phone, live, salon, highlight }) {
   const onVote = (a) => (voter ? vote(a, voter) : setAsk(a.id));
   const share = (a) => {
     const url = `${window.location.origin}/rewards/${slug}?vote=${a.id}`;
-    const text = `❤ Vote for ${a.name} to become the Brand Model of ${salon}! Tap, enter your number and vote: ${url}`;
+    const text = W(`❤ Vote for ${a.name} to become the Brand Model of ${salon}! Tap, enter your number and vote: ${url}`);
     if (navigator.share) navigator.share({ text, url }).catch(() => {});
     else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener");
   };
@@ -217,7 +222,7 @@ function SiteHeader({ salon, slug, platformLogo, site }) {
           <Link to={`/book/${slug}`} className="flex items-center gap-3 min-w-0 group" data-testid="rewards-header-salon">
             {logo ? <img src={logo} alt={salon.name} className="h-16 sm:h-20 w-auto max-w-[240px] object-contain shrink-0 drop-shadow-[0_0_14px_rgba(212,175,55,.45)]" data-testid="rewards-header-logo" />
               : <span className="h-14 w-14 rounded-xl bg-[#15151b] text-[#F0D9A5] font-playfair text-2xl flex items-center justify-center shrink-0">{salon.name[0]}</span>}
-            <span className="min-w-0"><span className="block font-playfair text-lg sm:text-xl text-white truncate leading-tight">{salon.name}</span><span className="block text-[9px] tracking-[0.35em] uppercase text-[#d4af37] truncate">Brand Model Casting{salon.location ? ` · ${salon.location}` : ""}</span></span>
+            <span className="min-w-0"><span className="block font-playfair text-lg sm:text-xl text-white truncate leading-tight">{salon.name}</span><span className="block text-[9px] tracking-[0.35em] uppercase text-[#d4af37] truncate">{W("Brand Model Casting")}{salon.location ? ` · ${salon.location}` : ""}</span></span>
           </Link>
           <nav className="hidden md:flex items-center gap-1 ml-6">{nav.map(([h, l]) => <a key={h} href={h} className="px-3 py-1.5 rounded-full text-[12px] tracking-wide text-white/65 hover:text-[#F0D9A5] hover:bg-white/5 transition-colors">{l}</a>)}</nav>
           <div className="ml-auto flex items-center gap-3">
@@ -295,22 +300,22 @@ function SiteFooter({ salon, slug, platformLogo, site }) {
             <h3 className="font-playfair text-4xl sm:text-5xl text-white mt-6 leading-[1.05]">Own a salon or restaurant?<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F0D9A5] via-[#d4af37] to-[#C89B52]">Get onboard & grow your business.</span></h3>
             <p className="text-sm sm:text-base text-white/70 mt-4 max-w-xl">Bookings, POS, memberships, Mira AI marketing and campaigns like this one — everything {salon.name} uses to grow, ready for you in minutes.</p>
             <div className="mt-7 flex gap-3 flex-wrap">
-              <a href="/signup-salon" className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] font-bold text-sm shadow-[0_14px_40px_-12px_rgba(212,175,55,.9)] hover:brightness-110 transition" data-testid="rewards-footer-signup-salon"><Scissors className="w-4 h-4" /> Join Miracurl — Salons <ArrowRight className="w-4 h-4" /></a>
+              <a href="/signup-salon" className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] font-bold text-sm shadow-[0_14px_40px_-12px_rgba(212,175,55,.9)] hover:brightness-110 transition" data-testid="rewards-footer-signup-salon"><Scissors className="w-4 h-4" />{W(" Join Miracurl — Salons ")}<ArrowRight className="w-4 h-4" /></a>
               <a href="/signup-restaurant" className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full border border-[#d4af37]/60 bg-black/30 backdrop-blur text-[#F0D9A5] font-semibold text-sm hover:bg-[#d4af37]/10 transition" data-testid="rewards-footer-signup-restaurant"><UtensilsCrossed className="w-4 h-4" /> Restaurants</a>
             </div>
           </div>
           <div className="rounded-[1.75rem] border border-[#d4af37]/30 bg-[#0b0b10]/70 backdrop-blur-xl p-7 shadow-[0_30px_80px_-30px_rgba(0,0,0,.9)]">
-            <div className="text-[10px] tracking-[0.35em] uppercase text-[#d4af37]">The salon</div>
+            <div className="text-[10px] tracking-[0.35em] uppercase text-[#d4af37]">{W("The salon")}</div>
             <div className="font-playfair text-3xl text-white mt-1">{salon.name}</div>
             <div className="mt-4 space-y-2.5 text-sm text-white/70">
               {salon.location && <div className="flex items-center gap-2.5"><span className="w-8 h-8 rounded-full bg-[#d4af37]/15 flex items-center justify-center"><MapPin className="w-4 h-4 text-[#F0D9A5]" /></span> {salon.location}</div>}
               {salon.phone && <a href={`tel:${salon.phone}`} className="flex items-center gap-2.5 hover:text-white"><span className="w-8 h-8 rounded-full bg-[#d4af37]/15 flex items-center justify-center"><Phone className="w-4 h-4 text-[#F0D9A5]" /></span> {salon.phone}</a>}
             </div>
-            <Link to={`/book/${slug}`} className="mt-6 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-white/10 border border-white/15 text-white text-sm font-semibold hover:bg-white/15 transition" data-testid="rewards-footer-book">Book an appointment <ArrowRight className="w-4 h-4" /></Link>
+            <Link to={`/book/${slug}`} className="mt-6 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-white/10 border border-white/15 text-white text-sm font-semibold hover:bg-white/15 transition" data-testid="rewards-footer-book">{W("Book an appointment ")}<ArrowRight className="w-4 h-4" /></Link>
           </div>
         </div>
         <div className="mt-14 pt-5 border-t border-white/10 flex items-center justify-between gap-3 flex-wrap text-[11px] text-white/45">
-          <span>© {new Date().getFullYear()} {salon.name} · Brand Model Casting</span>
+          <span>© {new Date().getFullYear()} {salon.name} · {W("Brand Model Casting")}</span>
           <span>Campaign hosted on <a href="https://miracurl-suite.com" className="text-[#d4af37] hover:text-[#F0D9A5]">Miracurl</a>{site?.instagram && <> · <a href={site.instagram} target="_blank" rel="noreferrer" className="text-pink-300 hover:text-pink-200">@{site.instagram_handle}</a></>} · Salon & Restaurant Management Suite</span>
         </div>
       </div>
@@ -333,6 +338,7 @@ export default function RewardsCampaign() {
   if (err) return <div className="min-h-screen bg-[#0f0f14] text-white flex items-center justify-center">{err}</div>;
   if (!d) return <div className="min-h-screen bg-[#0f0f14]" />;
   const c = d.campaign;
+  setVertical(d.vertical);
   const min = `₹${Number(c.min_transaction).toLocaleString("en-IN")}`;
   const openSlots = Math.max(0, Math.min(c.winner_count, 12) - d.winners.length);
   return (
@@ -350,12 +356,12 @@ export default function RewardsCampaign() {
         <div className="relative max-w-6xl mx-auto px-5 pt-12 pb-14 grid lg:grid-cols-[1.15fr_.85fr] gap-10 items-center">
           <div>
             <div className="inline-flex items-center gap-2 text-[10px] tracking-[0.35em] uppercase text-[#d4af37] border border-[#d4af37]/50 rounded-full px-3 py-1"><Star className="w-3 h-3" /> Casting open · {c.name}</div>
-            <h1 className="font-playfair text-4xl sm:text-5xl lg:text-6xl mt-5 leading-[1.02]" data-testid="rewards-hero-title">Become the<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F0D9A5] via-[#d4af37] to-[#C89B52]">Brand Model</span><br />of {d.salon.name.split(" ").slice(0, 2).join(" ")}</h1>
+            <h1 className="font-playfair text-4xl sm:text-5xl lg:text-6xl mt-5 leading-[1.02]" data-testid="rewards-hero-title">Become the<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F0D9A5] via-[#d4af37] to-[#C89B52]">{W("Brand Model")}</span><br />of {d.salon.name.split(" ").slice(0, 2).join(" ")}</h1>
             <p className="text-base md:text-lg text-white/70 mt-5 max-w-xl">Spend {min}+ on your next visit, share your look and your story — and you could be the face of <b className="text-white">{d.salon.name}</b>, with a Diamond, Platinum or Gold membership to match.</p>
             <div className="mt-5 flex items-center gap-4 flex-wrap text-xs text-white/55" data-testid="rewards-period">
-              <span>{fmtDate(c.start_date)} → {fmtDate(c.end_date)}</span><span className="w-1 h-1 rounded-full bg-[#d4af37]" /><span>{d.participants} applicant{d.participants === 1 ? "" : "s"} so far</span><span className="w-1 h-1 rounded-full bg-[#d4af37]" /><span>{d.winners.length} of {c.winner_count} Brand Models chosen</span>
+              <span>{fmtDate(c.start_date)} → {fmtDate(c.end_date)}</span><span className="w-1 h-1 rounded-full bg-[#d4af37]" /><span>{d.participants} applicant{d.participants === 1 ? "" : "s"} so far</span><span className="w-1 h-1 rounded-full bg-[#d4af37]" /><span>{d.winners.length} of {c.winner_count}{W(" Brand Models chosen")}</span>
             </div>
-            {!d.eligible && <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-amber-500/15 border border-amber-400/40 px-4 py-2 text-xs text-amber-200" data-testid="rewards-not-live"><CalendarDays className="w-3.5 h-3.5" />{!d.salon_on ? "This salon isn't part of the casting yet." : d.agreement_pending ? "This salon is completing its campaign onboarding — applications open here soon." : d.status === "upcoming" ? `Casting opens ${fmtDate(c.start_date)} — applications go live that day.` : d.status === "ended" ? `Casting closed on ${fmtDate(c.end_date)}. Watch this page for the Brand Model reveal.` : "Casting isn't open right now — check back soon."}</div>}
+            {!d.eligible && <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-amber-500/15 border border-amber-400/40 px-4 py-2 text-xs text-amber-200" data-testid="rewards-not-live"><CalendarDays className="w-3.5 h-3.5" />{!d.salon_on ? W("This salon isn't part of the casting yet.") : d.agreement_pending ? W("This salon is completing its campaign onboarding — applications open here soon.") : d.status === "upcoming" ? `Casting opens ${fmtDate(c.start_date)} — applications go live that day.` : d.status === "ended" ? `Casting closed on ${fmtDate(c.end_date)}. Watch this page for the Brand Model reveal.` : "Casting isn't open right now — check back soon."}</div>}
             <div className="mt-7 flex gap-3 flex-wrap">
               <a href="#apply" className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] font-bold text-sm shadow-[0_10px_30px_-10px_rgba(212,175,55,.8)]" data-testid="rewards-hero-apply">Apply now <Sparkles className="w-4 h-4" /></a>
               <a href="#models" className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-white/20 text-white text-sm hover:border-[#d4af37]/60" data-testid="rewards-hero-models">Meet the models</a>
@@ -366,7 +372,7 @@ export default function RewardsCampaign() {
             <div className="relative aspect-[4/5] max-h-[520px] mx-auto rounded-[2rem] overflow-hidden ring-1 ring-[#d4af37]/50 shadow-[0_30px_80px_-20px_rgba(212,175,55,.45)]">
               <img src={d.winners[0]?.photo_url ? `${API}${d.winners[0].photo_url}` : "/brand-model-hero.jpg"} alt="Brand model" className="w-full h-full object-cover" />
               <div className="absolute inset-x-0 bottom-0 p-5 bg-gradient-to-t from-black/85 to-transparent">
-                <div className="text-[10px] tracking-[0.3em] uppercase text-[#F0D9A5]">{d.winners[0]?.photo_url ? `${d.winners[0].name} · ${d.winners[0].winner_tier} Brand Model` : "Next face could be yours"}</div>
+                <div className="text-[10px] tracking-[0.3em] uppercase text-[#F0D9A5]">{d.winners[0]?.photo_url ? W(`${d.winners[0].name} · ${d.winners[0].winner_tier} Brand Model`) : "Next face could be yours"}</div>
                 <div className="font-playfair text-xl">Your style. Your story. Your moment.</div>
               </div>
               <div className="absolute top-4 right-4 rounded-full bg-black/50 backdrop-blur px-3 py-1.5 text-[11px] border border-[#d4af37]/50 inline-flex items-center gap-1.5"><Trophy className="w-3.5 h-3.5 text-[#d4af37]" /> Win a Diamond Membership</div>
@@ -381,7 +387,7 @@ export default function RewardsCampaign() {
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <div className="text-[10px] tracking-[0.35em] uppercase text-[#d4af37]">The faces of {d.salon.name.split(" ")[0]}</div>
-            <h2 className="font-playfair text-3xl sm:text-4xl text-white mt-2">Meet our Brand Models</h2>
+            <h2 className="font-playfair text-3xl sm:text-4xl text-white mt-2">{W("Meet our Brand Models")}</h2>
             <p className="text-sm text-white/55 mt-1">Your style. Your story. Your moment. {c.winner_count} models, chosen from every applicant this season.</p>
           </div>
           <div className="text-xs text-white/50">{d.winners.length} chosen · {openSlots} spot{openSlots === 1 ? "" : "s"} open</div>
@@ -397,16 +403,16 @@ export default function RewardsCampaign() {
       <div className="max-w-6xl mx-auto px-5 pb-10 grid lg:grid-cols-[1.2fr_1fr] gap-8">
         <div className="space-y-12">
           <section>
-            <h2 className="text-base md:text-lg font-semibold text-[#d4af37] tracking-wide">What our Brand Models win</h2>
+            <h2 className="text-base md:text-lg font-semibold text-[#d4af37] tracking-wide">{W("What our Brand Models win")}</h2>
             <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
               {c.rewards.map((r, i) => <div key={r.tier} className={`rounded-2xl border p-4 text-center ${i === 0 ? "border-[#d4af37]/60 bg-gradient-to-b from-[#d4af37]/15 to-transparent" : "bg-[#15151b]/70 backdrop-blur border-white/10"}`}><div className="text-2xl">{r.emoji}</div><div className="text-sm font-semibold mt-1">{r.tier}</div><div className="text-[11px] text-white/50">Membership · {r.winners} model{r.winners === 1 ? "" : "s"}</div></div>)}
-              <div className="rounded-2xl bg-white/5 border border-white/10 p-4 text-center"><div className="text-2xl">📸</div><div className="text-sm font-semibold mt-1">Featured</div><div className="text-[11px] text-white/50">on the salon page & Miracurl</div></div>
+              <div className="rounded-2xl bg-white/5 border border-white/10 p-4 text-center"><div className="text-2xl">📸</div><div className="text-sm font-semibold mt-1">Featured</div><div className="text-[11px] text-white/50">{W("on the salon page & Miracurl")}</div></div>
             </div>
           </section>
           <section id="journey">
             <h2 className="text-base md:text-lg font-semibold text-[#d4af37] tracking-wide">The casting journey</h2>
             <ol className="mt-4 grid sm:grid-cols-2 gap-3">
-              {STEPS.map(([n, t, s]) => <li key={t} className="flex gap-3 rounded-2xl bg-[#15151b]/70 backdrop-blur border border-white/10 hover:border-[#d4af37]/40 transition-colors p-4"><span className="font-playfair text-2xl text-[#d4af37]/80 leading-none">{n}</span><div><div className="text-sm font-semibold">{t}</div><div className="text-[12.5px] text-white/60 mt-0.5">{t === "Spend the minimum" ? `Complete an eligible transaction of ${min} or more.` : s}</div></div></li>)}
+              {STEPS.map(([n, t, s]) => <li key={t} className="flex gap-3 rounded-2xl bg-[#15151b]/70 backdrop-blur border border-white/10 hover:border-[#d4af37]/40 transition-colors p-4"><span className="font-playfair text-2xl text-[#d4af37]/80 leading-none">{n}</span><div><div className="text-sm font-semibold">{t}</div><div className="text-[12.5px] text-white/60 mt-0.5">{t === "Spend the minimum" ? `Complete an eligible transaction of ${min} or more.` : W(s)}</div></div></li>)}
             </ol>
           </section>
           <section>
@@ -422,14 +428,14 @@ export default function RewardsCampaign() {
           {phone ? <MyEntries slug={slug} phone={phone} salon={d.salon.name} /> : (
             <div className="rounded-3xl border border-[#d4af37]/40 bg-[#15151b]/80 backdrop-blur-xl p-6 shadow-[0_30px_80px_-30px_rgba(212,175,55,.35)]">
               <div className="text-[10px] tracking-[0.3em] uppercase text-[#d4af37]">Casting call</div>
-              <h3 className="font-playfair text-2xl mt-2">Apply to be our Brand Model</h3>
+              <h3 className="font-playfair text-2xl mt-2">{W("Apply to be our Brand Model")}</h3>
               <p className="text-[12.5px] text-white/60 mt-1 mb-4">Takes 20 seconds. We'll email you the casting details.</p>
               {d.eligible ? <JoinForm slug={slug} refCode={sp.get("ref")} onJoined={joined} /> : (
                 <div className="rounded-2xl border border-dashed border-[#d4af37]/40 bg-black/30 p-4 text-center" data-testid="rewards-apply-closed">
                   <CalendarDays className="w-6 h-6 mx-auto text-[#d4af37]" />
-                  <div className="font-playfair text-lg text-white mt-2">{!d.salon_on ? "Not open at this salon yet" : d.agreement_pending ? "Onboarding in progress" : d.status === "upcoming" ? `Opens ${fmtDate(c.start_date)}` : d.status === "ended" ? "Casting closed" : "Casting paused"}</div>
-                  <p className="text-[12px] text-white/60 mt-1">{d.status === "upcoming" ? "Come back on opening day — or book your appointment now so your first eligible visit lands inside the casting window." : d.status === "ended" ? `Applications closed ${fmtDate(c.end_date)}. Brand Models are announced on this page.` : "Follow the salon to hear when applications open."}</p>
-                  <Link to={`/book/${slug}`} className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-xs font-bold" data-testid="rewards-apply-closed-book">Book an appointment <ArrowRight className="w-3.5 h-3.5" /></Link>
+                  <div className="font-playfair text-lg text-white mt-2">{!d.salon_on ? W("Not open at this salon yet") : d.agreement_pending ? "Onboarding in progress" : d.status === "upcoming" ? `Opens ${fmtDate(c.start_date)}` : d.status === "ended" ? "Casting closed" : "Casting paused"}</div>
+                  <p className="text-[12px] text-white/60 mt-1">{d.status === "upcoming" ? W("Come back on opening day — or book your appointment now so your first eligible visit lands inside the casting window.") : d.status === "ended" ? `Applications closed ${fmtDate(c.end_date)}. Brand Models are announced on this page.` : W("Follow the salon to hear when applications open.")}</p>
+                  <Link to={`/book/${slug}`} className="mt-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-xs font-bold" data-testid="rewards-apply-closed-book">{W("Book an appointment ")}<ArrowRight className="w-3.5 h-3.5" /></Link>
                 </div>
               )}
             </div>

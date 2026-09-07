@@ -164,9 +164,10 @@ def _acceptance_page(c, W, H, mm, acc: dict | None, tenant: dict, biller: dict, 
     y = H - 44 * mm
     c.setFillColorRGB(*INK)
     c.setFont("Helvetica", 10)
-    intro = ("The Salon named below has read and accepted the Brand Model Campaign — Salon Participation Agreement (version "
+    noun = "Restaurant" if camp.get("vertical") == "restaurant" else "Salon"
+    intro = (f"The {noun} named below has read and accepted the {camp['name']} — {noun} Participation Agreement (version "
              f"{agreement_version(camp)}) electronically via the Miracurl dashboard." if acc else
-             "This copy is UNSIGNED. The Salon accepts the Agreement in Miracurl → Settings → Brand Model Campaign; the signed copy "
+             f"This copy is UNSIGNED. The {noun} accepts the Agreement in Miracurl → Settings → Campaign; the signed copy "
              "records the signatory, date-time, IP address and device.")
     for ln in textwrap.wrap(intro, 100):
         c.drawString(20 * mm, y, ln)
@@ -179,7 +180,7 @@ def _acceptance_page(c, W, H, mm, acc: dict | None, tenant: dict, biller: dict, 
         except Exception:
             when = acc.get("accepted_at", "")
     rows = [
-        ("Salon", tenant.get("name") or tenant.get("slug") or ""),
+        (noun, tenant.get("name") or tenant.get("slug") or ""),
         ("Location", tenant.get("location") or "—"),
         ("GSTIN", (tenant.get("gst_number") or "—").upper()),
         ("Accepted by", f"{acc['full_name']} — {acc.get('designation') or 'Owner'}" if acc else "________________________________"),
@@ -205,7 +206,7 @@ def _acceptance_page(c, W, H, mm, acc: dict | None, tenant: dict, biller: dict, 
     c.setFillColorRGB(*INK)
     c.setFont("Helvetica-Bold", 9.5)
     c.drawString(20 * mm, y, f"For {biller.get('legal_name') or 'Miracurl AI Salon Suite'}")
-    c.drawString(W / 2 + 10 * mm, y, f"For {tenant.get('name') or 'the Salon'}")
+    c.drawString(W / 2 + 10 * mm, y, f"For {tenant.get('name') or 'the ' + noun}")
     c.setFont("Helvetica", 8.5)
     c.setFillColorRGB(*GREY)
     c.drawString(20 * mm, y - 5 * mm, biller.get("signatory") or "Authorised Signatory")
@@ -219,13 +220,33 @@ def _acceptance_page(c, W, H, mm, acc: dict | None, tenant: dict, biller: dict, 
         f"Verify: {_app_url()}/terms  ·  Support: {os.environ.get('SUPPORT_REPLY_TO') or 'support@miracurl-suite.com'}"])
 
 
+def _verticalise(doc: dict, camp: dict) -> dict:
+    """Restaurant campaign: same legal skeleton, restaurant wording (Salon→Restaurant, Brand Model→Taste Ambassador)."""
+    if camp.get("vertical") != "restaurant":
+        return doc
+    rep = [("Brand Model", "Taste Ambassador"), ("Salon", "Restaurant"), ("salon", "restaurant"), ("service visit", "dining visit"),
+           ("services at your", "dining at your"), ("Beauty & physical well-being services", "Restaurant services"), ("mirror stations", "tables")]
+
+    def fix(v):
+        if isinstance(v, str):
+            for a, b in rep:
+                v = v.replace(a, b)
+            return v
+        if isinstance(v, list):
+            return [fix(x) for x in v]
+        if isinstance(v, tuple):
+            return tuple(fix(x) for x in v)
+        return v
+    return {k: fix(v) for k, v in doc.items()}
+
+
 def build_agreement_pdf(camp: dict, tenant: dict, biller: dict, acc: dict | None, logo: bytes | None) -> bytes:
     import io
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
     from reportlab.pdfgen import canvas as rl_canvas
 
-    doc = agreement_doc(camp, tenant, biller)
+    doc = _verticalise(agreement_doc(camp, tenant, biller), camp)
     buf = io.BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=A4)
     W, H = A4
@@ -237,7 +258,7 @@ def build_agreement_pdf(camp: dict, tenant: dict, biller: dict, acc: dict | None
 
 
 def build_guide_pdf(camp: dict, logo: bytes | None) -> bytes:
-    return _doc_pdf(guide_doc(camp), logo=logo)
+    return _doc_pdf(_verticalise(guide_doc(camp), camp), logo=logo)
 
 
 async def doc_pack_attachments(camp: dict, tenant: dict, acc: dict | None) -> list:
@@ -258,9 +279,9 @@ def _pack_html(camp: dict, tenant: dict, acc: dict | None) -> str:
     status = (f"<div style='background:#eefaf1;border:1px solid #bfe3c8;border-radius:12px;padding:12px 16px;font-size:13px;color:#1f5c33'>"
               f"✅ <b>Agreement accepted</b> by {e(acc['full_name'])} on {e(acc['accepted_at'][:10])}. Your signed copy is attached.</div>"
               if acc else
-              f"<div style='background:#fff7e6;border:1px solid #f1d59b;border-radius:12px;padding:12px 16px;font-size:13px;color:#7a5410'>"
-              f"✍️ <b>Action needed:</b> please review and accept the Participation Agreement in your dashboard → <b>Settings → Brand Model Campaign</b>. "
-              f"It takes one minute — enter your name, tick 'I agree' and click Accept.</div>")
+              "<div style='background:#fff7e6;border:1px solid #f1d59b;border-radius:12px;padding:12px 16px;font-size:13px;color:#7a5410'>"
+              "✍️ <b>Action needed:</b> please review and accept the Participation Agreement in your dashboard → <b>Settings → Brand Model Campaign</b>. "
+              "It takes one minute — enter your name, tick 'I agree' and click Accept.</div>")
     return f"""
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
       <div style="background:#1c1c22;padding:24px 28px"><div style="color:#d4af37;font-size:21px;font-weight:bold">Miracurl ✦ Brand Model</div>
