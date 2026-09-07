@@ -391,6 +391,9 @@ async def _rewards_poster_jpeg(t: dict, c: dict, origin: str) -> bytes:
 async def rewards_qr_poster(origin: str = "", user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     from fastapi import Response
     c = await get_campaign()
+    from routes.campaign_agreement import agreement_ok
+    if not await agreement_ok(t["id"], c):
+        raise HTTPException(403, "Accept the Participation Agreement first (Settings → Brand Model Campaign) to unlock the QR poster")
     img = await _rewards_poster_jpeg(t, c, origin)
     return Response(content=img, media_type="image/jpeg",
                     headers={"Content-Disposition": 'attachment; filename="rewards-campaign-qr.jpg"'})
@@ -404,7 +407,9 @@ async def public_campaign(slug: str):
                                                        "logo_url": 1, "location": 1, "phone": 1, "business_type": 1})
     if not t:
         raise HTTPException(404, "Salon not found")
-    eligible = _tenant_eligible(c, t) and _is_live(c)
+    from routes.campaign_agreement import agreement_ok
+    agreed = await agreement_ok(t["id"], c)
+    eligible = _tenant_eligible(c, t) and _is_live(c) and agreed
     winners = await _raw_db.rewards_participants.find(
         {"winner_tier": {"$nin": [None, ""]}, "consent": True},
         {"_id": 0, "name": 1, "photo_url": 1, "story": 1, "winner_tier": 1, "salon_name": 1, "salon_slug": 1, "won_at": 1}).to_list(20)
@@ -417,6 +422,7 @@ async def public_campaign(slug: str):
               else "ended" if c.get("enabled") and c["end_date"] < today else "off")
     return {"campaign": pub, "salon": {k: t.get(k) for k in ("name", "slug", "logo_url", "location", "phone", "business_type")},
             "eligible": eligible, "live": _is_live(c), "status": status, "salon_on": _tenant_eligible(c, t),
+            "agreement_pending": _tenant_eligible(c, t) and not agreed,
             "participants": await _raw_db.rewards_participants.count_documents({}),
             "winners": winners}
 
@@ -459,6 +465,9 @@ async def public_join(slug: str, body: JoinIn, request: Request):
     t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "plan": 1, "status": 1})
     if not t:
         raise HTTPException(404, "Salon not found")
+    from routes.campaign_agreement import agreement_ok
+    if not await agreement_ok(t["id"], c):
+        raise HTTPException(403, "This salon hasn't completed campaign onboarding yet — please check back soon")
     if not (_tenant_eligible(c, t) and _is_live(c)):
         raise HTTPException(400, "This salon is not part of the campaign right now")
     phone = "".join(ch for ch in body.phone if ch.isdigit())[-12:]

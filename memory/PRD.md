@@ -2862,3 +2862,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - UI: `components/settings/CampaignAgreementCard.jsx` (Settings, PIN-locked page), MiracurlUpdates agreement strip, SettlementTracker docs bar + per-row badge/Send docs.
 - Tested iteration_133 (100%) + iteration_134 (100%). Preview note: Razorpay keys are LIVE — test links cancelled after runs. Legal text is a template; recommend lawyer review.
 - Backlog: React warning `<span>` inside `<option>` somewhere on Dashboard (cosmetic, unlocated). Next: Advance/deposit booking (P0), Guest Bill Split (P0).
+
+## 2026-09-07 (d) — Earnings proof + Agreement gate (BUILD 2026-09-07.219)
+- `GET /super-admin/rewards-campaign/settlements/{tid}/earnings` (+ `.csv`): campaign-window POS totals, monthly split, bill list without customer PII. Tracker row shows "Total earnings during campaign" + "View bills" modal; summary chips campaign_revenue / suggested_total.
+- Agreement gate (`campaign_agreement.agreement_ok`): `/public/rewards/{slug}` eligible=false + `agreement_pending`; `/public/rewards/{slug}/join` 403; `/settings/rewards-qr-poster.png` 403; RewardsQrCard shows locked card linking to #campaign-agreement.
+- Agreement text version bumped to 2026-09-B (clause 5.3 data authorisation, 5.4) → existing acceptances become "outdated" and need re-accept.
+- Legal note given to user: platform may process aggregated billing data as service provider with contractual consent; HQ view excludes customer personal data (DPDP 2023).

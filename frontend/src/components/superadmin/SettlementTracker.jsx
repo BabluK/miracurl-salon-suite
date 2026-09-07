@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, Copy, ExternalLink, FileSignature, FileText, IndianRupee, Link2, Loader2, Mail, MessageCircle, RotateCcw, Save, Send, ShieldCheck, Wallet } from "lucide-react";
+import { AlertTriangle, BarChart3, CheckCircle2, Copy, ExternalLink, FileSignature, FileText, IndianRupee, Link2, Loader2, Mail, MessageCircle, RotateCcw, Save, Send, ShieldCheck, Wallet, X } from "lucide-react";
 
 async function dlDoc(path, name) {
   try {
@@ -29,7 +29,48 @@ function Chip({ label, value, tone = "text-[#F0D9A5]", testId }) {
   );
 }
 
-function Row({ r, busy, onSave, onAction, onRemind, onSendDocs }) {
+function EarningsModal({ r, onClose }) {
+  const [d, setD] = useState(null);
+  useEffect(() => { api.get(`/super-admin/rewards-campaign/settlements/${r.tenant_id}/earnings`).then(x => setD(x.data)).catch(() => setD({ error: true })); }, [r.tenant_id]);
+  return (
+    <div className="fixed inset-0 z-[130] flex items-start justify-center bg-black/60 p-4 overflow-y-auto" onClick={onClose}>
+      <div className="w-full max-w-2xl my-auto rounded-2xl bg-[#1c1c22] border border-[#d4af37]/40 p-5 space-y-3" onClick={e => e.stopPropagation()} data-testid="settlement-earnings-modal">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-[#d4af37]" />
+          <div className="text-sm font-bold text-slate-100">Campaign earnings · {r.name}</div>
+          {d && !d.error && <span className="text-[10px] text-slate-500">{d.period.start} → {d.period.end} · from Miracurl POS invoices (no customer data)</span>}
+          <button onClick={onClose} className="ml-auto p-1 text-slate-400 hover:text-slate-200" data-testid="settlement-earnings-close"><X className="w-4 h-4" /></button>
+        </div>
+        {!d ? <div className="text-xs text-slate-400 py-6 text-center"><Loader2 className="w-4 h-4 animate-spin inline" /> Loading bills…</div> : d.error ? <div className="text-xs text-rose-300">Couldn't load earnings</div> : (
+          <>
+            <div className="flex gap-2 flex-wrap">
+              <Chip label="Total earnings" value={inr(d.revenue)} testId="earnings-total" />
+              <Chip label="Bills" value={`${d.bills} (${d.eligible_bills} eligible)`} tone="text-slate-200" testId="earnings-bills" />
+              <Chip label={`Miracurl ${d.share_pct}%`} value={inr(d.share_amount)} tone="text-emerald-300" testId="earnings-share" />
+              <a href="#" onClick={async e => { e.preventDefault(); await dlDoc(`/super-admin/rewards-campaign/settlements/${r.tenant_id}/earnings.csv`, `campaign-earnings-${r.slug}.csv`); }} className="ml-auto self-center px-3 py-1.5 rounded-full border border-white/15 text-xs text-slate-200 hover:border-[#d4af37]/60" data-testid="earnings-csv">Export CSV</a>
+            </div>
+            {d.monthly.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {d.monthly.map(m => <div key={m.month} className="rounded-xl bg-white/[.04] border border-white/10 px-3 py-2" data-testid={`earnings-month-${m.month}`}><div className="text-[9px] uppercase tracking-wider text-slate-500">{m.month}</div><div className="text-sm font-bold text-slate-100">{inr(m.revenue)}</div><div className="text-[10px] text-slate-500">{m.bills} bills</div></div>)}
+              </div>
+            )}
+            <div className="max-h-64 overflow-y-auto rounded-xl border border-white/10">
+              <table className="w-full text-[11px]">
+                <thead className="sticky top-0 bg-[#1c1c22]"><tr className="text-left text-slate-500"><th className="px-3 py-2">Date</th><th className="px-3 py-2">Invoice</th><th className="px-3 py-2">Branch</th><th className="px-3 py-2">Mode</th><th className="px-3 py-2 text-right">Total</th></tr></thead>
+                <tbody>
+                  {d.recent.length === 0 ? <tr><td colSpan="5" className="px-3 py-6 text-center text-slate-500">No POS bills recorded in the campaign window yet.</td></tr>
+                    : d.recent.map(b => <tr key={b.invoice_no} className="border-t border-white/5 text-slate-200"><td className="px-3 py-1.5">{b.date}</td><td className="px-3 py-1.5 font-mono">{b.invoice_no}</td><td className="px-3 py-1.5 text-slate-400">{b.branch || "—"}</td><td className="px-3 py-1.5 text-slate-400">{b.payment_mode}</td><td className="px-3 py-1.5 text-right font-semibold">{inr(b.total)}</td></tr>)}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Row({ r, busy, onSave, onAction, onRemind, onSendDocs, onEarnings }) {
   const [f, setF] = useState({ amount: r.amount || "", due_date: r.due_date || "", note: r.note || "" });
   useEffect(() => { setF({ amount: r.amount || "", due_date: r.due_date || "", note: r.note || "" }); }, [r.amount, r.due_date, r.note]);
   const dirty = String(f.amount) !== String(r.amount || "") || f.due_date !== (r.due_date || "") || f.note !== (r.note || "");
@@ -58,7 +99,9 @@ function Row({ r, busy, onSave, onAction, onRemind, onSendDocs }) {
       </div>
       {r.suggested && (
         <div className="flex items-center gap-2 flex-wrap text-[11px]" data-testid={`settlement-suggest-${r.slug}`}>
-          <span className="text-slate-400">Campaign earnings <b className="text-slate-200">₹{Number(r.suggested.revenue).toLocaleString("en-IN")}</b> ({r.suggested.bills} bills, {r.suggested.eligible_bills} eligible) × {r.suggested.pct}% =</span>
+          <span className="px-2.5 py-1 rounded-lg bg-[#d4af37]/10 border border-[#d4af37]/30 text-slate-200 inline-flex items-center gap-1.5"><BarChart3 className="w-3 h-3 text-[#d4af37]" /> Total earnings during campaign: <b className="text-[#F0D9A5] text-sm" data-testid={`settlement-earnings-${r.slug}`}>₹{Number(r.suggested.revenue).toLocaleString("en-IN")}</b> <span className="text-slate-500">({r.suggested.bills} bills, {r.suggested.eligible_bills} eligible)</span></span>
+          <button onClick={() => onEarnings(r)} className="px-2 py-0.5 rounded-full border border-white/15 text-slate-300 text-[10px] hover:border-[#d4af37]/60" data-testid={`settlement-viewbills-${r.slug}`}>View bills</button>
+          <span className="text-slate-400">× {r.suggested.pct}% =</span>
           <b className="text-[#F0D9A5]">₹{Number(r.suggested.amount).toLocaleString("en-IN")}</b>
           {r.suggested.amount > 0 && String(r.suggested.amount) !== String(f.amount) && (r.status === "not_set" || r.status === "pending" || r.status === "overdue") && (
             <button onClick={() => setF({ ...f, amount: r.suggested.amount })} className="px-2 py-0.5 rounded-full border border-[#d4af37]/50 text-[#F0D9A5] text-[10px] font-semibold hover:bg-[#d4af37]/10" data-testid={`settlement-use-suggest-${r.slug}`}>Use this</button>
@@ -97,6 +140,7 @@ export function SettlementTracker() {
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState("");
   const [payBox, setPayBox] = useState(null);
+  const [earnRow, setEarnRow] = useState(null);
   const load = useCallback(() => api.get("/super-admin/rewards-campaign/settlements").then(r => setData(r.data)).catch(() => setData({ rows: [], summary: {} })), []);
   useEffect(() => { load(); }, [load]);
   if (!data) return null;
@@ -157,6 +201,8 @@ export function SettlementTracker() {
           : <span className="text-[10px] text-amber-300 inline-flex items-center gap-1 ml-auto" data-testid="settlement-no-link"><AlertTriangle className="w-3 h-3" /> {data.payment_link ? "using the fallback payment link" : "add Razorpay keys (or a fallback link above) so nudges include a pay link"}</span>}
       </div>
       <div className="flex gap-2 flex-wrap">
+        <Chip label="Campaign earnings (all salons)" value={inr(s.campaign_revenue)} tone="text-slate-100" testId="settlement-sum-revenue" />
+        <Chip label={`Miracurl share ${data.salon_share_pct ?? 10}%`} value={inr(s.suggested_total)} testId="settlement-sum-share" />
         <Chip label="Outstanding" value={inr(s.outstanding)} tone="text-amber-200" testId="settlement-sum-outstanding" />
         <Chip label="Collected" value={inr(s.collected)} tone="text-emerald-300" testId="settlement-sum-collected" />
         <Chip label="Pending salons" value={s.pending_count} testId="settlement-sum-pending" />
@@ -171,8 +217,9 @@ export function SettlementTracker() {
       </div>
       <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
         {rows.length === 0 && <p className="text-xs text-slate-500 italic" data-testid="settlement-empty">No participating salons yet — turn salons on above and their settlements appear here.</p>}
-        {rows.map(r => <Row key={r.tenant_id} r={r} busy={busy} onSave={onSave} onAction={onAction} onRemind={onRemind} onSendDocs={onSendDocs} />)}
+        {rows.map(r => <Row key={r.tenant_id} r={r} busy={busy} onSave={onSave} onAction={onAction} onRemind={onRemind} onSendDocs={onSendDocs} onEarnings={setEarnRow} />)}
       </div>
+      {earnRow && <EarningsModal r={earnRow} onClose={() => setEarnRow(null)} />}
       {payBox && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-4" onClick={() => setPayBox(null)}>
           <div className="w-full max-w-sm rounded-2xl bg-[#1c1c22] border border-[#d4af37]/40 p-5 space-y-3" onClick={e => e.stopPropagation()} data-testid="settlement-paid-modal">

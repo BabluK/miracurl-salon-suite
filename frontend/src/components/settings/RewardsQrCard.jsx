@@ -11,6 +11,18 @@ export function RewardsQrCard() {
   const [dl, setDl] = useState(false);
   useEffect(() => { api.get("/settings/rewards-campaign").then(r => setD(r.data)).catch(() => {}); }, []);
   if (!d || !d.enabled) return null;
+  if (d.agreement && !d.agreement.accepted) return (
+    <div className="bg-white rounded-2xl border border-amber-200 p-6 mt-6" data-testid="rewards-qr-locked">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0"><Gift className="w-5 h-5" /></div>
+        <div>
+          <h2 className="text-lg font-semibold text-slate-800">{d.campaign?.name} — QR poster locked</h2>
+          <p className="text-xs text-slate-500 mt-1">Your casting page and print-ready QR poster unlock the moment you accept the Participation Agreement above (Brand Model Campaign — agreement &amp; documents).</p>
+          <a href="#campaign-agreement" className="mt-3 inline-flex h-9 px-4 items-center rounded-full bg-slate-900 text-white text-xs font-semibold hover:bg-slate-700" data-testid="rewards-qr-locked-link">Review &amp; accept agreement</a>
+        </div>
+      </div>
+    </div>
+  );
   const src = `${BACKEND_URL}/api/settings/rewards-qr-poster.png?origin=${encodeURIComponent(window.location.origin)}`;
   const download = async () => {
     setDl(true);

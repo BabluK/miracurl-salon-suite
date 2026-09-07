@@ -27,6 +27,12 @@ def _client_ip(request: Request) -> str:
     return (fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "")) or ""
 
 
+async def agreement_ok(tenant_id: str, c: dict) -> bool:
+    """True when the salon has accepted the CURRENT agreement version (gate for casting page, joins and QR poster)."""
+    acc = await get_acceptance(tenant_id, c["id"])
+    return bool(acc) and acc.get("version") == agreement_version(c)
+
+
 async def agreement_state(tenant: dict, c: dict) -> dict:
     acc = await get_acceptance(tenant["id"], c["id"])
     ver = agreement_version(c)

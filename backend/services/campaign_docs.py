@@ -11,7 +11,7 @@ from email_service import _send_email, hq_notify_emails
 from routes.hq_documents import DOCS, _doc_pdf, _pdf_doc_header, _pdf_doc_sections
 from services.pdf_brand import GOLD, GREY, INK, LIGHT, draw_powered_footer, draw_watermark, platform_logo_bytes
 
-AGREEMENT_TEXT_VERSION = "2026-09-A"
+AGREEMENT_TEXT_VERSION = "2026-09-B"
 IST = timezone(timedelta(hours=5, minutes=30))
 
 
@@ -126,6 +126,8 @@ def agreement_doc(c: dict, tenant: dict, biller: dict) -> dict:
             ("5. Records and audit", [
                 "5.1 Campaign Earnings are determined solely from invoices recorded in the Miracurl POS. The Salon confirms that its Miracurl POS records are true and complete.",
                 "5.2 Miracurl may review POS data, entries and votes for irregularities and may disqualify entries or the Salon for breach of Clause 3.",
+                "5.3 The Salon expressly authorises Miracurl, as its software service provider, to access and use aggregated billing data from the Miracurl POS (invoice dates, numbers, amounts and counts) for the sole purpose of computing, verifying and invoicing the Settlement Share. Customer personal data (names, mobile numbers) is not disclosed to Miracurl HQ for this purpose and is processed only under the Privacy Policy.",
+                "5.4 Bills recorded outside the Miracurl POS during the Campaign Period, if discovered, are included in Campaign Earnings; deliberate under-recording is a material breach.",
             ]),
             ("6. Trusted badge and publicity", [
                 "6.1 Upon full settlement Miracurl grants the Salon a non-exclusive, revocable licence to display the 'Trusted by Miracurl' badge on the Platform pages (Miracurl home page and the Salon's booking page).",

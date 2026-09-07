@@ -203,6 +203,8 @@ def _summary(rows: list) -> dict:
         "pending_count": sum(1 for r in rows if r["status"] in ("pending", "overdue")),
         "overdue_count": sum(1 for r in rows if r["status"] == "overdue"),
         "not_set_count": sum(1 for r in rows if r["status"] == "not_set"),
+        "campaign_revenue": round(sum(float((r.get("suggested") or {}).get("revenue") or 0) for r in rows), 2),
+        "suggested_total": round(sum(float((r.get("suggested") or {}).get("amount") or 0) for r in rows), 2),
     }
 
 
@@ -216,6 +218,47 @@ async def sa_settlements(user=Depends(require_super_admin)):
             "rzp_enabled": _rzp_enabled(), "rzp_key": (os.environ.get("RAZORPAY_KEY_ID") or "")[:12],
             "salon_share_pct": c.get("salon_share_pct"), "agreement_version": ver,
             "campaign": {"name": c["name"], "end_date": c["end_date"]}}
+
+
+@router.get("/super-admin/rewards-campaign/settlements/{tenant_id}/earnings")
+async def sa_settlement_earnings(tenant_id: str, user=Depends(require_super_admin)):
+    """Campaign-period earnings proof for HQ: totals, monthly split and bill list (no customer personal data)."""
+    t = await _tenant_or_404(tenant_id)
+    c = await get_campaign()
+    start, end = f"{c['start_date']}T00:00:00", f"{c['end_date']}T23:59:59.999999+00:00"
+    flt = {"tenant_id": tenant_id, "created_at": {"$gte": start, "$lte": end}, "paid": {"$ne": False}, "status": {"$nin": ["open", "void", "cancelled"]}}
+    bills = await _raw_db.invoices.find(flt, {"_id": 0, "id": 1, "invoice_no": 1, "created_at": 1, "total": 1, "payment_mode": 1, "items": 1, "branch_name": 1}).sort("created_at", -1).to_list(5000)
+    monthly: dict = {}
+    for b in bills:
+        m = monthly.setdefault(b["created_at"][:7], {"month": b["created_at"][:7], "revenue": 0.0, "bills": 0})
+        m["revenue"] += float(b.get("total") or 0)
+        m["bills"] += 1
+    pct = float(c.get("salon_share_pct") or 0)
+    revenue = round(sum(float(b.get("total") or 0) for b in bills), 2)
+    return {"tenant": {"id": t["id"], "name": t.get("name"), "slug": t.get("slug")}, "period": {"start": c["start_date"], "end": c["end_date"]},
+            "revenue": revenue, "bills": len(bills), "eligible_bills": sum(1 for b in bills if float(b.get("total") or 0) >= float(c.get("min_transaction") or 0)),
+            "share_pct": pct, "share_amount": round(revenue * pct / 100),
+            "monthly": sorted(monthly.values(), key=lambda m: m["month"]),
+            "recent": [{"date": b["created_at"][:10], "invoice_no": b.get("invoice_no"), "total": float(b.get("total") or 0),
+                        "payment_mode": b.get("payment_mode"), "items": len(b.get("items") or []), "branch": b.get("branch_name") or ""} for b in bills[:200]]}
+
+
+@router.get("/super-admin/rewards-campaign/settlements/{tenant_id}/earnings.csv")
+async def sa_settlement_earnings_csv(tenant_id: str, user=Depends(require_super_admin)):
+    import csv
+    import io
+
+    from fastapi import Response
+    data = await sa_settlement_earnings(tenant_id, user)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["date", "invoice_no", "total", "payment_mode", "items", "branch"])
+    for r in data["recent"]:
+        w.writerow([r["date"], r["invoice_no"], f"{r['total']:.2f}", r["payment_mode"], r["items"], r["branch"]])
+    w.writerow([])
+    w.writerow(["campaign_revenue", data["revenue"], "share_pct", data["share_pct"], "share_amount", data["share_amount"]])
+    return Response(content=buf.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="campaign-earnings-{data["tenant"]["slug"]}.csv"'})
 
 
 class SettlementIn(BaseModel):
