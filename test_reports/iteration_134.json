@@ -1,0 +1,35 @@
+{
+  "summary": "Iteration 134 — Brand Model Campaign documents + legal e-acceptance. Frontend accept flow executed FIRST (per spec) then backend verified. Backend: 13/13 pytest pass at /app/backend/tests/test_iter134_campaign_agreement.py (PDF text extracted via pypdf). (a) Tenant GET /api/settings/rewards-campaign/agreement returns version(10 chars)/share_pct=10/campaign name/eligible=true/enabled=true; after accept it flips accepted=true. Docs guide/agreement/terms all return application/pdf < 3MB; agreement text contains 'Salon Participation Agreement', '10%', 'Settlement Share', 'ACCEPTANCE & SIGNATURE RECORD' (UNSIGNED before accept). Guide contains 'Step 1' + 'Settlement'. /docs/foo.pdf → 404. (b) Tenant POST accept: {agree:false}→400, {full_name:'Ra'}→422, valid→200 with acceptance{id,full_name,designation,accepted_at,version}, repeat→400 'already accepted'. Signed PDF filename contains SIGNED and body contains 'Ravi Kumar' + 'ELECTRONICALLY ACCEPTED' and NOT 'UNSIGNED'. /api/settings/rewards-campaign → agreement.accepted=true. (c) HQ: /docs/guide.pdf + /docs/agreement.pdf template (contains '[Salon name]'); /docs/agreement/{tid}.pdf returns SIGNED copy w/ Ravi Kumar; /agreements list has Ravi Kumar row with tenant_id + ip and NO user_agent field; /settlements has agreement_version + marathahalli agreement{status:accepted, by:Ravi Kumar, at} + whitefield agreement{status:pending}. POST docs/send/{marathahalli}→400 (no real email) and unknown tid→404; docs/send-all→200 {ok, sent:[], skipped:[<slugs>]}. FRONTEND tenant: login admin@miracurl.com (?tenant=miracurl-marathahalli), dismissed What's-New, unlocked Settings with PIN 4321. agreement-status shows 'Acceptance required'; agreement-open-btn → agreement-modal → key-terms visible, accept-btn disabled until name>=3 + checkbox ticked (verified all four states); fill 'Ravi Kumar' + 'Proprietor' + tick + click → toast 'Agreement accepted', modal closed, agreement-status flips to 'Accepted by Ravi Kumar · 2026-09-07', agreement-open-btn disappears (count=0). agreement-dl-agreement label becomes 'Signed agreement (PDF)' and downloads Miracurl-Participation-Agreement-SIGNED.pdf; guide/terms downloads verified. FRONTEND tenant dashboard: miracurl-updates-agreement text 'Participation agreement: accepted by Ravi Kumar on 07 Sept 2026 · 10% settlement share'; miracurl-updates-agreement-link href=/settings#campaign-agreement. FRONTEND HQ: /super-admin?tab=tenants → settlement-docs-bar visible; settlement-dl-guide + settlement-dl-agreement download campaign guide + template PDFs. settlement-sendall click → toast 'Pack sent to 0 salon(s) · skipped 1 (no email / already accepted)'. Row marathahalli: settlement-agreement-miracurl-marathahalli chip 'Agreement signed', clicking downloads Agreement-miracurl-marathahalli-SIGNED.pdf; settlement-senddocs-miracurl-marathahalli present and DISABLED (no email on file — expected). Row whitefield: settlement-agreement-miracurl-whitefield 'Agreement pending'. Final state: acceptance recorded for tenant marathahalli (Ravi Kumar) with the current version; whitefield still pending.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard MiraDayOffer <select><option>", "issues": ["Pre-existing hydration warning '<span> cannot be a child of <option>' (also flagged in iter132/133). Non-blocking."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter134_campaign_agreement.py",
+    "/app/test_reports/pytest/iter134_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "campaign_agreement.accept_agreement uses idempotent version-check ((await get_acceptance()...).get('version') == ver) — correct; re-accept after material term change works.",
+    "agreement_version() hashes over name/start/end/pct/min_transaction → any change forces re-acceptance, good.",
+    "hq_agreements projection excludes user_agent (only ip retained) — good for the console list; the full audit trail (incl. UA) stays inside signed PDF's acceptance record page.",
+    "email_doc_pack catches all exceptions inside accept_agreement so acceptance is still recorded when email backend is dead. Good failure isolation.",
+    "docs/send/{tid} calls _real_to which raises 400 when no real email — send-all catches HTTPException and adds slug to skipped[]; consistent behaviour on preview where admin@miracurl.com is suppressed as 'not real'.",
+    "campaign_docs.agreement_doc: pct is printed twice in Clause 4.1 ('10% ... i.e. 10%') via `{pct:g}%` — cosmetic, LGTM.",
+    "get_acceptance sort=[('accepted_at',-1)] returns latest — safe if there are ever multiple rows for same (tenant,campaign).",
+    "hq_send_pack_all does not de-dup notifications sent within a short window; consider a docs_sent_at cooldown if bulk button is spammed."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter134_campaign_agreement.py"
+  ],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "100% (all requested selectors + flows verified)"},
+  "test_credentials": "From /app/memory/test_credentials.md — super@miracurl.com, admin@miracurl.com (?tenant=miracurl-marathahalli for tenant login on preview); Owner PIN 4321.",
+  "seed_data_creation": "Recorded acceptance for tenant marathahalli: Ravi Kumar / Proprietor / agreement version = current (10 hex). Whitefield tenant left in 'pending' state as per spec. Marathahalli settlement pending 4000 due 2026-09-30 (unchanged from iter133). No emails were sent (backend suppressed since admin@miracurl.com is not a 'real notification email' by policy).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Regression: cd /app && REACT_APP_BACKEND_URL=https://hair-hub-system.preview.emergentagent.com python -m pytest backend/tests/test_iter134_campaign_agreement.py -o 'addopts=' -v. Requires pypdf (already installed) for PDF text extraction. The acceptance test is idempotent-safe: it accepts once if not already accepted, then re-accept correctly returns 400. To reset: db.rewards_agreements.deleteMany({}). Tenant admin login on preview needs ?tenant=<slug> in URL to set X-Tenant-Slug via localStorage. Iter133 (settlement tracker) regression still passes."
+}

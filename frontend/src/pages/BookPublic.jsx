@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import axios from "axios";
-import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone as PhoneIcon, MapPin, Star, Instagram, MessageCircle, Sparkles, Gift, CreditCard, UtensilsCrossed } from "lucide-react";
+import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone as PhoneIcon, MapPin, Star, Instagram, MessageCircle, Sparkles, Gift, CreditCard, UtensilsCrossed, ShieldCheck } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { FeaturedReviews, ServicesStep, StaffStep, DateTimeStep, DetailsStep, ConfirmStep, SuccessStep } from "./BookPublic.steps";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
@@ -508,6 +508,16 @@ export default function BookPublic() {
 
           {/* Row B — trust + contact, one aligned line */}
           <div className="flex flex-wrap items-center gap-3 mt-4">
+            {salon.trusted_badge && (
+              <span data-testid="salon-trusted-badge" title={`Settled Miracurl Brand Model campaign · since ${salon.trusted_badge.since}`}
+                className="inline-flex items-center gap-2 h-11 rounded-full pl-1.5 pr-4 bg-[#0f1a14] border border-emerald-400/50 shadow-[0_8px_28px_-8px_rgba(16,185,129,0.45)]">
+                <span className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center"><ShieldCheck className="w-4 h-4" /></span>
+                <span className="leading-tight text-left">
+                  <span className="block text-[11px] font-extrabold text-emerald-200 tracking-wide">TRUSTED BY MIRACURL</span>
+                  <span className="block text-[9.5px] text-emerald-100/60">Verified partner salon · since {String(salon.trusted_badge.since || "").slice(0, 4)}</span>
+                </span>
+              </span>
+            )}
             {salon.rating?.avg >= 3.5 && (() => {
               const onGoogle = salon.rating?.source === "google" || !!salon.google_review_url;
               return (

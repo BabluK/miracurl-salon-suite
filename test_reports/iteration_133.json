@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration 133 — Brand Model Settlement Tracker: Razorpay auto pay-link + Trusted-by-Miracurl badge + salon_share_pct (10%). Backend: 9/9 pytest pass at /app/backend/tests/test_iter133_settlement_rzp_trusted.py. (1) GET /api/super-admin/rewards-campaign/settlements → rzp_enabled true, rzp_key prefix 'rzp_' (rzp_live_T88...), salon_share_pct=10, each row has email/public_url ending /rewards/<slug>/suggested{amount,pct:10,revenue,bills,eligible_bills,breakdown}/pay_url/trusted. (2) PUT settlements/{marathahalli} amount=4000 due=2026-09-30 → {ok, status:pending, pay_url starting https://rzp.io/} (e.g. https://rzp.io/rzp/4tbbfzaH). Second identical PUT reused the SAME pay_url (no duplicate link created — verified). List row pay_url == PUT response pay_url. (3) mark-paid {upi,T1} → {ok, trusted:true}; /api/public/salon/miracurl-marathahalli.trusted_badge = {campaign_id, since, label:'Trusted by Miracurl'}; /api/public/partners has marathahalli card with trusted:true and it is sorted first (Miracurl Unisex Family Salon is the first partner card on landing, testid partner-trusted-83ab97b6...); /api/public/salons?q=miracurl includes trusted_badge on the marathahalli entry. reopen → ok; trusted_badge null on public salon page. (4) GET /api/super-admin/rewards-campaign returns rzp_enabled/rzp_key/salon_share_pct=10; PUT with salon_share_pct=12 flips suggested.pct=12 for every row and settlements.salon_share_pct=12 — then reverted to 10. PUT campaign with payment_link='rzp_live_abc' (non-URL) → 422 (validation) as expected. (5) Tenant /api/settings/rewards-campaign returns settlement with pay_url https://rzp.io/... and trusted:false after reopen. FRONTEND HQ (/super-admin?tab=tenants): settlement-rzp-on visible showing 'Razorpay connected (rzp_live_T88…) — links auto-generated'. Marathahalli row shows: settlement-suggest-miracurl-marathahalli 'Campaign earnings ₹0 (0 bills, 0 eligible) × 10% = ₹0', settlement-email-miracurl-marathahalli 'no real email on file', settlement-public-miracurl-marathahalli link href=https://miracurl-suite.com/rewards/miracurl-marathahalli target=_blank, settlement-paylink-miracurl-marathahalli 'rzp.io/rzp/4tbbfzaH' + settlement-copylink-… button. Click settlement-paid-… → modal → settlement-paid-confirm → PAID badge + settlement-trusted-miracurl-marathahalli 'Trusted badge live' shown; click settlement-reopen-… → status back to Pending, trusted chip removed. FRONTEND campaign settings (rewards-cfg-toggle): rewards-cfg-share-pct present with value=10; rewards-cfg-rzp-auto shows '✓ Razorpay connected (rzp_live_T88…) — a payment link for the exact amount is generated automatically...'; rewards-cfg-payment-link input NOT present (count=0). Save campaign → toast success 'Campaign is LIVE · 2 salons ON', page did not go blank (body length 10742). Each ON tile has rewards-tenant-<slug>-public href=/rewards/<slug>. FRONTEND public: /book/miracurl-marathahalli after mark-paid → salon-trusted-badge visible showing 'TRUSTED BY MIRACURL — Verified partner salon · since 2026'; after reopen the badge disappears (count=0). Landing / when logged out: trusted-partners-section renders, and partner-trusted-<marathahalli-tenant-id> chip 'Trusted by Miracurl' visible on the FIRST partner card (sorted before non-trusted). FRONTEND tenant (/dashboard, admin@miracurl.com with ?tenant=miracurl-marathahalli): miracurl-updates-settlement shows 'Your settlement: ₹4,000 · due 30 Sept 2026 Pending 10% of campaign earnings Pay now'; miracurl-updates-settlement-pay href=https://rzp.io/rzp/4tbbfzaH. Final state left as spec: marathahalli pending 4000 (reopened at end). Whitefield untouched (not_set).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Tenant AppLayout", "issues": ["Pre-existing React hydration warning: '<span> cannot be a child of <option>' in a Select — noted in iter132, still present. Non-blocking."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter133_settlement_rzp_trusted.py",
+    "/app/test_reports/pytest/iter133_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "rewards_settlements._ensure_pay_link correctly skips cancel+recreate when link.url present and link.amount == d.amount — repeated PUTs with same amount reuse the link (verified in test_put_creates_link_and_reuses).",
+    "rewards_settlements._suggest uses salon_share_pct=0 fallback if unset — safe. Consider defaulting to 10 in the campaign settings model itself for clarity, but current UX default in RewardsCampaignCard handles it.",
+    "rewards_settlements.sa_settlement_reopen unsets paid_at/paid_method/paid_ref but does NOT reset pay_link. Semantically fine (link still valid at Razorpay). However if the amount changes after reopen it will be replaced correctly via _ensure_pay_link. LGTM.",
+    "_settlement_rows.pay_url falls back to '' when link missing/failed; UI gracefully hides paylink cell when empty.",
+    "SettlementIn.due_date regex ^(\\d{4}-\\d{2}-\\d{2})?$ still accepts calendar-invalid dates (2026-02-31). Low priority since HTML date input picker guards UI.",
+    "Frontend PartnerGrid uses partner-trusted-{p.id} testid — verified sort-first behavior on landing. Good."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter133_settlement_rzp_trusted.py"
+  ],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100% (all requested selectors + flows verified)"},
+  "test_credentials": "Used /app/memory/test_credentials.md — super@miracurl.com, admin@miracurl.com (?tenant=miracurl-marathahalli for tenant login on preview).",
+  "seed_data_creation": "Left FINAL state per spec: marathahalli settlement pending 4000 due 2026-09-30 note '10% of campaign earnings'; trusted_badge removed via reopen. Whitefield untouched (not_set). Only ONE Razorpay Payment Link created and reused across all PUTs with amount=4000 (rzp.io/rzp/4tbbfzaH).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend regression: cd /app && python -m pytest backend/tests/test_iter133_settlement_rzp_trusted.py -o 'addopts=' -v. Requires super_admin cookie JWT + csrf_token cookie -> X-CSRF-Token header (session-based). Razorpay is in LIVE mode on preview — new PUTs with a NEW amount create real payment links (unpaid, harmless). Keep amount=4000 for marathahalli to reuse rzp.io/rzp/4tbbfzaH. Tenant frontend login on preview needs ?tenant=<slug> in URL to set X-Tenant-Slug header via localStorage. iter132 pytest still passes for base tracker flows."
+}

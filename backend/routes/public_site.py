@@ -115,7 +115,7 @@ async def public_salons_search(q: str = "", limit: int = 20):
         filt["$or"] = [{"name": rx}, {"location": rx}, {"slug": rx}]
     return await db.tenants.find(
         filt, {"_id": 0, "name": 1, "slug": 1, "location": 1, "hero_image": 1,
-               "logo_url": 1, "business_type": 1, "google_rating_cache": 1}
+               "logo_url": 1, "business_type": 1, "google_rating_cache": 1, "trusted_badge": 1}
     ).sort("name", 1).to_list(limit)
 
 
@@ -193,6 +193,7 @@ async def public_salon(slug: str):
         "show_products": t.get("business_type") != "restaurant" and t.get("show_miracurl_products", True) is not False,
         "rating": (await _google_live_rating(t)) or (await _salon_rating(t["id"])),
         "business_type": t.get("business_type", "salon"),
+        "trusted_badge": t.get("trusted_badge") or None,
     }
 
 # Legacy /public/salon — falls back to default tenant for backward compatibility

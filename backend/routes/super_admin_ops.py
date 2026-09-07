@@ -836,6 +836,7 @@ def _tenant_partner_card(t: dict, agg: Optional[dict]) -> dict:
         "blurb": t.get("partner_blurb") or "",
         "owner_review": t.get("partner_review") or None,
         "featured": bool(t.get("partner_featured")),
+        "trusted": bool(t.get("trusted_badge")), "trusted_since": (t.get("trusted_badge") or {}).get("since", ""),
         "slug": t.get("slug") or "", "since": (t.get("created_at") or "")[:10],
     }
 
@@ -875,14 +876,14 @@ async def public_partners(request: Request):
     tenants = await _raw_db.tenants.find(
         {"status": {"$in": ["active", "trial"]}},
         {"_id": 0, "id": 1, "name": 1, "logo_url": 1, "location": 1, "slug": 1,
-         "created_at": 1, "partner_visible": 1, "partner_featured": 1, "partner_blurb": 1, "partner_review": 1},
+         "created_at": 1, "partner_visible": 1, "partner_featured": 1, "partner_blurb": 1, "partner_review": 1, "trusted_badge": 1},
     ).to_list(300)
     out = [_tenant_partner_card(t, by_tid.get(t["id"]))
            for t in tenants if t.get("partner_visible") is not False
            and not re.search(r"\btest\b", t.get("name") or "", re.I)]
     manual = await _raw_db.partners.find({}, {"_id": 0}).to_list(100)
     out += [{**p, "source": "manual", "reviews_count": p.get("reviews_count", 0)} for p in manual]
-    out.sort(key=lambda p: (not p.get("featured"), -(p.get("rating") or 0)))
+    out.sort(key=lambda p: (not p.get("featured"), not p.get("trusted"), -(p.get("rating") or 0)))
     return out
 
 

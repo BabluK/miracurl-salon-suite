@@ -1,4 +1,4 @@
-import { Star, MapPin } from "lucide-react";
+import { Star, MapPin, ShieldCheck } from "lucide-react";
 
 // Shared public partner-card grid (Landing section + /partners page).
 export function PartnerGrid({ partners, compact = false, light = false }) {
@@ -50,6 +50,11 @@ export function PartnerGrid({ partners, compact = false, light = false }) {
             </div>
             {p.featured && <Star className={`w-4 h-4 ml-auto flex-shrink-0 ${C.star} ${C.starFill}`} />}
           </div>
+          {p.trusted && (
+            <div className="mt-2.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 text-[10px] font-bold tracking-wide" data-testid={`partner-trusted-${p.id}`}>
+              <ShieldCheck className="w-3 h-3" /> Trusted by Miracurl
+            </div>
+          )}
           <div className="mt-3 flex items-center gap-2">
             {p.rating != null ? (
               <>

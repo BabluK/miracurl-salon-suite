@@ -1,4 +1,5 @@
 """Brand Model campaign — per-salon settlement tracker (HQ) with Mira email / WhatsApp nudges."""
+import asyncio
 import html as html_lib
 import logging
 import os
@@ -12,14 +13,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from database import _raw_db
-from email_service import _send_email
+from email_service import _inboxes_for_login, _is_login_only, _send_email
 from routes.rewards_campaign import _tenant_eligible, get_campaign
 from security import require_super_admin
 
 router = APIRouter()
 log = logging.getLogger("rewards_settlements")
 _T_FIELDS = {"_id": 0, "id": 1, "name": 1, "slug": 1, "plan": 1, "status": 1, "location": 1, "logo_url": 1,
-             "owner_email": 1, "notify_email": 1, "phone": 1, "owner_phone": 1}
+             "owner_email": 1, "notify_email": 1, "phone": 1, "owner_phone": 1, "trusted_badge": 1}
 
 
 def _now() -> str:
@@ -30,13 +31,140 @@ def _app_url() -> str:
     return os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
 
 
+def _rzp_enabled() -> bool:
+    return bool(os.environ.get("RAZORPAY_KEY_ID") and os.environ.get("RAZORPAY_KEY_SECRET"))
+
+
+def _rzp_client():
+    import razorpay
+    return razorpay.Client(auth=(os.environ["RAZORPAY_KEY_ID"], os.environ["RAZORPAY_KEY_SECRET"]))
+
+
+async def _real_email(t: dict) -> str:
+    """Deliverable inbox for a salon: tenant notify_email → owner's users.notify_email → owner_email if real."""
+    for cand in (t.get("notify_email"), t.get("owner_email")):
+        cand = (cand or "").strip().lower()
+        if not cand:
+            continue
+        if not _is_login_only(cand):
+            return cand
+        real = await _inboxes_for_login(cand)
+        if real:
+            return real[0]
+    return ""
+
+
+async def _campaign_revenue(c: dict) -> dict:
+    """Per-tenant POS earnings during the campaign window (paid invoices; total + eligible-bill count)."""
+    start, end = f"{c['start_date']}T00:00:00", f"{c['end_date']}T23:59:59.999999+00:00"
+    agg = await _raw_db.invoices.aggregate([
+        {"$match": {"created_at": {"$gte": start, "$lte": end}, "paid": {"$ne": False}, "status": {"$nin": ["open", "void", "cancelled"]}}},
+        {"$group": {"_id": "$tenant_id", "revenue": {"$sum": "$total"}, "bills": {"$sum": 1},
+                    "eligible": {"$sum": {"$cond": [{"$gte": ["$total", float(c.get("min_transaction") or 0)]}, 1, 0]}}}},
+    ]).to_list(2000)
+    return {r["_id"]: r for r in agg}
+
+
+def _suggest(c: dict, rev: dict) -> dict:
+    """Miracurl share = campaign-period salon earnings × salon_share_pct (default 10%)."""
+    pct = float(c.get("salon_share_pct") or 0)
+    revenue = float((rev or {}).get("revenue") or 0)
+    return {"amount": round(revenue * pct / 100), "pct": pct, "revenue": round(revenue, 2),
+            "bills": int((rev or {}).get("bills") or 0), "eligible_bills": int((rev or {}).get("eligible") or 0),
+            "breakdown": f"₹{revenue:,.0f} earned {c['start_date']} → {c['end_date']} × {pct:g}%"}
+
+
+def _create_pay_link(amount: float, tenant: dict, c: dict, email: str, due_date: str) -> dict:
+    """Razorpay Payment Link for a salon's settlement — uses the platform keys already configured in HQ."""
+    pl = _rzp_client().payment_link.create({
+        "amount": int(round(amount * 100)), "currency": "INR",
+        "reference_id": f"settle-{tenant['id'][:8]}-{uuid.uuid4().hex[:6]}",
+        "description": f"{c['name']} — settlement share for {tenant.get('name') or tenant.get('slug')}"[:250],
+        "customer": {"name": (tenant.get("name") or "")[:50], "email": email or "", "contact": re.sub(r"\D", "", tenant.get("owner_phone") or tenant.get("phone") or "")[-12:] or None},
+        "notify": {"email": False, "sms": False}, "reminder_enable": False,
+        "notes": {"type": "rewards_settlement", "tenant_id": tenant["id"], "campaign_id": c["id"], "due_date": due_date or ""},
+        "callback_url": f"{_app_url()}/dashboard?settlement=paid", "callback_method": "get",
+    })
+    return {"id": pl.get("id"), "url": pl.get("short_url"), "amount": amount, "created_at": _now(), "status": pl.get("status", "created")}
+
+
+async def _ensure_pay_link(d: dict, tenant: dict, c: dict) -> Optional[dict]:
+    """Create (or refresh after an amount change) the Razorpay link for a pending settlement. Never raises."""
+    if not _rzp_enabled() or not d.get("amount") or d.get("status") in ("paid", "waived"):
+        return d.get("pay_link")
+    link = d.get("pay_link") or {}
+    if link.get("url") and float(link.get("amount") or 0) == float(d["amount"]):
+        return link
+    try:
+        if link.get("id"):
+            await asyncio.to_thread(lambda: _rzp_client().payment_link.cancel(link["id"]))
+    except Exception as e:  # noqa: BLE001
+        log.info("old settlement link cancel skipped: %s", str(e)[:80])
+    try:
+        email = await _real_email(tenant)
+        new = await asyncio.to_thread(_create_pay_link, float(d["amount"]), tenant, c, email, d.get("due_date") or "")
+        await _raw_db.rewards_settlements.update_one({"campaign_id": c["id"], "tenant_id": tenant["id"]}, {"$set": {"pay_link": new}})
+        return new
+    except Exception as e:  # noqa: BLE001
+        log.error("settlement pay link failed for %s: %s", tenant.get("slug"), str(e)[:160])
+        return link or None
+
+
+async def _set_trusted(tenant_id: str, campaign_id: str, on: bool) -> None:
+    """'Trusted by Miracurl' badge — shown on the Miracurl home page and the salon's booking page once settled."""
+    if on:
+        await _raw_db.tenants.update_one({"id": tenant_id}, {"$set": {"trusted_badge": {
+            "campaign_id": campaign_id, "since": date.today().isoformat(), "label": "Trusted by Miracurl"}}})
+    else:
+        await _raw_db.tenants.update_one({"id": tenant_id}, {"$unset": {"trusted_badge": ""}})
+
+
+async def mark_settlement_paid(campaign_id: str, tenant_id: str, method: str, ref: str, by: str = "razorpay") -> bool:
+    r = await _raw_db.rewards_settlements.update_one(
+        {"campaign_id": campaign_id, "tenant_id": tenant_id, "amount": {"$gt": 0}, "status": {"$nin": ["paid"]}},
+        {"$set": {"status": "paid", "paid_at": _now(), "paid_method": method, "paid_ref": ref, "updated_at": _now(), "updated_by": by}})
+    if r.modified_count:
+        await _set_trusted(tenant_id, campaign_id, True)
+    return bool(r.modified_count)
+
+
+async def _sync_pending_links(c: dict, docs: dict) -> None:
+    """Poll Razorpay for pending links (cap 10) so a paid link flips to PAID even if the webhook was missed."""
+    if not _rzp_enabled():
+        return
+    pend = [d for d in docs.values() if d.get("status") == "pending" and (d.get("pay_link") or {}).get("id")][:10]
+    for d in pend:
+        try:
+            pl = await asyncio.to_thread(_rzp_client().payment_link.fetch, d["pay_link"]["id"])
+            if pl.get("status") == "paid":
+                pays = pl.get("payments") or []
+                ref = pays[0].get("payment_id") if pays else pl.get("id")
+                if await mark_settlement_paid(c["id"], d["tenant_id"], "razorpay", ref or ""):
+                    d.update({"status": "paid", "paid_method": "razorpay", "paid_ref": ref, "paid_at": _now()})
+        except Exception as e:  # noqa: BLE001
+            log.info("settlement link sync skipped: %s", str(e)[:100])
+
+
 async def _settlement_rows(c: dict) -> list:
     ts = await _raw_db.tenants.find({"status": {"$ne": "deleted"}}, _T_FIELDS).to_list(1000)
     docs = {d["tenant_id"]: d for d in await _raw_db.rewards_settlements.find({"campaign_id": c["id"]}, {"_id": 0}).to_list(1000)}
+    await _sync_pending_links(c, docs)
+    revenue = await _campaign_revenue(c)
+    from services.campaign_docs import agreement_version
+    ver = agreement_version(c)
+    accs: dict = {}
+    for a in await _raw_db.rewards_agreements.find({"campaign_id": c["id"]}, {"_id": 0, "tenant_id": 1, "version": 1, "full_name": 1, "accepted_at": 1}).sort("accepted_at", 1).to_list(2000):
+        accs[a["tenant_id"]] = a
     agg = await _raw_db.rewards_participants.aggregate([{"$group": {
-        "_id": "$tenant_id", "n": {"$sum": 1},
-        "winners": {"$sum": {"$cond": [{"$ifNull": ["$winner_tier", False]}, 1, 0]}}}}]).to_list(1000)
-    counts = {r["_id"]: r for r in agg}
+        "_id": {"t": "$tenant_id", "w": "$winner_tier"}, "n": {"$sum": 1}}}]).to_list(2000)
+    counts: dict = {}
+    for r in agg:
+        tid, tier = r["_id"].get("t"), r["_id"].get("w")
+        row = counts.setdefault(tid, {"n": 0, "winners": 0, "by_tier": {}})
+        row["n"] += r["n"]
+        if tier:
+            row["winners"] += r["n"]
+            row["by_tier"][tier] = row["by_tier"].get(tier, 0) + r["n"]
     today = date.today().isoformat()
     out = []
     for t in ts:
@@ -46,14 +174,20 @@ async def _settlement_rows(c: dict) -> list:
         d = d or {}
         status = d.get("status") or "not_set"
         overdue = status == "pending" and bool(d.get("due_date")) and d["due_date"] < today
+        cnt = counts.get(t["id"], {"n": 0, "winners": 0, "by_tier": {}})
         out.append({
             "tenant_id": t["id"], "name": t.get("name"), "slug": t.get("slug"), "location": t.get("location"),
-            "plan": t.get("plan"), "logo_url": t.get("logo_url"),
-            "email": t.get("notify_email") or t.get("owner_email") or "", "phone": t.get("owner_phone") or t.get("phone") or "",
-            "participants": counts.get(t["id"], {}).get("n", 0), "winners": counts.get(t["id"], {}).get("winners", 0),
+            "plan": t.get("plan"), "logo_url": t.get("logo_url"), "public_url": f"{_app_url()}/rewards/{t.get('slug')}",
+            "email": await _real_email(t), "phone": t.get("owner_phone") or t.get("phone") or "",
+            "participants": cnt["n"], "winners": cnt["winners"], "winners_by_tier": cnt["by_tier"], "suggested": _suggest(c, revenue.get(t["id"])),
+            "trusted": bool(t.get("trusted_badge")),
             "amount": float(d.get("amount") or 0), "due_date": d.get("due_date") or "", "note": d.get("note") or "",
             "status": "overdue" if overdue else status, "paid_at": d.get("paid_at"), "paid_method": d.get("paid_method"),
             "paid_ref": d.get("paid_ref"), "reminders": d.get("reminders") or [], "updated_at": d.get("updated_at"),
+            "pay_url": (d.get("pay_link") or {}).get("url") or "",
+            "docs_sent_at": d.get("docs_sent_at"),
+            "agreement": ({"status": "accepted" if accs[t["id"]].get("version") == ver else "outdated",
+                           "by": accs[t["id"]].get("full_name"), "at": accs[t["id"]].get("accepted_at")} if t["id"] in accs else {"status": "pending"}),
         })
     order = {"overdue": 0, "pending": 1, "not_set": 2, "paid": 3, "waived": 4}
     out.sort(key=lambda r: (order.get(r["status"], 9), -r["amount"], (r["name"] or "").lower()))
@@ -76,7 +210,11 @@ def _summary(rows: list) -> dict:
 async def sa_settlements(user=Depends(require_super_admin)):
     c = await get_campaign()
     rows = await _settlement_rows(c)
+    from services.campaign_docs import agreement_version
+    ver = agreement_version(c)
     return {"rows": rows, "summary": _summary(rows), "payment_link": c.get("payment_link") or "",
+            "rzp_enabled": _rzp_enabled(), "rzp_key": (os.environ.get("RAZORPAY_KEY_ID") or "")[:12],
+            "salon_share_pct": c.get("salon_share_pct"), "agreement_version": ver,
             "campaign": {"name": c["name"], "end_date": c["end_date"]}}
 
 
@@ -95,7 +233,7 @@ async def _tenant_or_404(tenant_id: str) -> dict:
 
 @router.put("/super-admin/rewards-campaign/settlements/{tenant_id}")
 async def sa_settlement_put(tenant_id: str, body: SettlementIn, user=Depends(require_super_admin)):
-    await _tenant_or_404(tenant_id)
+    t = await _tenant_or_404(tenant_id)
     c = await get_campaign()
     cur = await _raw_db.rewards_settlements.find_one({"campaign_id": c["id"], "tenant_id": tenant_id}, {"_id": 0, "status": 1})
     status = cur["status"] if cur and cur.get("status") in ("paid", "waived") else ("pending" if body.amount > 0 else "not_set")
@@ -104,7 +242,9 @@ async def sa_settlement_put(tenant_id: str, body: SettlementIn, user=Depends(req
         {"$set": {"amount": body.amount, "due_date": body.due_date, "note": body.note.strip(), "status": status,
                   "updated_at": _now(), "updated_by": user.get("email")},
          "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": _now(), "reminders": []}}, upsert=True)
-    return {"ok": True, "status": status}
+    d = await _raw_db.rewards_settlements.find_one({"campaign_id": c["id"], "tenant_id": tenant_id}, {"_id": 0})
+    link = await _ensure_pay_link(d, t, c)
+    return {"ok": True, "status": status, "pay_url": (link or {}).get("url") or ""}
 
 
 class MarkPaidIn(BaseModel):
@@ -122,7 +262,8 @@ async def sa_settlement_paid(tenant_id: str, body: MarkPaidIn, user=Depends(requ
                   "updated_at": _now(), "updated_by": user.get("email")}})
     if not r.matched_count:
         raise HTTPException(400, "Set the settlement amount first")
-    return {"ok": True}
+    await _set_trusted(tenant_id, c["id"], True)
+    return {"ok": True, "trusted": True}
 
 
 @router.post("/super-admin/rewards-campaign/settlements/{tenant_id}/reopen")
@@ -133,6 +274,7 @@ async def sa_settlement_reopen(tenant_id: str, user=Depends(require_super_admin)
         {"$set": {"status": "pending", "updated_at": _now()}, "$unset": {"paid_at": "", "paid_method": "", "paid_ref": ""}})
     if not r.matched_count:
         raise HTTPException(404, "No settlement yet")
+    await _set_trusted(tenant_id, c["id"], False)
     return {"ok": True}
 
 
@@ -193,7 +335,8 @@ async def sa_settlement_remind(tenant_id: str, body: RemindIn, user=Depends(requ
         raise HTTPException(400, "Set the settlement amount first")
     if d.get("status") in ("paid", "waived"):
         raise HTTPException(400, f"Settlement already {d['status']}")
-    link = c.get("payment_link") or ""
+    pl = await _ensure_pay_link(d, t, c)
+    link = (pl or {}).get("url") or c.get("payment_link") or ""
     overdue = bool(d.get("due_date")) and d["due_date"] < date.today().isoformat()
     name = t.get("name") or t.get("slug")
     text = await _mira_nudge(name, c, d, link, overdue)
@@ -238,4 +381,8 @@ async def tenant_settlement(tenant_id: str, campaign_id: str) -> Optional[dict]:
     d = await _raw_db.rewards_settlements.find_one({"campaign_id": campaign_id, "tenant_id": tenant_id}, {"_id": 0})
     if not d or not d.get("amount"):
         return None
-    return {k: d.get(k) for k in ("amount", "due_date", "note", "status", "paid_at")}
+    out = {k: d.get(k) for k in ("amount", "due_date", "note", "status", "paid_at")}
+    out["pay_url"] = (d.get("pay_link") or {}).get("url") or ""
+    t = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0, "trusted_badge": 1}) or {}
+    out["trusted"] = bool(t.get("trusted_badge"))
+    return out

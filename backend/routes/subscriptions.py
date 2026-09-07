@@ -713,6 +713,7 @@ async def rzp_webhook(request: Request):
     elif event_type == "payment_link.paid":
         await _wh_placement_fee_paid(event, logger)
         await _wh_product_order_paid(event, logger)
+        await _wh_settlement_paid(event, logger)
 
     return {"ok": True, "event": event_type}
 
@@ -730,6 +731,18 @@ async def _wh_placement_fee_paid(event: dict, logger) -> None:
                   "razorpay_payment_link_id": pl.get("id", "")}})
     if res.modified_count:
         logger.info("placement fee %s auto-marked paid via payment link", fee_id)
+
+
+async def _wh_settlement_paid(event: dict, logger) -> None:
+    """Brand Model settlement payment link paid → flip the salon's settlement to PAID."""
+    pl = (event.get("payload") or {}).get("payment_link", {}).get("entity", {})
+    notes = pl.get("notes") or {}
+    if notes.get("type") != "rewards_settlement" or not notes.get("tenant_id"):
+        return
+    from routes.rewards_settlements import mark_settlement_paid
+    pay = (event.get("payload") or {}).get("payment", {}).get("entity", {})
+    if await mark_settlement_paid(notes.get("campaign_id") or "main", notes["tenant_id"], "razorpay", pay.get("id") or pl.get("id", "")):
+        logger.info("settlement for tenant %s auto-marked paid via payment link", notes["tenant_id"])
 
 
 async def _wh_product_order_paid(event: dict, logger) -> None:

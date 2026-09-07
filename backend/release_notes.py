@@ -2,11 +2,13 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-07.216"
-BUILD_TIME = "07 Sep 2026, 11:00 AM IST"
+BUILD = "2026-09-07.218"
+BUILD_TIME = "07 Sep 2026, 7:00 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-07.218", "note": "Brand Model campaign documents: Salon Guide PDF, legal Participation Agreement (10% share) with e-acceptance in Settings, HQ send-pack + signed copies"},
+    {"build": "2026-09-07.217", "note": "Settlement tracker: 10%-of-earnings suggestion, auto Razorpay links per salon, Trusted-by-Miracurl badge, real inbox resolution; HQ campaign save crash fix"},
     {"build": "2026-09-07.216", "note": "Guest GST invoice PDF + one-tap email; Miracurl logo on all PDFs; Brand Model Settlement Tracker with Mira nudges"},
     {"build": "2026-09-07.215", "note": "Subscription Invoice Kit (invoice + receipt + T&C PDFs by email); HQ Edit Profile modal scroll fix"},
     {"build": "2026-09-05.214", "note": "Referral leaderboard + thank-you gift; Settings plan prices always live"},
@@ -41,6 +43,12 @@ RELEASES = [
             "🩹 HQ Edit Profile modal no longer cuts off the photo / header on shorter screens; save errors now show the exact reason",
             "🧾 Guest GST invoices: POS bills now render as a polished A4 tax invoice (salon logo, GSTIN, HSN/SAC, CGST/SGST split, amount in words) and are attached as PDF to the automatic receipt email; new one-tap 'Email invoice' button in the POS receipt",
             "✨ Every PDF (subscription invoice, receipt, T&C, guest invoice) now carries the HQ platform logo (Site Info upload or the gold monogram) with a soft watermark and 'Powered by Miracurl' footer",
+            "📜 Campaign documents: HQ can download / email every salon a Campaign Guide PDF (6 steps), the legal Salon Participation Agreement (incl. the 10% settlement share, payment terms, audit, Trusted badge, IT Act e-acceptance, Bengaluru jurisdiction) and the Terms & Conditions — 'Send pack to all pending salons' in the Settlement tracker",
+            "✍️ Salons accept the agreement in Settings → Brand Model Campaign (name + designation + 'I agree'); the e-signature record (date-time, IP, device, version) is stored, a SIGNED PDF is emailed to the salon and HQ, and the tracker shows 'Agreement signed' per salon",
+            "🔗 Settlement payments: Razorpay payment link for the exact amount is auto-generated per salon (uses HQ's Razorpay keys — no manual link needed); paid links flip the salon to PAID automatically (webhook + sync)",
+            "📊 Settlement amount guidance: each salon shows its campaign-period POS earnings × Miracurl share % (default 10%, editable in Campaign settings) with a one-tap 'Use this'",
+            "🛡️ Trusted by Miracurl badge: once a salon settles, the badge appears on the Miracurl home page partner cards and on the salon's public booking page",
+            "📧 Settlement tracker now shows each salon's real notification inbox (Gmail etc.) and a per-salon public page link; HQ campaign save no longer blanks the page on a validation error",
             "💰 Brand Model Settlement Tracker in HQ → Tenants → Rewards: per-salon amount / due date / note, outstanding & collected totals, Mark paid / Waive / Reopen, and Mira-written nudges by email or WhatsApp; salons see their settlement in Miracurl Updates",
         ],
     },

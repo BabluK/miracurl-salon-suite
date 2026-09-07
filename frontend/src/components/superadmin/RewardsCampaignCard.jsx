@@ -45,6 +45,7 @@ function TenantTile({ t, busy, onFlag }) {
           <span className={`text-[10px] px-2 py-0.5 rounded-full ${t.on ? "bg-emerald-500/15 text-emerald-300" : "bg-white/5 text-slate-500"}`} data-testid={`rewards-tenant-${t.slug}-state`}>{t.on ? "● ON" : "○ OFF"}</span>
           <span className="text-[10px] text-slate-500">{src}</span>
           {t.participants > 0 && <span className="text-[10px] text-[#F0D9A5]">👥 {t.participants}</span>}
+          {t.on && <a href={`/rewards/${t.slug}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[10px] text-slate-400 hover:text-[#d4af37] inline-flex items-center gap-0.5" data-testid={`rewards-tenant-${t.slug}-public`}><ExternalLink className="w-2.5 h-2.5" /> public page</a>}
         </div>
       </div>
       <div className="flex flex-col items-end gap-1.5">
@@ -74,6 +75,7 @@ export function RewardsCampaignCard() {
   const filtered = useMemo(() => tenants.filter(t => !q || `${t.name} ${t.slug} ${t.location}`.toLowerCase().includes(q.toLowerCase())), [tenants, q]);
   if (!c) return null;
 
+  const errMsg = (e, fb) => { const d = e.response?.data?.detail; return typeof d === "string" ? d : Array.isArray(d) ? d.map(x => `${(x.loc || []).slice(-1)[0]}: ${x.msg}`).join(" · ") : fb; };
   const set = (k) => (e) => setC(s => ({ ...s, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
   const setReward = (i, k, v) => setC(s => ({ ...s, rewards: s.rewards.map((r, j) => (j === i ? { ...r, [k]: k === "winners" ? Number(v) : v } : r)) }));
   const togglePlan = (k) => setC(s => ({ ...s, eligible_plans: s.eligible_plans.includes(k) ? s.eligible_plans.filter(p => p !== k) : [...s.eligible_plans, k] }));
@@ -81,11 +83,11 @@ export function RewardsCampaignCard() {
   const save = async (patch = {}) => {
     setSaving(true);
     try {
-      const body = { ...c, ...patch, min_transaction: Number(c.min_transaction), budget: Number(c.budget), winner_count: Number(c.winner_count) };
+      const body = { ...c, ...patch, min_transaction: Number(c.min_transaction), budget: Number(c.budget), winner_count: Number(c.winner_count), salon_share_pct: Number(c.salon_share_pct ?? 10) };
       const { data } = await api.put("/super-admin/rewards-campaign", body);
       setC(data); loadTenants();
       toast.success(data.enabled ? `Campaign ${data.live ? "is LIVE" : "scheduled"} · ${data.eligible_tenants} salon${data.eligible_tenants === 1 ? "" : "s"} ON` : "Campaign switched OFF");
-    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't save"); }
+    } catch (e) { toast.error(errMsg(e, "Couldn't save")); }
     setSaving(false);
   };
   const flag = async (t, on) => {
@@ -95,13 +97,13 @@ export function RewardsCampaignCard() {
       setTenants(ts => ts.map(x => (x.id === t.id ? { ...x, on: data.on, manual: data.manual } : x)));
       setC(s => ({ ...s, eligible_tenants: data.on_count }));
       toast.success(on === null ? `${t.name} → auto (plan rule)` : `${t.name} → Rewards ${on ? "ON" : "OFF"}`);
-    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't update"); }
+    } catch (e) { toast.error(errMsg(e, "Couldn't update")); }
     setBusyId("");
   };
   const loadPeople = () => api.get("/super-admin/rewards-campaign/participants").then(r => setPeople(r.data.participants)).catch(() => {});
   const setWinner = async (p, tier) => {
     try { await api.post(`/super-admin/rewards-campaign/participants/${p.id}/winner`, { tier: tier || null }); toast.success(tier ? `${p.name} → ${tier} 🏆 — share card is ready` : "Winner cleared"); loadPeople(); }
-    catch (e) { toast.error(e.response?.data?.detail || "Couldn't set winner"); }
+    catch (e) { toast.error(errMsg(e, "Couldn't set winner")); }
   };
   const card = async (p, mode, fmt = "square") => {
     setCardBusy(p.id + mode + fmt);
@@ -110,7 +112,7 @@ export function RewardsCampaignCard() {
       const filename = `brand-model-${p.name.toLowerCase().replace(/\s+/g, "-")}${fmt === "story" ? "-story" : ""}.png`;
       if (mode === "dl") { downloadBlob(blob, filename); toast.success("Winner card downloaded"); }
       else await shareWinnerCard({ blob, filename, text: whatsappShareText({ name: p.name, tier: p.winner_tier, salon: p.salon_name, url: `${window.location.origin}/rewards/${p.salon_slug}` }) });
-    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't build the card"); }
+    } catch (e) { toast.error(errMsg(e, "Couldn't build the card")); }
     setCardBusy("");
   };
   const onCount = tenants.filter(t => t.on).length;
@@ -177,6 +179,7 @@ export function RewardsCampaignCard() {
               <label className={lbl}>Start<input type="date" value={c.start_date} onChange={set("start_date")} className={inp} data-testid="rewards-cfg-start" /></label>
               <label className={lbl}>End<input type="date" value={c.end_date} onChange={set("end_date")} className={inp} data-testid="rewards-cfg-end" /></label>
               <label className={lbl}>Winner count<input type="number" value={c.winner_count} onChange={set("winner_count")} className={inp} data-testid="rewards-cfg-winners" /></label>
+              <label className={lbl}>Miracurl share of campaign earnings (%) — e.g. salon earns ₹4,00,000 → 10% = ₹40,000<input type="number" min={0} max={100} step="0.5" value={c.salon_share_pct ?? 10} onChange={set("salon_share_pct")} className={inp} data-testid="rewards-cfg-share-pct" /></label>
               <div className={lbl}>Rewards
                 <div className="space-y-1 mt-1">{c.rewards.map((r, i) => <div key={i} className="flex items-center gap-2 text-xs text-slate-200"><span>{r.emoji}</span><input value={r.tier} onChange={e => setReward(i, "tier", e.target.value)} className={inp + " !w-28"} /><input type="number" min={0} value={r.winners} onChange={e => setReward(i, "winners", e.target.value)} className={inp + " !w-16"} data-testid={`rewards-tier-${i}`} /><span className="text-slate-500">winner{r.winners === 1 ? "" : "s"}</span></div>)}</div>
               </div>
@@ -191,7 +194,15 @@ export function RewardsCampaignCard() {
               <div className="text-[10px] uppercase tracking-[2px] text-[#F0D9A5] font-semibold">Miracurl Updates → shown to every eligible salon (popup + dashboard section)</div>
               <label className={`block ${lbl}`}>Terms & conditions for salons<textarea value={c.tenant_terms || ""} onChange={set("tenant_terms")} rows={4} className={inp + " normal-case"} data-testid="rewards-cfg-tenant-terms" /></label>
               <div className="grid sm:grid-cols-[1fr_1.4fr] gap-3">
-                <label className={lbl}>Settlement payment link (sent when the campaign ends)<input value={c.payment_link || ""} onChange={set("payment_link")} placeholder="https://rzp.io/l/…" className={inp + " normal-case"} data-testid="rewards-cfg-payment-link" /></label>
+                {c.rzp_enabled ? (
+                  <div className={lbl}>Settlement payments
+                    <div className="mt-1 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-[11px] text-emerald-200 normal-case" data-testid="rewards-cfg-rzp-auto">
+                      ✓ Razorpay connected ({c.rzp_key}…) — a payment link for the exact amount is generated automatically for every salon in the Settlement tracker. Nothing to set up here.
+                    </div>
+                  </div>
+                ) : (
+                  <label className={lbl}>Settlement payment link (fallback — add Razorpay keys to auto-generate)<input value={c.payment_link || ""} onChange={set("payment_link")} placeholder="https://rzp.io/l/…" className={inp + " normal-case"} data-testid="rewards-cfg-payment-link" /></label>
+                )}
                 <label className={lbl}>Payment note<input value={c.payment_note || ""} onChange={set("payment_note")} placeholder="Your share for 2 Gold memberships redeemed — ₹4,000, due by 15 Jan" className={inp + " normal-case"} data-testid="rewards-cfg-payment-note" /></label>
               </div>
               <label className={`block ${lbl}`}>Updates feed (one per line: <code className="normal-case">YYYY-MM-DD | Title | message</code>)
@@ -210,6 +221,7 @@ export function RewardsCampaignCard() {
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={loadPeople} data-testid="rewards-participants-btn" className="px-4 py-2 rounded-full border border-white/15 text-slate-300 text-xs font-semibold hover:border-[#d4af37]/60 inline-flex items-center gap-1.5 transition-colors"><Trophy className="w-3.5 h-3.5 text-[#d4af37]" /> Participants & winners</button>
           {tenants.find(t => t.on) && <a href={`/rewards/${tenants.find(t => t.on).slug}`} target="_blank" rel="noreferrer" className="text-[11px] text-slate-400 hover:text-[#d4af37] inline-flex items-center gap-1" data-testid="rewards-preview-link"><ExternalLink className="w-3 h-3" /> preview public page</a>}
+          <span className="text-[10px] text-slate-500">· each salon has its own page: /rewards/&lt;salon-slug&gt; (link on every ON tile)</span>
         </div>
         {people && (
           <div className="space-y-1 max-h-80 overflow-y-auto pr-1" data-testid="rewards-participants">

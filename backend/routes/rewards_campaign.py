@@ -25,6 +25,7 @@ DEFAULT_CAMPAIGN = {
     "start_date": "2026-10-01", "end_date": "2026-12-31", "winner_count": 10,
     "rewards": [{"tier": "Diamond", "emoji": "💎", "winners": 1}, {"tier": "Platinum", "emoji": "🪩", "winners": 2},
                 {"tier": "Gold", "emoji": "🥇", "winners": 7}],
+    "salon_share_pct": 10,
     "entry_rules": [{"key": "purchase", "label": "Eligible purchase ₹1,500+", "entries": 1},
                     {"key": "referral", "label": "Refer a friend who completes an eligible purchase", "entries": 1},
                     {"key": "referral3", "label": "Refer 3 friends", "entries": 3},
@@ -107,6 +108,7 @@ class CampaignIn(BaseModel):
     end_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
     winner_count: int = Field(10, ge=1, le=100)
     rewards: list[dict] = Field(default_factory=list)
+    salon_share_pct: float = Field(10, ge=0, le=100)
     entry_rules: list[dict] = Field(default_factory=list)
     terms: str = Field("", max_length=3000)
     events: list[dict] = Field(default_factory=list, max_length=12)
@@ -122,6 +124,8 @@ async def sa_get_campaign(user=Depends(require_super_admin)):
     c["live"] = _is_live(c)
     c["participants"] = await _raw_db.rewards_participants.count_documents({})
     c["eligible_tenants"] = await _count_eligible(c)
+    c["rzp_enabled"] = bool(os.environ.get("RAZORPAY_KEY_ID") and os.environ.get("RAZORPAY_KEY_SECRET"))
+    c["rzp_key"] = (os.environ.get("RAZORPAY_KEY_ID") or "")[:12]
     return c
 
 
@@ -277,7 +281,8 @@ async def tenant_campaign(user=Depends(require_tenant_admin), t=Depends(current_
     popup_key = f"{c.get('updated_at', '')}|{c['start_date']}|{bool(c.get('payment_link'))}"
     acked = await _raw_db.rewards_tenant_acks.find_one({"tenant_id": t["id"], "user_id": user["id"], "key": popup_key}, {"_id": 1})
     from routes.rewards_settlements import tenant_settlement
-    return {"campaign": pub, "enabled": bool(c.get("enabled")), "live": _is_live(c), "eligible": _tenant_eligible(c, t) and _is_live(c),
+    from routes.campaign_agreement import agreement_state
+    return {"campaign": pub, "agreement": await agreement_state(t, c), "enabled": bool(c.get("enabled")), "live": _is_live(c), "eligible": _tenant_eligible(c, t) and _is_live(c),
             "plan_ok": _tenant_eligible(c, t), "status": status, "participants": parts, "slug": t.get("slug"), "nudges": nudges,
             "popup_key": popup_key, "show_popup": bool(c.get("enabled")) and _tenant_eligible(c, t) and not acked,
             "settlement": await tenant_settlement(t["id"], c["id"])}
