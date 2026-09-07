@@ -570,7 +570,11 @@ def _render_salary_slip_pdf(slip: dict) -> bytes:
         line(f"Overtime ({slip.get('overtime_hours_total', 0)}h past shift end)", f"Rs. {slip['overtime_total']:.2f}")
     if slip.get("review_bonus_total"):
         line(f"5-star review bonus ({slip.get('review_bonus_count', 0)} review(s))", f"Rs. {slip['review_bonus_total']:.2f}")
-    if slip.get("late_penalty_total") or slip.get("advance_total"):
+    if slip.get("target_bonus"):
+        line(f"Monthly target bonus ({slip.get('target_commission_pct', 0)}% — target Rs. {slip.get('monthly_target', 0):.0f} achieved)", f"Rs. {slip['target_bonus']:.2f}")
+    gross_pay = round(float(slip.get("net_payable") or 0) + float(slip.get("deductions_total") or 0), 2)
+    line("Gross earnings", f"Rs. {gross_pay:.2f}", bold=True)
+    if slip.get("deductions_total"):
         y -= 2 * mm
         c.setFont("Helvetica-Bold", 11)
         c.setFillColor(colors.HexColor("#0A0A0A"))
@@ -578,8 +582,11 @@ def _render_salary_slip_pdf(slip: dict) -> bytes:
         y -= 8 * mm
         if slip.get("late_penalty_total"):
             line(f"Late-arrival fines ({slip.get('late_days', 0)} day(s))", f"- Rs. {slip['late_penalty_total']:.2f}")
+        if slip.get("half_day_deduction_total"):
+            line(f"Half-day deductions ({slip.get('half_days', 0)} half day(s))", f"- Rs. {slip['half_day_deduction_total']:.2f}")
         if slip.get("advance_total"):
             line("Salary advance taken", f"- Rs. {slip['advance_total']:.2f}")
+        line("Total deductions", f"- Rs. {slip['deductions_total']:.2f}", bold=True)
     c.setStrokeColor(colors.HexColor("#e5e7eb"))
     c.line(left, y + 3 * mm, right, y + 3 * mm)
     line("Net payable", f"Rs. {slip['net_payable']:.2f}", bold=True)

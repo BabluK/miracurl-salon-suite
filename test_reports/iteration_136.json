@@ -1,0 +1,22 @@
+{
+  "summary": "Iteration 136 — Salary slip rule fixes verified. Backend pytest 7/7 pass (staff list, Priya PDF slip for 2026-08 contains 'Service commission (10.0%)' with amount = 10% of Service gross, contains 'Gross earnings' and 'Net payable', does NOT contain 'withheld'; overtime line hidden when overtime_rate=0; unknown sid -> 404; invalid month 'abc' -> 400; staff portal /api/staff/me/salary-slip JSON: commission_amount == service_gross*pct/100, commission_withheld=false, overtime_total=0 when overtime_rate=0, net_payable matches formula ±0.01; attendance/today 200; PUT /api/staff/{sid} idempotent PUT returns 200 with X-Owner-Pin+CSRF). Frontend: /staff loads 6 staff cards; salary-slip-month-<id> select renders with 12 monthly options (Sept 2026 down to Oct 2025); salary-slip-<id> button next to it; Priya card correctly wired (id 3cdf66d1-...). Selecting 'Aug 2026' + clicking Slip opened a popup via window.open (context.expect_page fired). Edit modal for Priya shows Overtime ₹/hr field with the exact hint 'Leave 0 = no overtime is paid; late fines still apply.' below it (verified in code + rendered). Managers (Rahul) correctly do NOT get the Slip UI (isManager check hides it) — 4 slip buttons for 6 cards is expected. Note: Priya has overtime_rate=100/hr so overtime WILL show for her; the overtime-hidden rule is exercised via unit assertion (pdf text) on staff whose overtime_rate==0.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_iter136_salary_slip_rules.py", "/app/test_reports/pytest/iter136.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PDF _render_salary_slip_pdf still keeps the legacy 'withheld' branch (line ~562) even though _compute_salary_for_month now always sets commission_withheld=False. Harmless but dead code — consider removing to avoid future regressions if someone re-introduces withholding.",
+    "_render_salary_slip_pdf 'Overtime' line only renders when overtime_total>0; this correctly hides both label and value when overtime_rate==0. Matches spec.",
+    "Frontend StaffCard uses window.open with API URL directly — relies on the JWT cookie being sent cross-tab. Works because API is same origin. If a user disables 3rd-party cookies this could break; consider a signed one-shot download token in future.",
+    "salary-slip-month select generates 12 months by decrementing month(-i); on year boundary this correctly rolls back (Date.setMonth handles it). Confirmed Sept 2026 → Oct 2025 range in UI.",
+    "Manager check in StaffCard (`isManager`) hides the Slip UI entirely — good; managers currently cannot download their own or others' slips from this card. If owner needs to download a manager's slip, they'd need a separate path."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter136_salary_slip_rules.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (slug miracurl-marathahalli, PIN 4321); staff portal priya.staff@miracurl.com / Staff@5678",
+  "seed_data_creation": "None — only PUT /api/staff/{sid} with identical payload for regression.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Salary slip rule fixes (commission always paid, overtime gated by overtime_rate>0, month-wise download UI) all verified. Backend test file /app/backend/tests/test_iter136_salary_slip_rules.py can be reused. Note the auth session needs an X-CSRF-Token header (read from csrf_token cookie) for unsafe methods; captured pattern is in the test.",
+  "rca of the issue": "No issues. Both server-side (staff_portal._compute_salary_for_month + services.pdf._render_salary_slip_pdf) and client-side (StaffCard.jsx month select + window.open) match spec. Legacy 'withheld' PDF branch is unreachable now — cosmetic cleanup only."
+}

@@ -212,6 +212,7 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
               <div>
                 <label className="label-light block mb-1">Overtime ₹/hr</label>
                 <input data-testid="staff-overtime-rate-input" type="number" min="0" step="10" className="input-light" value={form.overtime_rate} onChange={e => setForm({ ...form, overtime_rate: e.target.value })} placeholder="50 Beautician · 100 Senior" />
+                <p className="text-[10px] text-slate-400 mt-1">Leave 0 = no overtime is paid; late fines still apply.</p>
               </div>
               <div>
                 <label className="label-light block mb-1">Max advance ₹/month</label>

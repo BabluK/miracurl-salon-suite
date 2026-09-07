@@ -416,7 +416,7 @@ export default function StaffPortal() {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
               <SlipRow label="Monthly base" value={`₹${(slip.monthly_base_salary || 0).toLocaleString("en-IN")}`} />
-              <SlipRow label={`Commission (${slip.commission_pct || 0}%)`} value={`₹${(slip.commission_amount || 0).toLocaleString("en-IN")}`} />
+              <SlipRow label={`Commission (${slip.commission_pct || 0}%)`} value={`₹${(slip.commission_amount || 0).toLocaleString("en-IN")}`} sub={slip.service_gross ? `${slip.commission_pct || 0}% of ₹${Number(slip.service_gross).toLocaleString("en-IN")} services` : undefined} />
               <SlipRow label={`Product sales (${slip.product_commission_pct || 2}%)`} value={`+ ₹${(slip.product_commission_amount || 0).toLocaleString("en-IN")}`} sub={slip.product_count ? `${slip.product_count} product${slip.product_count > 1 ? "s" : ""} sold · ₹${(slip.product_gross || 0).toLocaleString("en-IN")}` : "no products sold"} />
               <SlipRow label="Overtime" value={`+ ₹${(slip.overtime_total || 0).toLocaleString("en-IN")}`} sub={slip.overtime_hours_total ? `${slip.overtime_hours_total}h past shift end` : "no overtime"} />
               <SlipRow label="Late fines" value={`− ₹${(slip.late_penalty_total || 0).toLocaleString("en-IN")}`} sub={slip.late_days ? `${slip.late_days} late day(s)` : "no late marks"} />

@@ -5,6 +5,9 @@ import api, { API } from "@/lib/api";
 
 export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, onToggleActive, onDelete, isManager = false, onPromote, onCancelTemp, mainLabel = "Main salon" }) {
   const [onTime, setOnTime] = useState(!!s.always_on_time);
+  const [slipMonth, setSlipMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const months = Array.from({ length: 12 }, (_, i) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i); return d.toISOString().slice(0, 7); });
+  const monthLabel = (m) => new Date(`${m}-01T00:00:00`).toLocaleDateString("en-IN", { month: "short", year: "numeric" });
   const toggleOnTime = async () => {
     try {
       const { data } = await api.post(`/staff/${s.id}/toggle-always-on-time`);
@@ -115,14 +118,20 @@ export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, o
           <IndianRupee className="w-3 h-3" /> Advance
         </button>
         {!isManager && (
+          <span className="inline-flex items-stretch rounded-md border border-sky-200 bg-sky-50 overflow-hidden">
+            <select value={slipMonth} onChange={e => setSlipMonth(e.target.value)} data-testid={`salary-slip-month-${s.id}`} title="Salary slip month"
+              className="text-xs px-2 bg-transparent text-sky-700 border-r border-sky-200 outline-none">
+              {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
+            </select>
           <button
             data-testid={`salary-slip-${s.id}`}
-            onClick={() => window.open(`${API}/staff/${s.id}/salary-slip.pdf`, "_blank")}
-            className="text-xs py-1.5 px-3 rounded-md bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 inline-flex items-center gap-1"
-            title="Download this month's salary slip (commissions, fines & advances combined)"
+            onClick={() => window.open(`${API}/staff/${s.id}/salary-slip.pdf?month=${slipMonth}`, "_blank")}
+            className="text-xs py-1.5 px-3 text-sky-700 hover:bg-sky-100 inline-flex items-center gap-1"
+            title="Download the salary slip PDF for the selected month (base, commission, overtime, fines, half-days, advances)"
           >
             <FileDown className="w-3 h-3" /> Slip
           </button>
+          </span>
         )}
         {!s.user_id ? (
           <button

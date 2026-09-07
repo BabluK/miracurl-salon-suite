@@ -371,7 +371,10 @@ PRODUCT_COMMISSION_PCT = 2.0  # % of product price credited to the selling staff
 
 def _overtime_for(staff: dict, checkout_ist: datetime) -> tuple:
     """(overtime_hours, overtime_pay ₹) for time worked past shift_end.
-    Paid per completed 30-min block: ₹50 default, or staff's hourly overtime_rate/2 if set."""
+    Only when the owner has set an hourly overtime_rate for this staff (else no overtime — late fines still apply)."""
+    rate = float(staff.get("overtime_rate") or 0)
+    if rate <= 0:
+        return 0.0, 0.0
     h, m = _parse_hhmm(staff.get("shift_end"), "21:00")
     end = checkout_ist.replace(hour=h, minute=m, second=0, microsecond=0)
     if checkout_ist <= end:
@@ -379,9 +382,7 @@ def _overtime_for(staff: dict, checkout_ist: datetime) -> tuple:
     secs = (checkout_ist - end).total_seconds()
     hours = round(secs / 3600, 2)
     blocks = int(secs // (OT_BLOCK_MINUTES * 60))
-    rate = float(staff.get("overtime_rate") or 0)
-    per_block = rate / 2 if rate > 0 else OT_BLOCK_PAY
-    return hours, round(blocks * per_block, 2)
+    return hours, round(blocks * rate / 2, 2)
 
 
 def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -1008,11 +1009,8 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
     target_pct = float(staff.get("target_commission_pct") or 0)
     target_achieved = monthly_target > 0 and gross >= monthly_target
     target_bonus = round(gross * target_pct / 100, 2) if (target_achieved and target_pct > 0) else 0.0
-    # Owner's scheme: when a monthly target is set, service commission is paid
-    # ONLY if the staff reached that target for the month.
-    commission_withheld = monthly_target > 0 and not target_achieved
-    if commission_withheld:
-        commission = 0.0
+    # Service commission is always paid on service gross; the target bonus is an extra on top when the target is hit.
+    commission_withheld = False
     # Attendance
     att_start = f"{year:04d}-{month:02d}-01"
     att_end = f"{year:04d}-{month:02d}-{end_day:02d}"
@@ -1021,6 +1019,8 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
         {"_id": 0},
     ).to_list(200)
     att = _attendance_month_totals(recs)
+    if float(staff.get("overtime_rate") or 0) <= 0:  # no overtime rate set → never pay overtime (fines still apply)
+        att["overtime_total"], att["overtime_hours_total"] = 0.0, 0.0
     adv_rows = await db.advances.find(
         {"staff_id": staff["id"], "month": f"{year:04d}-{month:02d}"}, {"_id": 0}).to_list(5)
     advance_total = round(sum(float(a.get("amount") or 0) for a in adv_rows), 2)

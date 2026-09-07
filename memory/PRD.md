@@ -2880,3 +2880,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Fixed: `services/pdf_brand.py` now imports `_get_object` from `services.storage` (no route import) → billing→guest_invoice→pdf_brand→uploads cycle removed; narrowed blind excepts.
 - Verified false positives: security.py:232 is a comment (CSRF key derives from env JWT_SECRET); utils.py:8 uses `in`, not `is`; ruff F632/F821 clean across backend. `is False` usages are intentional tri-state checks.
 - Deferred (pre-existing, large refactors): complexity in hq_documents/_annotate_invite, hq_notifications/public_salon_page, cash_register/add_expense, day_offers/_resolve_offer_line; long functions; server.py import count; type-hint coverage.
+
+## 2026-09-07 (g) — Salary rules (BUILD 2026-09-07.221)  ⚠️ STABILITY NOTE
+- User directive: MANY salons/restaurants are going live — do not break existing functionality; prefer additive changes, keep all endpoints/testids stable, run regression (testing_agent) after each batch. Future features must be layered on without altering existing flows.
+- Salary rules now: commission = service_gross × commission_pct ALWAYS (no withholding); target bonus extra when target hit; overtime paid only if staff.overtime_rate > 0 (`_overtime_for` returns 0 and `_compute_salary_for_month` zeroes stored OT when rate is 0); deductions = late fines + half-day deductions + advances.
+- Owner month-wise slip: StaffCard month picker → `GET /staff/{sid}/salary-slip.pdf?month=YYYY-MM`; PDF shows gross earnings, target bonus, all deductions + total.
