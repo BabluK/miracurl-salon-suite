@@ -2868,3 +2868,10 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Agreement gate (`campaign_agreement.agreement_ok`): `/public/rewards/{slug}` eligible=false + `agreement_pending`; `/public/rewards/{slug}/join` 403; `/settings/rewards-qr-poster.png` 403; RewardsQrCard shows locked card linking to #campaign-agreement.
 - Agreement text version bumped to 2026-09-B (clause 5.3 data authorisation, 5.4) → existing acceptances become "outdated" and need re-accept.
 - Legal note given to user: platform may process aggregated billing data as service provider with contractual consent; HQ view excludes customer personal data (DPDP 2023).
+
+## 2026-09-07 (e) — Earnings watch, salon-only campaign, Onboard modal (BUILD 2026-09-07.220)
+- `detect_earnings_anomalies(c)` in rewards_settlements.py: baseline = 3 full months before campaign start (monthly avg), current = campaign-window run-rate ×30d; flags silent|drop(≥30%)|ok|early(<7d)|no_baseline(<₹5k). `GET /super-admin/rewards-campaign/anomalies`, `POST .../anomalies/alert` (force email); `_earnings_anomaly_scheduler` Mondays ≥9 IST, dedupe via system_flags key rewards_anomaly_alert. UI `EarningsWatch` inside SettlementTracker.
+- `_tenant_eligible` now returns False for business_type=restaurant; `/super-admin/rewards-campaign/tenants` returns salons in `tenants` + `restaurants` list; flag endpoint 400 for restaurants; card shows "N restaurants excluded" note. Restaurant campaign = future separate feature.
+- `components/superadmin/OnboardTenantModal.jsx` replaces inline modal in SuperAdmin.jsx (same testids + tenant-type-*/tenant-plan-* pickers).
+- 90-day invite link answer: applies only to NEW signups via that link (signup_offer stored on the new tenant); existing tenants untouched.
+- Tested iteration_135 (backend 100%, frontend 95% — Escape-close added after). Salon-only change self-tested via API.

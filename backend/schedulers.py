@@ -819,3 +819,19 @@ async def _cash_report_scheduler() -> None:
         except Exception as e:
             logging.error(f"cash report scheduler error: {e}")
         await asyncio.sleep(900)
+
+
+async def _earnings_anomaly_scheduler() -> None:
+    """Every Monday (>= 9 AM IST): Mira emails HQ the salons whose campaign billing dropped sharply (off-app billing check)."""
+    from routes.rewards_settlements import send_anomaly_alert
+    await asyncio.sleep(300)
+    while True:
+        try:
+            now_ist = datetime.now(IST_TZ)
+            if now_ist.weekday() == 0 and now_ist.hour >= 9:
+                out = await send_anomaly_alert()
+                if out.get("sent"):
+                    logging.info(f"earnings anomaly alert sent: {out}")
+        except Exception as e:
+            logging.error(f"earnings anomaly scheduler error: {e}")
+        await asyncio.sleep(3600)

@@ -1,0 +1,27 @@
+{
+  "summary": "Iteration 135 — Mira earnings anomaly alerts + redesigned onboard modal. Backend: 7/7 pytest tests pass (shape, marathahalli early + whitefield no_baseline, sort order, alert-now returns ok/flagged=0/sent=False, tenant 403 on both endpoints, create+delete tenant via /api/super-admin/tenants{/,/{id}} works). Unit-ish detect_earnings_anomalies(campaign with start_date 2026-08-01) returns marathahalli flag='ok', drop_pct=0, baseline_monthly=89915 — expected non-'early'. Frontend: /super-admin?tab=tenants shows data-testid=earnings-watch with toggle text 'Mira earnings watch · all clear'; on toggle, anomaly-row-miracurl-marathahalli renders flag 'Too early' and anomaly-row-miracurl-whitefield renders 'No baseline'; clicking anomaly-bills opens settlement-earnings-modal with earnings-total ₹2,950 ✓. Alert-now click surfaces 'Nothing to flag — all salons look healthy' toast ✓. Onboard modal — restaurant toggle changes heading to 'Onboard a New Restaurant' and field label to 'RESTAURANT NAME *'; salon toggle restores. Slug input lowercases + strips: 'Test Salon!!' -> 'testsalon' ✓. Plan Pro selects, save creates tenant and shows one-time password panel/toast (body text confirmed). onboard-cancel / onboard-close close the modal (test partially blocked by credentials modal overlay after save, but earlier pytest cleanup confirms delete endpoint works: DELETE /api/super-admin/tenants/{id} -> 200).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "SettlementTracker · settlement-earnings-modal", "issue": "Modal does not close on Escape key; only via close (X) button. Minor UX polish; blocks click-through to earnings-watch-alert-now if left open.", "selector": "[data-testid='settlement-earnings-modal']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_iter135_earnings_anomalies.py", "/app/test_reports/pytest/iter135.xml"],
+  "action_items": ["Optional: make settlement-earnings-modal close on Escape / backdrop click for parity with other modals."],
+  "critical_code_review_comments": [
+    "detect_earnings_anomalies: baseline computed over 3 months but 'baseline_monthly = baseline_total / 3' hardcodes divisor — if a tenant was created <3 months ago its baseline is diluted (e.g. 2 months of data /3). Consider dividing by number of months actually present or falling back to 'no_baseline'.",
+    "sa_anomalies flagged count excludes 'early' and 'no_baseline' by design (only silent+drop). Good; matches the alert email logic.",
+    "OnboardTenantModal is well-structured with data-testids; overlay onClick=onClose could conflict with unsaved data — consider confirmation.",
+    "Send_anomaly_alert dedupes per ISO week via system_flags — force=True endpoint correctly bypasses. Good."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter135_earnings_anomalies.py"],
+  "success_rate": {"backend": "100%", "frontend": "95%"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 ; admin@miracurl.com / q6QY@tn3p#9DtL (slug miracurl-marathahalli)",
+  "seed_data_creation": "Created and deleted qa-anom-* tenants via API (soft-deleted -> status=cancelled). UI-created qa-polish-1788788079 not present in tenants list post-save; may have been silently dropped or listed under a different endpoint — please verify.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Both anomalies endpoint and onboard modal behave per spec. Escape-to-close on settlement-earnings-modal is a small polish. UI onboard test created slug qa-polish-1788788079 but it did not show up in GET /api/super-admin/tenants; save flow appeared to succeed (one-time-password body content rendered). Worth verifying whether the SuperAdmin.jsx save handler filters cancelled/inactive tenants from the list or if the create actually failed at the last moment.",
+  "rca of the issue": "No blocking issues found. Alert-now returns flagged=0 correctly because on today's date (2026-09-07) the campaign is only 2 days old for marathahalli (flag='early') and whitefield has 'no_baseline' — neither counts toward flagged."
+}

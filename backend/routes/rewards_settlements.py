@@ -13,13 +13,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from database import _raw_db
-from email_service import _inboxes_for_login, _is_login_only, _send_email
+from email_service import _inboxes_for_login, _is_login_only, _send_email, hq_notify_emails
 from routes.rewards_campaign import _tenant_eligible, get_campaign
 from security import require_super_admin
 
 router = APIRouter()
 log = logging.getLogger("rewards_settlements")
-_T_FIELDS = {"_id": 0, "id": 1, "name": 1, "slug": 1, "plan": 1, "status": 1, "location": 1, "logo_url": 1,
+_T_FIELDS = {"_id": 0, "id": 1, "name": 1, "slug": 1, "plan": 1, "status": 1, "location": 1, "logo_url": 1, "business_type": 1,
              "owner_email": 1, "notify_email": 1, "phone": 1, "owner_phone": 1, "trusted_badge": 1}
 
 
@@ -259,6 +259,138 @@ async def sa_settlement_earnings_csv(tenant_id: str, user=Depends(require_super_
     w.writerow(["campaign_revenue", data["revenue"], "share_pct", data["share_pct"], "share_amount", data["share_amount"]])
     return Response(content=buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": f'attachment; filename="campaign-earnings-{data["tenant"]["slug"]}.csv"'})
+
+
+# ── Earnings anomaly detection (off-app billing check) ──
+ANOMALY_DROP_PCT = 30.0
+ANOMALY_MIN_BASELINE = 5000.0
+
+
+async def _monthly_revenue_map(tenant_ids: list, start_iso: str, end_iso: str) -> dict:
+    agg = await _raw_db.invoices.aggregate([
+        {"$match": {"tenant_id": {"$in": tenant_ids}, "created_at": {"$gte": start_iso, "$lte": end_iso},
+                    "paid": {"$ne": False}, "status": {"$nin": ["open", "void", "cancelled"]}}},
+        {"$group": {"_id": {"t": "$tenant_id", "m": {"$substr": ["$created_at", 0, 7]}}, "revenue": {"$sum": "$total"}, "bills": {"$sum": 1}}},
+    ]).to_list(10000)
+    out: dict = {}
+    for r in agg:
+        out.setdefault(r["_id"]["t"], {})[r["_id"]["m"]] = {"revenue": float(r["revenue"]), "bills": int(r["bills"])}
+    return out
+
+
+def _mira_anomaly_note(name: str, a: dict) -> str:
+    if a["flag"] == "drop":
+        return (f"{name} billed ₹{a['current_monthly']:,.0f}/month during the campaign vs ₹{a['baseline_monthly']:,.0f}/month before it "
+                f"({a['drop_pct']:.0f}% lower, {a['current_bills']} bills). Worth a friendly check-in: are all visits going through Miracurl POS? "
+                f"Remind them entries only count from POS bills — and that the agreement covers off-app billing (Clause 5.4).")
+    if a["flag"] == "silent":
+        return f"{name} has recorded no POS bills since the campaign started, though it billed ₹{a['baseline_monthly']:,.0f}/month before. Possible off-app billing or a closed outlet — check in."
+    if a["flag"] == "early":
+        return f"{name}: campaign is only {a['days_in_campaign']} day(s) old — Mira starts comparing against the ₹{a['baseline_monthly']:,.0f}/month baseline after 7 days."
+    if a["flag"] == "no_baseline":
+        return f"{name} has little or no POS history before the campaign (₹{a['baseline_monthly']:,.0f}/month), so there is nothing to compare yet."
+    return f"{name} looks healthy: ₹{a['current_monthly']:,.0f}/month during the campaign vs ₹{a['baseline_monthly']:,.0f}/month before."
+
+
+async def detect_earnings_anomalies(c: dict) -> list:
+    """Compare campaign-period monthly run-rate vs the 3 months before the campaign; flag sharp drops."""
+    from datetime import timedelta as _td
+    start = date.fromisoformat(c["start_date"])
+    end = min(date.fromisoformat(c["end_date"]), date.today())
+    if end < start:
+        return []
+    base_start = (start.replace(day=1) - _td(days=1)).replace(day=1)
+    base_start = (base_start.replace(day=1) - _td(days=1)).replace(day=1)  # 3 full months back
+    ts = await _raw_db.tenants.find({"status": {"$ne": "deleted"}}, _T_FIELDS).to_list(1000)
+    ts = [t for t in ts if _tenant_eligible(c, t)]
+    if not ts:
+        return []
+    ids = [t["id"] for t in ts]
+    base = await _monthly_revenue_map(ids, f"{base_start.isoformat()}T00:00:00", f"{(start - _td(days=1)).isoformat()}T23:59:59.999999+00:00")
+    cur = await _monthly_revenue_map(ids, f"{start.isoformat()}T00:00:00", f"{end.isoformat()}T23:59:59.999999+00:00")
+    days = max(1, (end - start).days + 1)
+    out = []
+    for t in ts:
+        b_months = base.get(t["id"], {})
+        baseline_total = sum(m["revenue"] for m in b_months.values())
+        baseline_monthly = baseline_total / 3
+        c_months = cur.get(t["id"], {})
+        cur_total = sum(m["revenue"] for m in c_months.values())
+        cur_bills = sum(m["bills"] for m in c_months.values())
+        current_monthly = cur_total / days * 30
+        drop = (1 - current_monthly / baseline_monthly) * 100 if baseline_monthly > 0 else 0.0
+        if baseline_monthly < ANOMALY_MIN_BASELINE:
+            flag = "no_baseline"
+        elif days < 7:
+            flag = "early"
+        elif cur_bills == 0:
+            flag = "silent"
+        elif drop >= ANOMALY_DROP_PCT:
+            flag = "drop"
+        else:
+            flag = "ok"
+        a = {"tenant_id": t["id"], "name": t.get("name"), "slug": t.get("slug"), "flag": flag,
+             "baseline_monthly": round(baseline_monthly), "baseline_months": sorted(b_months.keys()),
+             "current_total": round(cur_total), "current_monthly": round(current_monthly), "current_bills": cur_bills,
+             "days_in_campaign": days, "drop_pct": round(max(drop, 0), 1)}
+        a["mira_note"] = _mira_anomaly_note(t.get("name") or t.get("slug"), a)
+        out.append(a)
+    order = {"silent": 0, "drop": 1, "ok": 2, "early": 3, "no_baseline": 4}
+    out.sort(key=lambda a: (order[a["flag"]], -a["drop_pct"]))
+    return out
+
+
+@router.get("/super-admin/rewards-campaign/anomalies")
+async def sa_anomalies(user=Depends(require_super_admin)):
+    c = await get_campaign()
+    rows = await detect_earnings_anomalies(c)
+    last = await _raw_db.system_flags.find_one({"key": "rewards_anomaly_alert"}, {"_id": 0})
+    return {"rows": rows, "flagged": sum(1 for r in rows if r["flag"] in ("drop", "silent")),
+            "threshold_pct": ANOMALY_DROP_PCT, "min_baseline": ANOMALY_MIN_BASELINE, "last_alert": (last or {}).get("value")}
+
+
+async def send_anomaly_alert(force: bool = False) -> dict:
+    """Weekly Mira email to HQ listing salons whose campaign billing dropped sharply. Dedupes per ISO week."""
+    c = await get_campaign()
+    if not c.get("enabled"):
+        return {"skipped": "campaign off"}
+    week = datetime.now(timezone.utc).strftime("%G-W%V")
+    flag = await _raw_db.system_flags.find_one({"key": "rewards_anomaly_alert"})
+    if not force and flag and flag.get("value") == week:
+        return {"skipped": "already sent this week"}
+    rows = [r for r in await detect_earnings_anomalies(c) if r["flag"] in ("drop", "silent")]
+    if not rows:
+        await _raw_db.system_flags.update_one({"key": "rewards_anomaly_alert"}, {"$set": {"value": week, "flagged": 0, "ran_at": _now()}}, upsert=True)
+        return {"sent": False, "flagged": 0}
+    items = ""
+    for r in rows:
+        pct_txt = "no bills" if r["flag"] == "silent" else f"-{r['drop_pct']:.0f}%"
+        items += (f"<tr><td style='padding:8px 12px;border-top:1px solid #eee'><b>{html_lib.escape(r['name'] or '')}</b><br/>"
+                  f"<span style='font-size:12px;color:#777'>{html_lib.escape(r['mira_note'])}</span></td>"
+                  f"<td style='padding:8px 12px;border-top:1px solid #eee;text-align:right;white-space:nowrap;color:#c0392b;font-weight:bold'>{pct_txt}</td></tr>")
+    html = f"""
+    <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+      <div style="background:#1c1c22;padding:22px 28px"><div style="color:#d4af37;font-size:20px;font-weight:bold">Mira ✦ Earnings watch</div>
+      <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">{html_lib.escape(c['name'])} · week {week}</div></div>
+      <div style="padding:22px 28px;color:#333;font-size:14px;line-height:1.7">
+        <p>Hi HQ 👋 {len(rows)} participating salon{'s' if len(rows) != 1 else ''} {'are' if len(rows) != 1 else 'is'} billing well below their pre-campaign run-rate. Since the settlement is {float(c.get('salon_share_pct') or 10):g}% of POS earnings, this is worth a quick check for off-app billing.</p>
+        <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #eadfc0;border-radius:12px;font-size:13px">{items}</table>
+        <p style="font-size:12px;color:#888;margin-top:14px">Open HQ → Tenants → Settlement tracker → Earnings watch to see bills and nudge the salon. Threshold: {ANOMALY_DROP_PCT:g}% drop vs the 3-month pre-campaign average.</p>
+      </div></div>"""
+    res = await _send_email(list(dict.fromkeys(hq_notify_emails("billing") + hq_notify_emails("admin"))),
+                            f"⚠️ Mira earnings watch — {len(rows)} salon{'s' if len(rows) != 1 else ''} billing far below pre-campaign levels",
+                            html, book_url=f"{_app_url()}/super-admin?tab=tenants", book_label="Open Settlement tracker ✦")
+    await _raw_db.system_flags.update_one({"key": "rewards_anomaly_alert"},
+                                         {"$set": {"value": week, "flagged": len(rows), "ran_at": _now(), "sent": bool(res.get("sent"))}}, upsert=True)
+    return {"sent": bool(res.get("sent")), "flagged": len(rows), "error": res.get("error")}
+
+
+@router.post("/super-admin/rewards-campaign/anomalies/alert")
+async def sa_anomaly_alert_now(user=Depends(require_super_admin)):
+    out = await send_anomaly_alert(force=True)
+    if out.get("skipped"):
+        raise HTTPException(400, out["skipped"])
+    return {"ok": True, **out}
 
 
 class SettlementIn(BaseModel):

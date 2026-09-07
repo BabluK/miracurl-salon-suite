@@ -80,7 +80,8 @@ def _plan_matches(plan: str, eligible: list) -> bool:
 
 
 def _tenant_eligible(c: dict, t: dict) -> bool:
-    if t.get("status") not in ("active", "trial"):
+    """Brand Model casting is a SALON campaign — restaurants are never part of it (they get their own campaign)."""
+    if t.get("business_type") == "restaurant" or t.get("status") not in ("active", "trial"):
         return False
     flag = (c.get("tenant_flags") or {}).get(t["id"])
     if flag is not None:
@@ -89,7 +90,7 @@ def _tenant_eligible(c: dict, t: dict) -> bool:
 
 
 async def _count_eligible(c: dict) -> int:
-    ts = await _raw_db.tenants.find({"status": {"$in": ["active", "trial"]}}, {"_id": 0, "id": 1, "plan": 1, "status": 1}).to_list(1000)
+    ts = await _raw_db.tenants.find({"status": {"$in": ["active", "trial"]}}, {"_id": 0, "id": 1, "plan": 1, "status": 1, "business_type": 1}).to_list(1000)
     return sum(1 for t in ts if _tenant_eligible(c, t))
 
 
@@ -134,16 +135,18 @@ async def sa_campaign_tenants(user=Depends(require_super_admin)):
     c = await get_campaign()
     flags = c.get("tenant_flags") or {}
     ts = await _raw_db.tenants.find({"status": {"$ne": "deleted"}},
-                                    {"_id": 0, "id": 1, "name": 1, "slug": 1, "plan": 1, "status": 1, "location": 1, "logo_url": 1}).to_list(1000)
+                                    {"_id": 0, "id": 1, "name": 1, "slug": 1, "plan": 1, "status": 1, "location": 1, "logo_url": 1, "business_type": 1}).to_list(1000)
     counts = {r["_id"]: r["n"] for r in await _raw_db.rewards_participants.aggregate(
         [{"$group": {"_id": "$tenant_id", "n": {"$sum": 1}}}]).to_list(1000)}
+    restaurants = [{k: t.get(k) for k in ("id", "name", "slug", "location", "logo_url", "status")} for t in ts if t.get("business_type") == "restaurant"]
+    ts = [t for t in ts if t.get("business_type") != "restaurant"]
     out = []
     for t in ts:
         plan_ok = _plan_matches(t.get("plan") or "", c.get("eligible_plans") or [])
         out.append({**t, "on": _tenant_eligible(c, t), "plan_ok": plan_ok,
                     "manual": flags.get(t["id"]), "participants": counts.get(t["id"], 0)})
     out.sort(key=lambda x: (not x["on"], -x["participants"], (x.get("name") or "").lower()))
-    return {"tenants": out, "on_count": sum(1 for x in out if x["on"]), "live": _is_live(c), "enabled": bool(c.get("enabled"))}
+    return {"tenants": out, "restaurants": restaurants, "on_count": sum(1 for x in out if x["on"]), "live": _is_live(c), "enabled": bool(c.get("enabled"))}
 
 
 class TenantFlagIn(BaseModel):
@@ -152,9 +155,11 @@ class TenantFlagIn(BaseModel):
 
 @router.post("/super-admin/rewards-campaign/tenants/{tenant_id}/flag")
 async def sa_campaign_tenant_flag(tenant_id: str, body: TenantFlagIn, user=Depends(require_super_admin)):
-    t = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0, "id": 1, "plan": 1, "status": 1})
+    t = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0, "id": 1, "plan": 1, "status": 1, "business_type": 1})
     if not t:
         raise HTTPException(404, "Tenant not found")
+    if t.get("business_type") == "restaurant":
+        raise HTTPException(400, "Restaurants are not part of the Brand Model salon campaign — the restaurant campaign runs separately")
     op = {"$unset": {f"tenant_flags.{tenant_id}": ""}} if body.on is None else {"$set": {f"tenant_flags.{tenant_id}": body.on}}
     await _raw_db.rewards_campaign.update_one({"id": "main"}, {**op, "$setOnInsert": {"id": "main"}}, upsert=True)
     c = await get_campaign()
@@ -403,8 +408,8 @@ async def rewards_qr_poster(origin: str = "", user=Depends(require_tenant_admin)
 @router.get("/public/rewards/{slug}")
 async def public_campaign(slug: str):
     c = await get_campaign()
-    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "slug": 1, "plan": 1, "status": 1,
-                                                       "logo_url": 1, "location": 1, "phone": 1, "business_type": 1})
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "slug": 1, "plan": 1, "status": 1, "business_type": 1,
+                                                       "logo_url": 1, "location": 1, "phone": 1})
     if not t:
         raise HTTPException(404, "Salon not found")
     from routes.campaign_agreement import agreement_ok
@@ -462,7 +467,7 @@ def _welcome_html(name: str, salon: str, c: dict, link: str) -> str:
 async def public_join(slug: str, body: JoinIn, request: Request):
     await public_rate_limit(request, "rewards-join", limit=6, window_sec=600)
     c = await get_campaign()
-    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "plan": 1, "status": 1})
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "plan": 1, "status": 1, "business_type": 1})
     if not t:
         raise HTTPException(404, "Salon not found")
     from routes.campaign_agreement import agreement_ok

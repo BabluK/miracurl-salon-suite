@@ -64,12 +64,13 @@ export function RewardsCampaignCard() {
   const [people, setPeople] = useState(null);
   const [showCfg, setShowCfg] = useState(false);
   const [tenants, setTenants] = useState([]);
+  const [restaurants, setRestaurants] = useState([]);
   const [q, setQ] = useState("");
   const [busyId, setBusyId] = useState("");
   const [cardBusy, setCardBusy] = useState("");
 
   const load = () => api.get("/super-admin/rewards-campaign").then(r => setC(r.data)).catch(() => {});
-  const loadTenants = () => api.get("/super-admin/rewards-campaign/tenants").then(r => setTenants(r.data.tenants)).catch(() => {});
+  const loadTenants = () => api.get("/super-admin/rewards-campaign/tenants").then(r => { setTenants(r.data.tenants); setRestaurants(r.data.restaurants || []); }).catch(() => {});
   useEffect(() => { load(); loadTenants(); }, []);
 
   const filtered = useMemo(() => tenants.filter(t => !q || `${t.name} ${t.slug} ${t.location}`.toLowerCase().includes(q.toLowerCase())), [tenants, q]);
@@ -162,6 +163,12 @@ export function RewardsCampaignCard() {
           {filtered.map(t => <TenantTile key={t.id} t={t} busy={busyId === t.id} onFlag={flag} />)}
           {filtered.length === 0 && <p className="text-xs text-slate-500 italic col-span-full">No salons match.</p>}
         </div>
+        {restaurants.length > 0 && (
+          <div className="rounded-xl border border-white/10 bg-white/[.02] px-3 py-2 text-[11px] text-slate-400 flex items-center gap-2 flex-wrap" data-testid="rewards-restaurants-note">
+            <span className="px-2 py-0.5 rounded-full bg-orange-500/15 border border-orange-400/30 text-orange-200 font-bold">🍽️ {restaurants.length} restaurant{restaurants.length === 1 ? "" : "s"} excluded</span>
+            <span>Brand Model casting is a <b className="text-slate-200">salon-only</b> campaign — {restaurants.map(r => r.name).join(", ")} {restaurants.length === 1 ? "is" : "are"} not counted here. The restaurant campaign runs separately.</span>
+          </div>
+        )}
 
         <button onClick={() => setShowCfg(s => !s)} data-testid="rewards-cfg-toggle" className="w-full flex items-center justify-between rounded-2xl border border-white/10 bg-white/[.03] px-4 py-3 text-xs text-slate-300 hover:border-[#d4af37]/40 transition-colors">
           <span className="inline-flex items-center gap-2 font-semibold"><Settings2 className="w-4 h-4 text-[#d4af37]" /> Campaign settings — name, eligible plans, dates, rewards & terms</span>

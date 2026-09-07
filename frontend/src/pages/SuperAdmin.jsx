@@ -47,6 +47,7 @@ import { PlatformOrbitMap } from "@/components/superadmin/PlatformOrbitMap";
 import { DocsPanel } from "@/components/superadmin/DocsPanel";
 import { StripePaymentsPanel } from "@/components/superadmin/StripePaymentsPanel";
 import { DemoCampaign } from "@/components/superadmin/DemoCampaign";
+import { OnboardTenantModal } from "@/components/superadmin/OnboardTenantModal";
 import { RewardsCampaignCard } from "@/components/superadmin/RewardsCampaignCard";
 import { GrowthAdvisoryPanel } from "@/components/superadmin/GrowthAdvisoryPanel";
 import { SuperAdminProfileCard } from "@/components/superadmin/SuperAdminProfileCard";
@@ -733,89 +734,7 @@ export default function SuperAdmin() {
         </div>
       </main>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setOpen(false)}>
-          <div className="card-light w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-playfair text-2xl">Onboard a New {form.business_type === "restaurant" ? "Restaurant" : "Salon"}</h3>
-              <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
-            </div>
-            <form onSubmit={save} className="space-y-4">
-              <div>
-                <label className="label-light block mb-1">Business Type *</label>
-                <div className="flex gap-2">
-                  {[["salon", "💇 Salon"], ["restaurant", "🍽️ Restaurant"]].map(([v, l]) => (
-                    <button key={v} type="button" data-testid={`tenant-type-${v}`}
-                      onClick={() => setForm({ ...form, business_type: v })}
-                      className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                        (form.business_type || "salon") === v
-                          ? "border-sky-500 bg-sky-50 text-sky-700"
-                          : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>
-                      {l}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="label-light block mb-1">Slug *</label>
-                <input data-testid="tenant-slug-input" required pattern="[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?" className="input-light font-mono lowercase" value={form.slug} onChange={e => setForm({ ...form, slug: e.target.value.toLowerCase() })} placeholder="elegance-koramangala" />
-                <p className="text-[10px] text-slate-400 mt-1">Will appear in their booking URL: /book/<span className="text-sky-600">{form.slug || "your-slug"}</span></p>
-              </div>
-              <div>
-                <label className="label-light block mb-1">{form.business_type === "restaurant" ? "Restaurant Name *" : "Salon Name *"}</label>
-                <input data-testid="tenant-name-input" required className="input-light" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Elegance Beauty Lounge" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label-light block mb-1">Owner Name *</label>
-                  <input data-testid="tenant-owner-name-input" required className="input-light" value={form.owner_name} onChange={e => setForm({ ...form, owner_name: e.target.value })} />
-                </div>
-                <div>
-                  <label className="label-light block mb-1">Plan</label>
-                  <select className="text-slate-800 input-light" value={form.plan} onChange={e => setForm({ ...form, plan: e.target.value })}>
-                    <option value="starter">Starter</option>
-                    <option value="pro">Pro</option>
-                    <option value="enterprise">Enterprise</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="label-light block mb-1">Owner Email (personal) *</label>
-                <input data-testid="tenant-owner-email-input" type="email" required className="input-light" value={form.owner_email} onChange={e => setForm({ ...form, owner_email: e.target.value })} placeholder="owner@gmail.com" />
-                <p className="text-[10px] text-slate-400 mt-0.5">Used for login. Login details are sent to this AND the salon email.</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label-light block mb-1">Salon Email</label>
-                  <input data-testid="tenant-salon-email-input" type="email" className="input-light" value={form.salon_email} onChange={e => setForm({ ...form, salon_email: e.target.value })} placeholder="hello@salon.com" />
-                </div>
-                <div>
-                  <label className="label-light block mb-1">Owner Personal Phone</label>
-                  <input data-testid="tenant-owner-phone-input" className="input-light" value={form.owner_phone} onChange={e => setForm({ ...form, owner_phone: e.target.value })} placeholder="+91 98…" />
-                  <p className="text-[10px] text-slate-400 mt-0.5">WhatsApp renewal reminders go here.</p>
-                </div>
-              </div>
-              <div className="rounded-lg bg-sky-50 border border-sky-200 px-3 py-2 text-[11px] text-sky-800">
-                ℹ️ A secure one-time password will be generated automatically and shown to you after creation. Share it with the owner — they&apos;ll be forced to change it on first login.
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label-light block mb-1">Location</label>
-                  <input className="input-light" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} />
-                </div>
-                <div>
-                  <label className="label-light block mb-1">Salon Phone</label>
-                  <input className="input-light" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
-                </div>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setOpen(false)} className="btn-slate flex-1">Cancel</button>
-                <button data-testid="tenant-save-btn" type="submit" disabled={busy} className="btn-blue flex-1">{busy ? "Creating..." : (form.business_type === "restaurant" ? "Onboard Restaurant" : "Onboard Salon")}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {open && <OnboardTenantModal form={form} setForm={setForm} onSave={save} busy={busy} onClose={() => setOpen(false)} />}
 
       {importFor && (
         <ImportCustomersModal

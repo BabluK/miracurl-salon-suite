@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, BarChart3, CheckCircle2, Copy, ExternalLink, FileSignature, FileText, IndianRupee, Link2, Loader2, Mail, MessageCircle, RotateCcw, Save, Send, ShieldCheck, Wallet, X } from "lucide-react";
+import { Activity, AlertTriangle, BarChart3, CheckCircle2, Copy, ExternalLink, FileSignature, FileText, IndianRupee, Link2, Loader2, Mail, MessageCircle, RotateCcw, Save, Send, ShieldCheck, Wallet, X } from "lucide-react";
 
 async function dlDoc(path, name) {
   try {
@@ -32,6 +32,7 @@ function Chip({ label, value, tone = "text-[#F0D9A5]", testId }) {
 function EarningsModal({ r, onClose }) {
   const [d, setD] = useState(null);
   useEffect(() => { api.get(`/super-admin/rewards-campaign/settlements/${r.tenant_id}/earnings`).then(x => setD(x.data)).catch(() => setD({ error: true })); }, [r.tenant_id]);
+  useEffect(() => { const k = (e) => e.key === "Escape" && onClose(); window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onClose]);
   return (
     <div className="fixed inset-0 z-[130] flex items-start justify-center bg-black/60 p-4 overflow-y-auto" onClick={onClose}>
       <div className="w-full max-w-2xl my-auto rounded-2xl bg-[#1c1c22] border border-[#d4af37]/40 p-5 space-y-3" onClick={e => e.stopPropagation()} data-testid="settlement-earnings-modal">
@@ -66,6 +67,50 @@ function EarningsModal({ r, onClose }) {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+const FLAG = {
+  silent: ["bg-rose-500/15 border-rose-400/40 text-rose-300", "No POS bills"], drop: ["bg-rose-500/15 border-rose-400/40 text-rose-300", "Sharp drop"],
+  ok: ["bg-emerald-500/15 border-emerald-400/40 text-emerald-300", "Healthy"], early: ["bg-white/5 border-white/10 text-slate-400", "Too early"],
+  no_baseline: ["bg-white/5 border-white/10 text-slate-400", "No baseline"],
+};
+
+function EarningsWatch({ onViewBills }) {
+  const [d, setD] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+  const load = useCallback(() => api.get("/super-admin/rewards-campaign/anomalies").then(r => setD(r.data)).catch(() => {}), []);
+  useEffect(() => { load(); }, [load]);
+  if (!d) return null;
+  const alertNow = async () => {
+    setBusy(true);
+    try { const { data: x } = await api.post("/super-admin/rewards-campaign/anomalies/alert"); toast.success(x.flagged ? `Mira emailed HQ about ${x.flagged} salon(s)` : "Nothing to flag — all salons look healthy"); load(); }
+    catch (e) { toast.error(typeof e.response?.data?.detail === "string" ? e.response.data.detail : "Couldn't send"); }
+    setBusy(false);
+  };
+  return (
+    <div className={`rounded-2xl border p-3 space-y-2 ${d.flagged ? "border-rose-400/40 bg-rose-500/[.05]" : "border-white/10 bg-white/[.02]"}`} data-testid="earnings-watch">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Activity className={`w-4 h-4 ${d.flagged ? "text-rose-300" : "text-[#d4af37]"}`} />
+        <button onClick={() => setOpen(o => !o)} className="text-sm font-bold text-slate-100 hover:text-[#F0D9A5]" data-testid="earnings-watch-toggle">Mira earnings watch {d.flagged ? <span className="ml-1 px-1.5 py-0.5 rounded-full bg-rose-500/30 text-rose-200 text-[10px]" data-testid="earnings-watch-flagged">{d.flagged} flagged</span> : <span className="ml-1 text-[10px] text-emerald-300">· all clear</span>}</button>
+        <span className="text-[11px] text-slate-500">flags salons billing ≥{d.threshold_pct}% below their 3-month pre-campaign average (possible off-app billing) · Mira emails HQ every Monday{d.last_alert ? ` · last check ${d.last_alert}` : ""}</span>
+        <button onClick={alertNow} disabled={busy} className="ml-auto h-7 px-2.5 rounded-lg border border-white/15 text-slate-300 text-[11px] inline-flex items-center gap-1 hover:border-[#d4af37]/60 disabled:opacity-40" data-testid="earnings-watch-alert-now">{busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />} Email HQ now</button>
+      </div>
+      {(open || d.flagged > 0) && (
+        <div className="space-y-1.5">
+          {d.rows.map(r => (
+            <div key={r.tenant_id} className="flex items-center gap-2 flex-wrap text-[11px] rounded-xl bg-white/[.03] border border-white/5 px-3 py-2" data-testid={`anomaly-row-${r.slug}`}>
+              <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${FLAG[r.flag][0]}`} data-testid={`anomaly-flag-${r.slug}`}>{FLAG[r.flag][1]}{r.flag === "drop" ? ` −${r.drop_pct}%` : ""}</span>
+              <b className="text-slate-100">{r.name}</b>
+              <span className="text-slate-500">before ₹{Number(r.baseline_monthly).toLocaleString("en-IN")}/mo → campaign ₹{Number(r.current_monthly).toLocaleString("en-IN")}/mo ({r.current_bills} bills in {r.days_in_campaign}d)</span>
+              <span className="text-slate-400 basis-full sm:basis-auto sm:ml-auto italic">“{r.mira_note}”</span>
+              <button onClick={() => onViewBills(r)} className="px-2 py-0.5 rounded-full border border-white/15 text-slate-300 text-[10px] hover:border-[#d4af37]/60" data-testid={`anomaly-bills-${r.slug}`}>bills</button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -215,6 +260,7 @@ export function SettlementTracker() {
         <button onClick={() => dlDoc("/super-admin/rewards-campaign/docs/agreement.pdf", "Miracurl-Participation-Agreement-Template.pdf")} className="px-2.5 py-1 rounded-full border border-white/15 text-slate-200 hover:border-[#d4af37]/60" data-testid="settlement-dl-agreement">Agreement template PDF</button>
         <button onClick={sendAll} disabled={!!busy} className="px-2.5 py-1 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] font-bold inline-flex items-center gap-1 disabled:opacity-50" data-testid="settlement-sendall">{busy === "sendall" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Send pack to all pending salons</button>
       </div>
+      <EarningsWatch onViewBills={setEarnRow} />
       <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
         {rows.length === 0 && <p className="text-xs text-slate-500 italic" data-testid="settlement-empty">No participating salons yet — turn salons on above and their settlements appear here.</p>}
         {rows.map(r => <Row key={r.tenant_id} r={r} busy={busy} onSave={onSave} onAction={onAction} onRemind={onRemind} onSendDocs={onSendDocs} onEarnings={setEarnRow} />)}
