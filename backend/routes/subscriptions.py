@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from database import db, _raw_db
 from security import require_super_admin, require_tenant_admin, current_tenant
+from services.subscription_invoice import issue_subscription_kit
 from services.billing import (
     RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET, _rzp_client)
 from services.orders import send_order_status_email
@@ -314,9 +315,11 @@ async def create_subscription(body: SubscriptionIn, user=Depends(require_super_a
     ).model_dump()
     await db.subscription_payments.insert_one(pay)
     await _record_partner_commission(tenant, pay)
-
     pay.pop("_id", None)
-    return {"subscription": sub, "subscriptions": subs, "payment": pay, "branches": len(target_tids)}
+    inv = await issue_subscription_kit(pay, sub, branches=len(target_tids))
+
+    return {"subscription": sub, "subscriptions": subs, "payment": pay, "branches": len(target_tids),
+            "invoice": {"number": inv["number"], "email": inv.get("email")} if inv else None}
 
 
 class SubscriptionExtendIn(BaseModel):
@@ -602,6 +605,9 @@ async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=De
     ).model_dump()
     await db.subscription_payments.insert_one(pay)
     await _record_partner_commission(t, pay)
+    pay.pop("_id", None)
+    await issue_subscription_kit(pay, sub, credits_applied=float(pending_doc.get("credits_applied") or 0),
+                                 branches=len(target_tids))
 
     if pending_doc.get("credits_applied", 0) > 0:
         await db.tenants.update_one(

@@ -501,11 +501,15 @@ async def _finalize_paid_link(link: dict, method: str, payment_ref: str, now: da
         payment_method=method, payment_ref=payment_ref,
         notes=f"HQ payment link {link['token']} · {method} {payment_ref}", start=now)
     sub = subs[0]
-    await db.subscription_payments.insert_one(SubscriptionPayment(
+    pay = SubscriptionPayment(
         subscription_id=sub["id"], tenant_id=link["tenant_id"], amount=float(link["amount"]),
         paid_at=now.date().isoformat(), method=method, txn_ref=payment_ref,
         recorded_by=f"pay_link:{link['created_by']}",
-        notes=f"HQ payment link {link['token']}").model_dump())
+        notes=f"HQ payment link {link['token']}").model_dump()
+    await db.subscription_payments.insert_one(pay)
+    pay.pop("_id", None)
+    from services.subscription_invoice import issue_subscription_kit
+    await issue_subscription_kit(pay, sub, plan_label=link["plan_label"], currency=link.get("currency") or "INR")
     await _raw_db.hq_messages.insert_one({
         "id": str(uuid.uuid4()), "salon_name": link["salon_name"], "from_email": link.get("owner_email"),
         "message": f"💳 Paid {_fmt_amt(link)} via your payment link ({link['plan_label']}) — "

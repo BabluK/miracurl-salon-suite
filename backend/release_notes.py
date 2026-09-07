@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-05.214"
-BUILD_TIME = "05 Sep 2026, 5:00 PM IST"
+BUILD = "2026-09-07.215"
+BUILD_TIME = "07 Sep 2026, 10:00 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-07.215", "note": "Subscription Invoice Kit (invoice + receipt + T&C PDFs by email); HQ Edit Profile modal scroll fix"},
     {"build": "2026-09-05.214", "note": "Referral leaderboard + thank-you gift; Settings plan prices always live"},
     {"build": "2026-09-05.213", "note": "Refer & Earn: 1→+1 mo, 3→+2 mo, 5→+3 mo; share hint"},
     {"build": "2026-09-05.212", "note": "New release tag for today's work"},
@@ -29,6 +30,16 @@ BUILD_LOG = [
 ]
 
 RELEASES = [
+    {
+        "date": "2026-09-07 (Subscription Invoice Kit 🧾)",
+        "changes": [
+            "🧾 Every paid subscription (Razorpay, Stripe, HQ payment link or HQ-recorded payment) now emails the owner a Tax Invoice PDF, a Payment Receipt PDF and the Terms & Conditions PDF — copies go to billing@, booking@ and payments@miracurl-suite.com",
+            "🔢 Invoices are numbered MC-<year>-0001 onwards; GST is shown (CGST/SGST or IGST) only when HQ has entered its GSTIN, otherwise 'GST not applicable'",
+            "📂 Salon owners can download Invoice / Receipt / T&C anytime from Settings → Subscription → Invoices & receipts",
+            "🏢 HQ → Billing & Subscriptions: Billing identity editor (legal name, address, GSTIN, PAN, signatory), invoice list with download + one-tap resend, and 'Generate for older payments'",
+            "🩹 HQ Edit Profile modal no longer cuts off the photo / header on shorter screens; save errors now show the exact reason",
+        ],
+    },
     {
         "date": "2026-09-05 (Founder outreach, Deploy tools & Mira voice ✍️)",
         "changes": [

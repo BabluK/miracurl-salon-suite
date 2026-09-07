@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import api from "@/lib/api";
 import { confirmAsync } from "@/components/ConfirmDialog";
 import { GraceRequestsCard } from "@/components/superadmin/GraceRequestsCard";
+import { InvoicesPanel } from "@/components/superadmin/InvoicesPanel";
 
 const CHART_TOOLTIP_STYLE = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, color: "#0f172a" };
 const CHART_TOOLTIP_LABEL_STYLE = { color: "#0284c7" };
@@ -189,6 +190,9 @@ export default function BillingPanel({ tenants }) {
           </table>
         </div>
       </div>
+
+      {/* Invoices + billing identity */}
+      <InvoicesPanel />
 
       {/* Plan catalog editor */}
       <PlanCatalogEditor plans={plans} onSaved={load} />

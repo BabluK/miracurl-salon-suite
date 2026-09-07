@@ -346,6 +346,7 @@ function ProfileEditModal({ user, onClose, onSaved }) {
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [errMsg, setErrMsg] = useState("");
   const fileRef = useRef(null);
 
   // Always prefill from the server so a stale/slim session object can never wipe saved fields.
@@ -386,13 +387,17 @@ function ProfileEditModal({ user, onClose, onSaved }) {
       onSaved();
     } catch (err) {
       const d = err.response?.data?.detail;
-      toast.error(typeof d === "string" ? d : "Couldn't save profile");
+      const msg = typeof d === "string" ? d
+        : Array.isArray(d) ? d.map(x => `${(x.loc || []).slice(-1)[0]}: ${x.msg}`).join(" · ")
+        : `Couldn't save profile (${err.response?.status || "network"})`;
+      setErrMsg(msg);
+      toast.error(msg);
     } finally { setBusy(false); }
   }
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-start sm:items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto" onClick={onClose} data-testid="super-profile-modal">
-      <form onSubmit={save} onClick={e => e.stopPropagation()} className="relative w-full max-w-2xl rounded-3xl bg-[#f6f5f1] shadow-2xl overflow-hidden my-6">
+    <div className="fixed inset-0 z-[120] flex items-start justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto" onClick={onClose} data-testid="super-profile-modal">
+      <form onSubmit={save} onClick={e => e.stopPropagation()} className="relative w-full max-w-2xl rounded-3xl bg-[#f6f5f1] shadow-2xl overflow-hidden my-auto">
         <div className="relative h-28 bg-[#15151b]">
           <div className="absolute inset-0 opacity-60" style={{ backgroundImage: "radial-gradient(circle at 15% 20%, rgba(212,175,55,.55), transparent 45%), radial-gradient(circle at 90% 90%, rgba(122,45,78,.6), transparent 50%)" }} />
           <div className="absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,#C89B52,#F0D9A5,#C89B52,transparent)]" />
@@ -443,6 +448,7 @@ function ProfileEditModal({ user, onClose, onSaved }) {
             </div>
           </PfSection>
           <div className="flex items-center justify-end gap-3 pt-1">
+            {errMsg && <span className="text-xs text-rose-600 mr-auto" data-testid="super-profile-error">{errMsg}</span>}
             <button type="button" onClick={onClose} className="h-11 px-5 rounded-full text-sm font-semibold text-slate-600 hover:bg-slate-200/60" data-testid="super-profile-cancel-btn">Cancel</button>
             <button data-testid="super-profile-save-btn" disabled={busy || uploading || !loaded} className="h-11 px-7 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-sm font-bold shadow-[0_10px_30px_-12px_rgba(212,175,55,.9)] hover:brightness-110 disabled:opacity-50">{busy ? "Saving…" : "Save profile"}</button>
           </div>

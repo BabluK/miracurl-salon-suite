@@ -87,6 +87,9 @@ async def _activate_subscription(rec: dict) -> None:
         amount=float(rec["amount"]), paid_at=datetime.now(timezone.utc).date().isoformat(),
         method="stripe", txn_ref=rec["session_id"]).model_dump()
     await db.subscription_payments.insert_one(pay)
+    pay.pop("_id", None)
+    from services.subscription_invoice import issue_subscription_kit
+    await issue_subscription_kit(pay, subs[0], currency=(rec.get("currency") or "USD").upper())
 
 
 async def _settle_txn(session_id: str) -> None:

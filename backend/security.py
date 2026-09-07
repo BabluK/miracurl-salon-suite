@@ -1,5 +1,6 @@
 """Auth & tenancy security: JWT, cookies, password hashing, role guards, rate limit."""
 import asyncio
+import logging
 import hashlib
 import hmac
 import os
@@ -117,6 +118,46 @@ async def _tag_session_location(sid: str, ip: str):
     await _raw_db.sessions.update_one({"sid": sid}, {"$set": {
         "location": geo.get("label", ""), "city": geo.get("city", ""),
         "country": geo.get("country", ""), "country_code": geo.get("country_code", "")}})
+    try:
+        await _super_admin_login_alert(sid)
+    except Exception as e:  # noqa: BLE001
+        logging.warning(f"login alert skipped: {e}")
+
+
+async def _super_admin_login_alert(sid: str):
+    """Email the HQ owner when a super-admin signs in from a device or city not seen before."""
+    sess = await _raw_db.sessions.find_one({"sid": sid}, {"_id": 0})
+    if not sess:
+        return
+    user = await _raw_db.users.find_one({"id": sess["user_id"]}, {"_id": 0, "email": 1, "role": 1, "name": 1})
+    if not user or user.get("role") != "super_admin":
+        return
+    device, city = sess.get("device") or "Unknown device", sess.get("city") or ""
+    seen = await _raw_db.sessions.find_one(
+        {"user_id": sess["user_id"], "sid": {"$ne": sid}, "device": device, "city": city}, {"_id": 1})
+    if seen:
+        return
+    from email_service import _send_email
+    import html as h
+    when = datetime.now(timezone.utc).strftime("%d %b %Y, %H:%M UTC")
+    where = h.escape(sess.get("location") or city or "Unknown location")
+    body = f"""
+    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+      <div style="background:#1c1c22;padding:26px 30px"><span style="color:#e8c37f;font-size:21px;letter-spacing:1.5px">Miracurl HQ</span>
+      <div style="color:#8a8a92;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin-top:4px">Security alert</div></div>
+      <div style="padding:30px">
+        <h2 style="margin:0 0 12px;color:#1c1c22">New sign-in to the HQ console</h2>
+        <p style="font-size:14px;color:#333;line-height:1.75">Your super-admin login <b>{h.escape(user['email'])}</b> was just used from a device or city we haven't seen before.</p>
+        <table style="font-size:13px;color:#333;border-collapse:collapse">
+          <tr><td style="padding:4px 14px 4px 0;color:#777">Device</td><td>{h.escape(device)}</td></tr>
+          <tr><td style="padding:4px 14px 4px 0;color:#777">Location</td><td>{where}</td></tr>
+          <tr><td style="padding:4px 14px 4px 0;color:#777">IP</td><td>{h.escape(sess.get('ip') or '')}</td></tr>
+          <tr><td style="padding:4px 14px 4px 0;color:#777">Time</td><td>{when}</td></tr>
+        </table>
+        <p style="font-size:13px;color:#555;line-height:1.7;margin-top:16px">Was this you? No action needed. If not, open <b>HQ → Security</b>, sign out all other devices and change your password immediately.</p>
+      </div></div>"""
+    await _send_email([user["email"]], f"🔐 New HQ sign-in from {device}{' · ' + city if city else ''}", body)
+    await _raw_db.sessions.update_one({"sid": sid}, {"$set": {"alerted_new_device": True}})
 
 
 async def start_session(user_id: str, email: str, tenant_id, request: Request, method: str = "password") -> str:

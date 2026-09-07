@@ -1,0 +1,26 @@
+{
+  "summary": "Iteration 131 — Subscription Invoice Kit + HQ profile modal regression. Backend 16/16 pytest pass covering biller GET/PUT (bad GSTIN 400, valid 15-char GSTIN sets state_code to first 2 chars, restore to defaults), create-subscription returns invoice{number matching ^MC-2026-\\d{4}$, email}, HQ invoices list contains new rows with all required fields + amount 12000, method 'upi', biller field NOT exposed, sequential invoice numbering (n and n+1), PDF downloads for invoice/receipt/terms return application/pdf with %PDF header and Content-Disposition attachment, unknown kind and unknown id return 404, POST /resend returns ok:true with sent_to + hq_to containing billing@/booking@/payments@ miracurl-suite.com, backfill idempotent (2nd call created=0), tenant /billing/invoices lists only own tenant (no biller field), tenant can download own PDF, cross-tenant invoice id returns 404, tenant blocked from /super-admin/invoices (403). Frontend HQ: /super-admin > Billing & Subscriptions tab renders invoices-panel; biller-identity-card expands, biller-legal_name='Miracurl AI Salon Suite', biller-save shows toast 'Billing identity saved — used on every new invoice'; hq-invoice-row-<id> present; hq-dl-invoice/receipt/terms each triggered playwright download events with .pdf filenames (Miracurl-invoice-MC-2026-0140.pdf, Miracurl-receipt-*.pdf, Miracurl-Terms-and-Conditions.pdf); hq-invoice-resend toast 'Sent to owner@elegance.com + HQ copies'; invoices-backfill toast '0 invoice(s) generated for older payments'. HQ profile modal regression at 1366x650: super-profile-edit-btn opens super-profile-modal; super-photo-upload-btn bounding_box y=88 (not cut off, fully visible at top); super-profile-save-btn visible+enabled after scroll; occupation change to 'Founder & CEO' saved with toast 'Profile updated', modal closed. Tenant /settings: settings-invoices-card lists invoice-row-<id> rows with invoice-amount-<id> showing ₹12,000; dl-invoice, dl-receipt and dl-terms each trigger .pdf download events.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter131_invoice_kit.py",
+    "/app/test_reports/pytest/iter131_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "subscription_invoice.issue_subscription_kit wraps entire flow in try/except to never break payment activation — good defensive design; error is logged with log.exception so failures are traceable.",
+    "next_invoice_number uses find_one_and_update with $inc + upsert + ReturnDocument.AFTER — atomic and safe for concurrent subs (verified two consecutive creates produced n and n+1).",
+    "_PUBLIC_FIELDS = {\"_id\": 0, \"biller\": 0} correctly hides both Mongo _id and internal biller identity from tenant/HQ list responses — verified in test_tenant_lists_only_own and test_hq_invoices_list_contains.",
+    "hq_invoice_resend re-fetches biller before email so identity edits take effect on resend without regenerating stored invoice — sensible.",
+    "backfill's existing-payment check builds a set from subscription_invoices.payment_id then skips — O(N) memory for up to 5000 rows is fine, but consider streaming/index if scale grows.",
+    "InvoicesPanel error toasts stringify e.response?.data?.detail only if it's a string; Pydantic validation errors (list of dicts) will fall back to generic 'Couldn't save' — could show more helpful message but not critical.",
+    "downloadInvoicePdf in lib/invoiceDocs.jsx uses blob + anchor click but doesn't URL.revokeObjectURL after — minor memory leak on repeated downloads."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter131_invoice_kit.py"],
+  "success_rate": {"backend": "100% (16/16)", "frontend": "100% (HQ billing tab + biller card + PDF downloads x3 + resend + backfill + profile modal + tenant settings + PDF downloads x3)"},
+  "test_credentials": "Used /app/memory/test_credentials.md — super@miracurl.com, owner@elegance.com. Biller identity restored to defaults (gstin='', legal_name='Miracurl AI Salon Suite', address 'Marathahalli, Bengaluru, Karnataka 560037, India', email billing@miracurl-suite.com, phone '+91 74068 69271') at end of backend test class.",
+  "seed_data_creation": "Backend suite created 2 extra half_year subscriptions on elegance-koramangala (payment_ref TEST-<ts>) to verify sequential numbering — main agent stated these are acceptable and will be cleaned up. Tenant settings page now shows MC-2026-0001, 0138, 0139, 0140 rows.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Tests at /app/backend/tests/test_iter131_invoice_kit.py cover subscription invoice kit. Run with: cd /app && python -m pytest backend/tests/test_iter131_invoice_kit.py -o 'addopts=' -v. Note pytest.ini uses xdist by default — override addopts. Biller identity may show as 'GST not applicable' after restore. Invoice numbering is at MC-2026-0140+ after this run. Resend actually delivered to owner@elegance.com via Resend (200 OK — not 502). PDF downloads use axios blob + anchor click which Playwright captures via expect_download."
+}
