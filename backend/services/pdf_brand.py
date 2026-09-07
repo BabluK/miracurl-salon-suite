@@ -1,9 +1,11 @@
 """Shared Miracurl branding for every PDF: platform logo (HQ upload or default monogram), watermark, footer."""
+import asyncio
 import base64
 import io
 import os
 
 from database import _raw_db
+from services.storage import _get_object
 
 _BRAND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "frontend", "public", "assets", "brand")
 _DEFAULT_LOGO = os.path.join(_BRAND_DIR, "gold-monogram-transparent.png")
@@ -14,7 +16,7 @@ _cache: dict = {}
 def _decode_data_url(v: str) -> bytes | None:
     try:
         return base64.b64decode(v.split(",", 1)[1]) if v.startswith("data:") else None
-    except Exception:
+    except (ValueError, IndexError):
         return None
 
 
@@ -38,22 +40,19 @@ async def image_bytes_from_url(url: str | None) -> bytes | None:
     if url.startswith("data:"):
         return _decode_data_url(url)
     if "/api/files/" in url:
-        import asyncio
-        from routes.uploads import _get_object
         rec = await _raw_db.uploads.find_one({"id": url.split("/api/files/", 1)[1].split("?")[0], "is_deleted": False})
         if not rec:
             return None
         try:
             data, _ = await asyncio.to_thread(_get_object, rec["storage_path"])
             return data
-        except Exception:
+        except Exception:  # noqa: BLE001 — storage backend errors must not break PDF generation
             return None
     if url.startswith("http"):
-        import asyncio
         from routes.registry import _safe_fetch_image_bytes
         try:
             return await asyncio.to_thread(_safe_fetch_image_bytes, url)
-        except Exception:
+        except Exception:  # noqa: BLE001 — remote logo fetch is best-effort
             return None
     return None
 
@@ -70,7 +69,7 @@ def _reader(raw: bytes | None, alpha: float = 1.0):
         if alpha < 1:
             im.putalpha(im.getchannel("A").point(lambda a: int(a * alpha)))
         return ImageReader(im), im.size
-    except Exception:
+    except (OSError, ValueError):
         return None
 
 
