@@ -793,7 +793,11 @@ async def rzp_webhook(request: Request):
     logger = logging.getLogger("razorpay")
     logger.info("Razorpay webhook: %s", event_type)
     event_id = request.headers.get("x-razorpay-event-id") or ""
-    if event_id and await _raw_db.razorpay_webhook_events.find_one({"event_id": event_id}, {"_id": 1}):
+    if not event_id:  # fallback fingerprint so replays without the header are still de-duplicated
+        _p = (event.get("payload") or {})
+        _ent = (_p.get("payment") or _p.get("refund") or _p.get("payment_link") or {}).get("entity", {})
+        event_id = "fp_" + hashlib.sha256(f"{event_type}|{_ent.get('id')}|{_ent.get('order_id')}|{_ent.get('status')}|{event.get('created_at')}".encode()).hexdigest()[:32]
+    if await _raw_db.razorpay_webhook_events.find_one({"event_id": event_id}, {"_id": 1}):
         return {"ok": True, "event": event_type, "duplicate": True}
 
     payment = (event.get("payload") or {}).get("payment", {}).get("entity", {})
@@ -823,7 +827,7 @@ async def rzp_webhook(request: Request):
         "result": result, "payload": event, "received_at": datetime.now(timezone.utc).isoformat(),
     })
     if result.startswith("error"):
-        raise HTTPException(500, result)
+        raise HTTPException(500, "Webhook processing failed — event archived for retry")
     return {"ok": True, "event": event_type, "result": result}
 
 

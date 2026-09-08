@@ -197,7 +197,7 @@ async def email_pay_link(pid: str, request: Request, user=Depends(require_super_
         raise HTTPException(400, f"This link is {_effective_status(link)} — generate a fresh one")
     if not link.get("owner_email"):
         raise HTTPException(400, "This tenant has no owner email on file")
-    url = f"{_request_base(request)}/pay/{link['token']}"
+    url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/pay/{link['token']}"  # never trust request host for money links
     res = await _send_email(
         [link["owner_email"]],
         f"🎉 {link['salon_name']} — your exclusive Miracurl plan is ready ({link['plan_label']})",

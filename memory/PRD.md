@@ -2917,3 +2917,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - `_wh_refund` → `_send_refund_notice`: email to owner (refund amount/ref/original payment, plan, what changed: access_until or back-to-trial, one-tap reactivation pay link created via create_trial_pay_link with created_by='refund-reactivation') + HQ billing copy; stored on tenant.last_refund_notice. Template `email_service.refund_notice_email_html`.
 - `GET /super-admin/trial-offer/stats?days=` — funnel (sent/opened/paid/revenue/discount_given/open_pct/conv_pct) for trial-nudge pay links split offer vs plain + recent_paid; rendered by `OfferStats` inside TrialOfferEditor.jsx (30d/90d/1y, lift badge).
 - Tests: tests/test_iter142_webhook_reconcile.py now 10/10 (adds refund notice + stats). BUILD 2026-09-08.225.
+
+## 2026-09-08 (later 4) — Security audit (PASS) + P3 hardening
+- security_audit_agent on billing/webhook/trial surface: PASS, no Critical/High/Medium. P3 items: unauthenticated /api/files/{id} (random UUID capability URLs; pre-existing, left as-is since assets are public-intended), host-header in emailed pay links, pay-link GET metadata, webhook 500 body leak, de-dupe without header.
+- Fixed: HQ email_pay_link now always uses APP_PUBLIC_URL; webhook 500 body is generic; webhook de-dupe falls back to a payload fingerprint when x-razorpay-event-id is missing. Pytest iter142 10/10 still green.
