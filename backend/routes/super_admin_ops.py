@@ -520,8 +520,19 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
         salon_email=(body.salon_email or "").lower() or None, owner_phone=body.owner_phone,
     ).model_dump()
     t["business_type"] = body.business_type or "salon"
+    from routes.subscriptions import get_trial_days
+    from services.trial_onboarding import issue_trial_kit, trial_end
+    _default_days = await get_trial_days()
+    _now = datetime.now(timezone.utc)
+    _end = trial_end(_now, body.trial_months, _default_days).isoformat()
+    t["created_at"] = _now.isoformat()
+    t["trial_ends_at"] = t["trial_end_date"] = _end
+    t["trial_months"] = body.trial_months
+    if body.logo_url:
+        t["logo_url"] = body.logo_url
     await db.tenants.insert_one(t)
     t.pop("_id", None)
+    trial_kit_task = lambda: asyncio.create_task(issue_trial_kit(t["id"], body.trial_months, _default_days))  # noqa: E731
     if t["business_type"] == "restaurant":
         from services.tenant_seed import _seed_restaurant_defaults
         await _seed_restaurant_defaults(t["id"])
@@ -540,12 +551,15 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
             f"<p><b>{t['name']}</b> has been added to your Miracurl account.</p>"
             f"<p>You now manage <b>{salon_count} salons</b> with the same login ({body.owner_email.lower()}). "
             f"Use the salon switcher in the top bar (your Owner PIN confirms each switch).</p></div>")
+        trial_kit_task()
         return {
             "tenant": t,
             "owner_email": body.owner_email,
             "linked_existing_owner": True,
             "owner_salon_count": salon_count,
             "email_status": email_status,
+            "trial_end_date": _end,
+            "congrats_email": "queued",
         }
 
     # Generate a one-time password if the super-admin didn't supply one. The
@@ -588,6 +602,7 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
         _welcome_email_html(t["name"], body.owner_email.lower(), temp_pw, poster_url,
                             business_type=t["business_type"]),
         attachments=welcome_attachments)
+    trial_kit_task()
     # Return the temp password ONCE so super-admin can copy/share it. Never
     # stored in cleartext or retrievable again — a lost password requires a
     # /forgot flow just like any user.
@@ -598,6 +613,8 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
         "must_change_password": True,
         "email_recipients": recipients,
         "email_status": email_status,
+        "trial_end_date": _end,
+        "congrats_email": "queued",
     }
 
 

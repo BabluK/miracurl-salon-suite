@@ -1,0 +1,45 @@
+{
+  "summary": "Tested Super Admin custom-trial onboarding (iteration 139). Backend: 12/12 tests passed — custom trial_months=3, default 30-day trial via multi-salon linking (returns trial_end_date + congrats_email='queued' + linked_existing_owner=true, no temp_password), 422 for trial_months=5, async trial_kit populated within ~30s with AI logo + invoice_id + email.sent=true, HQ /api/super-admin/invoices contains trial invoice (kind='trial', amount=0, plan='free_trial', method='complimentary'), trial invoice PDF (%PDF) contains 'FREE TRIAL INVOICE' + 'COMPLIMENTARY', resend endpoint 200, /api/files/<logo id> returns image/png, and existing paid invoice PDFs still render 'TOTAL PAID' (regression OK). Frontend: OnboardTenantModal renders logo uploader, trial-picker with 5 buttons; default is highlighted initially, clicking tenant-trial-6 highlights it AND updates trial-end-preview text (Oct 2026 → Mar 2027); after submit, creds-trial-info shows '🎁 Free trial active until 08 Mar 2027 …'. HQ Billing panel showed the new ₹0 trial invoice with hq-invoice-trial-badge within ~15s after reload. All created test data was cleaned up.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "OnboardTenantModal",
+        "issue": "Submitting the form without touching the optional Salon Email field sends salon_email:\"\" which Pydantic rejects with 422 'value is not a valid email address' — every onboarding attempt fails unless the super-admin manually types a salon email. Reproduce: open modal, fill name/slug/owner_name/owner_email only, click Onboard Salon → 422 from POST /api/super-admin/tenants; toast is a generic 'Couldn't create tenant' with the raw Pydantic detail. Fix: in SuperAdmin.jsx save() (~line 196) strip empty-string optional fields before POST (salon_email, owner_phone, phone, location, logo_url) or coerce to null; alternatively make backend TenantIn accept empty string as None for Optional[EmailStr].",
+        "selector": "[data-testid=\"tenant-save-btn\"]",
+        "priority": "HIGH"
+      },
+      {
+        "component": "OnboardTenantModal · slug input",
+        "issue": "Console error on every render: 'Pattern attribute value [a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])? is not a valid regular expression' — the HTML pattern attr uses a non-capturing group which Chrome's `v` flag validator rejects. Slug still validates server-side, but browser-level pattern hint is broken.",
+        "selector": "[data-testid=\"tenant-slug-input\"]",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter139_trial_onboarding.py",
+    "/app/test_reports/pytest/iter139.xml"
+  ],
+  "action_items": [
+    "Strip/normalise empty-string optional fields (esp. salon_email) in SuperAdmin.jsx save() before POST /api/super-admin/tenants — currently blocks the happy-path UI onboarding.",
+    "Fix invalid HTML `pattern` attribute on tenant-slug-input (drop the non-capturing group or use a JS-only validator)."
+  ],
+  "critical_code_review_comments": [
+    "OnboardTenantModal ships an unusable happy path: default form values include salon_email:'' which the backend TenantIn rejects. The main-agent manual E2E only worked because they filled that optional field.",
+    "SuperAdmin.jsx save() only strips empty logo_url; it should sanitize all optional fields symmetrically to avoid future 422 regressions.",
+    "creds-trial-info only renders when temp_password is returned (new-owner path). For the multi-salon link path the trial_end_date is dropped on the floor — consider surfacing a toast/badge with trial_end_date for that path too."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter139_trial_onboarding.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "90%"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Created + cleaned: 2 tenants with slugs trial-qa-<ts>/trial-qa-def-<ts> (backend tests) and trial-fe-<ts> (frontend). All tenants, related users, uploads and subscription_invoices removed via MONGO cleanup at end of run.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend feature is fully green. The one blocking issue is the frontend sending salon_email:'' which fails Pydantic — once main agent strips empty optional fields in SuperAdmin.jsx save(), re-run the FE flow WITHOUT filling salon_email and verify creds-trial-info still appears. Server clock reads Sep 2026, so trial_end +6mo = 08 Mar 2027 in this env. Use owner_email delivered@resend.dev only when NOT expecting temp_password (multi-salon path); for creds-trial-info assertions use a unique new owner email.",
+  "rca of the issue": "Frontend OnboardTenantModal state initialises `salon_email: ''` (empty string). In save() only `logo_url` is stripped when empty; `salon_email` is sent as '' to POST /api/super-admin/tenants. Backend TenantIn declares `salon_email: Optional[EmailStr] = None` — Pydantic v2 does NOT coerce '' to None for EmailStr, so it emits a 422 'value is not a valid email address'. Reproduced via curl with the exact frontend payload. Mitigation: strip empty-string optional fields in save() (or add a Pydantic pre-validator on TenantIn that turns '' into None for salon_email/owner_phone/phone/location)."
+}

@@ -13,7 +13,7 @@ from pymongo import ReturnDocument
 
 from database import _raw_db
 from email_service import _send_email, hq_notify_emails
-from services.pdf_brand import draw_brand_band, draw_powered_footer, draw_watermark, platform_logo_bytes
+from services.pdf_brand import draw_brand_band, draw_logo, draw_powered_footer, draw_watermark, platform_logo_bytes
 
 log = logging.getLogger("sub_invoice")
 
@@ -42,7 +42,7 @@ def _two(n: int) -> str:
 def amount_in_words(amount: float, currency: str = "INR") -> str:
     n = int(round(amount))
     if n == 0:
-        return "Zero"
+        return f"{'Rupees' if currency == 'INR' else currency} Zero Only"
     parts = []
     for div, name in ((10_000_000, "Crore"), (100_000, "Lakh"), (1000, "Thousand"), (100, "Hundred")):
         q, n = divmod(n, div)
@@ -147,14 +147,18 @@ def build_invoice_pdf(inv: dict) -> bytes:
     c = rl_canvas.Canvas(buf, pagesize=A4)
     W, H = A4
     b = inv["biller"]
-    _pdf_header(c, W, H, mm, "TAX INVOICE" if b.get("gstin") else "INVOICE", inv)
+    trial = inv.get("kind") == "trial"
+    _pdf_header(c, W, H, mm, "FREE TRIAL INVOICE" if trial else ("TAX INVOICE" if b.get("gstin") else "INVOICE"), inv)
     y = H - 50 * mm
     _pdf_block(c, 18 * mm, y, mm, "From", _biller_lines(b))
-    y2 = _pdf_block(c, 110 * mm, y, mm, "Billed to", _buyer_lines(inv))
+    y2 = _pdf_block(c, 110 * mm, y, mm, "Billed to", _buyer_lines(inv), width_chars=30 if inv.get("_tenant_logo") else 44)
+    if inv.get("_tenant_logo"):
+        draw_logo(c, inv["_tenant_logo"], W - 42 * mm, y - 22 * mm, 24 * mm, 24 * mm)
     y = min(y2, H - 92 * mm)
     c.setFillColorRGB(*INK)
     c.setFont("Helvetica", 9)
-    c.drawString(18 * mm, y, f"Payment method: {_method(inv)}    Reference: {inv.get('txn_ref') or '-'}    Status: PAID")
+    c.drawString(18 * mm, y, f"Payment method: {_method(inv)}    Reference: {inv.get('txn_ref') or '-'}    Status: "
+                 + ("COMPLIMENTARY" if trial else "PAID"))
     y -= 10 * mm
     # table
     c.setFillColorRGB(*INK)
@@ -209,7 +213,7 @@ def build_invoice_pdf(inv: dict) -> bytes:
         total_row("GST", "Not applicable")
     c.setFillColorRGB(*LIGHT)
     c.rect(W - 110 * mm, y - 2.5 * mm, 92 * mm, 7 * mm, stroke=0, fill=1)
-    total_row("TOTAL PAID", _fmt(inv, tax["total"]), bold=True)
+    total_row("TOTAL DUE" if trial else "TOTAL PAID", _fmt(inv, tax["total"]), bold=True)
     y -= 2 * mm
     c.setFillColorRGB(*GREY)
     c.setFont("Helvetica-Oblique", 8.5)
@@ -225,7 +229,8 @@ def build_invoice_pdf(inv: dict) -> bytes:
     c.drawRightString(W - 20 * mm, y, f"For {b.get('legal_name')}")
     c.setFont("Helvetica", 8.5)
     c.drawRightString(W - 20 * mm, y - 5 * mm, b.get("signatory") or "Authorised Signatory")
-    _pdf_footer(c, W, mm, inv, "Prices at checkout are inclusive of applicable taxes. Access continues until the period end date shown above.")
+    _pdf_footer(c, W, mm, inv, "Complimentary free-trial access — no payment due. Access continues until the trial end date shown above."
+                if trial else "Prices at checkout are inclusive of applicable taxes. Access continues until the period end date shown above.")
     c.save()
     return buf.getvalue()
 
@@ -340,6 +345,11 @@ def _kit_email_html(inv: dict) -> str:
 
 def _attachments(inv: dict) -> list:
     safe = inv["number"].replace("/", "-")
+    if inv.get("kind") == "trial":
+        return [
+            {"filename": f"Miracurl-Free-Trial-Invoice-{safe}.pdf", "content": base64.b64encode(build_invoice_pdf(inv)).decode()},
+            {"filename": "Miracurl-Terms-and-Conditions.pdf", "content": base64.b64encode(build_terms_pdf(inv.get("_logo"))).decode()},
+        ]
     return [
         {"filename": f"Miracurl-Invoice-{safe}.pdf", "content": base64.b64encode(build_invoice_pdf(inv)).decode()},
         {"filename": f"Miracurl-Payment-Receipt-{safe}.pdf", "content": base64.b64encode(build_receipt_pdf(inv)).decode()},
@@ -348,6 +358,9 @@ def _attachments(inv: dict) -> list:
 
 
 async def email_invoice_kit(inv: dict, resend: bool = False) -> dict:
+    if inv.get("kind") == "trial":
+        from services.trial_onboarding import send_trial_congrats
+        return await send_trial_congrats(inv, resend=resend)
     to = [inv.get("notify_email") or inv.get("owner_email") or ""]
     inv["_logo"] = await platform_logo_bytes()
     attachments = await asyncio.to_thread(_attachments, inv)

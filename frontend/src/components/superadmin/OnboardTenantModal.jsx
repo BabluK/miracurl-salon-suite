@@ -1,8 +1,39 @@
-import { Building2, Loader2, Mail, MapPin, Phone, Scissors, ShieldCheck, Sparkles, User, UtensilsCrossed, X } from "lucide-react";
+import { Building2, CalendarClock, Gift, Loader2, Mail, MapPin, Phone, Scissors, ShieldCheck, Sparkles, User, UtensilsCrossed, X } from "lucide-react";
+import ImageUploader from "@/components/ImageUploader";
 
 const lbl = "text-[10px] uppercase tracking-[1.5px] text-slate-400 font-semibold";
 const inp = "mt-1.5 w-full h-11 rounded-xl border border-white/10 bg-white/[.04] px-3.5 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition-colors focus:border-[#d4af37]/70 focus:bg-white/[.06]";
 const PLANS = [["starter", "Starter"], ["pro", "Pro"], ["enterprise", "Enterprise"]];
+const TRIALS = [[null, "30 days", "Default"], [3, "3 months", ""], [6, "6 months", ""], [9, "9 months", ""], [12, "1 year", "Best value"]];
+
+export function trialEndDate(months) {
+  const d = new Date();
+  if (months) d.setMonth(d.getMonth() + months); else d.setDate(d.getDate() + 30);
+  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function TrialPicker({ value, onChange }) {
+  return (
+    <div className="mt-4" data-testid="trial-picker">
+      <div className={`${lbl} inline-flex items-center gap-1.5 mb-1.5`}><Gift className="w-3 h-3 text-[#d4af37]" /> Free trial length</div>
+      <div className="grid grid-cols-5 gap-2">
+        {TRIALS.map(([m, l, tag]) => {
+          const on = (value ?? null) === m;
+          return (
+            <button key={String(m)} type="button" onClick={() => onChange(m)} data-testid={`tenant-trial-${m ?? "default"}`}
+              className={`relative h-12 rounded-xl border text-[12.5px] font-semibold transition-all ${on ? "border-[#d4af37] bg-[#d4af37]/15 text-[#F0D9A5] shadow-[0_0_24px_-6px_rgba(212,175,55,.6)]" : "border-white/10 text-slate-400 hover:border-white/25"}`}>
+              {l}
+              {tag && <span className={`absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-px rounded-full text-[8.5px] uppercase tracking-wider ${on ? "bg-[#d4af37] text-[#15151b]" : "bg-white/10 text-slate-400"}`}>{tag}</span>}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-2 text-[11px] text-slate-400 inline-flex items-center gap-1.5" data-testid="trial-end-preview">
+        <CalendarClock className="w-3.5 h-3.5 text-[#d4af37]" /> Trial runs from today until <span className="text-[#F0D9A5] font-semibold">{trialEndDate(value)}</span> · a ₹0 invoice + Congratulations email go out automatically.
+      </div>
+    </div>
+  );
+}
 
 function Section({ n, title, hint, children }) {
   return (
@@ -58,7 +89,7 @@ export function OnboardTenantModal({ form, setForm, onSave, busy, onClose }) {
                 <input data-testid="tenant-name-input" required className={inp} value={form.name} onChange={set("name")} placeholder={resto ? "Infinity Family Restaurant" : "Elegance Beauty Lounge"} />
               </Field>
               <Field label="Booking slug *" hint={<>Public page: <span className="text-[#F0D9A5] font-mono">/book/{form.slug || "your-slug"}</span></>}>
-                <input data-testid="tenant-slug-input" required pattern="[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?" className={`${inp} font-mono lowercase`} value={form.slug}
+                <input data-testid="tenant-slug-input" required pattern={"[a-z0-9]([a-z0-9\\-]{1,38}[a-z0-9])?"} className={`${inp} font-mono lowercase`} value={form.slug}
                   onChange={e => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })} placeholder="elegance-koramangala" />
               </Field>
               <Field label="Location" icon={MapPin}>
@@ -67,6 +98,13 @@ export function OnboardTenantModal({ form, setForm, onSave, busy, onClose }) {
               <Field label={`${noun} phone`} icon={Phone}>
                 <input className={inp} value={form.phone} onChange={set("phone")} placeholder="+91 80 4xxx xxxx" />
               </Field>
+            </div>
+            <div className="mt-4 flex items-start gap-4 rounded-xl border border-white/10 bg-white/[.02] p-3" data-testid="tenant-logo-uploader">
+              <ImageUploader value={form.logo_url || ""} onChange={(url) => setForm({ ...form, logo_url: url })} kind="logo" circular />
+              <div className="text-[11.5px] text-slate-400 leading-relaxed pt-1">
+                <div className={`${lbl} mb-1`}>{noun} logo <span className="normal-case tracking-normal text-slate-500">(optional)</span></div>
+                Shown on the ₹0 trial invoice and the Congratulations email. Leave empty and Mira designs a logo for them automatically.
+              </div>
             </div>
           </Section>
 
@@ -94,6 +132,7 @@ export function OnboardTenantModal({ form, setForm, onSave, busy, onClose }) {
                   className={`h-11 rounded-xl border text-sm font-semibold transition-all ${form.plan === v ? "border-[#d4af37] bg-[#d4af37]/15 text-[#F0D9A5]" : "border-white/10 text-slate-400 hover:border-white/25"}`}>{l}</button>
               ))}
             </div>
+            <TrialPicker value={form.trial_months ?? null} onChange={(m) => setForm({ ...form, trial_months: m })} />
             <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3.5 py-2.5 text-[11.5px] text-emerald-200 flex items-start gap-2">
               <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
               <span>A secure one-time password is generated and shown to you after creation. The owner must change it on first login; the welcome email with setup steps goes out automatically.</span>

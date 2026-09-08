@@ -31,6 +31,15 @@ class TenantIn(BaseModel):
     owner_phone: Optional[str] = Field(None, max_length=20)
     plan: str = "starter"
     business_type: str = Field("salon", pattern="^(salon|restaurant)$")
+    trial_months: Optional[int] = None  # 3 | 6 | 9 | 12 — None keeps the platform default trial (days)
+    logo_url: Optional[str] = Field(None, max_length=600)
+
+    @field_validator("trial_months")
+    @classmethod
+    def _trial_months(cls, v):
+        if v is not None and v not in (3, 6, 9, 12):
+            raise ValueError("Free trial must be 3, 6, 9 or 12 months")
+        return v
 
     @field_validator("slug")
     @classmethod

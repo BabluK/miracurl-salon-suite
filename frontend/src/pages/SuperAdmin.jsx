@@ -144,7 +144,7 @@ export default function SuperAdmin() {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     slug: "", name: "", owner_email: "", owner_name: "", owner_password: "",
-    location: "", phone: "", salon_email: "", owner_phone: "", plan: "starter",
+    location: "", phone: "", salon_email: "", owner_phone: "", plan: "starter", trial_months: null, logo_url: "",
   });
 
   const load = useCallback(async () => {
@@ -194,9 +194,12 @@ export default function SuperAdmin() {
       // Strip empty owner_password so Pydantic Optional[str] accepts it as None
       // and the server generates a memorable temp password automatically.
       const { owner_password: _unused, ...payload } = form;
+      // Optional fields: empty strings would fail Pydantic (EmailStr etc.) — drop them.
+      for (const k of ["salon_email", "owner_phone", "phone", "location", "logo_url"]) if (!payload[k]) delete payload[k];
       const { data } = await api.post("/super-admin/tenants", payload);
+      const trialUntil = data?.trial_end_date ? new Date(data.trial_end_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "";
       if (data?.linked_existing_owner) {
-        toast.success(`'${form.slug}' created & tagged to ${data.owner_email} — this owner now has ${data.owner_salon_count} salons on one login`, { duration: 8000 });
+        toast.success(`'${form.slug}' created & tagged to ${data.owner_email} — this owner now has ${data.owner_salon_count} salons on one login${trialUntil ? ` · free trial until ${trialUntil}` : ""}`, { duration: 8000 });
       } else {
         toast.success(`Tenant '${form.slug}' created`);
       }
@@ -209,6 +212,7 @@ export default function SuperAdmin() {
           tenant_phone: form.phone,
           email_recipients: data.email_recipients,
           email_status: data.email_status,
+          trial_end_date: data.trial_end_date,
         });
       }
       load();
@@ -854,6 +858,11 @@ function TempPasswordShareModal({ creds, onClose }) {
               {creds.email_status.sent
                 ? <>📧 Login details emailed to {creds.email_recipients?.join(" & ")}</>
                 : <>⚠️ Email couldn&apos;t be delivered ({creds.email_status.error}) — please share the credentials manually below.</>}
+            </div>
+          )}
+          {creds.trial_end_date && (
+            <div data-testid="creds-trial-info" className="mt-2 text-xs rounded-lg px-3 py-2 border bg-sky-50 border-sky-200 text-sky-800">
+              🎁 Free trial active until <b>{new Date(creds.trial_end_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</b> — the ₹0 invoice &amp; Congratulations email are being prepared and will land in a minute.
             </div>
           )}
         </div>

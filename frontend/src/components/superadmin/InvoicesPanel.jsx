@@ -87,7 +87,7 @@ export function InvoicesPanel() {
                 <tr key={inv.id} data-testid={`hq-invoice-row-${inv.id}`}>
                   <td><div className="font-semibold text-slate-800">{inv.number}</div><div className="text-[10px] text-slate-400">{inv.issued_on}</div></td>
                   <td><div className="font-medium text-slate-800">{inv.tenant_name}</div><div className="text-[10px] text-slate-400 font-mono">{inv.tenant_slug}</div></td>
-                  <td className="text-xs">{inv.plan_label}<div className="text-[10px] text-slate-400">{inv.period_start} → {inv.period_end}</div></td>
+                  <td className="text-xs">{inv.plan_label}{inv.kind === "trial" && <span className="ml-1.5 px-1.5 py-px rounded-full bg-sky-100 text-sky-700 text-[9px] font-bold uppercase tracking-wider" data-testid={`hq-invoice-trial-badge-${inv.id}`}>free trial</span>}<div className="text-[10px] text-slate-400">{inv.period_start} → {inv.period_end}</div></td>
                   <td className="font-semibold text-slate-800">{fmtAmt(inv)}</td>
                   <td className="text-xs">{inv.method}<div className="font-mono text-[10px] text-slate-400 truncate max-w-[140px]">{inv.txn_ref || "—"}</div></td>
                   <td className="text-xs">
