@@ -358,6 +358,7 @@ export default function SuperAdmin() {
     (trialFilter === "newbiz90" && t.trial_kind === "newbiz90") ||
     (trialFilter === "trial7" && t.trial_kind === "trial7") ||
     (trialFilter === "trial30" && t.trial_kind === "trial30") ||
+    (trialFilter === "trial_long" && t.trial_kind === "trial_long") ||
     (trialFilter === "paid" && t.status === "active") ||
     (trialFilter === "referred" && !!t.referred_by_name);
 
@@ -654,7 +655,7 @@ export default function SuperAdmin() {
             {[["all", "All"],
               ["newbiz90", "🌱 New-Biz 90d"],
               ["trial7", "7-day"],
-              ["trial30", "30-day"],
+              ["trial30", "30-day"], ["trial_long", "🎁 Extended"],
               ["paid", "💳 Paid"],
               ["referred", "🤝 Referred"]].map(([v, l]) => (
               <button key={v} data-testid={`trial-filter-${v}`} onClick={() => setTrialFilter(v)}
@@ -703,10 +704,13 @@ export default function SuperAdmin() {
                       <span data-testid={`trial-kind-${t.id}`} title={`New-business — FREE 90-day setup trial${t.opening_date ? ` · opened/opening ${t.opening_date}` : ""}`} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300">🌱 New-Biz 90d{t.opening_date ? ` · 📅 ${t.opening_date}` : ""}</span>
                     )}
                     {t.trial_kind === "trial7" && (
-                      <span data-testid={`trial-kind-${t.id}`} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-600 border border-sky-200">7-day trial</span>
+                      <span data-testid={`trial-kind-${t.id}`} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-600 border border-sky-200">{t.trial_span_label || "7-day"} trial</span>
                     )}
                     {t.trial_kind === "trial30" && (
-                      <span data-testid={`trial-kind-${t.id}`} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">30-day trial</span>
+                      <span data-testid={`trial-kind-${t.id}`} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">{t.trial_span_label || "30-day"} trial</span>
+                    )}
+                    {t.trial_kind === "trial_long" && (
+                      <span data-testid={`trial-kind-${t.id}`} title={`Extended free trial · ${t.trial_span_days} days in total`} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">🎁 {t.trial_span_label} free trial</span>
                     )}
                     {t.status === "trial" && Number.isFinite(t.trial_days_left) && (
                       <span data-testid={`trial-days-left-${t.id}`} title={`Trial ends ${String(t.trial_end_date || t.trial_ends_at || "").slice(0, 10)}`}
@@ -804,7 +808,7 @@ export default function SuperAdmin() {
         <EditTenantModal
           tenant={editFor}
           onClose={() => setEditFor(null)}
-          onSaved={async () => { setEditFor(null); await load(); }}
+          onSaved={async () => { setEditFor(null); await load(); }} onRefresh={load}
         />
       )}
 

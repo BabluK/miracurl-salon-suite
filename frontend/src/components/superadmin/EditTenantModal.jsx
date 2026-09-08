@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { X, Save, KeyRound, Mail, Copy, Link2, Unlink, Store, Loader2, Fingerprint, CreditCard } from "lucide-react";
 import { confirmAsync } from "@/components/ConfirmDialog";
+import { TrialControlCard } from "@/components/superadmin/TrialControlCard";
 
 const inputCls = "mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200";
 
@@ -26,7 +27,7 @@ function copyText(text, label) {
   document.body.removeChild(ta);
 }
 
-export function EditTenantModal({ tenant, onClose, onSaved }) {
+export function EditTenantModal({ tenant, onClose, onSaved, onRefresh }) {
   const [form, setForm] = useState({
     name: tenant.name || "", location: tenant.location || "", phone: tenant.phone || "",
     salon_email: tenant.salon_email || "", owner_name: tenant.owner_name || "",
@@ -158,6 +159,8 @@ export function EditTenantModal({ tenant, onClose, onSaved }) {
 
         {/* Scrollable body */}
         <div className="p-4 sm:p-5 space-y-5 overflow-y-auto">
+
+        <TrialControlCard tenant={tenant} onChanged={() => onRefresh?.()} />
 
         {/* Details form */}
         <form onSubmit={save} className="space-y-3">

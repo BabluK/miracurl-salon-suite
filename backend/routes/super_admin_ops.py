@@ -396,7 +396,10 @@ async def list_tenants(user=Depends(require_super_admin)):
             try:
                 span = (date.fromisoformat(str(trial_end)[:10])
                         - datetime.fromisoformat(str(t["created_at"]).replace("Z", "+00:00")).date()).days
-                t["trial_kind"] = "trial30" if span >= 25 else "trial7"
+                t["trial_kind"] = "trial30" if 25 <= span < 60 else "trial7" if span < 25 else "trial_long"
+                t["trial_span_days"] = span
+                t["trial_span_label"] = (f"{t['trial_months']}-month" if t.get("trial_months") and t["trial_months"] != 12
+                                         else "1-year" if t.get("trial_months") == 12 else f"{span}-day")
             except (ValueError, TypeError):
                 pass
         if t.get("status") == "trial" and trial_end:

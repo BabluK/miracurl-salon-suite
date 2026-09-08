@@ -1,9 +1,10 @@
 """Subscription invoices: tenant downloads, HQ list/resend/backfill, biller identity."""
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
+from typing import Optional
 
 from database import _raw_db
 from security import current_tenant, require_super_admin, require_tenant_admin
@@ -174,3 +175,40 @@ async def my_account_profile_pdf(user=Depends(require_tenant_admin), t=Depends(c
     pdf = await render_tenant_profile(full)
     return Response(pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="Miracurl-Account-Profile-{full["slug"]}.pdf"'})
+
+
+class TrialSetIn(BaseModel):
+    months: Optional[int] = Field(None, description="3 | 6 | 9 | 12 — counted from today")
+    days: Optional[int] = Field(None, ge=1, le=400, description="N days from today")
+    end_date: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
+@router.post("/super-admin/tenants/{tid}/trial")
+async def hq_set_trial(tid: str, body: TrialSetIn, user=Depends(require_super_admin)):
+    """Set / extend a tenant's free trial (months from today, days from today, or an exact end date)."""
+    from dateutil.relativedelta import relativedelta
+    t = await _raw_db.tenants.find_one({"id": tid}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Tenant not found")
+    if body.months is not None and body.months not in (3, 6, 9, 12):
+        raise HTTPException(422, "months must be 3, 6, 9 or 12")
+    now = datetime.now(timezone.utc)
+    if body.months:
+        end = now + relativedelta(months=body.months)
+    elif body.days:
+        end = now + timedelta(days=body.days)
+    elif body.end_date:
+        end = datetime.fromisoformat(body.end_date).replace(hour=23, minute=59, tzinfo=timezone.utc)
+        if end < now:
+            raise HTTPException(400, "End date must be in the future")
+    else:
+        raise HTTPException(400, "Provide months, days or end_date")
+    upd = {"trial_end_date": end.isoformat(), "trial_ends_at": end.isoformat(), "trial_months": body.months,
+           "trial_set_by": user.get("email"), "trial_set_at": now.isoformat()}
+    if not t.get("subscription_end_date") and t.get("status") in (None, "trial", "cancelled", "suspended"):
+        upd["status"] = "trial"
+    await _raw_db.tenants.update_one({"id": tid}, {"$set": upd})
+    label = f"{body.months} months" if body.months else (f"{body.days} days" if body.days else f"until {body.end_date}")
+    await _raw_db.hq_audit.insert_one({"id": str(__import__('uuid').uuid4()), "kind": "trial_set", "tenant_id": tid, "slug": t["slug"],
+                                       "by": user.get("email"), "label": label, "end": end.isoformat(), "at": now.isoformat()})
+    return {"ok": True, "trial_end_date": end.isoformat(), "days_left": (end.date() - now.date()).days, "label": label, "status": upd.get("status", t.get("status"))}
