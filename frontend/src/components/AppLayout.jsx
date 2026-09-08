@@ -81,6 +81,8 @@ export default function AppLayout() {
       if (!v) return;
       if (stored === null) { localStorage.setItem(key, v); return; }
       if (stored === v) return;
+      if (sessionStorage.getItem("mira_cache_wiped") === v) { localStorage.setItem(key, v); return; } // already wiped this session — never loop
+      sessionStorage.setItem("mira_cache_wiped", v);
       try {
         if ("serviceWorker" in navigator) {
           const regs = await navigator.serviceWorker.getRegistrations();

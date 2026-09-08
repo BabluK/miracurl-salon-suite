@@ -82,22 +82,24 @@ if ("serviceWorker" in navigator && window.location.protocol === "https:") {
     // When a NEW SW replaces an old one, reload once so the UI runs the
     // latest bundle. Skip the very first install (no prior controller) —
     // reloading there aborts in-flight requests like a user's first login.
-    let hadController = !!navigator.serviceWorker.controller;
+    // Only a *replacement* of an existing controller is a real update. A fresh
+    // install (no controller at page load — first visit, or right after a cache
+    // wipe) must never reload, otherwise the SW_UPDATED broadcast that follows
+    // clients.claim() would trigger a second/third refresh.
+    const initialController = !!navigator.serviceWorker.controller;
     let reloaded = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (!hadController) { hadController = true; return; }
-      if (reloaded) return;
+    const reloadOnce = () => {
+      if (!initialController || reloaded) return;
+      const last = Number(sessionStorage.getItem("mira_sw_reload_at") || 0);
+      if (Date.now() - last < 60_000) return; // loop breaker: max one SW reload per minute per tab
       reloaded = true;
+      sessionStorage.setItem("mira_sw_reload_at", String(Date.now()));
       window.location.reload();
-    });
-
-    // The SW also broadcasts SW_UPDATED after clients.claim(); use that as a
-    // belt-and-braces reload trigger on browsers that don't fire controllerchange.
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", reloadOnce);
+    // Belt-and-braces for browsers that don't fire controllerchange.
     navigator.serviceWorker.addEventListener("message", (e) => {
-      if (e.data?.type === "SW_UPDATED" && hadController && !reloaded) {
-        reloaded = true;
-        window.location.reload();
-      }
+      if (e.data?.type === "SW_UPDATED") reloadOnce();
     });
   });
 }

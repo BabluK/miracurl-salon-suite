@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-08.230"
-BUILD_TIME = "08 Sep 2026, 12:15 PM IST"
+BUILD = "2026-09-08.231"
+BUILD_TIME = "08 Sep 2026, 02:00 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-08.231", "note": "Fix: dashboard no longer auto-refreshes 2–3 times after a deploy / cache clear (service-worker reload guard)"},
     {"build": "2026-09-08.230", "note": "Trial-extended email to owners (new end date + thank-you) when HQ changes a free trial"},
     {"build": "2026-09-08.229", "note": "Edit-tenant modal: Free trial control (30d / 3 / 6 / 9 / 12 mo / exact date); accurate trial badges (90-day, 3-month… instead of generic 30-day); code-review refactors"},
     {"build": "2026-09-08.228", "note": "Weekly tenant register email (Mon 9 AM IST → booking@); HQ Tenant Quick View drawer; labelled tenant action toolbar; profile PDF table layout"},
@@ -66,6 +67,7 @@ RELEASES = [
             "🧰 HQ tenant actions now show names (Open · Edit · Profile · Pay link · Import · Diagnose · Clean · Suspend · Cancel · Erase)",
             "🎁 Edit tenant → Free trial: extend or reset any tenant's complimentary access in one tap (30 days · 3 / 6 / 9 months · 1 year · exact date) with live days-left; trial badges now show the real length (e.g. '90-day free trial', '6-month free trial') instead of a generic '30-day trial'",
             "💌 Whenever HQ extends a free trial, the owner automatically receives a branded email with the new end date, days remaining and a thank-you note (toggle per change)",
+            "🛠️ Fix: the app no longer refreshes itself 2–3 times after an update or an HQ cache clear — a fresh service-worker install never reloads, and a genuine update reloads at most once",
         ],
     },
     {
