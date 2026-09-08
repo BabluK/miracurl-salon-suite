@@ -49,7 +49,7 @@ async def image_bytes_from_url(url: str | None) -> bytes | None:
         except Exception:  # noqa: BLE001 — storage backend errors must not break PDF generation
             return None
     if url.startswith("http"):
-        from routes.registry import _safe_fetch_image_bytes
+        from services.safe_fetch import _safe_fetch_image_bytes
         try:
             return await asyncio.to_thread(_safe_fetch_image_bytes, url)
         except Exception:  # noqa: BLE001 — remote logo fetch is best-effort

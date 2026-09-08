@@ -204,7 +204,7 @@ async def _notify_hq_new_tenant(t: dict, inv: dict, logo_url: str | None) -> dic
                        f"<td style='padding:5px 0;text-align:right;font-weight:bold;font-size:13px'>{html_lib.escape(str(v or '—'))}</td></tr>"
                        for k, v in data["business"] + data["owner"] + data["access"])
         logo = _abs(logo_url)
-        html = (f"<div style='font-family:Arial,sans-serif;max-width:560px;margin:0 auto'>"
+        html = ("<div style='font-family:Arial,sans-serif;max-width:560px;margin:0 auto'>"
                 + (f"<img src='{html_lib.escape(logo)}' width='64' height='64' style='border-radius:50%;display:block;margin:0 0 10px'/>" if logo else "")
                 + f"<h2 style='margin:0 0 6px'>🎉 New {html_lib.escape(t.get('business_type') or 'salon')} onboarded — {html_lib.escape(t.get('name') or t['slug'])}</h2>"
                 f"<p style='color:#666;font-size:13px'>Free trial {html_lib.escape(inv['trial_label'])} · ₹0 invoice {html_lib.escape(inv['number'])} · "

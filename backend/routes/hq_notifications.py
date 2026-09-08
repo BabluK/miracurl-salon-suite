@@ -205,19 +205,19 @@ async def _public_catalog_and_reviews(tenant_id: str) -> tuple[list, list]:
     return services, reviews
 
 
-def _public_page_payload(t: dict, slug: str, services: list, reviews: list) -> dict:
+def _rating_summary(reviews: list) -> tuple[float | None, int]:
     ratings = [float(r["rating"]) for r in reviews if r.get("rating")]
+    return (round(sum(ratings) / len(ratings), 1) if ratings else None), len(ratings)
+
+
+def _public_page_payload(t: dict, slug: str, services: list, reviews: list) -> dict:
+    avg, count = _rating_summary(reviews)
     return {
         "name": t.get("name"), "slug": slug, "location": t.get("location") or "",
-        "business_type": t.get("business_type") or "salon",
-        "phone": t.get("phone") or "", "about": t.get("about") or "",
-        "gallery": [p["url"] for p in (t.get("gallery") or [])][:6],
-        "logo_url": t.get("logo_url") or "",
-        "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else None,
-        "reviews_count": len(ratings),
-        "services": services,
-        "reviews": [r for r in reviews if (r.get("comment") or "").strip()][:6],
-        "book_url": f"/book/{slug}",
+        "business_type": t.get("business_type") or "salon", "phone": t.get("phone") or "", "about": t.get("about") or "",
+        "gallery": [p["url"] for p in (t.get("gallery") or [])][:6], "logo_url": t.get("logo_url") or "",
+        "avg_rating": avg, "reviews_count": count, "services": services,
+        "reviews": [r for r in reviews if (r.get("comment") or "").strip()][:6], "book_url": f"/book/{slug}",
     }
 
 

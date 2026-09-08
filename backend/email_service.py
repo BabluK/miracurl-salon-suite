@@ -152,6 +152,19 @@ async def _resolve_recipients(to: list) -> list[str]:
     return list(dict.fromkeys(out))
 
 
+_RESEND_OPT_KEYS = ("reply_to", "book_url", "book_label", "from_name", "suite_label")
+_MAX_LOG_HTML, _MAX_LOG_ATTACH = 250_000, 1_500_000
+
+
+def _resend_payload(options: dict) -> dict:
+    """What a one-tap resend needs: body, small attachments, and the presentation options."""
+    atts = options.get("attachments") or []
+    small = sum(len(a.get("content") or "") for a in atts) <= _MAX_LOG_ATTACH
+    return {"html": (options.get("_html") or "")[:_MAX_LOG_HTML],
+            "resend_opts": {k: options[k] for k in _RESEND_OPT_KEYS if options.get(k)},
+            "attachments_payload": atts if (atts and small) else None, "attachments": len(atts)}
+
+
 async def _log_email(requested: list, resolved: list, subject: str, result: dict, options: dict) -> None:
     """Delivery log for HQ (email_log): who we tried to reach, what happened, why not. Never raises."""
     try:
@@ -161,13 +174,8 @@ async def _log_email(requested: list, resolved: list, subject: str, result: dict
             "id": str(uuid.uuid4()), "at": datetime.now(timezone.utc).isoformat(),
             "to": [x for x in (requested or []) if x], "resolved_to": resolved or [], "subject": (subject or "")[:200],
             "sent": bool(result.get("sent")), "skipped": bool(result.get("skipped")), "error": result.get("error"),
-            "provider_id": result.get("id"), "attachments": len(options.get("attachments") or []),
-            "from_name": options.get("from_name") or "Miracurl",
-            # keep what's needed for a one-tap resend (body always; attachments only when small)
-            "html": (options.get("_html") or "")[:250_000],
-            "resend_opts": {k: options.get(k) for k in ("reply_to", "book_url", "book_label", "from_name", "suite_label") if options.get(k)},
-            "attachments_payload": (options.get("attachments") if sum(len(a.get("content") or "") for a in (options.get("attachments") or [])) <= 1_500_000 else None),
-            "resent_from": options.get("_resent_from"),
+            "provider_id": result.get("id"), "from_name": options.get("from_name") or "Miracurl",
+            "resent_from": options.get("_resent_from"), **_resend_payload(options),
         })
     except Exception as e:  # noqa: BLE001
         logging.getLogger("email").warning("email_log write failed: %s", e)
