@@ -65,7 +65,7 @@ def test_priya_slip_pdf_and_rules(admin_sess):
     print("PDF text sample:", text[:800])
     # Compute expected commission from JSON summary endpoint (admin uses staff/me endpoint via staff, but we can use PDF-only assertions)
     # Rule 1: service commission never withheld
-    assert "withheld" not in text.lower(), f"'withheld' should not appear in slip"
+    assert "withheld" not in text.lower(), "'withheld' should not appear in slip"
     pct = float(priya.get("commission_pct") or 0)
     # PDF format uses "Service commission (10.0%)" — pct is rendered with decimal from _compute_salary_for_month
     m = re.search(r"Service commission \(([\d.]+)%\)\s*Rs\.\s*([\d,]+\.\d{2})", text)

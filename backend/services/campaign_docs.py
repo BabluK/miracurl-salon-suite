@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 from database import _raw_db
 from email_service import _send_email, hq_notify_emails
-from routes.hq_documents import DOCS, _doc_pdf, _pdf_doc_header, _pdf_doc_sections
+from services.hq_docs import DOCS, _doc_pdf, _pdf_doc_header, _pdf_doc_sections
 from services.pdf_brand import GOLD, GREY, INK, LIGHT, draw_powered_footer, draw_watermark, platform_logo_bytes
 
 AGREEMENT_TEXT_VERSION = "2026-09-B"

@@ -72,7 +72,7 @@ class TestPublicBlog:
         d = r.json()
         assert d["slug"] == "reduce-salon-no-shows-whatsapp-reminders"
         assert "content" in d and len(d["content"]) > 100
-        assert d.get("published") == True
+        assert d.get("published") is True
 
     def test_public_blog_unknown_slug_404(self):
         r = requests.get(f"{API}/public/blog/does-not-exist-xyz", timeout=15)
@@ -111,7 +111,7 @@ class TestBlogCRUD:
         d = r.json()
         assert d["title"] == title
         assert d["slug"].startswith("test-article-")
-        assert d["published"] == True
+        assert d["published"] is True
         assert "id" in d
         TestBlogCRUD._created_id = d["id"]
         TestBlogCRUD._created_slug = d["slug"]

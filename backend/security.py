@@ -237,7 +237,7 @@ def set_auth_cookies(resp: Response, access: str, refresh: str, persistent: bool
 
 # Domain-separation label (NOT a secret): keeps the CSRF HMAC key distinct from the
 # JWT signing key. The only secret material is JWT_SECRET, read from the environment.
-_CSRF_KEY_LABEL = "csrf-v1:"
+_CSRF_KEY_LABEL = "csrf-v1:"  # public domain-separation label (NOT a secret) — key material is JWT_SECRET from .env  # nosec
 
 
 def _csrf_key() -> bytes:

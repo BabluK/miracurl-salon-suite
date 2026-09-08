@@ -276,6 +276,6 @@ def test_staff_fence(staff_sess):
     r = staff_sess.get(f"{BASE}/staff/me/fence")
     assert r.status_code == 200, r.text
     j = r.json()
-    assert j["fenced"] == True, f"expected fenced=True, got {j}"
+    assert j["fenced"] is True, f"expected fenced=True, got {j}"
     assert j["label"] in ("the salon",) or j["label"], j
     assert j["fence_m"] > 0

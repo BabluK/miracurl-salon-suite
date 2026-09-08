@@ -39,34 +39,34 @@ def test_public_salon_show_products_default_true():
     assert r.status_code == 200, r.text
     data = r.json()
     assert "show_products" in data, f"show_products missing in response: {list(data.keys())}"
-    assert data["show_products"] == True
+    assert data["show_products"] is True
 
 
 def test_settings_get_default_enabled(admin_session):
     r = admin_session.get(f"{BASE_URL}/api/settings/miracurl-products")
     assert r.status_code == 200, r.text
-    assert r.json().get("enabled") == True
+    assert r.json().get("enabled") is True
 
 
 def test_toggle_off_then_public_hides(admin_session):
     r = admin_session.put(f"{BASE_URL}/api/settings/miracurl-products", json={"enabled": False})
     assert r.status_code == 200, r.text
-    assert r.json().get("enabled") == False
+    assert r.json().get("enabled") is False
 
     # GET to persist
     g = admin_session.get(f"{BASE_URL}/api/settings/miracurl-products")
-    assert g.json().get("enabled") == False
+    assert g.json().get("enabled") is False
 
     # Public reflects
     p = requests.get(f"{BASE_URL}/api/public/salon/{TENANT_SLUG}")
     assert p.status_code == 200
-    assert p.json().get("show_products") == False
+    assert p.json().get("show_products") is False
 
 
 def test_toggle_on_restores(admin_session):
     r = admin_session.put(f"{BASE_URL}/api/settings/miracurl-products", json={"enabled": True})
     assert r.status_code == 200
-    assert r.json().get("enabled") == True
+    assert r.json().get("enabled") is True
 
     p = requests.get(f"{BASE_URL}/api/public/salon/{TENANT_SLUG}")
-    assert p.json().get("show_products") == True
+    assert p.json().get("show_products") is True

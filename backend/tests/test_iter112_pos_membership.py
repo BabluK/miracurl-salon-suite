@@ -188,7 +188,7 @@ class TestSendCard:
         assert r.status_code in (200, 502), f"unexpected {r.status_code}: {r.text}"
         if r.status_code == 200:
             j = r.json()
-            assert j.get("ok") == True
+            assert j.get("ok") is True
             assert j.get("sent_to") == "delivered@resend.dev"
         else:
             # 502 must include the error detail

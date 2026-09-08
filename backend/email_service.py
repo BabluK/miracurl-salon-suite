@@ -400,66 +400,83 @@ def renewal_reminder_email_html(salon_name: str, days_left: int, end_date: str,
     </div>"""
 
 
-def trial_ending_email_html(t: dict, days_left: int, end_date: str, plan_label: str, price_str: str,
-                            pay_url: str, stats: list[str], offer: dict | None = None) -> str:
-    """Friendly 'your free trial ends in N days' nudge with a one-tap upgrade (pay-link) CTA. Both verticals."""
+def _brand_logo_img(t: dict, size: int = 72) -> str:
+    """Round tenant logo for email headers (absolute URL), or '' when the tenant has none."""
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    logo = t.get("logo_url") or ""
+    if not logo:
+        return ""
+    logo = logo if logo.startswith("http") else f"{base}{logo}"
+    return (f"<img src='{html_lib.escape(logo)}' alt='' width='{size}' height='{size}' style='width:{size}px;height:{size}px;border-radius:50%;"
+            "object-fit:cover;border:3px solid #d4af37;background:#fff;display:block;margin:0 auto 12px'/>")
+
+
+def _trial_urgency(days_left: int) -> str:
+    if days_left <= 1:
+        return "Last call — upgrade today so nothing pauses tomorrow."
+    if days_left <= 7:
+        return "One week to go — a two-minute upgrade keeps everything running."
+    return "No rush yet — but upgrading early means zero interruption later."
+
+
+def _trial_offer_block(offer: dict | None, price_str: str) -> str:
+    """Dark 'limited-time upgrade offer' banner with strike-through price and IST deadline."""
+    if not offer:
+        return ""
     e = html_lib.escape
+    try:
+        until = datetime.fromisoformat(str(offer["expires_at"]).replace("Z", "+00:00")) + timedelta(hours=5, minutes=30)
+        until_s = until.strftime("%d %b, %I:%M %p IST")
+    except (ValueError, KeyError):
+        until_s = "soon"
+    return (f"<div style='background:#1c1c22;color:#fff;border-radius:12px;padding:14px 18px;margin:18px 0;text-align:center;font-family:Arial,sans-serif'>"
+            f"<div style='color:#d4af37;font-size:11px;letter-spacing:3px;text-transform:uppercase'>🎁 Limited-time upgrade offer</div>"
+            f"<div style='font-size:18px;font-weight:bold;margin-top:6px'>{e(offer['label'])} — pay <span style='color:#d4af37'>{e(price_str)}</span> "
+            f"<span style='color:#999;text-decoration:line-through;font-size:14px'>{e(offer['original'])}</span></div>"
+            f"<div style='font-size:12px;color:#bbb;margin-top:6px'>Offer valid until <b style='color:#fff'>{e(until_s)}</b> · built into your one-tap link below</div></div>")
+
+
+def trial_ending_email_html(t: dict, nudge: dict) -> str:
+    """Friendly 'your free trial ends in N days' email with a one-tap upgrade CTA.
+    nudge = {days_left, end_date, plan_label, price_str, pay_url, stats: [str], offer: {label, original, expires_at} | None}."""
+    e = html_lib.escape
+    days_left, offer, price_str = int(nudge["days_left"]), nudge.get("offer"), nudge["price_str"]
     resto = t.get("business_type") == "restaurant"
     noun = "restaurant" if resto else "salon"
-    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     when = "ends <b>tomorrow</b>" if days_left == 1 else f"ends in <b>{days_left} days</b>"
-    urgency = ("Last call — upgrade today so nothing pauses tomorrow." if days_left <= 1
-               else "One week to go — a two-minute upgrade keeps everything running." if days_left <= 7
-               else "No rush yet — but upgrading early means zero interruption later.")
     keeps = ("QR table ordering, kitchen tickets, POS billing, staff payroll and Mira AI"
              if resto else "online bookings, POS billing, staff payroll, WhatsApp reminders and Mira AI")
-    logo = t.get("logo_url") or ""
-    logo = logo if logo.startswith("http") else (f"{base}{logo}" if logo else "")
-    logo_html = (f"<img src='{e(logo)}' alt='' width='72' height='72' style='width:72px;height:72px;border-radius:50%;"
-                 "object-fit:cover;border:3px solid #d4af37;background:#fff;display:block;margin:0 auto 12px'/>" if logo else "")
-    stat_rows = "".join(f"<div style='padding:4px 0'>{s}</div>" for s in stats)
-    offer_html = ""
-    if offer:
-        try:
-            until = datetime.fromisoformat(str(offer["expires_at"]).replace("Z", "+00:00")) + timedelta(hours=5, minutes=30)
-            until_s = until.strftime("%d %b, %I:%M %p IST")
-        except (ValueError, KeyError):
-            until_s = "soon"
-        offer_html = (f"<div style='background:#1c1c22;color:#fff;border-radius:12px;padding:14px 18px;margin:18px 0;text-align:center;font-family:Arial,sans-serif'>"
-                      f"<div style='color:#d4af37;font-size:11px;letter-spacing:3px;text-transform:uppercase'>🎁 Limited-time upgrade offer</div>"
-                      f"<div style='font-size:18px;font-weight:bold;margin-top:6px'>{e(offer['label'])} — pay <span style='color:#d4af37'>{e(price_str)}</span> "
-                      f"<span style='color:#999;text-decoration:line-through;font-size:14px'>{e(offer['original'])}</span></div>"
-                      f"<div style='font-size:12px;color:#bbb;margin-top:6px'>Offer valid until <b style='color:#fff'>{e(until_s)}</b> · built into your one-tap link below</div></div>")
+    stat_rows = "".join(f"<div style='padding:4px 0'>{s}</div>" for s in nudge.get("stats") or [])
+    strike = f" <span style='font-size:16px;color:#999;text-decoration:line-through'>{e(offer['original'])}</span>" if offer else ""
     return f"""
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
       <div style="background:#1c1c22;padding:28px 30px;text-align:center">
-        {logo_html}
+        {_brand_logo_img(t)}
         <div style="color:#fff;font-size:22px;font-weight:bold">{e(t.get('name') or '')}</div>
         <div style="color:#d4af37;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-top:6px">Free trial · {days_left} day{'s' if days_left != 1 else ''} left</div>
       </div>
       <div style="padding:28px 30px;color:#333">
         <p style="font-family:Arial,sans-serif;font-size:14px">Hi <b>{e(t.get('owner_name') or t.get('name') or 'there')}</b> 👋</p>
         <p style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7">
-          A friendly heads-up: your Miracurl free trial {when} (on <b>{e(end_date)}</b>). {urgency}</p>
+          A friendly heads-up: your Miracurl free trial {when} (on <b>{e(nudge['end_date'])}</b>). {_trial_urgency(days_left)}</p>
         <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:14px 18px;margin:18px 0;font-size:13.5px;font-family:Arial,sans-serif;line-height:1.8">
           <b>What your {noun} has done on Miracurl so far</b>{stat_rows}
         </div>
-        {offer_html}
+        {_trial_offer_block(offer, price_str)}
         <p style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7">Upgrade in one tap to keep {keeps} running without a pause:</p>
         <div style="background:#faf6ec;border-radius:14px;padding:16px 20px;margin:16px 0;text-align:center;font-family:Arial,sans-serif">
-          <div style="font-size:12px;letter-spacing:2px;color:#888;text-transform:uppercase">{e(plan_label)}</div>
-          <div style="font-size:32px;font-weight:bold;color:#1c1c22">{e(price_str)}{f" <span style='font-size:16px;color:#999;text-decoration:line-through'>{e(offer['original'])}</span>" if offer else ""}</div>
+          <div style="font-size:12px;letter-spacing:2px;color:#888;text-transform:uppercase">{e(nudge['plan_label'])}</div>
+          <div style="font-size:32px;font-weight:bold;color:#1c1c22">{e(price_str)}{strike}</div>
         </div>
         <p style="text-align:center;margin:22px 0">
-          <a href="{e(pay_url)}" style="background:linear-gradient(135deg,#d4af37,#e6c66e);color:#17171f;text-decoration:none;padding:14px 38px;border-radius:999px;font-weight:bold;font-family:Arial,sans-serif;font-size:15px;display:inline-block">✦ &nbsp;Upgrade now — one tap, UPI / card&nbsp; ✦</a>
+          <a href="{e(nudge['pay_url'])}" style="background:linear-gradient(135deg,#d4af37,#e6c66e);color:#17171f;text-decoration:none;padding:14px 38px;border-radius:999px;font-weight:bold;font-family:Arial,sans-serif;font-size:15px;display:inline-block">✦ &nbsp;Upgrade now — one tap, UPI / card&nbsp; ✦</a>
         </p>
         <p style="font-size:12px;color:#888;text-align:center;font-family:Arial,sans-serif">Secure Razorpay checkout · your plan activates instantly · all your data stays exactly as it is.</p>
         <p style="font-size:12px;color:#888;font-family:Arial,sans-serif;border-top:1px solid #eee;padding-top:14px;margin-top:22px">
           Need a little more time or have a question? Just reply to this email or write to {hq_email} — we're happy to help. 💛</p>
       </div>
     </div>"""
-
 
 def refund_notice_email_html(t: dict, info: dict) -> str:
     """Refund processed: what changed (access), refund reference, and a one-tap reactivation link."""

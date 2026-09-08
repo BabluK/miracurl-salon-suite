@@ -174,7 +174,7 @@ class TestQrCheckInHalfDay:
         assert r.status_code == 200, r.text[:400]
         rec = r.json()
         assert rec["check_in_method"] == "qr", rec
-        assert rec["half_day"] == True, rec
+        assert rec["half_day"] is True, rec
         assert abs(float(rec["half_day_deduction"]) - 333.33) < 0.02, rec
         assert float(rec.get("late_penalty") or 0) == 0.0, rec
         # GPS should be null (bypassed)
@@ -202,7 +202,7 @@ class TestQrCheckInHalfDay:
         rows = r.json().get("roster") or []
         me = next((x for x in rows if x.get("staff_id") == p["id"]), None)
         assert me, f"Priya not in roster: {rows[:2]}"
-        assert me.get("half_day") == True, me
+        assert me.get("half_day") is True, me
         assert abs(float(me.get("half_day_deduction") or 0) - 333.33) < 0.02
         assert me.get("check_in_method") == "qr"
 

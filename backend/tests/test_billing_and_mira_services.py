@@ -113,7 +113,7 @@ def test_generate_single_service_image(admin):
     r = admin.post(f"{BASE}/api/services/{target['id']}/generate-image", timeout=30)
     assert r.status_code == 200, r.text
     data = r.json()
-    assert data.get("ok") == True
+    assert data.get("ok") is True
     jid = data["job_id"]
     image_url = ""
     for _ in range(45):  # up to ~90s

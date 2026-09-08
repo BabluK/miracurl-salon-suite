@@ -18,7 +18,7 @@ def _d(v) -> str:
 async def tenant_profile_data(t: dict) -> dict:
     sub = await _raw_db.subscriptions.find_one({"tenant_id": t["id"], "status": "active"}, {"_id": 0}, sort=[("end_date", -1)])
     owner = await _raw_db.users.find_one({"email": (t.get("owner_email") or "").lower(), "role": "admin"}, {"_id": 0, "name": 1, "phone": 1}) or {}
-    from routes.subscriptions import PLAN_CATALOG
+    from services.plans import PLAN_CATALOG
     plan_key = (sub or {}).get("plan") or t.get("plan") or ""
     trial_start = t.get("created_at")
     trial_end = t.get("trial_end_date") or t.get("trial_ends_at")

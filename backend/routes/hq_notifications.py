@@ -188,24 +188,24 @@ async def _fee_items(since: str) -> list:
 
 # ─────────── Public per-salon SEO pages ───────────
 
-@router.get("/public/salon-page/{slug}")
-async def public_salon_page(slug: str):
-    t = await db.tenants.find_one({"slug": slug, "status": {"$in": ["active", "trial"]}}, {"_id": 0})
-    if not t:
-        raise HTTPException(404, "Salon not found")
+async def _public_catalog_and_reviews(tenant_id: str) -> tuple[list, list]:
+    """Tenant-scoped reads for the public page (services by price, public non-test reviews)."""
     from database import _current_tenant_id
-    tok = _current_tenant_id.set(t["id"])
+    tok = _current_tenant_id.set(tenant_id)
     try:
         services = await db.services.find({}, {"_id": 0, "name": 1, "price": 1, "category": 1,
                                                "duration_min": 1, "image_url": 1}).sort("price", -1).to_list(24)
         reviews = await db.reviews.find({"public": True,
                                          "$nor": [{"customer_name": {"$regex": "^TEST", "$options": "i"}},
                                                   {"comment": {"$regex": "^TEST", "$options": "i"}}]},
-                                        {"_id": 0, "customer_name": 1, "rating": 1,
-                                         "comment": 1, "created_at": 1}
+                                        {"_id": 0, "customer_name": 1, "rating": 1, "comment": 1, "created_at": 1}
                                         ).sort("created_at", -1).to_list(200)
     finally:
         _current_tenant_id.reset(tok)
+    return services, reviews
+
+
+def _public_page_payload(t: dict, slug: str, services: list, reviews: list) -> dict:
     ratings = [float(r["rating"]) for r in reviews if r.get("rating")]
     return {
         "name": t.get("name"), "slug": slug, "location": t.get("location") or "",
@@ -219,6 +219,15 @@ async def public_salon_page(slug: str):
         "reviews": [r for r in reviews if (r.get("comment") or "").strip()][:6],
         "book_url": f"/book/{slug}",
     }
+
+
+@router.get("/public/salon-page/{slug}")
+async def public_salon_page(slug: str):
+    t = await db.tenants.find_one({"slug": slug, "status": {"$in": ["active", "trial"]}}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Salon not found")
+    services, reviews = await _public_catalog_and_reviews(t["id"])
+    return _public_page_payload(t, slug, services, reviews)
 
 
 @router.get("/public/sitemap-salons.xml")

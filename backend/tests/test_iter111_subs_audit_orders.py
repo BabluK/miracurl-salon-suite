@@ -143,18 +143,18 @@ def test_in_grace_paid_flow(mongo, throwaways, super_session):
     assert r.status_code == 200, r.text
     data = r.json()
     assert data["days_remaining"] is not None and data["days_remaining"] < 0
-    assert data["grace_request_pending"] == False
+    assert data["grace_request_pending"] is False
 
     # first grace-request -> ok, not already
     r = s.post(f"{API}/billing/grace-request")
     assert r.status_code == 200, r.text
-    assert r.json().get("ok") == True
-    assert r.json().get("already_requested") == False
+    assert r.json().get("ok") is True
+    assert r.json().get("already_requested") is False
 
     # second -> already_requested True
     r = s.post(f"{API}/billing/grace-request")
     assert r.status_code == 200
-    assert r.json().get("already_requested") == True
+    assert r.json().get("already_requested") is True
 
     # Super admin sees pending
     r = super_session.get(f"{API}/super-admin/grace-requests")
@@ -202,7 +202,7 @@ def test_audit_log_get_delete_and_retention(mongo, admin_session):
     # DELETE clears
     r = admin_session.delete(f"{API}/settings/audit-log")
     assert r.status_code == 200, r.text
-    assert r.json().get("ok") == True
+    assert r.json().get("ok") is True
     assert mongo.audit_log.count_documents({"tenant_id": tenant["id"]}) == 0
 
 
@@ -238,7 +238,7 @@ def test_product_order_missing_email_422(super_session, mongo):
         })
         assert r.status_code == 200, r.text
         data = r.json()
-        assert data.get("ok") == True
+        assert data.get("ok") is True
         assert data.get("order_id")
         # cleanup order
         mongo.product_orders.delete_one({"id": data["order_id"]})

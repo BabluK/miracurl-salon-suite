@@ -183,24 +183,35 @@ def _norm_svc(x) -> str:
     return re.sub(r"[^a-z0-9]", "", str(x).lower())
 
 
+def _match_catalog(name: str, real: dict) -> tuple[str, float] | None:
+    """Exact normalized match first, then a loose substring match against the real catalog."""
+    key = _norm_svc(name)
+    if not key or not real:
+        return None
+    if key in real:
+        return real[key]
+    match = next((k for k in real if k in key or key in k), None)
+    return real.get(match) if match else None
+
+
+def _offer_price(orig: float, suggested: float, pct: int) -> float:
+    """Apply the campaign % when given; otherwise keep the suggestion only if it's a real discount."""
+    if pct:
+        return float(max(0, round(orig * (1 - pct / 100))))
+    if suggested <= 0 or suggested > orig > 0:
+        return orig
+    return suggested
+
+
 def _resolve_offer_line(s: dict, real: dict, pct: int) -> dict:
     """One offer line with name & prices taken from the REAL catalog — never trust LLM numbers."""
     name = str(s.get("name", ""))[:60]
-    key = _norm_svc(name)
-    hit = real.get(key)
-    if hit is None and real and key:
-        match = next((k for k in real if k in key or key in k), None)
-        hit = real.get(match)
+    hit = _match_catalog(name, real)
     if hit:
         name, orig = hit
     else:
         orig = float(s.get("original_price") or 0)
-    offer = float(s.get("offer_price") or 0)
-    if pct:
-        offer = float(max(0, round(orig * (1 - pct / 100))))
-    elif offer <= 0 or offer > orig > 0:
-        offer = orig
-    return {"name": name, "original_price": orig, "offer_price": offer}
+    return {"name": name, "original_price": orig, "offer_price": _offer_price(orig, float(s.get("offer_price") or 0), pct)}
 
 
 def _sanitize_offer_services(raw: list, catalog: list | None, pct: int) -> list:

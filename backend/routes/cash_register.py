@@ -94,8 +94,7 @@ async def cash_history(days: int = 14, user=Depends(get_current_user), t=Depends
     return {"days": rows}
 
 
-@router.post("/cash/expenses")
-async def add_expense(body: ExpenseIn, user=Depends(get_current_user), t=Depends(current_tenant)):
+def _validate_expense_day(body: ExpenseIn, user: dict) -> str:
     day = body.date or _today()
     if day > _today():
         raise HTTPException(400, "Can't log expenses for a future day")
@@ -103,13 +102,23 @@ async def add_expense(body: ExpenseIn, user=Depends(get_current_user), t=Depends
         raise HTTPException(403, "Staff can only log today's expenses")
     if body.kind not in ("expense", "handover"):
         raise HTTPException(400, "kind must be expense or handover")
-    added_by = user.get("name") or user.get("email", "").split("@")[0]
-    staff_id = None
-    if body.staff_id:
-        st = await _raw_db.staff.find_one({"id": body.staff_id, "tenant_id": t["id"], "former": {"$ne": True}}, {"_id": 0, "name": 1, "id": 1})
-        if not st:
-            raise HTTPException(400, "Pick an active staff member")
-        added_by, staff_id = st["name"], st["id"]
+    return day
+
+
+async def _expense_attribution(body: ExpenseIn, user: dict, tenant_id: str) -> tuple[str, str | None]:
+    """Who the entry is attributed to: an active staff member when chosen, else the logged-in user."""
+    if not body.staff_id:
+        return user.get("name") or user.get("email", "").split("@")[0], None
+    st = await _raw_db.staff.find_one({"id": body.staff_id, "tenant_id": tenant_id, "former": {"$ne": True}}, {"_id": 0, "name": 1, "id": 1})
+    if not st:
+        raise HTTPException(400, "Pick an active staff member")
+    return st["name"], st["id"]
+
+
+@router.post("/cash/expenses")
+async def add_expense(body: ExpenseIn, user=Depends(get_current_user), t=Depends(current_tenant)):
+    day = _validate_expense_day(body, user)
+    added_by, staff_id = await _expense_attribution(body, user, t["id"])
     doc = {
         "id": str(uuid.uuid4()), "tenant_id": t["id"], "date": day, "amount": round(float(body.amount), 2),
         "purpose": body.purpose.strip(), "category": body.category if body.category in CATEGORIES else "other",

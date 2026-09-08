@@ -27,35 +27,7 @@ router = APIRouter()
 # Plans: 6-month at ₹12,000 OR 1-year at ₹20,000. Payments recorded manually
 # (e.g., from a Paytm UPI transfer) by the super-admin. Each payment generates a
 # bill record; daily / monthly revenue can be aggregated by GET /revenue.
-PLAN_CATALOG = {
-    "half_year": {"label": "6-Month Plan (1 branch)", "price": 12000.0, "duration_days": 183, "branches": 1},
-    "annual":    {"label": "Annual Plan (1 branch)",  "price": 20000.0, "duration_days": 365, "branches": 1},
-    "two_branch_half":     {"label": "2-Branch 6-Month", "price": 24000.0, "duration_days": 183, "branches": 2},
-    "two_branch_annual":   {"label": "2-Branch Annual",  "price": 40000.0, "duration_days": 365, "branches": 2},
-    "three_branch_half":   {"label": "3-Branch 6-Month", "price": 36000.0, "duration_days": 183, "branches": 3},
-    "three_branch_annual": {"label": "3-Branch Annual",  "price": 60000.0, "duration_days": 365, "branches": 3},
-    "multi_branch_half":   {"label": "Multi-Branch 6-Month (5+ branches)", "price": 45000.0, "duration_days": 183, "branches": 5},
-    "multi_branch_annual": {"label": "Multi-Branch Annual (5+ branches)",  "price": 70000.0, "duration_days": 365, "branches": 5},
-    # International (outside India) — USD
-    "intl_starter_monthly":  {"label": "Starter Monthly (USD)",      "price": 79.0,   "duration_days": 31,  "branches": 1, "currency": "USD", "tier": "starter"},
-    "intl_starter_half":     {"label": "Starter 6-Month (USD)",      "price": 399.0,  "duration_days": 183, "branches": 1, "currency": "USD", "tier": "starter"},
-    "intl_starter_annual":   {"label": "Starter Annual (USD)",       "price": 699.0,  "duration_days": 365, "branches": 1, "currency": "USD", "tier": "starter"},
-    "intl_pro_monthly":      {"label": "Professional Monthly (USD)", "price": 149.0,  "duration_days": 31,  "branches": 1, "currency": "USD", "tier": "professional"},
-    "intl_pro_half":         {"label": "Professional 6-Month (USD)", "price": 799.0,  "duration_days": 183, "branches": 1, "currency": "USD", "tier": "professional"},
-    "intl_pro_annual":       {"label": "Professional Annual (USD)",  "price": 1399.0, "duration_days": 365, "branches": 1, "currency": "USD", "tier": "professional"},
-    "intl_premium_monthly":  {"label": "Premium AI Monthly (USD)",   "price": 249.0,  "duration_days": 31,  "branches": 1, "currency": "USD", "tier": "premium"},
-    "intl_premium_half":     {"label": "Premium AI 6-Month (USD)",   "price": 1299.0, "duration_days": 183, "branches": 1, "currency": "USD", "tier": "premium"},
-    "intl_premium_annual":   {"label": "Premium AI Annual (USD)",    "price": 2399.0, "duration_days": 365, "branches": 1, "currency": "USD", "tier": "premium"},
-    "intl_enterprise_monthly": {"label": "Enterprise Monthly (USD)", "price": 499.0,  "duration_days": 31,  "branches": 5, "currency": "USD", "tier": "enterprise"},
-    # Restaurant vertical (INR) — first month free via the 30-day restaurant trial at signup
-    "resto_quarter": {"label": "Restaurant 3-Month", "price": 3000.0,  "duration_days": 92,  "branches": 1, "vertical": "restaurant"},
-    "resto_half":    {"label": "Restaurant 6-Month", "price": 6000.0,  "duration_days": 183, "branches": 1, "vertical": "restaurant"},
-    "resto_annual":  {"label": "Restaurant Annual",  "price": 12000.0, "duration_days": 365, "branches": 1, "vertical": "restaurant"},
-    # Restaurant vertical (USD) — international pricing
-    "resto_intl_quarter": {"label": "Restaurant 3-Month (USD)", "price": 299.0, "duration_days": 92,  "branches": 1, "currency": "USD", "vertical": "restaurant"},
-    "resto_intl_half":    {"label": "Restaurant 6-Month (USD)", "price": 549.0, "duration_days": 183, "branches": 1, "currency": "USD", "vertical": "restaurant"},
-    "resto_intl_annual":  {"label": "Restaurant Annual (USD)",  "price": 999.0, "duration_days": 365, "branches": 1, "currency": "USD", "vertical": "restaurant"},
-}
+from services.plans import PLAN_CATALOG  # noqa: E402,F401 — canonical home is services/plans.py
 
 
 class Subscription(BaseModel):
@@ -1138,10 +1110,11 @@ async def send_trial_ending_email(t: dict, days: int, end_str: str) -> dict:
                f"⏳ {t.get('name') or t['slug']} — your free trial ends {when}. Upgrade in one tap 💛")
     return await _send_email(
         [t["owner_email"]], subject,
-        trial_ending_email_html(t, days, end_str, link["plan_label"], _fmt_amt(link), link["url"], stats,
-                                offer=({"original": _fmt_amt({**link, "amount": link["original_amount"]}),
-                                        "label": link["offer_label"], "expires_at": link["expires_at"]}
-                                       if link.get("discount") else None)))
+        trial_ending_email_html(t, {
+            "days_left": days, "end_date": end_str, "plan_label": link["plan_label"], "price_str": _fmt_amt(link),
+            "pay_url": link["url"], "stats": stats,
+            "offer": ({"original": _fmt_amt({**link, "amount": link["original_amount"]}), "label": link["offer_label"],
+                       "expires_at": link["expires_at"]} if link.get("discount") else None)}))
 
 
 async def _send_renewal_email(t: dict, days: int, end_str: str, source: str) -> dict:

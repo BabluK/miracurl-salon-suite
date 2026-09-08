@@ -294,7 +294,7 @@ def build_receipt_pdf(inv: dict) -> bytes:
 
 
 def build_terms_pdf(logo: bytes | None = None) -> bytes:
-    from routes.hq_documents import DOCS, _doc_pdf
+    from services.hq_docs import DOCS, _doc_pdf
     return _doc_pdf(DOCS["terms_conditions"], logo=logo)
 
 
@@ -382,7 +382,7 @@ async def issue_subscription_kit(pay: dict, sub: dict, *, plan_label: str | None
                                  credits_applied: float = 0.0, branches: int = 1, send: bool = True) -> dict | None:
     """Create the invoice record for a paid subscription and (optionally) email the documents. Never raises."""
     try:
-        from routes.subscriptions import PLAN_CATALOG
+        from services.plans import PLAN_CATALOG
         t = await _raw_db.tenants.find_one({"id": pay["tenant_id"]}, {"_id": 0})
         if not t:
             return None
