@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-08.234"
-BUILD_TIME = "08 Sep 2026, 03:30 PM IST"
+BUILD = "2026-09-08.235"
+BUILD_TIME = "08 Sep 2026, 03:45 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-08.235", "note": "One-tap Resend (with corrected address) on failed/skipped rows of the email delivery log"},
     {"build": "2026-09-08.234", "note": "Email delivery log in HQ Billing; deploy-readiness: .env files tracked, startup seed no longer deletes users (one-time guarded migration)"},
     {"build": "2026-09-08.233", "note": "Settlement tracker: clear test earnings per salon (undo-able); HQ new-tenant notice to booking@/admin@ with profile PDF"},
     {"build": "2026-09-08.232", "note": "HQ private tenant notes in Quick View; gentle update bar replaces automatic reloads"},
@@ -76,6 +77,7 @@ RELEASES = [
             "🧹 Settlement tracker → 'Clear test earnings': wave off a salon's testing bills so the campaign total counts only from now on (undo anytime)",
             "📬 Every HQ onboarding now emails booking@ and admin@miracurl-suite.com a 'New tenant' notice with the Account Profile PDF attached — your inbox paper trail",
             "📨 Email delivery log (HQ → Billing): every email the platform tried to send — recipient, subject, delivered / failed / skipped with the exact reason, 7-day counters, search & filters; plus a live 'Resend configured' badge",
+            "↻ One-tap Resend on any failed or skipped email — fix the address inline and send again with the original attachments; the log shows the resend result",
         ],
     },
     {

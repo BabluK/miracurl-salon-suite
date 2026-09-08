@@ -1,11 +1,36 @@
 import { useEffect, useState } from "react";
-import { Mail, RefreshCw, Search } from "lucide-react";
+import { Mail, RefreshCw, Search, Send } from "lucide-react";
+import { toast } from "sonner";
 import api from "@/lib/api";
 
 const fmt = (v) => new Date(v).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const tone = (r) => r.sent ? "bg-emerald-100 text-emerald-700" : r.skipped ? "bg-slate-100 text-slate-500" : "bg-rose-100 text-rose-700";
 const label = (r) => r.sent ? "delivered to provider" : r.skipped ? "skipped" : "failed";
 const REASONS = { no_real_recipient: "no real inbox — the only address was a login-only @miracurl.com email (add a real email in Settings → profile)" };
+
+function ResendControl({ row, onDone }) {
+  const [open, setOpen] = useState(false);
+  const [to, setTo] = useState((row.to || []).join(", "));
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    setBusy(true);
+    try {
+      const recipients = to.split(/[,\s]+/).map(x => x.trim()).filter(Boolean);
+      const { data } = await api.post(`/super-admin/email-log/${row.id}/resend`, { to: recipients });
+      toast.success(`Resent to ${data.sent_to.join(", ")}${data.attachments ? ` with ${data.attachments} attachment(s)` : ""}`);
+      setOpen(false); onDone?.();
+    } catch (e) { toast.error(e.response?.data?.detail || "Resend failed"); }
+    finally { setBusy(false); }
+  };
+  if (!open) return <button onClick={() => setOpen(true)} data-testid={`email-resend-${row.id}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-600 text-white text-[10px] font-bold hover:bg-sky-700 shrink-0"><Send className="w-3 h-3" /> Resend</button>;
+  return (
+    <span className="inline-flex items-center gap-1.5 shrink-0">
+      <input value={to} onChange={e => setTo(e.target.value)} data-testid={`email-resend-to-${row.id}`} placeholder="corrected@email.com" className="px-2 py-0.5 rounded-md border border-sky-300 text-[11px] w-56" />
+      <button onClick={go} disabled={busy || !to.trim()} data-testid={`email-resend-go-${row.id}`} className="px-2 py-0.5 rounded-full bg-sky-600 text-white text-[10px] font-bold disabled:opacity-50">{busy ? "Sending…" : "Send"}</button>
+      <button onClick={() => setOpen(false)} className="text-[10px] text-slate-400 hover:text-slate-600">cancel</button>
+    </span>
+  );
+}
 
 export function EmailLogCard() {
   const [d, setD] = useState(null);
@@ -54,6 +79,9 @@ export function EmailLogCard() {
             <span className="text-slate-600 truncate flex-1 min-w-[200px]" title={r.subject}>{r.subject}</span>
             {r.attachments ? <span className="text-slate-400">📎{r.attachments}</span> : null}
             <span className="text-slate-400 shrink-0">{fmt(r.at)}</span>
+            {(!r.sent || r.resent_from) && !r.resent_ok && <ResendControl row={r} onDone={load} />}
+            {r.resent_ok && <span className="text-[10px] text-emerald-700 font-semibold shrink-0">↻ resent to {(r.resent_to || []).join(", ")}</span>}
+            {r.resent_from && <span className="text-[10px] text-slate-400 shrink-0">(resend)</span>}
             {r.error && <div className="w-full text-[11px] text-rose-600 pl-1">↳ {REASONS[r.error] || r.error}</div>}
           </div>
         ))}

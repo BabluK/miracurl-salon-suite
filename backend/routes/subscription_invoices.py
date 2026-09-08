@@ -271,7 +271,9 @@ async def hq_email_log(limit: int = 100, q: str = "", status: str = "all", user=
     if q:
         rx = {"$regex": q.strip(), "$options": "i"}
         flt["$or"] = [{"to": rx}, {"subject": rx}, {"error": rx}]
-    rows = await _raw_db.email_log.find(flt, {"_id": 0}).sort("at", -1).to_list(max(1, min(limit, 500)))
+    rows = await _raw_db.email_log.find(flt, {"_id": 0, "html": 0, "attachments_payload": 0, "resend_opts": 0}).sort("at", -1).to_list(max(1, min(limit, 500)))
+    for r in rows:
+        r["can_resend"] = True
     since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
     agg = await _raw_db.email_log.aggregate([{"$match": {"at": {"$gte": since}}}, {"$group": {
         "_id": None, "total": {"$sum": 1}, "sent": {"$sum": {"$cond": ["$sent", 1, 0]}},
@@ -281,3 +283,30 @@ async def hq_email_log(limit: int = 100, q: str = "", status: str = "all", user=
     cfg = _resend_config_error()
     return {"rows": rows, "week": {"total": a["total"], "sent": a["sent"], "skipped": a["skipped"], "failed": a["total"] - a["sent"] - a["skipped"]},
             "provider_ok": not cfg, "provider_error": (cfg or {}).get("error"), "sender": os.environ.get("SENDER_EMAIL", "")}
+
+
+class EmailResendIn(BaseModel):
+    to: Optional[list[str]] = None  # corrected recipient(s); defaults to the original
+
+
+@router.post("/super-admin/email-log/{eid}/resend")
+async def hq_email_resend(eid: str, body: EmailResendIn, user=Depends(require_super_admin)):
+    """One-tap resend of a logged email (optionally to a corrected address). Logs a fresh row."""
+    from email_service import _send_email
+    row = await _raw_db.email_log.find_one({"id": eid}, {"_id": 0})
+    if not row:
+        raise HTTPException(404, "Log entry not found")
+    if not row.get("html"):
+        raise HTTPException(400, "This email was sent before resend support — body not stored")
+    to = [x.strip().lower() for x in (body.to or row.get("to") or []) if x and "@" in x]
+    if not to:
+        raise HTTPException(400, "Provide at least one valid recipient")
+    opts = dict(row.get("resend_opts") or {})
+    if row.get("attachments_payload"):
+        opts["attachments"] = row["attachments_payload"]
+    res = await _send_email(to, row["subject"], row["html"], _resent_from=eid, **opts)
+    await _raw_db.email_log.update_one({"id": eid}, {"$set": {"resent_at": datetime.now(timezone.utc).isoformat(), "resent_by": user.get("email"),
+                                                             "resent_ok": bool(res.get("sent")), "resent_to": to}})
+    if not res.get("sent"):
+        raise HTTPException(400, res.get("error") or "Resend failed")
+    return {"ok": True, "sent_to": to, "attachments": len(opts.get("attachments") or []), "provider_id": res.get("id")}

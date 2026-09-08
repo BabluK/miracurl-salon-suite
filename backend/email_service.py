@@ -87,7 +87,7 @@ def _resend_params(to: list, subject: str, html: str, opts: dict) -> dict:
     return params
 
 
-_EMAIL_OPTION_KEYS = frozenset(
+_EMAIL_OPTION_KEYS = frozenset({"_resent_from"}) | frozenset(
     {"attachments", "reply_to", "book_url", "book_label", "headers", "from_name", "suite_label"})
 
 
@@ -163,6 +163,11 @@ async def _log_email(requested: list, resolved: list, subject: str, result: dict
             "sent": bool(result.get("sent")), "skipped": bool(result.get("skipped")), "error": result.get("error"),
             "provider_id": result.get("id"), "attachments": len(options.get("attachments") or []),
             "from_name": options.get("from_name") or "Miracurl",
+            # keep what's needed for a one-tap resend (body always; attachments only when small)
+            "html": (options.get("_html") or "")[:250_000],
+            "resend_opts": {k: options.get(k) for k in ("reply_to", "book_url", "book_label", "from_name", "suite_label") if options.get(k)},
+            "attachments_payload": (options.get("attachments") if sum(len(a.get("content") or "") for a in (options.get("attachments") or [])) <= 1_500_000 else None),
+            "resent_from": options.get("_resent_from"),
         })
     except Exception as e:  # noqa: BLE001
         logging.getLogger("email").warning("email_log write failed: %s", e)
@@ -175,7 +180,7 @@ async def _send_email(to: list, subject: str, html: str, **options) -> dict:
         raise TypeError(f"_send_email got unexpected options: {sorted(unknown)}")
     requested = list(to or [])
     result = await _send_email_inner(requested, subject, html, options)
-    await _log_email(requested, result.pop("_resolved", []), subject, result, options)
+    await _log_email(requested, result.pop("_resolved", []), subject, result, {**options, "_html": html})
     return result
 
 
