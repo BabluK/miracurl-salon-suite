@@ -11,6 +11,7 @@ async function dlDoc(path, name) {
   } catch { toast.error("Couldn't download the PDF"); }
 }
 import api from "@/lib/api";
+import { confirmAsync } from "@/components/ConfirmDialog";
 
 const inp = "border border-white/10 rounded-lg px-2 py-1 text-xs !bg-white/5 !text-slate-200";
 const inr = (v) => `₹${Number(v || 0).toLocaleString("en-IN")}`;
@@ -151,6 +152,16 @@ function Row({ r, busy, onSave, onAction, onRemind, onSendDocs, onEarnings }) {
           <b className="text-[#F0D9A5]">₹{Number(r.suggested.amount).toLocaleString("en-IN")}</b>
           {r.suggested.amount > 0 && String(r.suggested.amount) !== String(f.amount) && (r.status === "not_set" || r.status === "pending" || r.status === "overdue") && (
             <button onClick={() => setF({ ...f, amount: r.suggested.amount })} className="px-2 py-0.5 rounded-full border border-[#d4af37]/50 text-[#F0D9A5] text-[10px] font-semibold hover:bg-[#d4af37]/10" data-testid={`settlement-use-suggest-${r.slug}`}>Use this</button>
+          )}
+          {r.earnings_cleared_at ? (
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-400/30 text-sky-200 text-[10px]" data-testid={`settlement-cleared-${r.slug}`}>
+              ✓ Test earnings waved off · counting from {new Date(r.earnings_cleared_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+              <button onClick={() => onAction(r, "restore-earnings")} disabled={!!busy} className="underline decoration-dotted hover:text-white" data-testid={`settlement-restore-earnings-${r.slug}`}>undo</button>
+            </span>
+          ) : (
+            <button onClick={async () => { if (await confirmAsync(`Wave off the current ₹${Number(r.suggested.revenue).toLocaleString("en-IN")} for ${r.name}? Bills recorded so far are treated as testing and excluded from the campaign total — only bills from this moment on will count. You can undo anytime.`, { title: "Clear test earnings", confirmLabel: "Clear test earnings", danger: true })) onAction(r, "clear-earnings"); }}
+              disabled={!!busy || !r.suggested.bills} title="Treat all bills so far as testing — count earnings only from now on" data-testid={`settlement-clear-earnings-${r.slug}`}
+              className="px-2 py-0.5 rounded-full border border-rose-400/40 text-rose-200 text-[10px] hover:bg-rose-500/10 disabled:opacity-40">Clear test earnings</button>
           )}
         </div>
       )}

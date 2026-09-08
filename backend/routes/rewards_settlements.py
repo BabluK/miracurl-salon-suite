@@ -54,11 +54,16 @@ async def _real_email(t: dict) -> str:
     return ""
 
 
-async def _campaign_revenue(c: dict) -> dict:
-    """Per-tenant POS earnings during the campaign window (paid invoices; total + eligible-bill count)."""
+async def _campaign_revenue(c: dict, baselines: dict | None = None) -> dict:
+    """Per-tenant POS earnings during the campaign window (paid invoices; total + eligible-bill count).
+    `baselines` = {tenant_id: iso} — HQ 'cleared test earnings' marks; bills before the mark are ignored for that tenant."""
     start, end = f"{c['start_date']}T00:00:00", f"{c['end_date']}T23:59:59.999999+00:00"
+    match = {"created_at": {"$gte": start, "$lte": end}, "paid": {"$ne": False}, "status": {"$nin": ["open", "void", "cancelled"]}}
+    if baselines:
+        match = {"$and": [match, {"$or": [{"tenant_id": {"$nin": list(baselines)}}] +
+                                          [{"tenant_id": tid, "created_at": {"$gte": since}} for tid, since in baselines.items()]}]}
     agg = await _raw_db.invoices.aggregate([
-        {"$match": {"created_at": {"$gte": start, "$lte": end}, "paid": {"$ne": False}, "status": {"$nin": ["open", "void", "cancelled"]}}},
+        {"$match": match},
         {"$group": {"_id": "$tenant_id", "revenue": {"$sum": "$total"}, "bills": {"$sum": 1},
                     "eligible": {"$sum": {"$cond": [{"$gte": ["$total", float(c.get("min_transaction") or 0)]}, 1, 0]}}}},
     ]).to_list(2000)
@@ -149,7 +154,7 @@ async def _settlement_rows(c: dict) -> list:
     ts = await _raw_db.tenants.find({"status": {"$ne": "deleted"}}, _T_FIELDS).to_list(1000)
     docs = {d["tenant_id"]: d for d in await _raw_db.rewards_settlements.find({"campaign_id": c["id"]}, {"_id": 0}).to_list(1000)}
     await _sync_pending_links(c, docs)
-    revenue = await _campaign_revenue(c)
+    revenue = await _campaign_revenue(c, {tid: d["earnings_cleared_at"] for tid, d in docs.items() if d.get("earnings_cleared_at")})
     from services.campaign_docs import agreement_version
     ver = agreement_version(c)
     accs: dict = {}
@@ -184,6 +189,7 @@ async def _settlement_rows(c: dict) -> list:
             "amount": float(d.get("amount") or 0), "due_date": d.get("due_date") or "", "note": d.get("note") or "",
             "status": "overdue" if overdue else status, "paid_at": d.get("paid_at"), "paid_method": d.get("paid_method"),
             "paid_ref": d.get("paid_ref"), "reminders": d.get("reminders") or [], "updated_at": d.get("updated_at"),
+            "earnings_cleared_at": d.get("earnings_cleared_at"), "earnings_cleared_by": d.get("earnings_cleared_by"),
             "pay_url": (d.get("pay_link") or {}).get("url") or "",
             "docs_sent_at": d.get("docs_sent_at"),
             "agreement": ({"status": "accepted" if accs[t["id"]].get("version") == ver else "outdated",
@@ -561,3 +567,24 @@ async def tenant_settlement(tenant_id: str, campaign_id: str) -> Optional[dict]:
     t = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0, "trusted_badge": 1}) or {}
     out["trusted"] = bool(t.get("trusted_badge"))
     return out
+
+
+@router.post("/super-admin/rewards-campaign/settlements/{tenant_id}/clear-earnings")
+async def sa_settlement_clear_earnings(tenant_id: str, user=Depends(require_super_admin)):
+    """HQ: wave off test/legacy bills — earnings for this salon count only from now on (undo with /restore-earnings)."""
+    c = await get_campaign_for(await _tenant_or_404(tenant_id))
+    now = _now()
+    await _raw_db.rewards_settlements.update_one(
+        {"campaign_id": c["id"], "tenant_id": tenant_id},
+        {"$set": {"earnings_cleared_at": now, "earnings_cleared_by": user.get("email"), "updated_at": now},
+         "$setOnInsert": {"status": "not_set", "created_at": now}}, upsert=True)
+    return {"ok": True, "earnings_cleared_at": now}
+
+
+@router.post("/super-admin/rewards-campaign/settlements/{tenant_id}/restore-earnings")
+async def sa_settlement_restore_earnings(tenant_id: str, user=Depends(require_super_admin)):
+    c = await get_campaign_for(await _tenant_or_404(tenant_id))
+    await _raw_db.rewards_settlements.update_one(
+        {"campaign_id": c["id"], "tenant_id": tenant_id},
+        {"$unset": {"earnings_cleared_at": "", "earnings_cleared_by": ""}, "$set": {"updated_at": _now()}})
+    return {"ok": True}

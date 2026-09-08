@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-08.232"
-BUILD_TIME = "08 Sep 2026, 02:30 PM IST"
+BUILD = "2026-09-08.233"
+BUILD_TIME = "08 Sep 2026, 03:00 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-08.233", "note": "Settlement tracker: clear test earnings per salon (undo-able); HQ new-tenant notice to booking@/admin@ with profile PDF"},
     {"build": "2026-09-08.232", "note": "HQ private tenant notes in Quick View; gentle update bar replaces automatic reloads"},
     {"build": "2026-09-08.231", "note": "Fix: dashboard no longer auto-refreshes 2–3 times after a deploy / cache clear (service-worker reload guard)"},
     {"build": "2026-09-08.230", "note": "Trial-extended email to owners (new end date + thank-you) when HQ changes a free trial"},
@@ -71,6 +72,8 @@ RELEASES = [
             "🛠️ Fix: the app no longer refreshes itself 2–3 times after an update or an HQ cache clear — a fresh service-worker install never reloads, and a genuine update reloads at most once",
             "📝 HQ notes: jot private notes on any tenant inside the Quick View drawer (call outcomes, promises, follow-ups) — visible to HQ only, with author & time",
             "✨ Updates are now gentle: when a new version is ready you see a small 'refresh when convenient' bar — the app never reloads by itself",
+            "🧹 Settlement tracker → 'Clear test earnings': wave off a salon's testing bills so the campaign total counts only from now on (undo anytime)",
+            "📬 Every HQ onboarding now emails booking@ and admin@miracurl-suite.com a 'New tenant' notice with the Account Profile PDF attached — your inbox paper trail",
         ],
     },
     {

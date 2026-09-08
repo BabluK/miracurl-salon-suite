@@ -182,11 +182,39 @@ async def issue_trial_kit(tenant_id: str, months: int | None, default_days: int)
         }
         await _raw_db.subscription_invoices.insert_one(dict(inv))
         inv["email"] = await send_trial_congrats(inv)
+        hq_email = await _notify_hq_new_tenant(t, inv, logo_url)
         kit = {"invoice_id": inv["id"], "invoice_number": inv["number"], "logo_url": logo_url or "",
-               "email": inv["email"], "at": now.isoformat()}
+               "email": inv["email"], "hq_email": hq_email, "at": now.isoformat()}
         await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"trial_kit": kit}})
         return kit
     except Exception as e:  # noqa: BLE001 — onboarding must never fail because of the kit
         log.exception("trial kit failed for %s: %s", tenant_id, e)
         await _raw_db.tenants.update_one({"id": tenant_id}, {"$set": {"trial_kit": {"error": str(e)[:300]}}})
         return None
+
+
+async def _notify_hq_new_tenant(t: dict, inv: dict, logo_url: str | None) -> dict:
+    """HQ paper trail: booking@ + admin@ get a 'new tenant onboarded' mail with the Account Profile PDF attached."""
+    from email_service import hq_notify_emails
+    from services.tenant_profile_pdf import render_tenant_profile, tenant_profile_data
+    try:
+        to = sorted(set(hq_notify_emails("booking") + hq_notify_emails("admin")))
+        data = await tenant_profile_data(t)
+        rows = "".join(f"<tr><td style='padding:5px 0;color:#777;font-size:13px'>{html_lib.escape(str(k))}</td>"
+                       f"<td style='padding:5px 0;text-align:right;font-weight:bold;font-size:13px'>{html_lib.escape(str(v or '—'))}</td></tr>"
+                       for k, v in data["business"] + data["owner"] + data["access"])
+        logo = _abs(logo_url)
+        html = (f"<div style='font-family:Arial,sans-serif;max-width:560px;margin:0 auto'>"
+                + (f"<img src='{html_lib.escape(logo)}' width='64' height='64' style='border-radius:50%;display:block;margin:0 0 10px'/>" if logo else "")
+                + f"<h2 style='margin:0 0 6px'>🎉 New {html_lib.escape(t.get('business_type') or 'salon')} onboarded — {html_lib.escape(t.get('name') or t['slug'])}</h2>"
+                f"<p style='color:#666;font-size:13px'>Free trial {html_lib.escape(inv['trial_label'])} · ₹0 invoice {html_lib.escape(inv['number'])} · "
+                f"Congratulations email {'sent' if (inv.get('email') or {}).get('sent') else 'NOT sent'} to {html_lib.escape(inv.get('owner_email') or '-')}.</p>"
+                f"<table style='width:100%;border-collapse:collapse;border:1px solid #eee;border-radius:10px;padding:4px 12px'>{rows}</table>"
+                f"<p style='color:#888;font-size:12px;margin-top:14px'>Account Profile PDF attached · open HQ → Tenants for the full Quick View.</p></div>")
+        pdf = await render_tenant_profile(t)
+        status = await _send_email(to, f"🎉 New tenant: {t.get('name') or t['slug']} ({inv['trial_label']} trial)", html,
+                                   attachments=[{"filename": f"Miracurl-Account-Profile-{t.get('slug', '')}.pdf", "content": base64.b64encode(pdf).decode()}])
+        return {"sent": bool(status.get("sent")), "to": to, "error": status.get("error")}
+    except Exception as e:  # noqa: BLE001
+        log.warning("HQ new-tenant notice failed for %s: %s", t.get("slug"), e)
+        return {"sent": False, "error": str(e)[:200]}
