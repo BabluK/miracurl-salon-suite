@@ -225,3 +225,32 @@ async def hq_set_trial(tid: str, body: TrialSetIn, user=Depends(require_super_ad
                                        "email_sent": bool(email_status.get("sent")), "email_error": email_status.get("error")})
     return {"ok": True, "trial_end_date": end.isoformat(), "days_left": days_left, "label": label,
             "status": upd.get("status", t.get("status")), "email": {"sent": bool(email_status.get("sent")), "to": t.get("owner_email"), "error": email_status.get("error")}}
+
+
+class TenantNoteIn(BaseModel):
+    text: str = Field(..., min_length=1, max_length=2000)
+
+
+@router.get("/super-admin/tenants/{tid}/notes")
+async def hq_tenant_notes(tid: str, user=Depends(require_super_admin)):
+    rows = await _raw_db.hq_tenant_notes.find({"tenant_id": tid}, {"_id": 0}).sort("at", -1).to_list(200)
+    return {"notes": rows}
+
+
+@router.post("/super-admin/tenants/{tid}/notes")
+async def hq_add_tenant_note(tid: str, body: TenantNoteIn, user=Depends(require_super_admin)):
+    if not await _raw_db.tenants.find_one({"id": tid}, {"_id": 1}):
+        raise HTTPException(404, "Tenant not found")
+    import uuid
+    note = {"id": str(uuid.uuid4()), "tenant_id": tid, "text": body.text.strip(), "by": user.get("email"),
+            "by_name": user.get("name") or (user.get("email") or "").split("@")[0], "at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.hq_tenant_notes.insert_one(dict(note))
+    return note
+
+
+@router.delete("/super-admin/tenants/{tid}/notes/{nid}")
+async def hq_delete_tenant_note(tid: str, nid: str, user=Depends(require_super_admin)):
+    r = await _raw_db.hq_tenant_notes.delete_one({"id": nid, "tenant_id": tid})
+    if not r.deleted_count:
+        raise HTTPException(404, "Note not found")
+    return {"ok": True}

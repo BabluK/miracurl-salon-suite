@@ -53,7 +53,7 @@ if ("serviceWorker" in navigator && window.location.protocol === "https:") {
             duration: Infinity,
             action: {
               label: "Refresh ↻",
-              onClick: () => worker.postMessage({ type: "SKIP_WAITING" }),
+              onClick: () => { window.__miraUserWantsReload = true; worker.postMessage({ type: "SKIP_WAITING" }); },
             },
           });
         };
@@ -90,11 +90,22 @@ if ("serviceWorker" in navigator && window.location.protocol === "https:") {
     let reloaded = false;
     const reloadOnce = () => {
       if (!initialController || reloaded) return;
-      const last = Number(sessionStorage.getItem("mira_sw_reload_at") || 0);
-      if (Date.now() - last < 60_000) return; // loop breaker: max one SW reload per minute per tab
-      reloaded = true;
-      sessionStorage.setItem("mira_sw_reload_at", String(Date.now()));
-      window.location.reload();
+      if (window.__miraUserWantsReload) {
+        // The user tapped "Refresh" on the update toast — honour it right away.
+        const last = Number(sessionStorage.getItem("mira_sw_reload_at") || 0);
+        if (Date.now() - last < 60_000) return; // loop breaker
+        reloaded = true;
+        sessionStorage.setItem("mira_sw_reload_at", String(Date.now()));
+        window.location.reload();
+        return;
+      }
+      // Otherwise never reload on our own: show a gentle, persistent bar instead.
+      toast("A new version of Miracurl is ready ✨", {
+        id: "sw-update",
+        description: "Refresh whenever it's convenient — nothing will change until you do.",
+        duration: Infinity,
+        action: { label: "Refresh now ↻", onClick: () => window.location.reload() },
+      });
     };
     navigator.serviceWorker.addEventListener("controllerchange", reloadOnce);
     // Belt-and-braces for browsers that don't fire controllerchange.

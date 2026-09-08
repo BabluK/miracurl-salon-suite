@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Loader2, IdCard, CalendarRange, Activity, Receipt, BellRing, Link2 } from "lucide-react";
+import { Loader2, IdCard, CalendarRange, Activity, Receipt, BellRing, Link2, StickyNote, Trash2, Send } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 
@@ -29,6 +29,54 @@ function KV({ rows }) {
 
 function Stat({ label, value, testid }) {
   return <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2" data-testid={testid}><div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">{label}</div><div className="text-base font-bold text-slate-800 mt-0.5">{value}</div></div>;
+}
+
+function TenantNotes({ tenantId }) {
+  const [notes, setNotes] = useState(null);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const load = () => api.get(`/super-admin/tenants/${tenantId}/notes`).then(r => setNotes(r.data.notes)).catch(() => setNotes([]));
+  useEffect(() => { setNotes(null); setText(""); load(); }, [tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const add = async () => {
+    if (!text.trim()) return;
+    setBusy(true);
+    try { const { data } = await api.post(`/super-admin/tenants/${tenantId}/notes`, { text }); setNotes(n => [data, ...(n || [])]); setText(""); toast.success("Note saved"); }
+    catch (e) { toast.error(e.response?.data?.detail || "Couldn't save note"); }
+    finally { setBusy(false); }
+  };
+  const del = async (id) => {
+    try { await api.delete(`/super-admin/tenants/${tenantId}/notes/${id}`); setNotes(n => n.filter(x => x.id !== id)); }
+    catch { toast.error("Couldn't delete note"); }
+  };
+  return (
+    <Section icon={StickyNote} title={`HQ notes${notes?.length ? ` · ${notes.length}` : ""}`} testid="qv-notes">
+      <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-2.5">
+        <textarea value={text} onChange={e => setText(e.target.value)} rows={2} maxLength={2000} data-testid="qv-note-input"
+          onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") add(); }}
+          placeholder="Jot what was discussed — call outcome, promises made, follow-up date… (private to HQ)"
+          className="w-full text-xs bg-white border border-amber-200 rounded-lg px-3 py-2 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-200 resize-none" />
+        <div className="mt-1.5 flex items-center justify-between">
+          <span className="text-[10px] text-slate-400">Ctrl/⌘ + Enter to save · {2000 - text.length} left</span>
+          <button onClick={add} disabled={busy || !text.trim()} data-testid="qv-note-save" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#15151b] text-[#F0D9A5] text-[11px] font-bold disabled:opacity-40">
+            {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Save note
+          </button>
+        </div>
+      </div>
+      {notes === null ? <div className="text-xs text-slate-400 mt-2">Loading…</div> : notes.length === 0 ? <div className="text-xs text-slate-400 mt-2">No notes yet — the first conversation goes here.</div> : (
+        <ul className="mt-2 space-y-2">
+          {notes.map(n => (
+            <li key={n.id} className="group rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs" data-testid={`qv-note-${n.id}`}>
+              <div className="whitespace-pre-wrap text-slate-800">{n.text}</div>
+              <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-400">
+                <span className="font-semibold text-slate-500">{n.by_name || n.by}</span><span>· {fmtDT(n.at)}</span>
+                <button onClick={() => del(n.id)} title="Delete note" data-testid={`qv-note-del-${n.id}`} className="ml-auto opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-opacity"><Trash2 className="w-3 h-3" /></button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
+  );
 }
 
 export function TenantQuickView({ tenant, onClose, onProfilePdf }) {
@@ -60,6 +108,7 @@ export function TenantQuickView({ tenant, onClose, onProfilePdf }) {
               <button onClick={() => onProfilePdf(t)} data-testid="quick-view-profile-pdf" className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#d4af37] text-[#15151b] text-[11px] font-bold hover:bg-[#e6c66e]"><IdCard className="w-3.5 h-3.5" /> Account Profile PDF</button>
             </div>
             <div className="px-6 pb-8">
+              <TenantNotes tenantId={t.id} />
               {!d ? <div className="py-16 flex justify-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin" /></div> : (
                 <>
                   <div className="grid grid-cols-3 gap-2 mt-5">
