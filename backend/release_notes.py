@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-08.227"
-BUILD_TIME = "08 Sep 2026, 10:45 AM IST"
+BUILD = "2026-09-08.228"
+BUILD_TIME = "08 Sep 2026, 11:15 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-08.228", "note": "Weekly tenant register email (Mon 9 AM IST → booking@); HQ Tenant Quick View drawer; labelled tenant action toolbar; profile PDF table layout"},
     {"build": "2026-09-08.227", "note": "Owners can download their own Account Profile PDF from Settings"},
     {"build": "2026-09-08.226", "note": "Account Profile PDF (HQ + tenant logo, all details, HQ contacts) attached to congrats email + per-tenant download; tenant register CSV download & email to booking@; settlement/inbox detection now honours salon_email; security P3 hardening"},
     {"build": "2026-09-08.225", "note": "Refund notice email with one-tap reactivation link (owner + HQ billing copy); trial-offer conversion stats in HQ Billing"},
@@ -58,6 +59,9 @@ RELEASES = [
             "📋 Tenant register: HQ → Tenants has 'Download list' (CSV with every tenant's details) and 'Email to booking@' so the register is also tracked from the inbox",
             "✉️ Fix: settlement tracker & inbox badges now recognise the business email saved in Settings → Salon profile (no more 'no real email on file' when it's filled)",
             "🪪 Settings → Account profile: owners can download their own branded Account Profile PDF anytime (logo, contacts, trial & plan dates, HQ contacts)",
+            "📬 Weekly tenant register: every Monday 9 AM IST the full tenant CSV is emailed to booking@miracurl-suite.com automatically (manual 'Email to booking@' still available)",
+            "🔎 Tenant Quick View: click any tenant name in HQ → Tenants to open a slide-over with 30-day activity, full profile, plan timeline, invoices, reminders & pay links — plus one-tap Account Profile PDF",
+            "🧰 HQ tenant actions now show names (Open · Edit · Profile · Pay link · Import · Diagnose · Clean · Suspend · Cancel · Erase)",
         ],
     },
     {

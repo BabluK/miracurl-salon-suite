@@ -1,7 +1,7 @@
 """Tenant Account Profile — branded A4 PDF (HQ logo + tenant logo + every detail on file) and the HQ tenants CSV."""
 import csv
 import io
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from database import _raw_db
 from services.pdf_brand import GOLD, GREY, INK, LIGHT, draw_brand_band, draw_logo, draw_powered_footer, draw_watermark, image_bytes_from_url, platform_logo_bytes
@@ -127,3 +127,48 @@ async def tenants_csv() -> str:
                     _d(t.get("created_at")), _d(t.get("trial_end_date") or t.get("trial_ends_at")), _d(s.get("start_date")),
                     _d(s.get("end_date") or t.get("subscription_end_date")), _d(t.get("created_at")), f"https://miracurl-suite.com/book/{t.get('slug')}"])
     return out.getvalue()
+
+
+async def send_tenant_register_email(sent_by: str = "weekly scheduler") -> dict:
+    """Mail the full tenant register (CSV) to booking@miracurl-suite.com."""
+    import base64
+    from email_service import _send_email
+    body = await tenants_csv()
+    n = max(0, body.count("\n") - 1)
+    today = datetime.now(timezone.utc)
+    status = await _send_email(
+        ["booking@miracurl-suite.com"], f"📋 Miracurl tenant register — {n} businesses ({today.strftime('%d %b %Y')})",
+        f"<div style='font-family:Arial,sans-serif;max-width:560px'><h2 style='margin:0 0 8px'>Tenant register</h2>"
+        f"<p>{n} salons &amp; restaurants on file as of {today.strftime('%d %b %Y, %H:%M UTC')}. Full details (owner, contacts, trial &amp; "
+        f"subscription dates, plan) are in the attached CSV — open it in Excel or Google Sheets.</p>"
+        f"<p style='color:#888;font-size:12px'>Sent by {sent_by} from Miracurl HQ.</p></div>",
+        attachments=[{"filename": f"miracurl-tenants-{today.date()}.csv", "content": base64.b64encode(body.encode()).decode()}])
+    await _raw_db.platform_settings.update_one({"key": "tenant_register_email"}, {"$set": {
+        "last_sent_at": today.isoformat(), "last_sent_by": sent_by, "last_count": n, "last_ok": bool(status.get("sent")),
+        "last_error": status.get("error")}}, upsert=True)
+    return {"sent": bool(status.get("sent")), "error": status.get("error"), "tenants": n}
+
+
+async def tenant_overview(t: dict) -> dict:
+    """Everything HQ needs in the quick-view drawer: profile, plan timeline, recent activity."""
+    tid = t["id"]
+    month_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    subs = await _raw_db.subscriptions.find({"tenant_id": tid}, {"_id": 0, "id": 1, "plan": 1, "start_date": 1, "end_date": 1, "status": 1, "price": 1, "created_at": 1}).sort("start_date", -1).to_list(20)
+    invs = await _raw_db.subscription_invoices.find({"tenant_id": tid}, {"_id": 0, "id": 1, "number": 1, "amount": 1, "plan_label": 1, "issued_on": 1, "kind": 1}).sort("created_at", -1).to_list(8)
+    reminders = await _raw_db.renewal_reminder_log.find({"tenant_id": tid}, {"_id": 0, "days_mark": 1, "source": 1, "email_sent": 1, "at": 1, "manual": 1}).sort("at", -1).to_list(6)
+    links = await _raw_db.subscription_pay_links.find({"tenant_id": tid}, {"_id": 0, "token": 1, "plan_label": 1, "amount": 1, "status": 1, "created_at": 1, "created_by": 1, "discount": 1}).sort("created_at", -1).to_list(6)
+    owner = await _raw_db.users.find_one({"email": (t.get("owner_email") or "").lower()}, {"_id": 0, "last_login_at": 1, "name": 1, "phone": 1}) or {}
+    bills = await _raw_db.invoices.aggregate([{"$match": {"tenant_id": tid, "created_at": {"$gte": month_ago}, "status": {"$ne": "voided"}}},
+                                              {"$group": {"_id": None, "n": {"$sum": 1}, "total": {"$sum": "$total"}}}]).to_list(1)
+    return {
+        "profile": await tenant_profile_data(t) | {"sub": None},
+        "timeline": subs, "invoices": invs, "reminders": reminders, "pay_links": links,
+        "activity": {
+            "appointments_30d": await _raw_db.appointments.count_documents({"tenant_id": tid, "created_at": {"$gte": month_ago}}),
+            "bills_30d": (bills[0]["n"] if bills else 0), "billed_30d": round((bills[0]["total"] if bills else 0) or 0),
+            "customers": await _raw_db.customers.count_documents({"tenant_id": tid}),
+            "staff": await _raw_db.staff.count_documents({"tenant_id": tid, "active": {"$ne": False}}),
+            "owner_last_login": owner.get("last_login_at"), "sms_points": t.get("sms_points", 0),
+            "trial_kit": t.get("trial_kit"), "last_refund_notice": t.get("last_refund_notice"),
+        },
+    }

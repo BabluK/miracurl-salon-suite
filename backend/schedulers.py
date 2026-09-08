@@ -835,3 +835,22 @@ async def _earnings_anomaly_scheduler() -> None:
         except Exception as e:
             logging.error(f"earnings anomaly scheduler error: {e}")
         await asyncio.sleep(3600)
+
+
+async def _weekly_register_scheduler() -> None:
+    """Every Monday 09:00–09:59 IST: email the tenant register CSV to booking@ (idempotent per ISO week)."""
+    from database import _raw_db
+    from services.tenant_profile_pdf import send_tenant_register_email
+    while True:
+        try:
+            ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if ist.weekday() == 0 and ist.hour == 9:
+                week = ist.strftime("%G-W%V")
+                doc = await _raw_db.platform_settings.find_one({"key": "tenant_register_email"}, {"_id": 0, "last_week": 1}) or {}
+                if doc.get("last_week") != week:
+                    await _raw_db.platform_settings.update_one({"key": "tenant_register_email"}, {"$set": {"last_week": week}}, upsert=True)
+                    res = await send_tenant_register_email("weekly scheduler")
+                    logging.info("weekly tenant register: %s", res)
+        except Exception as e:  # noqa: BLE001
+            logging.warning("weekly register scheduler failed: %s", e)
+        await asyncio.sleep(1800)

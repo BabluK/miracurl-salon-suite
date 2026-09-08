@@ -47,6 +47,7 @@ import { PlatformOrbitMap } from "@/components/superadmin/PlatformOrbitMap";
 import { DocsPanel } from "@/components/superadmin/DocsPanel";
 import { StripePaymentsPanel } from "@/components/superadmin/StripePaymentsPanel";
 import { DemoCampaign } from "@/components/superadmin/DemoCampaign";
+import { TenantQuickView } from "@/components/superadmin/TenantQuickView";
 import { OnboardTenantModal } from "@/components/superadmin/OnboardTenantModal";
 import { RewardsCampaignCard } from "@/components/superadmin/RewardsCampaignCard";
 import { GrowthAdvisoryPanel } from "@/components/superadmin/GrowthAdvisoryPanel";
@@ -167,6 +168,8 @@ export default function SuperAdmin() {
   }
   const [open, setOpen] = useState(false);
   const [editFor, setEditFor] = useState(null); // tenant being edited
+  const [quickFor, setQuickFor] = useState(null); // tenant open in the quick-view drawer
+  const profilePdf = (t) => downloadBlob(`/super-admin/tenants/${t.id}/profile.pdf`, `Miracurl-Account-Profile-${t.slug}.pdf`).then(() => toast.success("Account profile PDF downloaded")).catch(() => toast.error("Couldn't build the PDF"));
   const [diagFor, setDiagFor] = useState(null); // tenant being diagnosed
   const [importFor, setImportFor] = useState(null); // tenant being imported into
   const [payLinkFor, setPayLinkFor] = useState(null); // tenant getting a payment link
@@ -682,7 +685,7 @@ export default function SuperAdmin() {
               <div className="flex flex-wrap items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-playfair font-semibold text-base truncate max-w-[340px]" title={t.name}>{t.name}</span>
+                    <button onClick={() => setQuickFor(t)} data-testid={`tenant-quick-view-${t.id}`} title="Quick view — profile, plan timeline & recent activity" className="font-playfair font-semibold text-base truncate max-w-[340px] text-left hover:text-[#b08d3f] hover:underline decoration-[#d4af37]/60 underline-offset-4 transition-colors">{t.name}</button>
                     {t.inbox_ok === false && (
                       <span data-testid={`inbox-health-${t.id}`} title="No real notification email on file — owner won't receive reports, reminders or password-reset links. Ask them to add one in Settings → Notification email." className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200 cursor-help">
                         <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" /> No inbox
@@ -743,7 +746,7 @@ export default function SuperAdmin() {
                   <div className="flex items-center gap-0.5 border border-slate-200 bg-slate-50/60 rounded-xl px-1.5 py-1" data-testid={`tenant-actions-${t.id}`}>
                     <ActionBtn testid={`open-salon-${t.id}`} onClick={() => { setActAsSalon(t.slug, t.name); nav("/dashboard"); }} title="Open this tenant's workspace (edit & correct — no deletes)" tone="text-violet-600 hover:bg-violet-50" icon={Eye} label="Open" />
                     <ActionBtn testid={`edit-tenant-${t.id}`} onClick={() => setEditFor(t)} title="Edit details, credentials & branch links" tone="text-emerald-600 hover:bg-emerald-50" icon={Pencil} label="Edit" />
-                    <ActionBtn testid={`tenant-profile-pdf-${t.id}`} onClick={() => downloadBlob(`/super-admin/tenants/${t.id}/profile.pdf`, `Miracurl-Account-Profile-${t.slug}.pdf`).then(() => toast.success("Account profile PDF downloaded")).catch(() => toast.error("Couldn't build the PDF"))} title="Account Profile PDF — HQ + tenant logo, owner & business details, trial and plan dates" tone="text-amber-600 hover:bg-amber-50" icon={IdCard} label="Profile" />
+                    <ActionBtn testid={`tenant-profile-pdf-${t.id}`} onClick={() => profilePdf(t)} title="Account Profile PDF — HQ + tenant logo, owner & business details, trial and plan dates" tone="text-amber-600 hover:bg-amber-50" icon={IdCard} label="Profile" />
                     <ActionBtn testid={`pay-link-${t.id}`} onClick={() => setPayLinkFor(t)} title="Generate a subscription pay link — tenant pays, plan activates" tone="text-amber-600 hover:bg-amber-50" icon={CreditCard} label="Pay link" />
                     <ActionBtn testid={`import-customers-${t.id}`} onClick={() => setImportFor(t)} title="Import customers from CSV" tone="text-sky-600 hover:bg-sky-50" icon={Upload} label="Import" />
                     <ActionBtn testid={`diagnose-tenant-${t.id}`} onClick={() => setDiagFor(t)} title="Diagnose — find why this tenant feels slow & clear their cache" tone="text-sky-600 hover:bg-sky-50" icon={Stethoscope} label="Diagnose" />
@@ -796,6 +799,7 @@ export default function SuperAdmin() {
 
       {smsLogFor && <SmsLogModal tenant={smsLogFor} onClose={() => setSmsLogFor(null)} />}
 
+      <TenantQuickView tenant={quickFor} onClose={() => setQuickFor(null)} onProfilePdf={profilePdf} />
       {editFor && (
         <EditTenantModal
           tenant={editFor}
