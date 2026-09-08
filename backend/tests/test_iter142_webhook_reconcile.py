@@ -41,7 +41,7 @@ def tenant():
     db.subscription_payments.insert_one({"id": str(uuid.uuid4()), "kind": "razorpay_pending", "razorpay_order_id": ORDER, "tenant_id": TID,
                                          "plan": "half_year", "branch_tenant_ids": None, "amount": 12000.0, "credits_applied": 0, "status": "created", "created_at": now})
     yield
-    for c in ("subscription_payments", "subscriptions", "subscription_invoices", "razorpay_webhook_events"):
+    for c in ("subscription_payments", "subscriptions", "subscription_invoices", "razorpay_webhook_events", "subscription_pay_links"):
         db[c].delete_many({"$or": [{"tenant_id": TID}, {"order_id": {"$regex": f"^{ORDER}"}}, {"razorpay_order_id": {"$regex": f"^{ORDER}"}}]})
     db.tenants.delete_one({"id": TID})
 
@@ -111,3 +111,24 @@ def test_events_archived_and_status_endpoint():
     assert r.status_code == 200, r.text
     j = r.json()
     assert j["configured"] is True and j["url"].endswith("/api/billing/razorpay/webhook") and j["recent"]
+
+
+def test_refund_notice_recorded_and_reactivation_link():
+    t = db.tenants.find_one({"id": TID})
+    n = t.get("last_refund_notice")
+    assert n and n["amount"] == 12000.0 and n["sent"] is True and n["pay_link_token"], n
+    link = db.subscription_pay_links.find_one({"token": n["pay_link_token"]})
+    assert link and link["created_by"] == "refund-reactivation" and link["status"] == "pending"
+    r = requests.get(f"{API}/public/pay-link/{n['pay_link_token']}", timeout=30)
+    assert r.status_code == 200 and r.json()["amount"] > 0
+
+
+def test_offer_stats_endpoint():
+    s = requests.Session()
+    s.post(f"{API}/auth/login", json={"email": "super@miracurl.com", "password": os.environ.get("SUPER_PW", "og9T@41Es#OQb6")}, timeout=30)
+    r = s.get(f"{API}/super-admin/trial-offer/stats?days=90", timeout=30)
+    assert r.status_code == 200, r.text
+    j = r.json()
+    for k in ("offer", "plain", "all"):
+        assert {"sent", "opened", "paid", "revenue", "conv_pct", "open_pct", "discount_given"} <= set(j[k])
+    assert isinstance(j["recent_paid"], list)

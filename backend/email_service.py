@@ -461,6 +461,46 @@ def trial_ending_email_html(t: dict, days_left: int, end_date: str, plan_label: 
     </div>"""
 
 
+def refund_notice_email_html(t: dict, info: dict) -> str:
+    """Refund processed: what changed (access), refund reference, and a one-tap reactivation link."""
+    e = html_lib.escape
+    noun = "restaurant" if t.get("business_type") == "restaurant" else "salon"
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    row = lambda k, v: f"<tr><td style='padding:7px 0;color:#777;font-size:13px'>{k}</td><td style='padding:7px 0;text-align:right;font-weight:bold;font-size:13px'>{v}</td></tr>"
+    access = (f"Your access now continues until <b>{e(str(info['access_until'])[:10])}</b> (from an earlier active plan)."
+              if info.get("access_until") else
+              f"Your {noun} has moved back to <b>free-trial access</b> — bookings, billing and Mira keep working for now, "
+              "but paid features will pause once the trial window closes.")
+    cta = (f"<p style='text-align:center;margin:22px 0'><a href='{e(info['pay_url'])}' style='background:linear-gradient(135deg,#d4af37,#e6c66e);color:#17171f;text-decoration:none;padding:14px 38px;border-radius:999px;font-weight:bold;font-family:Arial,sans-serif;font-size:15px;display:inline-block'>✦ &nbsp;Reactivate {e(info['pay_label'])} — {e(info['pay_amount'])}&nbsp; ✦</a></p>"
+           f"<p style='font-size:12px;color:#888;text-align:center;font-family:Arial,sans-serif'>One tap · UPI / card · your data is untouched and everything resumes instantly.</p>"
+           if info.get("pay_url") else
+           "<p style='font-family:Arial,sans-serif;font-size:13px'>To reactivate, log in → Settings → Subscription and choose a plan.</p>")
+    return f"""
+    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+      <div style="background:#1c1c22;padding:26px 30px">
+        <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Suite</div>
+        <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Refund processed</div>
+      </div>
+      <div style="padding:28px 30px;color:#333">
+        <p style="font-family:Arial,sans-serif;font-size:14px">Hi <b>{e(t.get('owner_name') or t.get('name') or 'there')}</b>,</p>
+        <p style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7">Razorpay has processed a refund of <b>₹{float(info['amount']):,.0f}</b> for your
+        <b>{e(info['plan_label'])}</b> subscription of <b>{e(t.get('name') or '')}</b>. The money returns to the original payment method within 5–7 working days.</p>
+        <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #eadfc0;border-radius:12px;padding:6px 16px;margin:18px 0">
+          {row("Refund amount", f"₹{float(info['amount']):,.0f}")}
+          {row("Refund reference", e(info.get('refund_id') or '-'))}
+          {row("Original payment", e(info.get('payment_id') or '-'))}
+          {row("Plan", e(info['plan_label']))}
+        </table>
+        <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:14px 18px;font-size:13.5px;font-family:Arial,sans-serif;line-height:1.8">
+          <b>What changed</b><br/>{access}
+        </div>
+        {cta}
+        <p style="font-size:12px;color:#888;font-family:Arial,sans-serif;border-top:1px solid #eee;padding-top:14px;margin-top:22px">
+          Didn't expect this refund, or want to talk it through? Reply to this email or write to {hq_email} — we're here to help. 💛</p>
+      </div>
+    </div>"""
+
+
 def renewal_reminder_email_intl_html(salon_name: str, days_left: int, end_date: str,
                                      plan_label: str, price_usd: float, pay_url: str) -> str:
     """USD renewal reminder with a one-click Stripe pay link (international salons)."""

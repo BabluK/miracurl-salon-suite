@@ -680,6 +680,37 @@ async def _wh_refund(order_id: str, refund: dict, logger) -> None:
     if tenant_id:
         await _recompute_tenant_access(tenant_id)
         logger.warning("Refunded subscription for tenant %s (order %s, ₹%.0f)", tenant_id, order_id, amt)
+        try:
+            await _send_refund_notice(tenant_id, pay, refund, amt)
+        except Exception as e:  # noqa: BLE001 — notice is best-effort, reconciliation already done
+            logger.warning("refund notice email failed for %s: %s", tenant_id, e)
+
+
+async def _send_refund_notice(tenant_id: str, pay: dict, refund: dict, amt: float) -> None:
+    """Tell the owner exactly what changed after a refund + give a one-tap reactivation link; copy HQ billing."""
+    from email_service import _send_email, refund_notice_email_html, hq_notify_emails
+    from routes.pay_links import create_trial_pay_link, _fmt_amt
+    t = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+    if not t or not t.get("owner_email"):
+        return
+    sub = await _raw_db.subscriptions.find_one({"id": pay.get("subscription_id")}, {"_id": 0}) if pay.get("subscription_id") else None
+    plan_label = (PLAN_CATALOG.get((sub or {}).get("plan") or "", {}) or {}).get("label") or (sub or {}).get("plan") or "subscription"
+    link = None
+    if (t.get("currency") or "INR") == "INR":
+        link = await create_trial_pay_link(t, f"Reactivation after refund {refund.get('id', '')}")
+        link["created_by"] = "refund-reactivation"
+        await _raw_db.subscription_pay_links.update_one({"id": link["id"]}, {"$set": {"created_by": "refund-reactivation"}})
+    info = {"amount": amt, "refund_id": refund.get("id", ""), "payment_id": refund.get("payment_id", ""),
+            "plan_label": plan_label, "access_until": t.get("subscription_end_date"), "status": t.get("status"),
+            "pay_url": link["url"] if link else "", "pay_label": link["plan_label"] if link else "",
+            "pay_amount": _fmt_amt(link) if link else ""}
+    html = refund_notice_email_html(t, info)
+    cta = {"book_url": info["pay_url"], "book_label": "Reactivate in one tap ✦"} if link else {}
+    res = await _send_email([t["owner_email"]], f"Refund of ₹{amt:,.0f} processed — what changes for {t.get('name') or t['slug']}", html, **cta)
+    await _send_email(hq_notify_emails("billing"), f"↩️ Refund ₹{amt:,.0f} — {t.get('name') or t['slug']} ({plan_label})", html)
+    await _raw_db.tenants.update_one({"id": tenant_id}, {"$set": {"last_refund_notice": {
+        "at": datetime.now(timezone.utc).isoformat(), "amount": amt, "refund_id": refund.get("id", ""),
+        "sent": bool(res.get("sent")), "pay_link_token": link["token"] if link else None}}})
 
 
 async def _wh_order_paid(order_id: str, payment: dict, logger) -> str:
@@ -1050,6 +1081,32 @@ class TrialOfferIn(BaseModel):
 @router.get("/super-admin/trial-offer")
 async def hq_get_trial_offer(user=Depends(require_super_admin)):
     return await get_trial_offer()
+
+
+@router.get("/super-admin/trial-offer/stats")
+async def hq_trial_offer_stats(days: int = 90, user=Depends(require_super_admin)):
+    """Conversion funnel of trial-nudge pay links: sent → opened → paid, split by offer vs plain."""
+    since = (datetime.now(timezone.utc) - timedelta(days=max(1, min(days, 365)))).isoformat()
+    rows = await _raw_db.subscription_pay_links.find(
+        {"created_by": "trial-nudge", "created_at": {"$gte": since}},
+        {"_id": 0, "amount": 1, "discount": 1, "original_amount": 1, "opened_at": 1, "status": 1, "paid_at": 1,
+         "salon_name": 1, "tenant_slug": 1, "offer_label": 1, "created_at": 1, "note": 1}).to_list(5000)
+
+    def bucket(items):
+        paid = [r for r in items if r.get("status") == "paid"]
+        opened = [r for r in items if r.get("opened_at")]
+        return {"sent": len(items), "opened": len(opened), "paid": len(paid),
+                "revenue": round(sum(float(r.get("amount") or 0) for r in paid)),
+                "discount_given": round(sum(float(r.get("discount") or 0) for r in paid)),
+                "open_pct": round(100 * len(opened) / len(items)) if items else 0,
+                "conv_pct": round(100 * len(paid) / len(items)) if items else 0}
+
+    offer_rows = [r for r in rows if r.get("discount")]
+    plain_rows = [r for r in rows if not r.get("discount")]
+    recent_paid = sorted([r for r in rows if r.get("status") == "paid"], key=lambda r: r.get("paid_at") or "", reverse=True)[:10]
+    return {"days": days, "offer": bucket(offer_rows), "plain": bucket(plain_rows), "all": bucket(rows),
+            "recent_paid": [{"salon_name": r.get("salon_name"), "slug": r.get("tenant_slug"), "amount": r.get("amount"),
+                             "discount": r.get("discount"), "offer_label": r.get("offer_label"), "paid_at": r.get("paid_at")} for r in recent_paid]}
 
 
 @router.put("/super-admin/trial-offer")
