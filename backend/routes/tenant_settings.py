@@ -305,7 +305,6 @@ class BranchIn(BaseModel):
     @field_validator("maps_url")
     @classmethod
     def _v_maps(cls, v):
-        from urllib.parse import urlparse
         v = (v or "").strip()
         if v and urlparse(v).scheme not in ("http", "https"):
             raise ValueError("Maps link must be a valid http(s) URL")
@@ -824,7 +823,6 @@ _REF_MILESTONES = [(1, 30), (3, 60), (5, 90)]  # qualified count -> bonus days
 async def _ref_activated(tid: str, rt: dict) -> bool:
     """Qualified = referred business actually USES Miracurl: has services + staff
     and 5 real bills within 14 days of signup (gaming-proof, auto-verified)."""
-    from datetime import timedelta
     try:
         created = datetime.fromisoformat(str(rt.get("created_at", "")).replace("Z", "+00:00"))
     except ValueError:
@@ -839,7 +837,7 @@ async def _ref_activated(tid: str, rt: dict) -> bool:
 
 
 async def _extend_access(t: dict, days: int) -> None:
-    from datetime import timedelta, date
+    from datetime import date
     now = datetime.now(timezone.utc)
     if t.get("subscription_end_date"):
         cur = max(date.fromisoformat(t["subscription_end_date"]), now.date())

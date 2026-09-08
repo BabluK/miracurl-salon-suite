@@ -376,7 +376,7 @@ def _ecard_html(gc: dict, t: dict) -> str:
     logo = (f'<img src="{logo_url}" alt="{salon}" style="max-height:54px;max-width:180px;margin-bottom:8px" />'
             if logo_url else
             f'<div style="font-size:26px;font-weight:bold;color:#fff;margin-bottom:6px">{salon}</div>')
-    quote = (f'<p style="font-family:Georgia,serif;font-style:italic;font-size:15px;color:#fff;'
+    quote_html = (f'<p style="font-family:Georgia,serif;font-style:italic;font-size:15px;color:#fff;'
              f'opacity:.95;margin:14px 22px 0;line-height:1.6">{occ.get("quote", "")}</p>')
     msg = (f'<p style="font-style:italic;color:#555;border-left:3px solid {g1};padding-left:12px;margin:18px 0">'
            f'"{html_lib.escape(gc["message"])}"</p>') if gc.get("message") else ""
@@ -386,7 +386,7 @@ def _ecard_html(gc: dict, t: dict) -> str:
         {logo}
         <div style="font-size:40px;line-height:1">{occ["emoji"]}</div>
         <div style="color:#fff;font-size:13px;letter-spacing:3px;text-transform:uppercase;margin-top:8px;opacity:.9">{occ["label"]} Gift Card</div>
-        {quote}
+        {quote_html}
         <div style="color:#fff;font-size:44px;font-weight:bold;margin:14px 0 10px">{_cur(gc)}{gc["amount"]:g}</div>
         <div style="display:inline-block;background:rgba(255,255,255,.92);border-radius:12px;padding:12px 26px;margin-top:6px">
           <div style="font-size:10px;letter-spacing:2px;color:#888;text-transform:uppercase">Gift card code</div>

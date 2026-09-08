@@ -281,7 +281,6 @@ async def platform_earnings(user=Depends(require_super_admin)):
 @router.get("/public/brochure.pdf")
 async def public_brochure_pdf(request: Request):
     """Public Suite brochure — linked from outreach emails instead of attaching PDFs."""
-    from security import public_rate_limit
     await public_rate_limit(request, "public-brochure", limit=30, window_sec=600)
     from services.brochure import build_brochure_pdf
     pdf = await asyncio.to_thread(build_brochure_pdf, "salon")
@@ -992,7 +991,6 @@ def _founder_followup_html(recipient_name: str, salon_name: str, tracking: tuple
 
 async def _run_founder_followups(hq_email: str, tenant_emails: set) -> tuple[int, int]:
     """Founder-letter recipients who OPENED but never replied get one nudge in Bablu's voice after 7 days."""
-    from datetime import timedelta
     cutoff = (datetime.now(timezone.utc) - timedelta(days=FOUNDER_FOLLOWUP_AFTER_DAYS)).isoformat()
     sent = failed = 0
     async for inv in _raw_db.demo_invites.find(
@@ -1016,7 +1014,6 @@ async def _run_founder_followups(hq_email: str, tenant_emails: set) -> tuple[int
 async def run_demo_followups() -> dict:
     """One gentle reminder per invitee, 5+ days after the invite, unless replied/converted.
     Founder-letter recipients get their own 7-day nudge (only if they opened the letter)."""
-    from datetime import timedelta
     cutoff = (datetime.now(timezone.utc) - timedelta(days=FOLLOWUP_AFTER_DAYS)).isoformat()
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
@@ -1123,7 +1120,6 @@ async def demo_campaign_mark_seen(user=Depends(require_super_admin)):
 @router.get("/super-admin/demo-calendar")
 async def demo_calendar(user=Depends(require_super_admin)):
     """All booked demo slots — upcoming first, plus the last 30 days of past demos."""
-    from datetime import timedelta
     now_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
     cutoff_past = (now_ist.date() - timedelta(days=30)).isoformat()
     upcoming, past = [], []
@@ -1239,7 +1235,6 @@ async def _owner_has_logged_in(owner_email: str) -> bool:
 
 async def run_founder_setup_nudges() -> dict:
     """Founder-offer salons created 3+ days ago whose owner never logged in → one nudge in Bablu's voice."""
-    from datetime import timedelta
     cutoff = (datetime.now(timezone.utc) - timedelta(days=FOUNDER_NUDGE_AFTER_DAYS)).isoformat()
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     sent = failed = logged_in = 0
@@ -1321,7 +1316,6 @@ def _founder_feedback_html(owner_name: str, salon_name: str, base: str, token: s
 
 async def run_founder_feedback_asks() -> dict:
     """Founder-offer salons 30+ days old → one 'how is it going?' note with one-tap rating links."""
-    from datetime import timedelta
     cutoff = (datetime.now(timezone.utc) - timedelta(days=FOUNDER_FEEDBACK_AFTER_DAYS)).isoformat()
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     base = os.environ.get("APP_PUBLIC_URL", FOUNDER["url"]).rstrip("/")
@@ -1442,7 +1436,6 @@ def _founder_expiry_html(owner_name: str, salon_name: str, end_date: str, credit
 
 async def run_founder_expiry_offers() -> dict:
     """Founder-offer salons whose free 6 months end within 30 days → founding-member credit + Bablu's note (once)."""
-    from datetime import timedelta
     today = datetime.now(timezone.utc).date().isoformat()
     horizon = (datetime.now(timezone.utc) + timedelta(days=FOUNDER_EXPIRY_DAYS_BEFORE)).date().isoformat()
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
@@ -1496,7 +1489,6 @@ def _feedback_page(title: str, body: str, form: str = "") -> str:
 @router.get("/public/founder-feedback/{token}/{rating}", response_class=HTMLResponse)
 async def founder_feedback_rate(token: str, rating: int, request: Request):
     """Landing page only — the rating is persisted by the confirm POST (a prefetching mail scanner can't rate)."""
-    from security import public_rate_limit
     await public_rate_limit(request, "founder-feedback", limit=20, window_sec=600)
     t = await _raw_db.tenants.find_one({"founder_feedback_token": token}, {"_id": 0, "id": 1, "name": 1})
     if not t or not 1 <= rating <= 5:
@@ -1511,7 +1503,6 @@ async def founder_feedback_rate(token: str, rating: int, request: Request):
 
 @router.post("/public/founder-feedback/{token}", response_class=HTMLResponse)
 async def founder_feedback_comment(token: str, request: Request):
-    from security import public_rate_limit
     await public_rate_limit(request, "founder-feedback-comment", limit=10, window_sec=600)
     form = await request.form()
     comment = str(form.get("comment") or "").strip()[:600]
@@ -1553,7 +1544,6 @@ def _annotate_invite(i: dict, signups: dict, tenant_emails: set, stale_cutoff: s
 
 @router.get("/super-admin/demo-campaign/invites")
 async def demo_invites(user=Depends(require_super_admin)):
-    from datetime import timedelta
     signups = await _signup_map()
     items = await _raw_db.demo_invites.find({}, {"_id": 0}).sort("first_sent_at", -1).to_list(200)
     now = datetime.now(timezone.utc)
@@ -1570,7 +1560,6 @@ STALE_INVITE_DAYS = 15
 
 def _stale_unseen_query() -> dict:
     """Invites older than 15 days that nobody ever engaged with — safe to purge to keep the DB lean."""
-    from datetime import timedelta
     cutoff = (datetime.now(timezone.utc) - timedelta(days=STALE_INVITE_DAYS)).isoformat()
     return {"first_sent_at": {"$lte": cutoff},
             "$and": [{"$or": [{"opened_at": None}, {"opened_at": {"$exists": False}}]},
@@ -1661,13 +1650,11 @@ DEMO_SLOT_TIMES = ["11:00", "12:00", "13:00", "15:00", "16:00", "17:00", "18:00"
 
 
 def _slot_utc(date_str: str, time_str: str):
-    from datetime import timedelta
     ist_start = datetime.fromisoformat(f"{date_str}T{time_str}:00")
     return ist_start - timedelta(hours=5, minutes=30)
 
 
 def _gcal_link(date_str: str, time_str: str) -> str:
-    from datetime import timedelta
     from urllib.parse import urlencode
     start = _slot_utc(date_str, time_str)
     end = start + timedelta(minutes=30)
@@ -1682,7 +1669,6 @@ def _gcal_link(date_str: str, time_str: str) -> str:
 
 
 def _slot_ics(date_str: str, time_str: str, attendee_email: str) -> str:
-    from datetime import timedelta
     start = _slot_utc(date_str, time_str)
     end = start + timedelta(minutes=30)
     fmt = "%Y%m%dT%H%M%SZ"
@@ -1773,7 +1759,6 @@ async def demo_slot_info(iid: str, request: Request):
         {"id": iid}, {"_id": 0, "name": 1, "salon_name": 1, "preferred_slot": 1})
     if not inv:
         raise HTTPException(404, "Invite not found")
-    from datetime import timedelta
     today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
     days = [(today + timedelta(days=d)).isoformat() for d in range(1, 8)]
     return {"name": inv.get("name", ""), "salon_name": inv.get("salon_name", ""),
@@ -1781,7 +1766,6 @@ async def demo_slot_info(iid: str, request: Request):
 
 
 def _validate_slot(date_s: str, time_s: str):
-    from datetime import timedelta
     try:
         d = datetime.fromisoformat(date_s).date()
     except ValueError:
@@ -1858,7 +1842,6 @@ class PublicDemoIn(BaseModel):
 @router.get("/public/demo/slots")
 async def public_demo_slots(request: Request):
     await public_rate_limit(request, "demo-open-slots", limit=30, window_sec=600)
-    from datetime import timedelta
     today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
     return {"dates": [(today + timedelta(days=d)).isoformat() for d in range(1, 8)],
             "times": DEMO_SLOT_TIMES}

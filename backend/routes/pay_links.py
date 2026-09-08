@@ -211,7 +211,6 @@ async def email_pay_link(pid: str, request: Request, user=Depends(require_super_
 
 async def send_renewal_nudges() -> int:
     """7 days before subscription_end_date: auto-create a renewal pay link + email the owner. Once per end date."""
-    import os
     from email_service import _send_email
     now = _now()
     today = now.date().isoformat()
@@ -269,6 +268,29 @@ async def send_renewal_nudges() -> int:
     return sent
 
 
+async def create_trial_pay_link(t: dict, note: str, now: datetime | None = None) -> dict:
+    """One-tap activation pay link for a trial tenant (plan resolves like renewal nudges)."""
+    if (t.get("currency") or "INR") != "INR":
+        raise ValueError("trial pay links are INR/Razorpay only")
+    now = now or _now()
+    plan_key = t.get("plan") if t.get("plan") in PLAN_CATALOG else "half_year"
+    info = PLAN_CATALOG.get(plan_key) or {}
+    if info.get("currency") or int(info.get("branches") or 1) != 1:
+        plan_key = "half_year"
+    info = await _fresh_plan_or_400(plan_key)
+    link = {
+        "id": str(uuid.uuid4()), "token": secrets.token_urlsafe(8),
+        "tenant_id": t["id"], "tenant_slug": t["slug"], "salon_name": t.get("name") or t["slug"],
+        "owner_email": t.get("owner_email") or "", "plan": plan_key, "plan_label": info["label"],
+        "amount": float(info["price"]), "duration_days": info["duration_days"],
+        "note": note, "status": "pending", "expires_at": (now + timedelta(days=LINK_VALID_DAYS)).isoformat(),
+        "created_at": now.isoformat(), "created_by": "trial-nudge",
+    }
+    await _raw_db.subscription_pay_links.insert_one({**link})
+    link["url"] = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/pay/{link['token']}"
+    return link
+
+
 _TRIAL_NUDGE_DAYS = (5, 10, 13)
 
 
@@ -286,7 +308,9 @@ async def run_trial_nudges() -> int:
     async for t in _raw_db.tenants.find(
             {"status": "trial", "owner_email": {"$nin": ["", None]}},
             {"_id": 0, "id": 1, "slug": 1, "name": 1, "owner_email": 1, "owner_name": 1,
-             "plan": 1, "created_at": 1, "trial_ends_at": 1}):
+             "plan": 1, "created_at": 1, "trial_ends_at": 1, "currency": 1}):
+        if (t.get("currency") or "INR") != "INR":
+            continue
         try:
             created = datetime.fromisoformat(str(t.get("created_at")).replace("Z", "+00:00"))
         except Exception:
@@ -296,11 +320,8 @@ async def run_trial_nudges() -> int:
             continue
         if await _raw_db.trial_nudges.find_one({"tenant_id": t["id"], "day": day}):
             continue
-        plan_key = t.get("plan") if t.get("plan") in PLAN_CATALOG else "half_year"
-        info = PLAN_CATALOG.get(plan_key) or {}
-        if info.get("currency") or int(info.get("branches") or 1) != 1:
-            plan_key = "half_year"
-        info = await _fresh_plan_or_400(plan_key)
+        link = await create_trial_pay_link(t, f"Trial day-{day} activation offer", now)
+        plan_key = link["plan"]
         month = now.strftime("%Y-%m")
         agg = await _raw_db.invoices.aggregate([
             {"$match": {"tenant_id": t["id"], "created_at": {"$regex": f"^{month}"},
@@ -309,16 +330,6 @@ async def run_trial_nudges() -> int:
         billed = round((agg[0]["total"] if agg else 0) or 0)
         bills = (agg[0]["count"] if agg else 0) or 0
         custs = await _raw_db.customers.count_documents({"tenant_id": t["id"]})
-        link = {
-            "id": str(uuid.uuid4()), "token": secrets.token_urlsafe(8),
-            "tenant_id": t["id"], "tenant_slug": t["slug"], "salon_name": t.get("name") or t["slug"],
-            "owner_email": t["owner_email"], "plan": plan_key, "plan_label": info["label"],
-            "amount": float(info["price"]), "duration_days": info["duration_days"],
-            "note": f"Trial day-{day} activation offer",
-            "status": "pending", "expires_at": (now + timedelta(days=LINK_VALID_DAYS)).isoformat(),
-            "created_at": now.isoformat(), "created_by": "trial-nudge",
-        }
-        await _raw_db.subscription_pay_links.insert_one({**link})
         try:
             trial_end = datetime.fromisoformat(str(t.get("trial_ends_at")).replace("Z", "+00:00"))
             days_left = max(0, (trial_end.date() - now.date()).days)
@@ -429,7 +440,6 @@ async def _thank_you_email(link: dict, end_date: str) -> None:
 
 async def _hq_paid_alert_email(link: dict, end_date: str, payment_id: str) -> None:
     """The moment a salon pays through a link, HQ gets an instant email."""
-    import os
     from email_service import _send_email
     hq = os.environ.get("HQ_EMAIL")
     if not hq:
@@ -453,7 +463,6 @@ async def _hq_paid_alert_email(link: dict, end_date: str, payment_id: str) -> No
 
 async def send_pay_link_reminders() -> int:
     """Mira's gentle nudge: pending links expiring within 2 days get one reminder email."""
-    import os
     from email_service import _send_email
     now = _now()
     soon = (now + timedelta(days=2)).isoformat()

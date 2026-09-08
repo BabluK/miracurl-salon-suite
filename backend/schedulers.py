@@ -34,7 +34,6 @@ async def _monthly_report_scheduler() -> None:
 async def _sms_reminder_scheduler() -> None:
     """Every 30 min: SMS a 24h reminder for tomorrow's appointments at every salon
     (burns 1 sms_point per SMS). Marks sms_reminder_sent to stay idempotent."""
-    from datetime import datetime, timedelta, timezone as _tzmod
     from sms_service import send_tenant_sms, sms_configured
     from database import _raw_db
     while True:
@@ -43,7 +42,7 @@ async def _sms_reminder_scheduler() -> None:
                 intl = {t["id"]: t async for t in _raw_db.tenants.find(
                     {}, {"_id": 0, "id": 1, "name": 1})}
                 if intl:
-                    now = datetime.now(_tzmod.utc)
+                    now = datetime.now(timezone.utc)
                     lo = (now + timedelta(hours=23, minutes=30)).isoformat()
                     hi = (now + timedelta(hours=24, minutes=30)).isoformat()
                     rows = await _raw_db.appointments.find(
@@ -61,7 +60,7 @@ async def _sms_reminder_scheduler() -> None:
                                            kind="reminder")
                         await _raw_db.appointments.update_one({"id": a["id"]}, {"$set": {"sms_reminder_sent": True}})
                 # Low-balance alert: email HQ once per tenant per day when points dip under 20
-                today = datetime.now(_tzmod.utc).date().isoformat()
+                today = datetime.now(timezone.utc).date().isoformat()
                 low = await _raw_db.tenants.find(
                     {"sms_points": {"$lt": 20}, "sms_low_alert_date": {"$ne": today}},
                     {"_id": 0, "id": 1, "name": 1, "sms_points": 1}).to_list(50)

@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-07.222"
-BUILD_TIME = "07 Sep 2026, 10:30 PM IST"
+BUILD = "2026-09-08.223"
+BUILD_TIME = "08 Sep 2026, 08:00 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-08.223", "note": "HQ onboarding: custom free-trial lengths (30d / 3 / 6 / 9 / 12 mo) + logo upload or AI logo, ₹0 Free Trial invoice + Congratulations email; trial-ending nudge (15/7/1 days) with one-tap upgrade pay link; code cleanup"},
     {"build": "2026-09-07.222", "note": "Restaurant campaign: separate 'Taste Ambassador — Diner Rewards' campaign with own settings, casting pages, settlements, agreement pack and earnings watch"},
     {"build": "2026-09-07.221", "note": "Salary fix: commission always paid on services; overtime only when a rate is set; month-wise slip download for owners with full deductions"},
     {"build": "2026-09-07.220", "note": "Mira earnings watch (off-app billing anomaly alerts, Monday HQ email); restaurants excluded from the salon Brand Model campaign; polished Onboard modal"},
@@ -37,6 +38,15 @@ BUILD_LOG = [
 ]
 
 RELEASES = [
+    {
+        "date": "2026-09-08 (Custom free trials & trial nudges 🎁)",
+        "changes": [
+            "🎁 HQ Onboard modal: choose the free-trial length (30 days default, or 3 / 6 / 9 months / 1 year) with a live end-date preview; optional salon/restaurant logo upload — Mira designs a logo automatically when none is uploaded",
+            "🧾 Every HQ-onboarded business now receives a real ₹0 'Free Trial' invoice (numbered, PDF with their logo) plus a separate branded 'Congratulations 🎉' email with trial start/end dates — the login-credentials email is unchanged; trial invoices show a 'free trial' badge in HQ → Invoices",
+            "⏳ Trial-ending nudge: owners on a free trial get a friendly 'your free trial ends in 15 / 7 / 1 days' email with their usage snapshot and a one-tap upgrade pay link (Razorpay); HQ → Top Referrers → Renewals due has a 'Trial nudge' button to send it instantly",
+            "🧹 Code cleanup: removed 35 redundant in-function imports and shadowed variables across routes; payments & subscriptions fully regression-tested (38 checks)",
+        ],
+    },
     {
         "date": "2026-09-07 (Subscription Invoice Kit 🧾)",
         "changes": [

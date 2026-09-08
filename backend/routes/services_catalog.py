@@ -383,7 +383,6 @@ def _compress_for_web(img_bytes: bytes, max_px: int = 1024, quality: int = 82) -
     """gpt-image PNGs are ~2 MB — shrink to a web-friendly JPEG so menus/booking pages load fast."""
     try:
         from PIL import Image
-        import io
         im = Image.open(io.BytesIO(img_bytes))
         im = im.convert("RGB")
         im.thumbnail((max_px, max_px))

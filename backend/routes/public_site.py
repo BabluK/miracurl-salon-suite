@@ -131,8 +131,8 @@ async def _google_live_rating(t: dict) -> dict | None:
     query = f"{(t.get('name') or '').replace('-', ' ')} {t.get('location') or ''}".strip()
     try:
         import httpx
-        async with httpx.AsyncClient(timeout=8) as client:
-            r = await client.post(
+        async with httpx.AsyncClient(timeout=8) as hc:
+            r = await hc.post(
                 "https://places.googleapis.com/v1/places:searchText",
                 headers={"Content-Type": "application/json", "X-Goog-Api-Key": key,
                          "X-Goog-FieldMask": "places.displayName,places.rating,places.userRatingCount"},

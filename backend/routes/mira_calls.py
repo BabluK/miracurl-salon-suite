@@ -1254,7 +1254,6 @@ async def send_daily_digest(force: bool = False) -> bool:
 async def send_weekly_win_report(force: bool = False) -> bool:
     """Monday-morning email: Mira's last-7-day wins — calls, demos, callbacks kept, leads, heat risers."""
     from email_service import _send_email, hq_notify_emails
-    import html as html_lib
     ist_now = datetime.now(_IST)
     week_key = ist_now.strftime("%G-W%V")
     if not force:

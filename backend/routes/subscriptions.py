@@ -926,11 +926,39 @@ def _renewal_wa_link(t: dict, days: int, end_date: str, source: str) -> Optional
     return f"https://wa.me/{num}?text={quote(text)}"
 
 
+async def _trial_usage_stats(tenant_id: str) -> list[str]:
+    bookings = await _raw_db.appointments.count_documents({"tenant_id": tenant_id})
+    custs = await _raw_db.customers.count_documents({"tenant_id": tenant_id})
+    agg = await _raw_db.invoices.aggregate([
+        {"$match": {"tenant_id": tenant_id, "status": {"$ne": "voided"}}},
+        {"$group": {"_id": None, "total": {"$sum": "$total"}, "count": {"$sum": 1}}}]).to_list(1)
+    billed = round((agg[0]["total"] if agg else 0) or 0)
+    bills = (agg[0]["count"] if agg else 0) or 0
+    return [f"📅 {bookings} booking{'s' if bookings != 1 else ''} taken",
+            f"👥 {custs} guest{'s' if custs != 1 else ''} in your CRM",
+            f"🧾 ₹{billed:,} billed across {bills} bill{'s' if bills != 1 else ''}"]
+
+
+async def send_trial_ending_email(t: dict, days: int, end_str: str) -> dict:
+    """Friendly trial-ending nudge with a one-tap upgrade pay link (INR tenants, both verticals)."""
+    from email_service import _send_email, trial_ending_email_html
+    from routes.pay_links import create_trial_pay_link, _fmt_amt
+    link = await create_trial_pay_link(t, f"Trial ends in {days} day(s) — upgrade nudge")
+    stats = await _trial_usage_stats(t["id"])
+    when = "tomorrow" if days == 1 else f"in {days} days"
+    return await _send_email(
+        [t["owner_email"]],
+        f"⏳ {t.get('name') or t['slug']} — your free trial ends {when}. Upgrade in one tap 💛",
+        trial_ending_email_html(t, days, end_str, link["plan_label"], _fmt_amt(link), link["url"], stats))
+
+
 async def _send_renewal_email(t: dict, days: int, end_str: str, source: str) -> dict:
     """Currency-aware reminder email: INR → Razorpay in-app CTA; USD → one-click Stripe pay link."""
     from email_service import (_send_email, renewal_reminder_email_html,
                                renewal_reminder_email_intl_html, restaurant_trial_reminder_email_html)
     name = t.get("name") or t["slug"]
+    if source == "trial" and (t.get("currency") or "INR") == "INR":
+        return await send_trial_ending_email(t, days, end_str)
     if t.get("business_type") == "restaurant" and (t.get("currency") or "INR") == "INR":
         what = "free month" if source == "trial" else "subscription"
         return await _send_email(
@@ -981,10 +1009,11 @@ async def run_renewal_reminders() -> dict:
         end = t.get("subscription_end_date") or t.get("trial_end_date") or t.get("trial_ends_at")
         days = _days_until(end)
         is_intl = (t.get("currency") or "INR") != "INR"
-        if t.get("business_type") == "restaurant" and not is_intl:
+        source = "subscription" if t.get("subscription_end_date") else "trial"
+        if t.get("business_type") == "restaurant" and not is_intl and source != "trial":
             marks = RESTO_REMINDER_DAYS
         else:
-            marks = INTL_RENEWAL_REMINDER_DAYS if is_intl else RENEWAL_REMINDER_DAYS
+            marks = INTL_RENEWAL_REMINDER_DAYS if is_intl else RENEWAL_REMINDER_DAYS  # trials: 15 / 7 / 1
         if days not in marks:
             continue
         checked += 1
@@ -994,10 +1023,10 @@ async def run_renewal_reminders() -> dict:
         if already:
             skipped += 1
             continue
-        source = "subscription" if t.get("subscription_end_date") else "trial"
-        email_status = {"sent": False, "error": "no owner_email on tenant"}
-        if t.get("owner_email"):
-            email_status = await _send_renewal_email(t, days, end_str, source)
+        if not t.get("owner_email"):
+            skipped += 1  # no log row → retried automatically once an owner email is added
+            continue
+        email_status = await _send_renewal_email(t, days, end_str, source)
         log = {
             "id": str(uuid.uuid4()), "tenant_id": t["id"], "slug": t["slug"],
             "tenant_name": t.get("name"), "days_mark": days, "end_date": end_str,
@@ -1019,6 +1048,34 @@ async def run_renewal_reminders() -> dict:
 async def run_auto_reminders_now(user=Depends(require_super_admin)):
     """Manually trigger the 15/7/1-day reminder sweep (same logic as the daily scheduler)."""
     return await run_renewal_reminders()
+
+
+class TrialNudgeIn(BaseModel):
+    days: int = Field(7, ge=0, le=120)
+
+
+@router.post("/super-admin/renewals/{tid}/send-trial-nudge")
+async def send_trial_nudge_now(tid: str, body: TrialNudgeIn, user=Depends(require_super_admin)):
+    """HQ: send the trial-ending nudge to one tenant right now (bypasses the 15/7/1 schedule)."""
+    t = await db.tenants.find_one({"id": tid}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Tenant not found")
+    if not t.get("owner_email"):
+        raise HTTPException(400, "Tenant has no owner email")
+    end = t.get("trial_end_date") or t.get("trial_ends_at") or ""
+    end_str = str(end)[:10]
+    days = body.days if body.days else max(0, _days_until(end) or 0)
+    if (t.get("currency") or "INR") != "INR":
+        raise HTTPException(400, "Trial nudge with Razorpay pay link is for INR tenants only")
+    status = await send_trial_ending_email(t, days, end_str)
+    if not status.get("sent"):
+        raise HTTPException(400, status.get("error") or "Email failed")
+    await _raw_db.renewal_reminder_log.insert_one({
+        "id": str(uuid.uuid4()), "tenant_id": t["id"], "slug": t["slug"], "tenant_name": t.get("name"),
+        "days_mark": days, "end_date": end_str, "source": "trial", "manual": True, "sent_by": user.get("email"),
+        "email_to": t["owner_email"], "email_sent": True, "email_error": None,
+        "wa_link": _renewal_wa_link(t, days, end_str, "trial"), "at": datetime.now(timezone.utc).isoformat()})
+    return {"ok": True, "sent_to": t["owner_email"], "days": days}
 
 
 @router.get("/super-admin/renewals/reminder-log")

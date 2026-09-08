@@ -51,7 +51,6 @@ def is_safe_public_url(url: str) -> bool:
     """Allow only http(s) URLs that do not resolve to private/loopback/link-local hosts (SSRF guard)."""
     import ipaddress
     import socket
-    from urllib.parse import urlparse
     try:
         p = urlparse((url or "").strip())
     except Exception:
@@ -77,7 +76,6 @@ def is_safe_link(url: str) -> bool:
     u = (url or "").strip()
     if not u:
         return True
-    from urllib.parse import urlparse
     try:
         return urlparse(u).scheme in ("http", "https")
     except Exception:

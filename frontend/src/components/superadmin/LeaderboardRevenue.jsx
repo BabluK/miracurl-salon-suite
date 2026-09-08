@@ -47,6 +47,19 @@ export function LeaderboardPanel() {
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't update"); }
   };
 
+  const [nudging, setNudging] = useState(null);
+  const sendTrialNudge = async (r) => {
+    setNudging(r.id);
+    try {
+      const { data: out } = await api.post(`/super-admin/renewals/${r.id}/send-trial-nudge`, { days: Math.max(1, r.days_remaining || 0) });
+      toast.success(`Trial-ending nudge with one-tap upgrade link sent to ${out.sent_to}`);
+      markReminded(r.id);
+      const lg = await api.get("/super-admin/renewals/reminder-log");
+      setAutoLog(lg.data.items || []);
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't send nudge"); }
+    finally { setNudging(null); }
+  };
+
   const remindWA = (r) => {
     const num = (r.whatsapp_number || r.phone || "").replace(/\D/g, "");
     if (!num) { toast.error(`No WhatsApp/phone for ${r.name}`); return; }
@@ -115,7 +128,18 @@ export function LeaderboardPanel() {
                     <td className="px-4 py-3 text-right text-xs text-slate-500">
                       {r.reminder_count > 0 ? `${r.reminder_count}× · ${new Date(r.last_reminder_at).toLocaleDateString("en-IN")}` : "—"}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      {r.source === "trial" && (
+                        <button
+                          onClick={() => sendTrialNudge(r)}
+                          disabled={nudging === r.id}
+                          data-testid={`renewal-trial-nudge-${r.slug}`}
+                          title="Email the friendly trial-ending nudge with a one-tap upgrade link now"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 mr-2 rounded-md bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold disabled:opacity-50"
+                        >
+                          <Gift className="w-3.5 h-3.5" /> {nudging === r.id ? "Sending…" : "Trial nudge"}
+                        </button>
+                      )}
                       <button
                         onClick={() => remindWA(r)}
                         data-testid={`renewal-wa-${r.slug}`}
@@ -141,7 +165,7 @@ export function LeaderboardPanel() {
               Automated reminders — ON
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Every day after 10 AM IST, owners whose subscription or trial ends in exactly <b>15, 7 or 1 day(s)</b> automatically get a branded renewal email with a Razorpay pay link. Each reminder is sent only once.
+              Every day after 10 AM IST, owners whose subscription or trial ends in exactly <b>15, 7 or 1 day(s)</b> automatically get a branded email — trial owners receive a friendly &quot;your free trial ends in N days&quot; nudge with a one-tap upgrade pay link; paid owners get the renewal email. Each reminder is sent only once.
             </p>
           </div>
           <button
@@ -161,6 +185,7 @@ export function LeaderboardPanel() {
                 <div key={l.id} className="flex items-center gap-2 text-xs text-slate-600 flex-wrap">
                   <span className={`px-1.5 py-0.5 rounded font-mono font-semibold ${l.days_mark === 1 ? "bg-rose-100 text-rose-700" : l.days_mark === 7 ? "bg-orange-100 text-orange-700" : "bg-amber-100 text-amber-700"}`}>D-{l.days_mark}</span>
                   <span className="font-medium text-slate-800">{l.tenant_name || l.slug}</span>
+                  {l.source === "trial" && <span className="px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 text-[10px] font-semibold uppercase">trial{l.manual ? " · manual" : ""}</span>}
                   <span className={l.email_sent ? "text-emerald-600" : "text-rose-500"} title={l.email_error || ""}>
                     {l.email_sent ? "✓ email sent" : `✗ email failed`}
                   </span>

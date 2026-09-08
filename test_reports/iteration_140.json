@@ -1,0 +1,38 @@
+{
+  "summary": "Iter 140 — Trial-ending nudge (auto sweep + manual) and cleanup regression. Backend: 17/19 pytest passed. All feature assertions passed: (A) auto sweep run picks trial tenant at exactly D-7, emits source='trial' + email_sent=true, creates subscription_pay_links doc (created_by='trial-nudge', note contains 'Trial ends in 7 day(s)', status pending) plus renewal_reminder_log row; GET /api/public/pay-link/<token> → 200 with plan_label/amount and status pending; re-running sweep is idempotent (same tenant skipped, log count unchanged). (A) manual POST /api/super-admin/renewals/{tid}/send-trial-nudge {days:1} → 200 {ok, sent_to: delivered@resend.dev, days:1} + log row manual=true; unknown tenant → 404; days=500 → 422. (A) Paid tenant (subscription_end_date=now+7d) picked by same sweep with source='subscription' (not trial). (B) Regression pings on cleaned-up routes: /api/public/salon/miracurl-marathahalli 200, gift_cards public route non-500, /api/auth/login+me for tenant admin 200, /api/auth/forgot-password 200 (not 500), /api/super-admin/demo-campaign/invites non-500, /api/super-admin/tenants 200, /api/settings/branding 200 (tenant), pay-links list non-500, registry public non-500. Frontend: super-tab-leaderboard opens, auto-reminders-card copy mentions trial nudge + one-tap upgrade link, renewal-row-<slug> visible for the seeded trial tenant with an amber Trial nudge button, clicking it triggers manual send and Recent auto-reminders log immediately shows a 'D-5 · Nudge FE … · TRIAL · MANUAL · ✓ email sent' chip. All seed data cleaned up.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/settings/table-qr-card.png (restaurant)", "issue": "Endpoint name promises PNG but response Content-Type is image/jpeg (200, gzip). Pre-existing; not related to this iteration's cleanup."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter140_trial_nudge.py",
+    "/app/test_reports/pytest/iter140.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: fix /api/settings/table-qr-card.png to actually return PNG (currently returns JPEG) — pre-existing, low priority.",
+    "OPTIONAL: my log-tail regression test surfaced a HISTORICAL NameError in /app/backend/routes/appointments_pos.py line 329 ('name EmailStr is not defined'). The current file DOES import EmailStr on line 10, so the process is healthy — this was a stale reload from before EmailStr was added. Consider rotating /var/log/supervisor/backend.err.log, or ignore."
+  ],
+  "critical_code_review_comments": [
+    "send_trial_nudge_now (subscriptions.py L1057) raises 400 on email failure AFTER already writing a renewal_reminder_log row with email_sent=false — the HQ UI sees a red toast but a false 'reminded' log entry lives on. Consider inserting the log AFTER the send succeeds, or only when the failure is downstream (e.g. Resend rate-limited).",
+    "run_renewal_reminders (subscriptions.py L1000) counts 'sent += 1 if log[email_sent] else 0' but 'failed += 0 if log[email_sent] else 1' — for tenants without owner_email it silently counts as failed with error 'no owner_email on tenant' and still writes a reminder-log row that blocks future retries for that (tenant, end_date, days_mark). If owner_email is added later, the tenant will never be re-nudged for that mark. Consider skipping log insert when there is no owner_email, or reset on owner_email change.",
+    "create_trial_pay_link (pay_links.py L271) uses PLAN_CATALOG['half_year'] as fallback which is INR-only. INR is enforced upstream ('_send_renewal_email' only reaches send_trial_ending_email for INR tenants), but the helper is public — if someone calls create_trial_pay_link for a USD tenant it would silently create an INR link. Add explicit INR guard or accept plan_key argument.",
+    "LeaderboardRevenue.jsx sendTrialNudge posts days = Math.max(0, r.days_remaining || 0). If a trial row is 'today' (0d) or 1d overdue the button will POST days=0 which the API happily accepts (ge=0) and the copy will read 'ends in 0 day(s)' — cosmetically odd. Consider clamping to at least 1 or switching wording to 'today/overdue'."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter140_trial_nudge.py"
+  ],
+  "success_rate": {"backend": "89% (17/19 — 2 minor pre-existing failures)", "frontend": "100%"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6; admin@miracurl.com / q6QY@tn3p#9DtL (miracurl-marathahalli); infinity.admin@miracurl.com / Infinity@2026 (infinity-family-restaurant)",
+  "seed_data_creation": "Backend test: nudge-qa-<ts> + nudge-sub-<ts> tenants (cleaned in test_z). Frontend test: nudge-fe-1788832512 tenant with trial_end=now+5d (cleaned via post-test script — tenants/users/uploads/subscription_pay_links/renewal_reminder_log/subscription_invoices all removed).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter-140 feature (trial-ending nudge + cleanup regression) is fully green. If retesting, note that server clock reads 8 Sept 2026; set trial_end_date to now+7d exactly for the sweep to pick the tenant (marks are 15/7/1 for INR). Server-side hot-reload log at /var/log/supervisor/backend.err.log carries historical NameError traces from earlier iterations — filter by process id or 'Started server process' anchor when tail-checking. Elegance-koramangala (owner owner@elegance.com) sits in the queue at D-1 with email failures — that is expected and unrelated.",
+  "rca of the issue": "N/A — no defects found."
+}

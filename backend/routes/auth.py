@@ -729,7 +729,6 @@ async def _send_reset_email(login_email: str, recipient: str, token: str):
 
 @router.post("/auth/forgot-password")
 async def forgot(body: ForgotIn, request: Request):
-    from security import public_rate_limit
     await public_rate_limit(request, key_suffix="forgotpw", limit=5, window_sec=3600)
     email = body.email.lower()
     user = await db.users.find_one({"email": email})
@@ -801,7 +800,6 @@ async def set_notify_email(body: NotifyEmailIn, user=Depends(get_current_user)):
 @router.post("/auth/me/send-reset-link")
 async def send_my_reset_link(request: Request, user=Depends(get_current_user)):
     """From the forced-password-change screen: email a reset link to the account's real inbox."""
-    from security import public_rate_limit
     await public_rate_limit(request, key_suffix="myreset", limit=5, window_sec=3600)
     from email_service import _resolve_recipients
     recipients = await _resolve_recipients([user["email"]])
@@ -828,7 +826,6 @@ async def change_login_email(body: LoginEmailIn, request: Request, user=Depends(
     Requires the current password; sessions stay valid (JWT sub = user id)."""
     if user.get("role") != "super_admin":
         raise HTTPException(403, "Only the super-admin can change their login email here")
-    from security import public_rate_limit
     await public_rate_limit(request, key_suffix="loginemail", limit=5, window_sec=3600)
     full = await db.users.find_one({"id": user["id"]}, {"_id": 0, "password_hash": 1, "email": 1})
     if not full or not verify_pw(body.current_password, full["password_hash"]):
@@ -919,8 +916,8 @@ async def remove_super_admin(account_id: str, body: RemoveSuperIn, user=Depends(
         raise HTTPException(403, "Super-admin only")
     if account_id == user["id"]:
         raise HTTPException(400, "You can't remove the login you're using right now")
-    me = await db.users.find_one({"id": user["id"]}, {"_id": 0, "password_hash": 1})
-    if not me or not verify_pw(body.current_password, me["password_hash"]):
+    me_doc = await db.users.find_one({"id": user["id"]}, {"_id": 0, "password_hash": 1})
+    if not me_doc or not verify_pw(body.current_password, me_doc["password_hash"]):
         raise HTTPException(400, "Current password is incorrect")
     target = await db.users.find_one({"id": account_id, "role": "super_admin"}, {"_id": 0, "id": 1, "email": 1})
     if not target:

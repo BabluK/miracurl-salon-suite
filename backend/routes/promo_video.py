@@ -353,7 +353,6 @@ async def _build_scenes(body: PromoIn, scenes: list) -> tuple[list[bytes], list[
 
 def _add_partner_qr(img_bytes: bytes) -> bytes:
     """Bottom-left QR to the /partner demo page on the closing frame."""
-    import io
     import qrcode
     url = f"{os.environ.get('APP_PUBLIC_URL', '')}/partner"
     qr = qrcode.QRCode(box_size=10, border=2)
