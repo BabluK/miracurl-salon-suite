@@ -2927,3 +2927,4 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - HQ Tenants: `TenantExportButtons` (tenants-export-csv-btn, tenants-export-email-btn) + per-row `tenant-profile-pdf-<id>` IdCard button (SuperAdmin.jsx).
 - Fix: `_real_email` (rewards_settlements), inbox_ok (super_admin_ops) and `_tenant_inbox` (email_service) now consider `salon_email` — resolves "no real email on file" when the salon profile email is filled.
 - Verified via curl (PDF renders, CSV, email sent ok, settlements emails resolve) + screenshot. BUILD 2026-09-08.226.
+- (later 6) Profile in Settings: `GET /billing/account-profile.pdf` (tenant admin) + `components/settings/AccountProfileCard.jsx` under Invoices in Settings.jsx (settings-account-profile-card / account-profile-download-btn). Verified via curl (200 PDF) + screenshot. BUILD 2026-09-08.227.

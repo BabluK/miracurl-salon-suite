@@ -17,6 +17,7 @@ import { LoyaltyCard } from "@/components/settings/LoyaltyCard";
 import { AffiliateCard } from "@/components/settings/AffiliateCard";
 import { RazorpayCard } from "@/components/settings/RazorpayCard";
 import { InvoicesCard } from "@/components/settings/InvoicesCard";
+import { AccountProfileCard } from "@/components/settings/AccountProfileCard";
 import { GiftCardsCard } from "@/components/settings/GiftCardsCard";
 import { StripeSubscriptionCard } from "@/components/settings/StripeSubscriptionCard";
 import { VendorsCard } from "@/components/settings/VendorsCard";
@@ -122,6 +123,7 @@ export default function Settings() {
         <RazorpayCard />
 
         <InvoicesCard />
+        <AccountProfileCard tenant={tenant} />
 
         <GiftCardsCard />
 

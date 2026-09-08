@@ -160,3 +160,13 @@ async def hq_tenant_profile_pdf(tid: str, user=Depends(require_super_admin)):
     pdf = await render_tenant_profile(t)
     return Response(pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="Miracurl-Account-Profile-{t["slug"]}.pdf"'})
+
+
+@router.get("/billing/account-profile.pdf")
+async def my_account_profile_pdf(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Owner's own Account Profile — same branded sheet HQ attaches to the welcome email."""
+    from services.tenant_profile_pdf import render_tenant_profile
+    full = await _raw_db.tenants.find_one({"id": t["id"]}, {"_id": 0}) or t
+    pdf = await render_tenant_profile(full)
+    return Response(pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="Miracurl-Account-Profile-{full["slug"]}.pdf"'})

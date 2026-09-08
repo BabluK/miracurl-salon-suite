@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-08.226"
-BUILD_TIME = "08 Sep 2026, 10:30 AM IST"
+BUILD = "2026-09-08.227"
+BUILD_TIME = "08 Sep 2026, 10:45 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-08.227", "note": "Owners can download their own Account Profile PDF from Settings"},
     {"build": "2026-09-08.226", "note": "Account Profile PDF (HQ + tenant logo, all details, HQ contacts) attached to congrats email + per-tenant download; tenant register CSV download & email to booking@; settlement/inbox detection now honours salon_email; security P3 hardening"},
     {"build": "2026-09-08.225", "note": "Refund notice email with one-tap reactivation link (owner + HQ billing copy); trial-offer conversion stats in HQ Billing"},
     {"build": "2026-09-08.224", "note": "Razorpay webhook reconciliation ON (captured/failed/refund auto-sync, HQ webhook health card); trial upgrade offer (HQ-configurable discount in the final trial nudge); polished pay-link page with brand mark + tenant logo"},
@@ -56,6 +57,7 @@ RELEASES = [
             "🪪 Account Profile PDF: Miracurl HQ logo + the business's logo, owner name/phone/email, business name/phone/email/location, free-trial start & end, active plan with subscription dates, and HQ contacts (contact@ / support@ / admin@miracurl-suite.com) — attached to the Congratulations email and downloadable per tenant from HQ → Tenants (ID-card icon)",
             "📋 Tenant register: HQ → Tenants has 'Download list' (CSV with every tenant's details) and 'Email to booking@' so the register is also tracked from the inbox",
             "✉️ Fix: settlement tracker & inbox badges now recognise the business email saved in Settings → Salon profile (no more 'no real email on file' when it's filled)",
+            "🪪 Settings → Account profile: owners can download their own branded Account Profile PDF anytime (logo, contacts, trial & plan dates, HQ contacts)",
         ],
     },
     {
