@@ -521,6 +521,9 @@ async def sa_settlement_remind(tenant_id: str, body: RemindIn, user=Depends(requ
     overdue = bool(d.get("due_date")) and d["due_date"] < date.today().isoformat()
     name = t.get("name") or t.get("slug")
     text = await _mira_nudge(name, c, d, link, overdue)
+    from services.tenant_notices import notify_tenant
+    await notify_tenant(tenant_id, "campaign", f"{'🔴 Overdue' if overdue else '🤝'} Campaign settlement — ₹{float(d['amount']):,.0f}",
+                        f"Due {d.get('due_date') or 'soon'} · pay via the link Miracurl HQ sent you", "/rewards-campaign")
     out: dict = {"ok": True, "channel": body.channel, "text": text}
     if body.channel == "email":
         to = t.get("notify_email") or t.get("owner_email")

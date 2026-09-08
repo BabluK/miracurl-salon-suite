@@ -221,6 +221,8 @@ async def hq_set_trial(tid: str, body: TrialSetIn, user=Depends(require_super_ad
         email_status = await _send_email(
             [t["owner_email"]], f"🎁 {t.get('name') or t['slug']} — your Miracurl free trial now runs until {info['end_date']}",
             trial_extended_email_html({**t, **upd}, info))
+    from services.tenant_notices import notify_tenant
+    await notify_tenant(tid, "trial", f"🎁 Free trial extended — {label}", f"Your complimentary access now runs until {end.strftime('%d %b %Y')} ({days_left} days left)", "/settings")
     await _raw_db.hq_audit.insert_one({"id": str(__import__('uuid').uuid4()), "kind": "trial_set", "tenant_id": tid, "slug": t["slug"],
                                        "by": user.get("email"), "label": label, "end": end.isoformat(), "at": now.isoformat(),
                                        "email_sent": bool(email_status.get("sent")), "email_error": email_status.get("error")})

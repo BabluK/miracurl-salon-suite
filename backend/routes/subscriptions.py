@@ -568,6 +568,9 @@ async def _activate_pending_order(pending_doc: dict, payment_id: str, t: dict, r
                       "reward": "free_month", "reward_note": reward_note}},
         )
 
+    from services.tenant_notices import notify_tenant
+    await notify_tenant(t["id"], "payment", f"✅ Plan activated — {PLAN_CATALOG.get(server_plan, {}).get('label', server_plan)}",
+                        f"Access until {sub['end_date']} · invoice & receipt emailed to you", "/settings")
     return sub, server_plan, target_tids
 
 
@@ -617,6 +620,10 @@ async def _wh_payment_failed(order_id: str, payment: dict, logger) -> None:
         {"razorpay_order_id": order_id, "status": "pending"},
         {"$set": {"last_payment_failed_at": now, "last_failure_reason": payment.get("error_description", "")}})
     logger.warning("Payment failed for order %s: %s", order_id, payment.get("error_description"))
+    pend = await _raw_db.subscription_payments.find_one({"razorpay_order_id": order_id}, {"_id": 0, "tenant_id": 1})
+    if pend:
+        from services.tenant_notices import notify_tenant
+        await notify_tenant(pend["tenant_id"], "payment", "⚠️ Payment didn't go through", payment.get("error_description") or "Your bank declined the payment — please try again", "/settings")
 
 
 async def _recompute_tenant_access(tenant_id: str) -> None:
@@ -652,6 +659,8 @@ async def _wh_refund(order_id: str, refund: dict, logger) -> None:
     if tenant_id:
         await _recompute_tenant_access(tenant_id)
         logger.warning("Refunded subscription for tenant %s (order %s, ₹%.0f)", tenant_id, order_id, amt)
+        from services.tenant_notices import notify_tenant
+        await notify_tenant(tenant_id, "payment", f"↩️ Refund of ₹{amt:,.0f} processed", "Check your email for what changed and how to reactivate", "/settings")
         try:
             await _send_refund_notice(tenant_id, pay, refund, amt)
         except Exception as e:  # noqa: BLE001 — notice is best-effort, reconciliation already done
@@ -1105,6 +1114,9 @@ async def send_trial_ending_email(t: dict, days: int, end_str: str) -> dict:
         offer=offer if use_offer else None)
     stats = await _trial_usage_stats(t["id"])
     when = "tomorrow" if days == 1 else ("today" if days == 0 else f"in {days} days")
+    from services.tenant_notices import notify_tenant
+    await notify_tenant(t["id"], "offer", f"⏳ Free trial ends {when}" + (f" — {link['offer_label']}" if link.get("discount") else ""),
+                        f"Upgrade in one tap: {link['url']}", link["url"], dedupe_key=f"trial-nudge-{days}-{end_str}")
     subject = (f"🎁 {t.get('name') or t['slug']} — last chance: {link['offer_label']} before your trial ends {when}"
                if link.get("discount") else
                f"⏳ {t.get('name') or t['slug']} — your free trial ends {when}. Upgrade in one tap 💛")

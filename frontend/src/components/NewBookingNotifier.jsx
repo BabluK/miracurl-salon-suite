@@ -8,9 +8,11 @@ const KIND = {
   booking:    { Icon: CalendarPlus, cls: "bg-gold/10 border-gold/30 text-gold", to: "/appointments" },
   gift:       { Icon: Gift, cls: "bg-fuchsia-500/10 border-fuchsia-400/40 text-fuchsia-400", to: "/plans" },
   membership: { Icon: Crown, cls: "bg-amber-500/10 border-amber-400/40 text-amber-400", to: "/plans" },
+  notice:     { Icon: Bell, cls: "bg-sky-500/10 border-sky-400/40 text-sky-300", to: "/settings" },
 };
 
 function notifText(it) {
+  if (it.kind === "notice") return { title: it.title, sub: it.sub || "", meta: "" };
   if (it.kind === "gift") {
     return {
       title: `Gift card sold — ₹${Number(it.amount || 0).toLocaleString("en-IN")}`,
@@ -138,16 +140,23 @@ export function useNewBookingNotifier({ enabled }) {
     if (document.visibilityState !== "visible" || _pollLock) return;
     _pollLock = true;
     try {
-      const { data } = await api.get("/notifications/new-bookings", { params: { since: lastSeenRef.current } });
+      let { data } = await api.get("/notifications/new-bookings", { params: { since: lastSeenRef.current } });
       lastSeenRef.current = data.server_time || new Date().toISOString();
       writeLastSeen(lastSeenRef.current);
-      if (firstRunRef.current) { firstRunRef.current = false; return; }
+      const firstRun = firstRunRef.current;
+      if (firstRun) {
+        // First poll: don't replay old bookings, but DO load open notices & pending to-dos quietly.
+        firstRunRef.current = false;
+        data = { ...data, bookings: [], gift_cards: [], memberships: [], count: (data.notices || []).length + (data.pending || []).length };
+      }
       if (data.count > 0) {
         const now = new Date().toISOString();
         let fresh = [
           ...(data.bookings || []).map(b => ({ ...b, kind: "booking", received_at: b.created_at || now })),
           ...(data.gift_cards || []).map(g => ({ ...g, kind: "gift", received_at: g.issued_at || now })),
           ...(data.memberships || []).map(m => ({ ...m, kind: "membership", received_at: m.purchased_at || now })),
+          ...(data.notices || []).map(n => ({ ...n, kind: "notice", silent: firstRun, received_at: n.created_at || now })),
+          ...(data.pending || []).map(n => ({ ...n, kind: "notice", silent: true, received_at: n.created_at || now })),
         ];
         fresh = fresh.filter(f => !_notifiedIds.has(f.id));
         fresh.forEach(f => _notifiedIds.add(f.id));
@@ -156,14 +165,16 @@ export function useNewBookingNotifier({ enabled }) {
           const seen = new Set(prev.map(i => i.id));
           return [...fresh.filter(f => !seen.has(f.id)), ...prev].slice(0, 30);
         });
-        playChime();
+        if (fresh.some(f => !f.silent)) playChime();
         // One quiet toast — the bell lists them one by one (no toast spam)
-        if (data.count === 1) {
-          const one = fresh[0];
+        if (fresh.filter(f => !f.silent).length === 1) {
+          const one = fresh.find(f => !f.silent);
           if (one.kind === "gift") {
             toast.success(`Gift card sold ✦ ₹${Number(one.amount || 0).toLocaleString("en-IN")}`, {
               description: `${one.buyer_name || "Someone"} → ${one.recipient_name || "a loved one"}`, duration: 6000,
             });
+          } else if (one.kind === "notice") {
+            toast(one.title, { description: one.sub, duration: 8000 });
           } else if (one.kind === "membership") {
             toast.success(`New ${(one.tier || "").toUpperCase()} member ✦ ${one.customer_name}`, {
               description: `${one.name || "Membership"} · ₹${Number(one.amount || 0).toLocaleString("en-IN")}`, duration: 6000,
@@ -174,9 +185,11 @@ export function useNewBookingNotifier({ enabled }) {
               action: { label: "Bill now →", onClick: () => goToBilling(one.id) },
             });
           }
-        } else {
-          const names = fresh.filter(f => f.kind === "booking").map(b => b.customer_name).filter(Boolean);
-          toast.success(`${data.count} new bookings ✦`, {
+        } else if (fresh.some(f => !f.silent)) {
+          const loud = fresh.filter(f => !f.silent);
+          const nb = loud.filter(f => f.kind === "booking").length;
+          const names = loud.filter(f => f.kind === "booking").map(b => b.customer_name).filter(Boolean);
+          toast.success(nb === loud.length ? `${nb} new bookings ✦` : `${loud.length} new notifications ✦`, {
             description: names.length
               ? `${names.slice(0, 3).join(" · ")}${names.length > 3 ? ` +${names.length - 3} more` : ""} — tap the bell to bill each one`
               : "Tap the bell to view them one by one",
@@ -233,8 +246,12 @@ export function useNewBookingNotifier({ enabled }) {
     } catch (e) { log.warn("[NewBookingNotifier] permission request failed:", e); }
   }, []);
 
-  const dismiss = useCallback((id) => setItems(prev => prev.filter(i => i.id !== id)), []);
-  const clearAll = useCallback(() => setItems([]), []);
+  const serverDismiss = (id) => {
+    if (!id || id.startsWith("staffgap-") || id.startsWith("latefine-")) return; // live to-dos: reappear until fixed
+    api.post(`/notifications/notices/${id}/dismiss`).catch(() => {});
+  };
+  const dismiss = useCallback((id) => setItems(prev => { const it = prev.find(i => i.id === id); if (it?.kind === "notice") serverDismiss(id); return prev.filter(i => i.id !== id); }), []);
+  const clearAll = useCallback(() => setItems(prev => { prev.filter(i => i.kind === "notice").forEach(i => serverDismiss(i.id)); return []; }), []);
 
   return { items, unread: items.length, permission, requestPermission, dismiss, clearAll };
 }
@@ -262,6 +279,11 @@ export function NotifBell({ items = [], permission, requestPermission, dismiss, 
       return;
     }
     dismiss(it.id);
+    if (it.kind === "notice" && it.link) {
+      if (/^https?:/.test(it.link)) window.open(it.link, "_blank", "noopener");
+      else onNavigate?.(it.link);
+      return;
+    }
     onNavigate?.((KIND[it.kind] || KIND.booking).to);
   }
 
@@ -272,7 +294,7 @@ export function NotifBell({ items = [], permission, requestPermission, dismiss, 
         className="relative p-2 rounded-md hover:bg-white/5 transition"
         data-testid="notif-btn"
         aria-label="Notifications"
-        title={unread ? `${unread} new booking${unread === 1 ? "" : "s"}` : "Notifications"}
+        title={unread ? `${unread} notification${unread === 1 ? "" : "s"}` : "Notifications"}
       >
         <Bell className={`w-4 h-4 ${unread > 0 ? "text-gold" : "text-white/70"}`} />
         {unread > 0 && (

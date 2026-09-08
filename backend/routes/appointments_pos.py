@@ -50,6 +50,13 @@ async def list_appointments(date: Optional[str] = None, upcoming: bool = False, 
     return rows
 
 
+@router.post("/notifications/notices/{nid}/dismiss")
+async def dismiss_tenant_notice(nid: str, user=Depends(get_current_user), t=Depends(current_tenant)):
+    from services.tenant_notices import dismiss_notice
+    await dismiss_notice(t["id"], nid, user.get("id") or "")
+    return {"ok": True}
+
+
 @router.get("/notifications/new-bookings")
 async def new_bookings(since: str, user=Depends(get_current_user), t=Depends(current_tenant)):
     """Lightweight polling endpoint — returns bookings created after `since`
@@ -80,12 +87,17 @@ async def new_bookings(since: str, user=Depends(get_current_user), t=Depends(cur
     for cm in cms:
         c = await db.customers.find_one({"id": cm.get("customer_id")}, {"_id": 0, "name": 1})
         cm["customer_name"] = (c or {}).get("name") or "New member"
+    from services.tenant_notices import notices_open, staff_profile_gaps
+    notices = await notices_open(t["id"], user.get("id") or "")
+    gaps = await staff_profile_gaps(t) if user.get("role") in ("admin", "super_admin") else []
     return {
         "server_time": datetime.now(timezone.utc).isoformat(),
-        "count": len(rows) + len(gcs) + len(cms),
+        "count": len(rows) + len(gcs) + len(cms) + len(notices) + len(gaps),
         "gift_cards": gcs,
         "memberships": cms,
         "bookings": rows,
+        "notices": notices,
+        "pending": gaps,
     }
 
 

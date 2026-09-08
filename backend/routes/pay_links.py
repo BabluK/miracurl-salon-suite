@@ -128,6 +128,10 @@ async def create_pay_link(body: PayLinkIn, user=Depends(require_super_admin)):
         "created_at": _now().isoformat(), "created_by": user.get("email") or user["id"],
     }
     await _raw_db.subscription_pay_links.insert_one({**link})
+    from services.tenant_notices import notify_tenant
+    await notify_tenant(link["tenant_id"], "offer", f"💳 Plan offer from Miracurl HQ — {link['plan_label']}",
+                        f"{_fmt_amt(link)} · pay in one tap: {os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/pay/{link['token']}",
+                        f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/pay/{link['token']}")
     return {"ok": True, "link": link}
 
 

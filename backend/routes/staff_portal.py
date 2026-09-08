@@ -117,6 +117,9 @@ async def create_leave_request(body: LeaveRequestIn, s=Depends(_current_staff)):
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.leave_requests.insert_one(doc)
+    from services.tenant_notices import notify_tenant
+    await notify_tenant(s["tenant_id"], "staff", f"🗓️ Leave request — {s.get('name') or 'Staff'}",
+                        f"{doc.get('from_date') or doc.get('date') or ''} → {doc.get('to_date') or ''} · {doc.get('reason') or ''}".strip(" ·→ "), "/staff")
     return {k: v for k, v in doc.items() if k != "_id"}
 
 
@@ -238,6 +241,9 @@ async def create_week_off_request(body: WeekOffChangeIn, s=Depends(_current_staf
         "requested_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.week_off_requests.insert_one(doc)
+    from services.tenant_notices import notify_tenant
+    await notify_tenant(s["tenant_id"], "staff", f"🔁 Week-off change request — {s.get('name') or 'Staff'}",
+                        f"Wants {doc.get('requested_day')} · {doc.get('reason') or ''}".strip(" ·"), "/staff")
     return {k: v for k, v in doc.items() if k != "_id"}
 
 
