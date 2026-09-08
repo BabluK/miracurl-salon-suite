@@ -3,7 +3,7 @@ import asyncio
 import html as html_lib
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 # Default banner art (AI-generated, hosted on Emergent CDN) — env vars override.
@@ -152,11 +152,34 @@ async def _resolve_recipients(to: list) -> list[str]:
     return list(dict.fromkeys(out))
 
 
+async def _log_email(requested: list, resolved: list, subject: str, result: dict, options: dict) -> None:
+    """Delivery log for HQ (email_log): who we tried to reach, what happened, why not. Never raises."""
+    try:
+        import uuid
+        from database import _raw_db
+        await _raw_db.email_log.insert_one({
+            "id": str(uuid.uuid4()), "at": datetime.now(timezone.utc).isoformat(),
+            "to": [x for x in (requested or []) if x], "resolved_to": resolved or [], "subject": (subject or "")[:200],
+            "sent": bool(result.get("sent")), "skipped": bool(result.get("skipped")), "error": result.get("error"),
+            "provider_id": result.get("id"), "attachments": len(options.get("attachments") or []),
+            "from_name": options.get("from_name") or "Miracurl",
+        })
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("email").warning("email_log write failed: %s", e)
+
+
 async def _send_email(to: list, subject: str, html: str, **options) -> dict:
     """Send via Resend. Options: attachments, reply_to, book_url, book_label, headers, from_name."""
     unknown = set(options) - _EMAIL_OPTION_KEYS
     if unknown:
         raise TypeError(f"_send_email got unexpected options: {sorted(unknown)}")
+    requested = list(to or [])
+    result = await _send_email_inner(requested, subject, html, options)
+    await _log_email(requested, result.pop("_resolved", []), subject, result, options)
+    return result
+
+
+async def _send_email_inner(to: list, subject: str, html: str, options: dict) -> dict:
     err = _resend_config_error()
     if err:
         return err
@@ -171,10 +194,10 @@ async def _send_email(to: list, subject: str, html: str, **options) -> dict:
         "suite_label": options.get("suite_label")})
     try:
         r = await asyncio.to_thread(resend.Emails.send, params)
-        return {"sent": True, "id": (r or {}).get("id")}
+        return {"sent": True, "id": (r or {}).get("id"), "_resolved": to}
     except Exception as e:
         logging.getLogger("email").error(f"resend send failed: {e}")
-        return {"sent": False, "error": str(e)[:300]}
+        return {"sent": False, "error": str(e)[:300], "_resolved": to}
 
 
 def _welcome_poster_row(poster_url: str) -> str:

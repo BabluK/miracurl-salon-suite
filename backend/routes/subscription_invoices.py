@@ -1,5 +1,6 @@
 """Subscription invoices: tenant downloads, HQ list/resend/backfill, biller identity."""
 import asyncio
+import os
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -254,3 +255,29 @@ async def hq_delete_tenant_note(tid: str, nid: str, user=Depends(require_super_a
     if not r.deleted_count:
         raise HTTPException(404, "Note not found")
     return {"ok": True}
+
+
+@router.get("/super-admin/email-log")
+async def hq_email_log(limit: int = 100, q: str = "", status: str = "all", user=Depends(require_super_admin)):
+    """HQ: every email the platform tried to send — recipient, subject, delivered / failed / skipped and why."""
+    flt: dict = {}
+    if status == "failed":
+        flt["sent"] = False
+        flt["skipped"] = {"$ne": True}
+    elif status == "skipped":
+        flt["skipped"] = True
+    elif status == "sent":
+        flt["sent"] = True
+    if q:
+        rx = {"$regex": q.strip(), "$options": "i"}
+        flt["$or"] = [{"to": rx}, {"subject": rx}, {"error": rx}]
+    rows = await _raw_db.email_log.find(flt, {"_id": 0}).sort("at", -1).to_list(max(1, min(limit, 500)))
+    since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    agg = await _raw_db.email_log.aggregate([{"$match": {"at": {"$gte": since}}}, {"$group": {
+        "_id": None, "total": {"$sum": 1}, "sent": {"$sum": {"$cond": ["$sent", 1, 0]}},
+        "skipped": {"$sum": {"$cond": [{"$eq": ["$skipped", True]}, 1, 0]}}}}]).to_list(1)
+    a = agg[0] if agg else {"total": 0, "sent": 0, "skipped": 0}
+    from email_service import _resend_config_error
+    cfg = _resend_config_error()
+    return {"rows": rows, "week": {"total": a["total"], "sent": a["sent"], "skipped": a["skipped"], "failed": a["total"] - a["sent"] - a["skipped"]},
+            "provider_ok": not cfg, "provider_error": (cfg or {}).get("error"), "sender": os.environ.get("SENDER_EMAIL", "")}

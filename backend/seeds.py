@@ -92,12 +92,15 @@ async def seed_super_admin():
     email = os.environ.get("SUPER_ADMIN_EMAIL", "super@miracurl.com").lower()
     # Auto-heal: an older seed re-created the default super-admin after the real one was renamed
     # (e.g. → admin@miracurl-suite.com). Remove the never-used duplicate so only one HQ login exists.
-    admins = await db.users.find({"role": "super_admin"}, {"_id": 0, "id": 1, "email": 1, "must_change_password": 1, "last_login_at": 1}).to_list(10)
-    if len(admins) > 1:
-        for a in admins:
-            if a.get("email") == email and a.get("must_change_password") and not a.get("last_login_at"):
-                await db.users.delete_one({"id": a["id"]})
-                logging.warning("[seed] removed duplicate default super-admin %s (renamed HQ login exists)", email)
+    # Runs ONCE (guarded by app_migrations) — never a recurring destructive step at startup.
+    if not await _raw_db.app_migrations.find_one({"key": "dedupe_default_super_admin_v1"}):
+        admins = await db.users.find({"role": "super_admin"}, {"_id": 0, "id": 1, "email": 1, "must_change_password": 1, "last_login_at": 1}).to_list(10)
+        if len(admins) > 1:
+            for a in admins:
+                if a.get("email") == email and a.get("must_change_password") and not a.get("last_login_at"):
+                    await db.users.update_one({"id": a["id"]}, {"$set": {"role": "retired_seed", "retired_at": datetime.now(timezone.utc).isoformat()}})
+                    logging.warning("[seed] retired duplicate default super-admin %s (renamed HQ login exists)", email)
+        await _raw_db.app_migrations.insert_one({"key": "dedupe_default_super_admin_v1", "at": datetime.now(timezone.utc).isoformat()})
     existing = await db.users.find_one({"$or": [{"email": email}, {"role": "super_admin"}]})
     if existing:
         # Never touch an existing super-admin (it may have been renamed, e.g. admin@miracurl-suite.com,
