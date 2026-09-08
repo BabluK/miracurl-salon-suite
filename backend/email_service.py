@@ -478,6 +478,43 @@ def trial_ending_email_html(t: dict, nudge: dict) -> str:
       </div>
     </div>"""
 
+def trial_extended_email_html(t: dict, info: dict) -> str:
+    """HQ extended / reset the free trial: new end date, what it means, thank-you note. info = {label, end_date, days_left, previous_end}."""
+    e = html_lib.escape
+    noun = "restaurant" if t.get("business_type") == "restaurant" else "salon"
+    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    row = lambda k, v: f"<tr><td style='padding:7px 0;color:#777;font-size:13px'>{k}</td><td style='padding:7px 0;text-align:right;font-weight:bold;font-size:13px'>{v}</td></tr>"
+    prev = f"{row('Previous end date', e(info['previous_end']))}" if info.get("previous_end") else ""
+    return f"""
+    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+      <div style="background:#1c1c22;padding:28px 30px;text-align:center">
+        {_brand_logo_img(t)}
+        <div style="color:#fff;font-size:22px;font-weight:bold">{e(t.get('name') or '')}</div>
+        <div style="color:#d4af37;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-top:6px">Free trial extended 🎁</div>
+      </div>
+      <div style="padding:28px 30px;color:#333">
+        <p style="font-family:Arial,sans-serif;font-size:14px">Hi <b>{e(t.get('owner_name') or t.get('name') or 'there')}</b>,</p>
+        <p style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7">Good news — the Miracurl team has extended the complimentary access for <b>{e(t.get('name') or '')}</b>.
+        Your {noun} now enjoys a <b>{e(info['label'])} free trial</b>, with every feature unlocked and nothing to pay.</p>
+        <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #eadfc0;border-radius:12px;padding:6px 16px;margin:18px 0">
+          {row("Free trial", e(info['label']))}
+          {prev}
+          {row("New end date", f"<span style='color:#b08d3f'>{e(info['end_date'])}</span>")}
+          {row("Days remaining", f"{int(info['days_left'])} days")}
+          {row("Amount due", "₹0 — complimentary")}
+        </table>
+        <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:14px 18px;font-size:13.5px;font-family:Arial,sans-serif;line-height:1.8">
+          <b>Thank you 💛</b><br/>We're genuinely grateful you're building your {noun} with Miracurl. Use this time to explore everything — bookings, billing,
+          staff, Mira AI — and tell us what would make it even better. Your feedback shapes what we build next.
+        </div>
+        <p style="font-family:Arial,sans-serif;font-size:13px;line-height:1.7;margin-top:18px">Nothing changes on your side — keep logging in as usual. We'll send a gentle reminder before the new end date.</p>
+        <p style="font-size:12px;color:#888;font-family:Arial,sans-serif;border-top:1px solid #eee;padding-top:14px;margin-top:22px">
+          Questions? Reply to this email or write to {hq_email}. · <a href="{base}/login" style="color:#b08d3f">Open your dashboard</a></p>
+      </div>
+    </div>"""
+
+
 def refund_notice_email_html(t: dict, info: dict) -> str:
     """Refund processed: what changed (access), refund reference, and a one-tap reactivation link."""
     e = html_lib.escape

@@ -11,14 +11,16 @@ export function TrialControlCard({ tenant, onChanged }) {
   const [end, setEnd] = useState(tenant.trial_end_date || tenant.trial_ends_at || "");
   const [custom, setCustom] = useState("");
   const [busy, setBusy] = useState(null);
+  const [notify, setNotify] = useState(true);
   const paid = !!tenant.subscription_end_date;
   const left = daysLeft(end);
   const apply = async (body, key) => {
     setBusy(key);
     try {
-      const { data } = await api.post(`/super-admin/tenants/${tenant.id}/trial`, body);
+      const { data } = await api.post(`/super-admin/tenants/${tenant.id}/trial`, { ...body, notify });
       setEnd(data.trial_end_date);
-      toast.success(`Free trial set to ${data.label} — ends ${fmt(data.trial_end_date)} (${data.days_left} days left)`);
+      const mail = data.email?.sent ? ` · owner emailed at ${data.email.to}` : notify && data.email?.error ? ` · ⚠ email not sent (${data.email.error})` : "";
+      toast.success(`Free trial set to ${data.label} — ends ${fmt(data.trial_end_date)} (${data.days_left} days left)${mail}`, { duration: 7000 });
       onChanged?.(data);
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't update the trial"); }
     finally { setBusy(null); }
@@ -52,6 +54,10 @@ export function TrialControlCard({ tenant, onChanged }) {
         <button type="button" disabled={!custom || !!busy} onClick={() => apply({ end_date: custom }, "custom")} data-testid="trial-custom-apply"
           className="px-3 py-1.5 rounded-full bg-slate-900 text-[#F0D9A5] text-xs font-semibold disabled:opacity-40">Set exact date</button>
       </div>
+      <label className="mt-3 inline-flex items-center gap-2 text-[11px] text-slate-600 cursor-pointer" data-testid="trial-notify-toggle">
+        <input type="checkbox" checked={notify} onChange={e => setNotify(e.target.checked)} className="accent-amber-600 w-3.5 h-3.5" />
+        Email the owner the new end date with a thank-you note {tenant.owner_email ? <span className="text-slate-400">({tenant.owner_email})</span> : <span className="text-rose-500">— no owner email on file</span>}
+      </label>
     </div>
   );
 }

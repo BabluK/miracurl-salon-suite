@@ -181,6 +181,7 @@ class TrialSetIn(BaseModel):
     months: Optional[int] = Field(None, description="3 | 6 | 9 | 12 — counted from today")
     days: Optional[int] = Field(None, ge=1, le=400, description="N days from today")
     end_date: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    notify: bool = True  # email the owner the new end date + thank-you note
 
 
 @router.post("/super-admin/tenants/{tid}/trial")
@@ -208,7 +209,19 @@ async def hq_set_trial(tid: str, body: TrialSetIn, user=Depends(require_super_ad
     if not t.get("subscription_end_date") and t.get("status") in (None, "trial", "cancelled", "suspended"):
         upd["status"] = "trial"
     await _raw_db.tenants.update_one({"id": tid}, {"$set": upd})
-    label = f"{body.months} months" if body.months else (f"{body.days} days" if body.days else f"until {body.end_date}")
+    label = ("1 year" if body.months == 12 else f"{body.months} months") if body.months else (f"{body.days} days" if body.days else f"until {body.end_date}")
+    days_left = (end.date() - now.date()).days
+    email_status = {"sent": False, "error": "no owner email"}
+    if body.notify and t.get("owner_email"):
+        from email_service import _send_email, trial_extended_email_html
+        prev = t.get("trial_end_date") or t.get("trial_ends_at")
+        info = {"label": label, "end_date": end.strftime("%d %b %Y"), "days_left": days_left,
+                "previous_end": datetime.fromisoformat(str(prev).replace("Z", "+00:00")).strftime("%d %b %Y") if prev else None}
+        email_status = await _send_email(
+            [t["owner_email"]], f"🎁 {t.get('name') or t['slug']} — your Miracurl free trial now runs until {info['end_date']}",
+            trial_extended_email_html({**t, **upd}, info))
     await _raw_db.hq_audit.insert_one({"id": str(__import__('uuid').uuid4()), "kind": "trial_set", "tenant_id": tid, "slug": t["slug"],
-                                       "by": user.get("email"), "label": label, "end": end.isoformat(), "at": now.isoformat()})
-    return {"ok": True, "trial_end_date": end.isoformat(), "days_left": (end.date() - now.date()).days, "label": label, "status": upd.get("status", t.get("status"))}
+                                       "by": user.get("email"), "label": label, "end": end.isoformat(), "at": now.isoformat(),
+                                       "email_sent": bool(email_status.get("sent")), "email_error": email_status.get("error")})
+    return {"ok": True, "trial_end_date": end.isoformat(), "days_left": days_left, "label": label,
+            "status": upd.get("status", t.get("status")), "email": {"sent": bool(email_status.get("sent")), "to": t.get("owner_email"), "error": email_status.get("error")}}
