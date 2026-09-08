@@ -42,7 +42,7 @@ def _rzp_client():
 
 async def _real_email(t: dict) -> str:
     """Deliverable inbox for a salon: tenant notify_email → owner's users.notify_email → owner_email if real."""
-    for cand in (t.get("notify_email"), t.get("owner_email")):
+    for cand in (t.get("notify_email"), t.get("salon_email"), t.get("owner_email")):
         cand = (cand or "").strip().lower()
         if not cand:
             continue

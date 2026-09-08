@@ -117,8 +117,8 @@ async def _tenant_inbox(user: dict | None) -> str | None:
     from database import _raw_db
     if not user or not user.get("tenant_id"):
         return None
-    t = await _raw_db.tenants.find_one({"id": user["tenant_id"]}, {"_id": 0, "notify_email": 1, "owner_email": 1}) or {}
-    return _real(t.get("notify_email")) or _real(t.get("owner_email"))
+    t = await _raw_db.tenants.find_one({"id": user["tenant_id"]}, {"_id": 0, "notify_email": 1, "salon_email": 1, "owner_email": 1}) or {}
+    return _real(t.get("notify_email")) or _real(t.get("salon_email")) or _real(t.get("owner_email"))
 
 
 async def _inboxes_for_login(login: str) -> list[str]:

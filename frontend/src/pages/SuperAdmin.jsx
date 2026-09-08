@@ -64,7 +64,39 @@ import { AssistQueueCard } from "@/components/superadmin/AssistQueueCard";
 import { BadgeCheck, Rocket } from "lucide-react";
 import { Briefcase } from "lucide-react";
 import { NetSpeedIndicator } from "@/components/NetSpeedIndicator";
-import { Palette, Activity, Database, ImagePlus } from "lucide-react";
+import { Palette, Activity, Database, ImagePlus, FileDown, MailCheck, IdCard } from "lucide-react";
+
+async function downloadBlob(url, filename) {
+  const r = await api.get(url, { responseType: "blob" });
+  const href = URL.createObjectURL(r.data);
+  const a = Object.assign(document.createElement("a"), { href, download: filename });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 4000);
+}
+
+function TenantExportButtons() {
+  const [busy, setBusy] = useState("");
+  const csv = async () => {
+    setBusy("csv");
+    try { await downloadBlob("/super-admin/tenants-export.csv", `miracurl-tenants-${new Date().toISOString().slice(0, 10)}.csv`); toast.success("Tenant register downloaded"); }
+    catch { toast.error("Download failed"); } finally { setBusy(""); }
+  };
+  const mail = async () => {
+    setBusy("mail");
+    try { const { data } = await api.post("/super-admin/tenants-export/email"); toast.success(`Register with ${data.tenants} tenants emailed to ${data.sent_to}`); }
+    catch (e) { toast.error(e.response?.data?.detail || "Email failed"); } finally { setBusy(""); }
+  };
+  return (
+    <>
+      <button data-testid="tenants-export-csv-btn" onClick={csv} disabled={!!busy} title="Download every tenant's details (owner, contacts, trial & plan dates) as CSV" className="h-9 px-3 rounded-full border border-slate-200 bg-white text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 hover:bg-slate-50 disabled:opacity-50">
+        <FileDown className="w-3.5 h-3.5" /> {busy === "csv" ? "Preparing…" : "Download list"}
+      </button>
+      <button data-testid="tenants-export-email-btn" onClick={mail} disabled={!!busy} title="Email the full tenant register to booking@miracurl-suite.com" className="h-9 px-3 rounded-full border border-slate-200 bg-white text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 hover:bg-slate-50 disabled:opacity-50">
+        <MailCheck className="w-3.5 h-3.5" /> {busy === "mail" ? "Sending…" : "Email to booking@"}
+      </button>
+    </>
+  );
+}
 
 const PLAN_BADGE = {
   starter: "bg-blue-500/10 text-blue-300 border-blue-500/20",
@@ -546,6 +578,7 @@ export default function SuperAdmin() {
                 </span>
               )}
             </button>
+            <TenantExportButtons />
             <button data-testid="super-new-tenant-btn" onClick={startNew} className="btn-blue !h-9 !py-0 !px-4 !rounded-full text-xs inline-flex items-center gap-1.5 whitespace-nowrap">
               <Plus className="w-3.5 h-3.5" /> New Tenant
             </button>
@@ -701,6 +734,7 @@ export default function SuperAdmin() {
                   <div className="flex items-center gap-0.5 border border-slate-100 rounded-lg px-1.5 py-1">
                     <button data-testid={`open-salon-${t.id}`} onClick={() => { setActAsSalon(t.slug, t.name); nav("/dashboard"); }} title="Open salon workspace (edit & correct — no deletes)" className="p-1.5 text-violet-600 hover:bg-violet-50 rounded"><Eye className="w-3.5 h-3.5" /></button>
                     <button data-testid={`diagnose-tenant-${t.id}`} onClick={() => setDiagFor(t)} title="Diagnose — find why this salon feels slow & clear their cache" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Stethoscope className="w-3.5 h-3.5" /></button>
+                    <button data-testid={`tenant-profile-pdf-${t.id}`} onClick={() => downloadBlob(`/super-admin/tenants/${t.id}/profile.pdf`, `Miracurl-Account-Profile-${t.slug}.pdf`).then(() => toast.success("Account profile PDF downloaded")).catch(() => toast.error("Couldn't build the PDF"))} title="Account Profile PDF — HQ + tenant logo, owner & business details, trial and plan dates" className="p-1.5 text-amber-600 hover:bg-amber-50 rounded"><IdCard className="w-3.5 h-3.5" /></button>
                     <button data-testid={`edit-tenant-${t.id}`} onClick={() => setEditFor(t)} title="Edit salon details, credentials & branch links" className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded"><Pencil className="w-3.5 h-3.5" /></button>
                     <button data-testid={`pay-link-${t.id}`} onClick={() => setPayLinkFor(t)} title="Generate subscription payment link — tenant pays, plan activates" className="p-1.5 text-amber-600 hover:bg-amber-50 rounded"><CreditCard className="w-3.5 h-3.5" /></button>
                     <button data-testid={`import-customers-${t.id}`} onClick={() => setImportFor(t)} title="Import customers" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Upload className="w-3.5 h-3.5" /></button>

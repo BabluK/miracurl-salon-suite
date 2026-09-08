@@ -384,7 +384,7 @@ async def list_tenants(user=Depends(require_super_admin)):
             real_inbox.update((a.get("tenant_ids") or []) + ([a["tenant_id"]] if a.get("tenant_id") else []))
     for t in tenants:
         t["inbox_ok"] = (t["id"] in real_inbox) or any(
-            t.get(k) and not _is_login_only(t[k]) for k in ("notify_email", "owner_email"))
+            t.get(k) and not _is_login_only(t[k]) for k in ("notify_email", "salon_email", "owner_email"))
     for t in tenants:
         t["owner_salon_count"] = counts.get(t.get("owner_email"), 1)
         if t.get("referred_by_tenant_id"):
@@ -528,6 +528,7 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
     t["created_at"] = _now.isoformat()
     t["trial_ends_at"] = t["trial_end_date"] = _end
     t["trial_months"] = body.trial_months
+    t["owner_name"] = body.owner_name
     if body.logo_url:
         t["logo_url"] = body.logo_url
     await db.tenants.insert_one(t)

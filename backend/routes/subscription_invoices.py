@@ -1,5 +1,6 @@
 """Subscription invoices: tenant downloads, HQ list/resend/backfill, biller identity."""
 import asyncio
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
@@ -119,3 +120,43 @@ async def hq_biller_put(body: BillerIn, user=Depends(require_super_admin)):
     if d["gstin"]:
         d["state_code"] = d["gstin"][:2]
     return await save_biller(d)
+
+
+@router.get("/super-admin/tenants-export.csv")
+async def hq_tenants_csv(user=Depends(require_super_admin)):
+    from services.tenant_profile_pdf import tenants_csv
+    body = await tenants_csv()
+    return Response(body, media_type="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="miracurl-tenants-{datetime.now(timezone.utc).date()}.csv"'})
+
+
+@router.post("/super-admin/tenants-export/email")
+async def hq_tenants_csv_email(user=Depends(require_super_admin)):
+    """Mail the full tenant register (CSV) to booking@miracurl-suite.com so HQ has a paper trail in the inbox."""
+    import base64
+    from email_service import _send_email
+    from services.tenant_profile_pdf import tenants_csv
+    body = await tenants_csv()
+    n = max(0, body.count("\n") - 1)
+    to = ["booking@miracurl-suite.com"]
+    status = await _send_email(
+        to, f"📋 Miracurl tenant register — {n} businesses ({datetime.now(timezone.utc).strftime('%d %b %Y')})",
+        f"<div style='font-family:Arial,sans-serif;max-width:560px'><h2 style='margin:0 0 8px'>Tenant register</h2>"
+        f"<p>{n} salons & restaurants on file as of {datetime.now(timezone.utc).strftime('%d %b %Y, %H:%M UTC')}. "
+        f"Full details (owner, contacts, trial & subscription dates, plan) are in the attached CSV — open it in Excel or Google Sheets.</p>"
+        f"<p style='color:#888;font-size:12px'>Sent by {user.get('email')} from Miracurl HQ → Tenants.</p></div>",
+        attachments=[{"filename": f"miracurl-tenants-{datetime.now(timezone.utc).date()}.csv", "content": base64.b64encode(body.encode()).decode()}])
+    if not status.get("sent"):
+        raise HTTPException(400, status.get("error") or "Email failed")
+    return {"ok": True, "sent_to": to[0], "tenants": n}
+
+
+@router.get("/super-admin/tenants/{tid}/profile.pdf")
+async def hq_tenant_profile_pdf(tid: str, user=Depends(require_super_admin)):
+    from services.tenant_profile_pdf import render_tenant_profile
+    t = await _raw_db.tenants.find_one({"id": tid}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Tenant not found")
+    pdf = await render_tenant_profile(t)
+    return Response(pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="Miracurl-Account-Profile-{t["slug"]}.pdf"'})

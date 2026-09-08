@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-08.225"
-BUILD_TIME = "08 Sep 2026, 09:00 AM IST"
+BUILD = "2026-09-08.226"
+BUILD_TIME = "08 Sep 2026, 10:30 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-08.226", "note": "Account Profile PDF (HQ + tenant logo, all details, HQ contacts) attached to congrats email + per-tenant download; tenant register CSV download & email to booking@; settlement/inbox detection now honours salon_email; security P3 hardening"},
     {"build": "2026-09-08.225", "note": "Refund notice email with one-tap reactivation link (owner + HQ billing copy); trial-offer conversion stats in HQ Billing"},
     {"build": "2026-09-08.224", "note": "Razorpay webhook reconciliation ON (captured/failed/refund auto-sync, HQ webhook health card); trial upgrade offer (HQ-configurable discount in the final trial nudge); polished pay-link page with brand mark + tenant logo"},
     {"build": "2026-09-08.223", "note": "HQ onboarding: custom free-trial lengths (30d / 3 / 6 / 9 / 12 mo) + logo upload or AI logo, ₹0 Free Trial invoice + Congratulations email; trial-ending nudge (15/7/1 days) with one-tap upgrade pay link; code cleanup"},
@@ -52,6 +53,9 @@ RELEASES = [
             "✨ Pay-link page polish: Miracurl Suite brand mark header, the business's own logo in a gold ring, vertical-aware benefits, friendlier trial-upgrade copy",
             "↩️ Refund notice: when Razorpay processes a refund, the owner gets an email with the refund reference, exactly what changed to their access, and a one-tap reactivation pay link — HQ billing gets a copy",
             "📈 Offer conversion stats: HQ → Billing → Trial upgrade offer now shows sent → opened → paid funnels for offer vs plain nudges (30d / 90d / 1y), revenue, discount given and recent upgrades",
+            "🪪 Account Profile PDF: Miracurl HQ logo + the business's logo, owner name/phone/email, business name/phone/email/location, free-trial start & end, active plan with subscription dates, and HQ contacts (contact@ / support@ / admin@miracurl-suite.com) — attached to the Congratulations email and downloadable per tenant from HQ → Tenants (ID-card icon)",
+            "📋 Tenant register: HQ → Tenants has 'Download list' (CSV with every tenant's details) and 'Email to booking@' so the register is also tracked from the inbox",
+            "✉️ Fix: settlement tracker & inbox badges now recognise the business email saved in Settings → Salon profile (no more 'no real email on file' when it's filled)",
         ],
     },
     {

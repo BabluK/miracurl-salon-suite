@@ -2921,3 +2921,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-08 (later 4) — Security audit (PASS) + P3 hardening
 - security_audit_agent on billing/webhook/trial surface: PASS, no Critical/High/Medium. P3 items: unauthenticated /api/files/{id} (random UUID capability URLs; pre-existing, left as-is since assets are public-intended), host-header in emailed pay links, pay-link GET metadata, webhook 500 body leak, de-dupe without header.
 - Fixed: HQ email_pay_link now always uses APP_PUBLIC_URL; webhook 500 body is generic; webhook de-dupe falls back to a payload fingerprint when x-razorpay-event-id is missing. Pytest iter142 10/10 still green.
+
+## 2026-09-08 (later 5) — Account Profile PDF, tenant register export, salon_email inbox fix
+- `services/tenant_profile_pdf.py`: `render_tenant_profile(t)` A4 (brand band w/ HQ logo, tenant logo strip, Business / Owner / Access & subscription blocks, HQ contacts contact@/support@/admin@miracurl-suite.com + WhatsApp, powered footer); `tenants_csv()` full register. Endpoints in routes/subscription_invoices.py: `GET /super-admin/tenants/{tid}/profile.pdf`, `GET /super-admin/tenants-export.csv`, `POST /super-admin/tenants-export/email` (→ booking@miracurl-suite.com with CSV). Profile PDF attached to trial congrats email (3 attachments now). Tenant now stores owner_name at HQ onboarding.
+- HQ Tenants: `TenantExportButtons` (tenants-export-csv-btn, tenants-export-email-btn) + per-row `tenant-profile-pdf-<id>` IdCard button (SuperAdmin.jsx).
+- Fix: `_real_email` (rewards_settlements), inbox_ok (super_admin_ops) and `_tenant_inbox` (email_service) now consider `salon_email` — resolves "no real email on file" when the salon profile email is filled.
+- Verified via curl (PDF renders, CSV, email sent ok, settlements emails resolve) + screenshot. BUILD 2026-09-08.226.

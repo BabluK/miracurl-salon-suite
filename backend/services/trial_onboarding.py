@@ -115,7 +115,8 @@ def congrats_email_html(inv: dict, t: dict) -> str:
         <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:14px 18px;font-size:13px;font-family:Arial,sans-serif;line-height:1.9">
           <b>📎 Attached</b><br/>
           1. <b>Free Trial Invoice</b> — {e(inv['number'])}.pdf (₹0, for your records)<br/>
-          2. <b>Terms &amp; Conditions</b>
+          2. <b>Account Profile</b> — every detail we have on file for your {noun}, owner contacts, trial dates &amp; how to reach HQ<br/>
+          3. <b>Terms &amp; Conditions</b>
         </div>
         <p style="font-size:13px;line-height:1.7;margin-top:18px">Your login details were sent in a separate email. We'll remind you before the trial ends so your {noun} never loses access.</p>
         <p style="font-size:12px;color:#888;margin-top:18px">
@@ -132,8 +133,11 @@ async def send_trial_congrats(inv: dict, resend: bool = False) -> dict:
     inv["_logo"] = await platform_logo_bytes()
     inv["_tenant_logo"] = await image_bytes_from_url(inv.get("tenant_logo_url"))
     safe = inv["number"].replace("/", "-")
+    from services.tenant_profile_pdf import render_tenant_profile
+    profile_pdf = await render_tenant_profile(t)
     attachments = await asyncio.to_thread(lambda: [
         {"filename": f"Miracurl-Free-Trial-Invoice-{safe}.pdf", "content": base64.b64encode(build_invoice_pdf(inv)).decode()},
+        {"filename": f"Miracurl-Account-Profile-{t.get('slug', '')}.pdf", "content": base64.b64encode(profile_pdf).decode()},
         {"filename": "Miracurl-Terms-and-Conditions.pdf", "content": base64.b64encode(build_terms_pdf(inv["_logo"])).decode()},
     ])
     subject = f"{'[Resent] ' if resend else ''}🎉 Congratulations {t.get('name') or ''} — your {inv['trial_label']} free trial is live"
