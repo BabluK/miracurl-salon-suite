@@ -4,13 +4,13 @@ import { Bell, BellOff, Sparkles, Pause, Play, RotateCcw, Clock, CreditCard, Inb
 
 export function StatusActionButton({ t, setStatus, reactivateTenant }) {
   if (t.status === "active" || t.status === "trial") {
-    return <button data-testid={`suspend-tenant-${t.id}`} onClick={() => setStatus(t, "suspended")} title="Suspend" className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded"><Pause className="w-3.5 h-3.5" /></button>;
+    return <button data-testid={`suspend-tenant-${t.id}`} onClick={() => setStatus(t, "suspended")} title="Suspend this tenant's access" className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-amber-600 hover:bg-amber-50 text-[9.5px] font-semibold leading-none"><Pause className="w-3.5 h-3.5" />Suspend</button>;
   }
   if (t.status === "suspended") {
-    return <button data-testid={`activate-tenant-${t.id}`} onClick={() => setStatus(t, "active")} title="Re-activate" className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded"><Play className="w-3.5 h-3.5" /></button>;
+    return <button data-testid={`activate-tenant-${t.id}`} onClick={() => setStatus(t, "active")} title="Re-activate access" className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-emerald-600 hover:bg-emerald-50 text-[9.5px] font-semibold leading-none"><Play className="w-3.5 h-3.5" />Activate</button>;
   }
   if (t.status === "cancelled") {
-    return <button data-testid={`reactivate-tenant-${t.id}`} onClick={() => reactivateTenant(t)} title="Re-onboard: restore salon + new credentials + welcome email" className="p-1.5 text-emerald-500 hover:bg-emerald-500/10 rounded"><RotateCcw className="w-3.5 h-3.5" /></button>;
+    return <button data-testid={`reactivate-tenant-${t.id}`} onClick={() => reactivateTenant(t)} title="Re-onboard: restore salon + new credentials + welcome email" className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-emerald-600 hover:bg-emerald-50 text-[9.5px] font-semibold leading-none"><RotateCcw className="w-3.5 h-3.5" />Re-onboard</button>;
   }
   return null;
 }

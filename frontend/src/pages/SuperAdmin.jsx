@@ -74,6 +74,15 @@ async function downloadBlob(url, filename) {
   setTimeout(() => URL.revokeObjectURL(href), 4000);
 }
 
+function ActionBtn({ icon: Icon, label, onClick, title, tone, testid, strokeWidth }) {
+  return (
+    <button data-testid={testid} onClick={onClick} title={title}
+      className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-[9.5px] font-semibold leading-none transition-colors ${tone}`}>
+      <Icon className="w-3.5 h-3.5" strokeWidth={strokeWidth || 2} />{label}
+    </button>
+  );
+}
+
 function TenantExportButtons() {
   const [busy, setBusy] = useState("");
   const csv = async () => {
@@ -731,18 +740,18 @@ export default function SuperAdmin() {
                     <button data-testid={`sms-points-${t.id}`} onClick={() => creditSms(t)} title="Credit SMS points"
                       className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition">+ Add</button>
                   </div>
-                  <div className="flex items-center gap-0.5 border border-slate-100 rounded-lg px-1.5 py-1">
-                    <button data-testid={`open-salon-${t.id}`} onClick={() => { setActAsSalon(t.slug, t.name); nav("/dashboard"); }} title="Open salon workspace (edit & correct — no deletes)" className="p-1.5 text-violet-600 hover:bg-violet-50 rounded"><Eye className="w-3.5 h-3.5" /></button>
-                    <button data-testid={`diagnose-tenant-${t.id}`} onClick={() => setDiagFor(t)} title="Diagnose — find why this salon feels slow & clear their cache" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Stethoscope className="w-3.5 h-3.5" /></button>
-                    <button data-testid={`tenant-profile-pdf-${t.id}`} onClick={() => downloadBlob(`/super-admin/tenants/${t.id}/profile.pdf`, `Miracurl-Account-Profile-${t.slug}.pdf`).then(() => toast.success("Account profile PDF downloaded")).catch(() => toast.error("Couldn't build the PDF"))} title="Account Profile PDF — HQ + tenant logo, owner & business details, trial and plan dates" className="p-1.5 text-amber-600 hover:bg-amber-50 rounded"><IdCard className="w-3.5 h-3.5" /></button>
-                    <button data-testid={`edit-tenant-${t.id}`} onClick={() => setEditFor(t)} title="Edit salon details, credentials & branch links" className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded"><Pencil className="w-3.5 h-3.5" /></button>
-                    <button data-testid={`pay-link-${t.id}`} onClick={() => setPayLinkFor(t)} title="Generate subscription payment link — tenant pays, plan activates" className="p-1.5 text-amber-600 hover:bg-amber-50 rounded"><CreditCard className="w-3.5 h-3.5" /></button>
-                    <button data-testid={`import-customers-${t.id}`} onClick={() => setImportFor(t)} title="Import customers" className="p-1.5 text-sky-600 hover:bg-sky-50 rounded"><Upload className="w-3.5 h-3.5" /></button>
-                    <button data-testid={`clean-dummy-${t.id}`} onClick={() => setCleanFor(t)} title="Clean test data — removes test/dummy bookings, customers & TEST staff" className="px-1.5 py-1 text-rose-500 hover:bg-rose-50 rounded inline-flex items-center gap-1 border border-rose-200 text-[13px] leading-none">🧹</button>
+                  <div className="flex items-center gap-0.5 border border-slate-200 bg-slate-50/60 rounded-xl px-1.5 py-1" data-testid={`tenant-actions-${t.id}`}>
+                    <ActionBtn testid={`open-salon-${t.id}`} onClick={() => { setActAsSalon(t.slug, t.name); nav("/dashboard"); }} title="Open this tenant's workspace (edit & correct — no deletes)" tone="text-violet-600 hover:bg-violet-50" icon={Eye} label="Open" />
+                    <ActionBtn testid={`edit-tenant-${t.id}`} onClick={() => setEditFor(t)} title="Edit details, credentials & branch links" tone="text-emerald-600 hover:bg-emerald-50" icon={Pencil} label="Edit" />
+                    <ActionBtn testid={`tenant-profile-pdf-${t.id}`} onClick={() => downloadBlob(`/super-admin/tenants/${t.id}/profile.pdf`, `Miracurl-Account-Profile-${t.slug}.pdf`).then(() => toast.success("Account profile PDF downloaded")).catch(() => toast.error("Couldn't build the PDF"))} title="Account Profile PDF — HQ + tenant logo, owner & business details, trial and plan dates" tone="text-amber-600 hover:bg-amber-50" icon={IdCard} label="Profile" />
+                    <ActionBtn testid={`pay-link-${t.id}`} onClick={() => setPayLinkFor(t)} title="Generate a subscription pay link — tenant pays, plan activates" tone="text-amber-600 hover:bg-amber-50" icon={CreditCard} label="Pay link" />
+                    <ActionBtn testid={`import-customers-${t.id}`} onClick={() => setImportFor(t)} title="Import customers from CSV" tone="text-sky-600 hover:bg-sky-50" icon={Upload} label="Import" />
+                    <ActionBtn testid={`diagnose-tenant-${t.id}`} onClick={() => setDiagFor(t)} title="Diagnose — find why this tenant feels slow & clear their cache" tone="text-sky-600 hover:bg-sky-50" icon={Stethoscope} label="Diagnose" />
+                    <ActionBtn testid={`clean-dummy-${t.id}`} onClick={() => setCleanFor(t)} title="Clean test data — removes test/dummy bookings, customers & TEST staff" tone="text-rose-500 hover:bg-rose-50" icon={Eraser} label="Clean" />
                     <StatusActionButton t={t} setStatus={setStatus} reactivateTenant={reactivateTenant} />
-                    <span className="w-px h-4 bg-slate-200 mx-0.5" />
-                    <button data-testid={`delete-tenant-${t.id}`} onClick={() => deleteTenant(t)} title="Cancel subscription" className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
-                    <button data-testid={`permanent-delete-tenant-${t.id}`} onClick={() => permanentDeleteTenant(t)} title="Permanently delete (erase all data — irreversible)" className="p-1.5 text-slate-400 hover:text-white hover:bg-red-600 rounded"><Trash2 className="w-3.5 h-3.5" strokeWidth={2.5} /></button>
+                    <span className="w-px h-6 bg-slate-200 mx-1" />
+                    <ActionBtn testid={`delete-tenant-${t.id}`} onClick={() => deleteTenant(t)} title="Cancel subscription (data kept)" tone="text-slate-400 hover:text-red-500 hover:bg-red-50" icon={Trash2} label="Cancel" />
+                    <ActionBtn testid={`permanent-delete-tenant-${t.id}`} onClick={() => permanentDeleteTenant(t)} title="Permanently delete — erases all data, irreversible" tone="text-slate-400 hover:text-white hover:bg-red-600" icon={Trash2} label="Erase" strokeWidth={2.5} />
                   </div>
                 </div>
               </div>

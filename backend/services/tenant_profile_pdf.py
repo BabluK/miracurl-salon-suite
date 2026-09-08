@@ -37,20 +37,29 @@ async def tenant_profile_data(t: dict) -> dict:
     }
 
 
-def _block(c, x, y, mm, heading, rows, label_w=38):
+def _section(c, x, y, mm, width, heading, rows):
+    """Heading + two-column key/value table; values wrap, rows are zebra-striped. Returns new y."""
+    from reportlab.lib import colors
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Paragraph, Table, TableStyle
+    lab = ParagraphStyle("lab", fontName="Helvetica", fontSize=8.5, textColor=colors.Color(*GREY), leading=11)
+    val = ParagraphStyle("val", fontName="Helvetica-Bold", fontSize=9.5, textColor=colors.Color(*INK), leading=12)
     c.setFillColorRGB(*GOLD)
     c.setFont("Helvetica-Bold", 8.5)
     c.drawString(x, y, heading.upper())
-    y -= 6.5 * mm
-    for label, val in rows:
-        c.setFillColorRGB(*GREY)
-        c.setFont("Helvetica", 8.5)
-        c.drawString(x, y, label)
-        c.setFillColorRGB(*INK)
-        c.setFont("Helvetica-Bold", 9.5)
-        c.drawString(x + label_w * mm, y, str(val or "—")[:70])
-        y -= 6 * mm
-    return y - 4 * mm
+    c.setStrokeColorRGB(*GOLD)
+    c.setLineWidth(0.6)
+    c.line(x, y - 2 * mm, x + width, y - 2 * mm)
+    data = [[Paragraph(str(k), lab), Paragraph(str(v or "—").replace("&", "&amp;").replace("<", "&lt;"), val)] for k, v in rows]
+    tbl = Table(data, colWidths=[42 * mm, width - 42 * mm])
+    tbl.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 3.2), ("BOTTOMPADDING", (0, 0), (-1, -1), 3.2),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.Color(*LIGHT), colors.white]),
+    ]))
+    _, h = tbl.wrapOn(c, width, 400 * mm)
+    tbl.drawOn(c, x, y - 4 * mm - h)
+    return y - 4 * mm - h - 9 * mm
 
 
 def build_tenant_profile_pdf(t: dict, data: dict, hq_logo: bytes | None, tenant_logo: bytes | None, site: dict) -> bytes:
@@ -64,18 +73,18 @@ def build_tenant_profile_pdf(t: dict, data: dict, hq_logo: bytes | None, tenant_
     draw_brand_band(c, W, H, mm, logo=hq_logo, title="ACCOUNT PROFILE",
                     meta=[f"Issued {datetime.now(timezone.utc).strftime('%d %b %Y')}", f"Ref: {t['id'][:8].upper()}"])
     y = H - 56 * mm
-    # tenant identity strip
     c.setFillColorRGB(*LIGHT)
     c.roundRect(18 * mm, y - 14 * mm, W - 36 * mm, 26 * mm, 4 * mm, stroke=0, fill=1)
     lx = 22 * mm
     if draw_logo(c, tenant_logo, lx, y - 12 * mm, 22 * mm, 22 * mm):
         lx += 27 * mm
+    name = str(t.get("name") or t["slug"])
     c.setFillColorRGB(*INK)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(lx, y + 3 * mm, str(t.get("name") or t["slug"])[:48])
+    c.setFont("Helvetica-Bold", 15 if len(name) < 34 else 12)
+    c.drawString(lx, y + 3 * mm, name[:60])
     c.setFillColorRGB(*GREY)
     c.setFont("Helvetica", 9)
-    c.drawString(lx, y - 3 * mm, f"{(t.get('business_type') or 'salon').title()}  ·  {t.get('location') or ''}"[:90])
+    c.drawString(lx, y - 3 * mm, f"{(t.get('business_type') or 'salon').title()}  ·  {t.get('location') or ''}"[:80])
     c.setFillColorRGB(*GOLD)
     c.setFont("Helvetica-Bold", 9)
     c.drawRightString(W - 22 * mm, y + 3 * mm, (t.get("status") or "").upper())
@@ -83,21 +92,12 @@ def build_tenant_profile_pdf(t: dict, data: dict, hq_logo: bytes | None, tenant_
     c.setFont("Helvetica", 8)
     c.drawRightString(W - 22 * mm, y - 3 * mm, f"miracurl-suite.com/book/{t.get('slug')}")
     y -= 26 * mm
-    y_l = _block(c, 18 * mm, y, mm, "Business details", data["business"])
-    y_r = _block(c, 110 * mm, y, mm, "Owner", data["owner"], label_w=30)
-    y = min(y_l, y_r)
-    y = _block(c, 18 * mm, y, mm, "Access & subscription", data["access"], label_w=42)
-    c.setFillColorRGB(*GOLD)
-    c.setFont("Helvetica-Bold", 8.5)
-    c.drawString(18 * mm, y, "MIRACURL HQ — WE'RE HERE FOR YOU")
-    y -= 6.5 * mm
-    for label, mail in HQ_CONTACTS:
-        c.setFillColorRGB(*GREY); c.setFont("Helvetica", 8.5); c.drawString(18 * mm, y, label)
-        c.setFillColorRGB(*INK); c.setFont("Helvetica-Bold", 9.5); c.drawString(56 * mm, y, mail)
-        y -= 6 * mm
-    if site.get("whatsapp"):
-        c.setFillColorRGB(*GREY); c.setFont("Helvetica", 8.5); c.drawString(18 * mm, y, "WhatsApp")
-        c.setFillColorRGB(*INK); c.setFont("Helvetica-Bold", 9.5); c.drawString(56 * mm, y, f"+{site['whatsapp']}")
+    width = W - 36 * mm
+    y = _section(c, 18 * mm, y, mm, width, "Business details", data["business"])
+    y = _section(c, 18 * mm, y, mm, width, "Owner", data["owner"])
+    y = _section(c, 18 * mm, y, mm, width, "Access & subscription", data["access"])
+    contacts = list(HQ_CONTACTS) + ([("WhatsApp", f"+{site['whatsapp']}")] if site.get("whatsapp") else [])
+    _section(c, 18 * mm, y, mm, width, "Miracurl HQ — we're here for you", contacts)
     draw_powered_footer(c, W, mm, hq_logo, [
         "This profile lists the details on file for your account. Update them anytime from Settings → Salon / Restaurant profile.",
         "Terms: miracurl-suite.com/terms   ·   Privacy: miracurl-suite.com/privacy", "Miracurl Suite · Salon & Restaurant Management"])
