@@ -12,6 +12,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
+from pymongo import ReturnDocument
 
 from database import db, _raw_db
 from security import require_super_admin, require_tenant_admin, current_tenant
@@ -535,6 +536,69 @@ async def _grant_referral_free_month(referrer_tid: str) -> str:
     return "free month banked — auto-applies on the next subscription purchase"
 
 
+async def _activate_pending_order(pending_doc: dict, payment_id: str, t: dict, recorded_by: str, now: datetime):
+    """Activate the plan for an atomically-claimed `razorpay_pending` order (shared by /verify and the webhook)."""
+    # Use the SERVER-recorded plan, never the client's — SEC-002 fix.
+    server_plan = pending_doc["plan"]
+    plan_info = await _fresh_plan_or_400(server_plan)
+    today_iso = now.date().isoformat()
+
+    # Multi-branch plans: apply to every branch the owner picked at checkout.
+    target_tids = pending_doc.get("branch_tenant_ids") or [t["id"]]
+    subs = await _apply_subscription_to_tenants(
+        target_tids, server_plan, plan_info,
+        payment_method="razorpay", payment_ref=payment_id,
+        notes=f"Razorpay order {pending_doc['razorpay_order_id']}; credits applied ₹{pending_doc.get('credits_applied',0)}",
+        start=now)
+    sub = next((s for s in subs if s["tenant_id"] == t["id"]), subs[0])
+
+    # Apply any banked referral free months the buyer earned earlier.
+    banked = int(t.get("referral_free_months") or 0)
+    if banked > 0:
+        bonus = timedelta(days=30 * banked)
+        for s2 in subs:
+            new_end2 = (datetime.fromisoformat(s2["end_date"]) + bonus).date().isoformat()
+            await db.subscriptions.update_one(
+                {"id": s2["id"]}, {"$set": {"end_date": new_end2, "referral_bonus_days": 30 * banked}})
+            await db.tenants.update_one({"id": s2["tenant_id"]}, {"$set": {"subscription_end_date": new_end2}})
+            s2["end_date"] = new_end2
+        await db.tenants.update_one({"id": t["id"]}, {"$set": {"referral_free_months": 0}})
+
+    pay = SubscriptionPayment(
+        subscription_id=sub["id"],
+        tenant_id=t["id"],
+        amount=float(pending_doc["amount"]),
+        paid_at=today_iso,
+        method="razorpay",
+        txn_ref=payment_id,
+        recorded_by=recorded_by,
+        notes=f"Order {pending_doc['razorpay_order_id']}",
+    ).model_dump()
+    await db.subscription_payments.insert_one(pay)
+    await _record_partner_commission(t, pay)
+    pay.pop("_id", None)
+    await issue_subscription_kit(pay, sub, credits_applied=float(pending_doc.get("credits_applied") or 0),
+                                 branches=len(target_tids))
+
+    if pending_doc.get("credits_applied", 0) > 0:
+        await db.tenants.update_one(
+            {"id": t["id"]},
+            {"$inc": {"affiliate_credits": -float(pending_doc["credits_applied"])}},
+        )
+
+    # Anti-farming: release the referral reward (1 FREE MONTH) now that this salon paid.
+    pending_ref = await db.affiliate_referrals.find_one({"referred_tenant_id": t["id"], "status": "pending"})
+    if pending_ref:
+        reward_note = await _grant_referral_free_month(pending_ref["referrer_tenant_id"])
+        await db.affiliate_referrals.update_one(
+            {"id": pending_ref["id"]},
+            {"$set": {"status": "credited", "credited_at": today_iso,
+                      "reward": "free_month", "reward_note": reward_note}},
+        )
+
+    return sub, server_plan, target_tids
+
+
 @router.post("/billing/razorpay/verify")
 async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Verify the checkout signature and create/extend the tenant's subscription.
@@ -567,94 +631,98 @@ async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=De
     if not pending_doc:
         raise HTTPException(400, "Unknown, already-consumed, or foreign order — please retry from scratch.")
 
-    # Use the SERVER-recorded plan, never the client's — SEC-002 fix.
-    server_plan = pending_doc["plan"]
-    plan_info = await _fresh_plan_or_400(server_plan)
-    today_iso = now.date().isoformat()
-
-    # Multi-branch plans: apply to every branch the owner picked at checkout.
-    target_tids = pending_doc.get("branch_tenant_ids") or [t["id"]]
-    subs = await _apply_subscription_to_tenants(
-        target_tids, server_plan, plan_info,
-        payment_method="razorpay", payment_ref=body.razorpay_payment_id,
-        notes=f"Razorpay order {body.razorpay_order_id}; credits applied ₹{pending_doc.get('credits_applied',0)}",
-        start=now)
-    sub = next((s for s in subs if s["tenant_id"] == t["id"]), subs[0])
-
-    # Apply any banked referral free months the buyer earned earlier.
-    banked = int(t.get("referral_free_months") or 0)
-    if banked > 0:
-        bonus = timedelta(days=30 * banked)
-        for s2 in subs:
-            new_end2 = (datetime.fromisoformat(s2["end_date"]) + bonus).date().isoformat()
-            await db.subscriptions.update_one(
-                {"id": s2["id"]}, {"$set": {"end_date": new_end2, "referral_bonus_days": 30 * banked}})
-            await db.tenants.update_one({"id": s2["tenant_id"]}, {"$set": {"subscription_end_date": new_end2}})
-            s2["end_date"] = new_end2
-        await db.tenants.update_one({"id": t["id"]}, {"$set": {"referral_free_months": 0}})
-
-    pay = SubscriptionPayment(
-        subscription_id=sub["id"],
-        tenant_id=t["id"],
-        amount=float(pending_doc["amount"]),
-        paid_at=today_iso,
-        method="razorpay",
-        txn_ref=body.razorpay_payment_id,
-        recorded_by=user["id"],
-        notes=f"Order {body.razorpay_order_id}",
-    ).model_dump()
-    await db.subscription_payments.insert_one(pay)
-    await _record_partner_commission(t, pay)
-    pay.pop("_id", None)
-    await issue_subscription_kit(pay, sub, credits_applied=float(pending_doc.get("credits_applied") or 0),
-                                 branches=len(target_tids))
-
-    if pending_doc.get("credits_applied", 0) > 0:
-        await db.tenants.update_one(
-            {"id": t["id"]},
-            {"$inc": {"affiliate_credits": -float(pending_doc["credits_applied"])}},
-        )
-
-    # Anti-farming: release the referral reward (1 FREE MONTH) now that this salon paid.
-    pending_ref = await db.affiliate_referrals.find_one({"referred_tenant_id": t["id"], "status": "pending"})
-    if pending_ref:
-        reward_note = await _grant_referral_free_month(pending_ref["referrer_tenant_id"])
-        await db.affiliate_referrals.update_one(
-            {"id": pending_ref["id"]},
-            {"$set": {"status": "credited", "credited_at": today_iso,
-                      "reward": "free_month", "reward_note": reward_note}},
-        )
-
+    sub, server_plan, target_tids = await _activate_pending_order(pending_doc, body.razorpay_payment_id, t, user["id"], now)
     return {"ok": True, "subscription_id": sub["id"], "end_date": sub["end_date"],
             "plan": server_plan, "branches": len(target_tids)}
 
 
 async def _wh_payment_failed(order_id: str, payment: dict, logger) -> None:
-    await db.subscription_payments.update_one(
-        {"razorpay_order_id": order_id},
-        {"$set": {"status": "failed", "failed_at": datetime.now(timezone.utc).isoformat(),
-                  "failure_reason": payment.get("error_description", "")}},
-    )
+    now = datetime.now(timezone.utc).isoformat()
+    upd = {"$set": {"status": "failed", "failed_at": now, "failure_reason": payment.get("error_description", "")}}
+    await _raw_db.subscription_payments.update_one({"razorpay_order_id": order_id, "kind": "razorpay_pending", "status": "created"}, upd)
+    await _raw_db.sms_pack_payments.update_one({"razorpay_order_id": order_id, "status": "created"}, upd)
+    await _raw_db.subscription_pay_links.update_one(
+        {"razorpay_order_id": order_id, "status": "pending"},
+        {"$set": {"last_payment_failed_at": now, "last_failure_reason": payment.get("error_description", "")}})
     logger.warning("Payment failed for order %s: %s", order_id, payment.get("error_description"))
 
 
+async def _recompute_tenant_access(tenant_id: str) -> None:
+    """After a refund: access = latest end date of the remaining active subscriptions, else back to trial."""
+    active = await _raw_db.subscriptions.find({"tenant_id": tenant_id, "status": "active"}, {"_id": 0, "end_date": 1}).to_list(50)
+    if active:
+        end = max(str(a.get("end_date") or "")[:10] for a in active)
+        await _raw_db.tenants.update_one({"id": tenant_id}, {"$set": {"subscription_end_date": end, "status": "active"}})
+    else:
+        await _raw_db.tenants.update_one({"id": tenant_id}, {"$set": {"status": "trial", "subscription_end_date": None}})
+
+
 async def _wh_refund(order_id: str, refund: dict, logger) -> None:
-    pay = await db.subscription_payments.find_one({"razorpay_order_id": order_id})
+    payment_id = refund.get("payment_id") or ""
+    now = datetime.now(timezone.utc).isoformat()
+    amt = (refund.get("amount") or 0) / 100.0
+    pay = await _raw_db.subscription_payments.find_one(
+        {"$or": [{"txn_ref": payment_id, "kind": {"$ne": "razorpay_pending"}}, {"razorpay_payment_id": payment_id}, {"razorpay_order_id": order_id}]},
+        sort=[("created_at", -1)])
     if not pay:
+        logger.warning("Refund for unknown order %s / payment %s", order_id, payment_id)
         return
-    await db.subscription_payments.update_one(
-        {"razorpay_order_id": order_id},
-        {"$set": {"status": "refunded", "refunded_at": datetime.now(timezone.utc).isoformat(),
-                  "refund_amount_inr": (refund.get("amount") or 0) / 100.0}},
-    )
-    # Revoke the tenant's active plan so they can't keep using paid features on a refunded sub.
+    await _raw_db.subscription_payments.update_many(
+        {"$or": [{"txn_ref": payment_id}, {"razorpay_payment_id": payment_id}, {"razorpay_order_id": order_id}]},
+        {"$set": {"status": "refunded", "refunded_at": now, "refund_amount_inr": amt, "refund_id": refund.get("id", "")}})
+    if pay.get("subscription_id"):
+        await _raw_db.subscriptions.update_one(
+            {"id": pay["subscription_id"]},
+            {"$set": {"status": "refunded", "refunded_at": now, "cancelled_at": now, "cancel_reason": f"Razorpay refund {refund.get('id', '')}"}})
+    await _raw_db.subscription_pay_links.update_one(
+        {"razorpay_payment_id": payment_id}, {"$set": {"status": "refunded", "refunded_at": now}})
     tenant_id = pay.get("tenant_id")
     if tenant_id:
-        await _raw_db.tenants.update_one(
-            {"id": tenant_id},
-            {"$set": {"status": "trial", "subscription_end_date": None}},
-        )
-        logger.warning("Refunded subscription for tenant %s (order %s)", tenant_id, order_id)
+        await _recompute_tenant_access(tenant_id)
+        logger.warning("Refunded subscription for tenant %s (order %s, ₹%.0f)", tenant_id, order_id, amt)
+
+
+async def _wh_order_paid(order_id: str, payment: dict, logger) -> str:
+    """Reconcile a captured payment the browser never confirmed (owner closed the tab before /verify)."""
+    payment_id = payment.get("id") or ""
+    now = datetime.now(timezone.utc)
+    pending = await _raw_db.subscription_payments.find_one_and_update(
+        {"razorpay_order_id": order_id, "kind": "razorpay_pending", "status": "created"},
+        {"$set": {"status": "captured", "razorpay_payment_id": payment_id, "captured_at": now.isoformat(), "captured_via": "webhook"}},
+        return_document=ReturnDocument.AFTER)
+    if pending:
+        t = await _raw_db.tenants.find_one({"id": pending["tenant_id"]}, {"_id": 0})
+        if t:
+            from database import _super_admin_ok, _current_tenant_id
+            tok1, tok2 = _current_tenant_id.set(t["id"]), _super_admin_ok.set(True)
+            try:
+                sub, plan, tids = await _activate_pending_order(pending, payment_id, t, "razorpay_webhook", now)
+            finally:
+                _current_tenant_id.reset(tok1)
+                _super_admin_ok.reset(tok2)
+            logger.info("webhook activated %s for tenant %s (order %s)", plan, t["slug"], order_id)
+            return "subscription_activated"
+    link = await _raw_db.subscription_pay_links.find_one_and_update(
+        {"razorpay_order_id": order_id, "status": "pending"},
+        {"$set": {"status": "paid", "paid_at": now.isoformat(), "razorpay_payment_id": payment_id, "paid_via": "webhook"}},
+        return_document=ReturnDocument.AFTER)
+    if link:
+        from routes.pay_links import _finalize_paid_link
+        await _finalize_paid_link(link, "razorpay", payment_id, now)
+        logger.info("webhook settled pay link %s (order %s)", link.get("token"), order_id)
+        return "pay_link_settled"
+    sms = await _raw_db.sms_pack_payments.find_one_and_update(
+        {"razorpay_order_id": order_id, "kind": "sms_pack_pending", "status": "created"},
+        {"$set": {"status": "captured", "razorpay_payment_id": payment_id, "captured_at": now.isoformat(), "captured_via": "webhook"}},
+        return_document=ReturnDocument.AFTER)
+    if sms:
+        pts = int(sms["points"])
+        await _raw_db.tenants.update_one({"id": sms["tenant_id"]}, {"$inc": {"sms_points": pts}})
+        await _raw_db.sms_credit_log.insert_one({
+            "id": str(uuid.uuid4()), "tenant_id": sms["tenant_id"], "points": pts, "source": "razorpay",
+            "payment_ref": payment_id, "amount": sms["amount"], "credited_by": "razorpay_webhook", "at": now.isoformat()})
+        return "sms_pack_credited"
+    return "already_reconciled"
 
 
 def _wh_parse_verified_event(payload: bytes, sig: str) -> dict:
@@ -693,29 +761,52 @@ async def rzp_webhook(request: Request):
     event_type = event.get("event", "unknown")
     logger = logging.getLogger("razorpay")
     logger.info("Razorpay webhook: %s", event_type)
-
-    # Archive every event — handy for finance reconciliation and dispute defence.
-    await _raw_db.razorpay_webhook_events.insert_one({
-        "id": str(uuid.uuid4()),
-        "event_type": event_type,
-        "payload": event,
-        "received_at": datetime.now(timezone.utc).isoformat(),
-    })
+    event_id = request.headers.get("x-razorpay-event-id") or ""
+    if event_id and await _raw_db.razorpay_webhook_events.find_one({"event_id": event_id}, {"_id": 1}):
+        return {"ok": True, "event": event_type, "duplicate": True}
 
     payment = (event.get("payload") or {}).get("payment", {}).get("entity", {})
     refund = (event.get("payload") or {}).get("refund", {}).get("entity", {})
     order_id = payment.get("order_id") or refund.get("order_id")
+    result = "archived"
+    try:
+        if event_type == "payment.failed" and order_id:
+            await _wh_payment_failed(order_id, payment, logger)
+            result = "payment_failed_recorded"
+        elif event_type in ("refund.created", "refund.processed") and order_id:
+            await _wh_refund(order_id, refund, logger)
+            result = "refund_applied"
+        elif event_type in ("payment.captured", "order.paid") and order_id:
+            result = await _wh_order_paid(order_id, payment, logger)
+        elif event_type == "payment_link.paid":
+            await _wh_placement_fee_paid(event, logger)
+            await _wh_product_order_paid(event, logger)
+            await _wh_settlement_paid(event, logger)
+            result = "payment_link_processed"
+    except Exception as e:  # noqa: BLE001 — archive the failure; Razorpay retries on non-2xx
+        logger.exception("webhook %s failed: %s", event_type, e)
+        result = f"error: {str(e)[:200]}"
+    await _raw_db.razorpay_webhook_events.insert_one({
+        "id": str(uuid.uuid4()), "event_id": event_id, "event_type": event_type, "order_id": order_id or "",
+        "payment_id": payment.get("id") or refund.get("payment_id") or "", "amount": ((payment.get("amount") or refund.get("amount") or 0) / 100.0),
+        "result": result, "payload": event, "received_at": datetime.now(timezone.utc).isoformat(),
+    })
+    if result.startswith("error"):
+        raise HTTPException(500, result)
+    return {"ok": True, "event": event_type, "result": result}
 
-    if event_type == "payment.failed" and order_id:
-        await _wh_payment_failed(order_id, payment, logger)
-    elif event_type in ("refund.created", "refund.processed") and order_id:
-        await _wh_refund(order_id, refund, logger)
-    elif event_type == "payment_link.paid":
-        await _wh_placement_fee_paid(event, logger)
-        await _wh_product_order_paid(event, logger)
-        await _wh_settlement_paid(event, logger)
 
-    return {"ok": True, "event": event_type}
+@router.get("/super-admin/razorpay/webhook-status")
+async def rzp_webhook_status(user=Depends(require_super_admin)):
+    recent = await _raw_db.razorpay_webhook_events.find(
+        {}, {"_id": 0, "payload": 0}).sort("received_at", -1).to_list(25)
+    counts = await _raw_db.razorpay_webhook_events.aggregate(
+        [{"$group": {"_id": "$event_type", "n": {"$sum": 1}}}]).to_list(50)
+    return {"configured": bool(RAZORPAY_WEBHOOK_SECRET), "live_mode": RAZORPAY_KEY_ID.startswith("rzp_live_"),
+            "url": f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/api/billing/razorpay/webhook",
+            "events": ["payment.captured", "payment.failed", "order.paid", "refund.created", "refund.processed", "payment_link.paid"],
+            "last_event_at": recent[0]["received_at"] if recent else None,
+            "counts": {c["_id"]: c["n"] for c in counts}, "recent": recent}
 
 
 async def _wh_placement_fee_paid(event: dict, logger) -> None:
@@ -939,17 +1030,57 @@ async def _trial_usage_stats(tenant_id: str) -> list[str]:
             f"🧾 ₹{billed:,} billed across {bills} bill{'s' if bills != 1 else ''}"]
 
 
+DEFAULT_TRIAL_OFFER = {"enabled": True, "kind": "percent", "percent": 10, "flat": 1000, "valid_hours": 48, "max_days": 1}
+
+
+async def get_trial_offer() -> dict:
+    doc = await _raw_db.platform_settings.find_one({"key": "trial_offer"}, {"_id": 0, "value": 1})
+    return {**DEFAULT_TRIAL_OFFER, **((doc or {}).get("value") or {})}
+
+
+class TrialOfferIn(BaseModel):
+    enabled: bool = True
+    kind: str = Field("percent", pattern="^(percent|flat)$")
+    percent: int = Field(10, ge=1, le=50)
+    flat: int = Field(1000, ge=100, le=20000)
+    valid_hours: int = Field(48, ge=6, le=720)
+    max_days: int = Field(1, ge=0, le=15)  # offer rides on nudges sent when days_left <= max_days
+
+
+@router.get("/super-admin/trial-offer")
+async def hq_get_trial_offer(user=Depends(require_super_admin)):
+    return await get_trial_offer()
+
+
+@router.put("/super-admin/trial-offer")
+async def hq_put_trial_offer(body: TrialOfferIn, user=Depends(require_super_admin)):
+    await _raw_db.platform_settings.update_one(
+        {"key": "trial_offer"}, {"$set": {"value": body.model_dump(), "updated_at": datetime.now(timezone.utc).isoformat(),
+                                          "updated_by": user.get("email")}}, upsert=True)
+    return await get_trial_offer()
+
+
 async def send_trial_ending_email(t: dict, days: int, end_str: str) -> dict:
-    """Friendly trial-ending nudge with a one-tap upgrade pay link (INR tenants, both verticals)."""
+    """Friendly trial-ending nudge with a one-tap upgrade pay link (INR tenants, both verticals).
+    On the final nudge (days <= offer.max_days) a limited-time discount is baked into the pay link."""
     from email_service import _send_email, trial_ending_email_html
     from routes.pay_links import create_trial_pay_link, _fmt_amt
-    link = await create_trial_pay_link(t, f"Trial ends in {days} day(s) — upgrade nudge")
+    offer = await get_trial_offer()
+    use_offer = bool(offer.get("enabled")) and days <= int(offer.get("max_days") or 1)
+    link = await create_trial_pay_link(
+        t, f"Trial ends in {days} day(s) — upgrade nudge" + (" + limited-time offer" if use_offer else ""),
+        offer=offer if use_offer else None)
     stats = await _trial_usage_stats(t["id"])
-    when = "tomorrow" if days == 1 else f"in {days} days"
+    when = "tomorrow" if days == 1 else ("today" if days == 0 else f"in {days} days")
+    subject = (f"🎁 {t.get('name') or t['slug']} — last chance: {link['offer_label']} before your trial ends {when}"
+               if link.get("discount") else
+               f"⏳ {t.get('name') or t['slug']} — your free trial ends {when}. Upgrade in one tap 💛")
     return await _send_email(
-        [t["owner_email"]],
-        f"⏳ {t.get('name') or t['slug']} — your free trial ends {when}. Upgrade in one tap 💛",
-        trial_ending_email_html(t, days, end_str, link["plan_label"], _fmt_amt(link), link["url"], stats))
+        [t["owner_email"]], subject,
+        trial_ending_email_html(t, days, end_str, link["plan_label"], _fmt_amt(link), link["url"], stats,
+                                offer=({"original": _fmt_amt({**link, "amount": link["original_amount"]}),
+                                        "label": link["offer_label"], "expires_at": link["expires_at"]}
+                                       if link.get("discount") else None)))
 
 
 async def _send_renewal_email(t: dict, days: int, end_str: str, source: str) -> dict:

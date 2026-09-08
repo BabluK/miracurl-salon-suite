@@ -3,6 +3,7 @@ import asyncio
 import html as html_lib
 import logging
 import os
+from datetime import datetime, timedelta
 from urllib.parse import quote
 
 # Default banner art (AI-generated, hosted on Emergent CDN) — env vars override.
@@ -400,7 +401,7 @@ def renewal_reminder_email_html(salon_name: str, days_left: int, end_date: str,
 
 
 def trial_ending_email_html(t: dict, days_left: int, end_date: str, plan_label: str, price_str: str,
-                            pay_url: str, stats: list[str]) -> str:
+                            pay_url: str, stats: list[str], offer: dict | None = None) -> str:
     """Friendly 'your free trial ends in N days' nudge with a one-tap upgrade (pay-link) CTA. Both verticals."""
     e = html_lib.escape
     resto = t.get("business_type") == "restaurant"
@@ -418,6 +419,18 @@ def trial_ending_email_html(t: dict, days_left: int, end_date: str, plan_label: 
     logo_html = (f"<img src='{e(logo)}' alt='' width='72' height='72' style='width:72px;height:72px;border-radius:50%;"
                  "object-fit:cover;border:3px solid #d4af37;background:#fff;display:block;margin:0 auto 12px'/>" if logo else "")
     stat_rows = "".join(f"<div style='padding:4px 0'>{s}</div>" for s in stats)
+    offer_html = ""
+    if offer:
+        try:
+            until = datetime.fromisoformat(str(offer["expires_at"]).replace("Z", "+00:00")) + timedelta(hours=5, minutes=30)
+            until_s = until.strftime("%d %b, %I:%M %p IST")
+        except (ValueError, KeyError):
+            until_s = "soon"
+        offer_html = (f"<div style='background:#1c1c22;color:#fff;border-radius:12px;padding:14px 18px;margin:18px 0;text-align:center;font-family:Arial,sans-serif'>"
+                      f"<div style='color:#d4af37;font-size:11px;letter-spacing:3px;text-transform:uppercase'>🎁 Limited-time upgrade offer</div>"
+                      f"<div style='font-size:18px;font-weight:bold;margin-top:6px'>{e(offer['label'])} — pay <span style='color:#d4af37'>{e(price_str)}</span> "
+                      f"<span style='color:#999;text-decoration:line-through;font-size:14px'>{e(offer['original'])}</span></div>"
+                      f"<div style='font-size:12px;color:#bbb;margin-top:6px'>Offer valid until <b style='color:#fff'>{e(until_s)}</b> · built into your one-tap link below</div></div>")
     return f"""
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
       <div style="background:#1c1c22;padding:28px 30px;text-align:center">
@@ -432,10 +445,11 @@ def trial_ending_email_html(t: dict, days_left: int, end_date: str, plan_label: 
         <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:14px 18px;margin:18px 0;font-size:13.5px;font-family:Arial,sans-serif;line-height:1.8">
           <b>What your {noun} has done on Miracurl so far</b>{stat_rows}
         </div>
+        {offer_html}
         <p style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7">Upgrade in one tap to keep {keeps} running without a pause:</p>
         <div style="background:#faf6ec;border-radius:14px;padding:16px 20px;margin:16px 0;text-align:center;font-family:Arial,sans-serif">
           <div style="font-size:12px;letter-spacing:2px;color:#888;text-transform:uppercase">{e(plan_label)}</div>
-          <div style="font-size:32px;font-weight:bold;color:#1c1c22">{e(price_str)}</div>
+          <div style="font-size:32px;font-weight:bold;color:#1c1c22">{e(price_str)}{f" <span style='font-size:16px;color:#999;text-decoration:line-through'>{e(offer['original'])}</span>" if offer else ""}</div>
         </div>
         <p style="text-align:center;margin:22px 0">
           <a href="{e(pay_url)}" style="background:linear-gradient(135deg,#d4af37,#e6c66e);color:#17171f;text-decoration:none;padding:14px 38px;border-radius:999px;font-weight:bold;font-family:Arial,sans-serif;font-size:15px;display:inline-block">✦ &nbsp;Upgrade now — one tap, UPI / card&nbsp; ✦</a>

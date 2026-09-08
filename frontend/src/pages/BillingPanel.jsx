@@ -9,6 +9,8 @@ import api from "@/lib/api";
 import { confirmAsync } from "@/components/ConfirmDialog";
 import { GraceRequestsCard } from "@/components/superadmin/GraceRequestsCard";
 import { InvoicesPanel } from "@/components/superadmin/InvoicesPanel";
+import { WebhookHealthCard } from "@/components/superadmin/WebhookHealthCard";
+import { TrialOfferEditor } from "@/components/superadmin/TrialOfferEditor";
 
 const CHART_TOOLTIP_STYLE = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, color: "#0f172a" };
 const CHART_TOOLTIP_LABEL_STYLE = { color: "#0284c7" };
@@ -193,6 +195,7 @@ export default function BillingPanel({ tenants }) {
 
       {/* Invoices + billing identity */}
       <InvoicesPanel />
+      <WebhookHealthCard />
 
       {/* Plan catalog editor */}
       <PlanCatalogEditor plans={plans} onSaved={load} />
@@ -279,6 +282,7 @@ function PlanCatalogEditor({ plans, onSaved }) {
             </button>
           </div>
         </div>
+        <TrialOfferEditor />
       </div>
       <div className="overflow-x-auto">
         <table className="luxe-table-light">

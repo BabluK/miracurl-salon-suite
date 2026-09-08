@@ -268,8 +268,9 @@ async def send_renewal_nudges() -> int:
     return sent
 
 
-async def create_trial_pay_link(t: dict, note: str, now: datetime | None = None) -> dict:
-    """One-tap activation pay link for a trial tenant (plan resolves like renewal nudges)."""
+async def create_trial_pay_link(t: dict, note: str, now: datetime | None = None, offer: dict | None = None) -> dict:
+    """One-tap activation pay link for a trial tenant (plan resolves like renewal nudges).
+    `offer` = {"kind": percent|flat, "percent", "flat", "valid_hours"} applies a limited-time discount."""
     if (t.get("currency") or "INR") != "INR":
         raise ValueError("trial pay links are INR/Razorpay only")
     now = now or _now()
@@ -278,12 +279,22 @@ async def create_trial_pay_link(t: dict, note: str, now: datetime | None = None)
     if info.get("currency") or int(info.get("branches") or 1) != 1:
         plan_key = "half_year"
     info = await _fresh_plan_or_400(plan_key)
+    price = float(info["price"])
+    discount = 0.0
+    expires = now + timedelta(days=LINK_VALID_DAYS)
+    if offer:
+        discount = float(offer.get("flat") or 0) if offer.get("kind") == "flat" else round(price * float(offer.get("percent") or 0) / 100, 0)
+        discount = max(0.0, min(discount, price - 1))
+        expires = now + timedelta(hours=int(offer.get("valid_hours") or 48))
     link = {
         "id": str(uuid.uuid4()), "token": secrets.token_urlsafe(8),
         "tenant_id": t["id"], "tenant_slug": t["slug"], "salon_name": t.get("name") or t["slug"],
         "owner_email": t.get("owner_email") or "", "plan": plan_key, "plan_label": info["label"],
-        "amount": float(info["price"]), "duration_days": info["duration_days"],
-        "note": note, "status": "pending", "expires_at": (now + timedelta(days=LINK_VALID_DAYS)).isoformat(),
+        "amount": price - discount, "duration_days": info["duration_days"],
+        "original_amount": price if discount else None, "discount": discount or None,
+        "offer_label": (f"{int(offer['percent'])}% trial upgrade offer" if offer and offer.get("kind") != "flat"
+                        else f"₹{int(discount):,} trial upgrade offer") if discount else None,
+        "note": note, "status": "pending", "expires_at": expires.isoformat(),
         "created_at": now.isoformat(), "created_by": "trial-nudge",
     }
     await _raw_db.subscription_pay_links.insert_one({**link})
@@ -381,13 +392,17 @@ async def public_pay_link(token: str, request: Request):
         await _raw_db.subscription_pay_links.update_one(
             {"id": link["id"], "opened_at": {"$exists": False}},
             {"$set": {"opened_at": _now().isoformat()}})
+    tnt = await _raw_db.tenants.find_one({"id": link["tenant_id"]}, {"_id": 0, "business_type": 1, "logo_url": 1, "location": 1}) or {}
     return {"status": _effective_status(link), "salon_name": link["salon_name"],
+            "business_type": tnt.get("business_type") or "salon", "tenant_logo_url": tnt.get("logo_url") or "",
+            "tenant_location": tnt.get("location") or "", "is_trial_offer": link.get("created_by") == "trial-nudge",
             "plan_label": link["plan_label"], "amount": link["amount"],
             "currency": link.get("currency") or "INR",
             "currency_symbol": _CUR_SYM.get(link.get("currency") or "INR", "₹"),
             "gateway": "razorpay" if (link.get("currency") or "INR") == "INR" else "stripe",
             "months": round(link["duration_days"] / 30.5), "note": link.get("note") or "",
             "expires_at": link["expires_at"], "paid_at": link.get("paid_at"),
+            "original_amount": link.get("original_amount"), "discount": link.get("discount"), "offer_label": link.get("offer_label"),
             "key_id": RAZORPAY_KEY_ID, "test_mode": RAZORPAY_KEY_ID.startswith("rzp_test_")}
 
 

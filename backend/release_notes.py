@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-08.223"
-BUILD_TIME = "08 Sep 2026, 08:00 AM IST"
+BUILD = "2026-09-08.224"
+BUILD_TIME = "08 Sep 2026, 08:30 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-08.224", "note": "Razorpay webhook reconciliation ON (captured/failed/refund auto-sync, HQ webhook health card); trial upgrade offer (HQ-configurable discount in the final trial nudge); polished pay-link page with brand mark + tenant logo"},
     {"build": "2026-09-08.223", "note": "HQ onboarding: custom free-trial lengths (30d / 3 / 6 / 9 / 12 mo) + logo upload or AI logo, ₹0 Free Trial invoice + Congratulations email; trial-ending nudge (15/7/1 days) with one-tap upgrade pay link; code cleanup"},
     {"build": "2026-09-07.222", "note": "Restaurant campaign: separate 'Taste Ambassador — Diner Rewards' campaign with own settings, casting pages, settlements, agreement pack and earnings watch"},
     {"build": "2026-09-07.221", "note": "Salary fix: commission always paid on services; overtime only when a rate is set; month-wise slip download for owners with full deductions"},
@@ -45,6 +46,9 @@ RELEASES = [
             "🧾 Every HQ-onboarded business now receives a real ₹0 'Free Trial' invoice (numbered, PDF with their logo) plus a separate branded 'Congratulations 🎉' email with trial start/end dates — the login-credentials email is unchanged; trial invoices show a 'free trial' badge in HQ → Invoices",
             "⏳ Trial-ending nudge: owners on a free trial get a friendly 'your free trial ends in 15 / 7 / 1 days' email with their usage snapshot and a one-tap upgrade pay link (Razorpay); HQ → Top Referrers → Renewals due has a 'Trial nudge' button to send it instantly",
             "🧹 Code cleanup: removed 35 redundant in-function imports and shadowed variables across routes; payments & subscriptions fully regression-tested (38 checks)",
+            "🔁 Razorpay webhook reconciliation is ON: captured payments activate plans even if the owner closed the browser, failed payments are recorded, refunds mark the subscription refunded and recompute access, pay links & SMS packs settle automatically; HQ → Billing shows a Webhook health card (secret status, URL, recent events)",
+            "🎁 Trial upgrade offer: a limited-time discount (HQ-configurable — % or flat ₹, validity, which nudges) is baked into the one-tap pay link of the final trial-ending email; the pay page shows the strike-through price and savings",
+            "✨ Pay-link page polish: Miracurl Suite brand mark header, the business's own logo in a gold ring, vertical-aware benefits, friendlier trial-upgrade copy",
         ],
     },
     {

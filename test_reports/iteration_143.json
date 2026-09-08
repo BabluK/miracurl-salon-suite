@@ -1,0 +1,26 @@
+{
+  "summary": "Iter 143 — Razorpay webhook reconciliation (pay-link settle via order.paid, refund revoke, unknown-order safety, malformed/bad-signature 400s), /billing/razorpay/verify unchanged (fake-sig -> 400, no state change), Trial-offer HQ CRUD + validation, and trial-offer baked into the days<=max_days nudge pay link. All backend + frontend flows pass. Iter141 (38) + iter142 (8) + iter143 (18) = 64/64 pytest passes. Public /pay/{token} shows amount, strike-through original_amount and offer badge. Super admin BillingPanel shows WebhookHealthCard ('Secret configured', correct webhook URL, recent events, refresh works) and TrialOfferEditor (flat=1500 saves + persists after reload, defaults restored).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter143_webhook_offer.py",
+    "/app/test_reports/pytest/iter143.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "subscriptions.py is 1485 lines — consider splitting webhook handlers, trial-offer, renewals into submodules for maintainability.",
+    "Login.jsx Field component passes prop `testid` and renders it as `data-testid` — clean; but earlier codebase snippets show `input[testid=...]` (attribute is emitted correctly via `data-testid`), just noting to keep this pattern consistent everywhere.",
+    "_wh_order_paid returns 'already_reconciled' for any unclaimable order — safe, but consider distinct result 'unknown_order' vs 'already_reconciled' for cleaner observability.",
+    "public_pay_link responds with `key_id` even when the link is paid/refunded/expired — minor info leak of the Razorpay public key; harmless (key is public) but tighten by omitting it once status != pending."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter143_webhook_offer.py (new)"
+  ],
+  "success_rate": {"backend": "100% (64/64 pytest across iter141+142+143)", "frontend": "100% (login, webhook-health-card, trial-offer-editor, pay-link public page — all pass)"},
+  "test_credentials": "Super admin super@miracurl.com / og9T@41Es#OQb6; Tenant admin admin@miracurl.com / q6QY@tn3p#9DtL (X-Tenant-Slug miracurl-marathahalli). Emails only to delivered@resend.dev.",
+  "seed_data_creation": "All throwaway tenants/pay-links/razorpay orders/webhook events/subscription rows created during the run were cleaned up. Trial-offer settings restored to defaults {enabled:true, kind:percent, percent:10, flat:1000, valid_hours:48, max_days:1}. Verified: 0 residual iter143 rows in mongo; miracurl-marathahalli razorpay_pending rows generated in the verify test were removed via CREATED tracking + regex cleanup.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "New reusable test file at /app/backend/tests/test_iter143_webhook_offer.py covers: (a) pay-link settle via signed order.paid + duplicate no-op + refund.processed revoke, (b) verify endpoint unchanged (fake-sig 400, snapshot compare), (c) trial-offer settings CRUD + 422 validation, (d) nudge days=1 bakes discount, days>max_days doesn't, disabled offer=no discount, (e) webhook status endpoint. Uses live Razorpay order creation (no charge) and real HMAC signing with RAZORPAY_WEBHOOK_SECRET. When super admin is created for tenants, ALWAYS use 'name' + 'trial_months' in [3,6,9,12], not 'salon_name'/'trial_days'. Verify body needs 'plan'. Login.jsx inputs use data-testid via a Field wrapper — page.fill sometimes doesn't populate the first input on cold load; using page.keyboard.type after focus works reliably.",
+  "rca_of_the_issue": "No bugs found. Only minor: /app/frontend/src/pages/Login.jsx uses data-testid but the plain page.fill on cold-loaded page occasionally left email empty (browser autofill / animation timing). Playwright fix: click input first then keyboard.type. Not a product bug."
+}

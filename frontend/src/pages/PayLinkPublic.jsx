@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
-import { Loader2, ShieldCheck, Sparkles, Clock } from "lucide-react";
+import { Loader2, ShieldCheck, Sparkles, Clock, Gift } from "lucide-react";
+import BrandMark from "@/components/BrandMark";
 import { toast, Toaster } from "sonner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -15,6 +16,13 @@ const loadRzp = () => new Promise((res) => {
   document.body.appendChild(s);
 });
 
+const BENEFITS_RESTO = [
+  "🍽️ QR table ordering, kitchen tickets & POS billing with GST invoices",
+  "🤖 Mira AI — daily specials, marketing studio & voice greetings",
+  "🌐 Your own public menu & reservation page + occasion gift cards",
+  "💬 WhatsApp reminders, reviews & the referral engine",
+  "💛 Priority onboarding support from the Miracurl team",
+];
 const BENEFITS = [
   "📅 Appointments, POS billing & GST invoices",
   "🤖 Mira AI — daily briefings, marketing studio & voice greetings",
@@ -124,23 +132,34 @@ export default function PayLinkPublic() {
 
   return (
     <Shell>
-      <div className="text-center">
-        <div className="text-2xl font-bold tracking-[0.2em] text-gold">MIRACURL</div>
-        <div className="text-[10px] uppercase tracking-[0.35em] text-white/40 mt-1">AI Salon Suite · Official HQ Offer</div>
+      <div className="flex flex-col items-center text-center" data-testid="pay-link-header">
+        <BrandMark size="lg" />
+        <div className="mt-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-gold/30 bg-gold/10 text-[10px] uppercase tracking-[0.3em] text-gold">
+          {link.is_trial_offer ? <Gift className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
+          {link.is_trial_offer ? "Trial upgrade · one-tap activation" : "Official HQ offer"}
+        </div>
       </div>
-      <div className="mt-6 bg-white/5 border border-gold/25 rounded-3xl p-8 text-center" data-testid="pay-link-card">
-        <div className="text-4xl">🎉</div>
-        <h1 className="font-playfair text-2xl sm:text-3xl mt-2">Welcome, {link.salon_name}!</h1>
+      <div className="mt-6 relative bg-white/5 border border-gold/25 rounded-3xl p-8 text-center overflow-hidden" data-testid="pay-link-card">
+        <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-gold/10 blur-3xl" />
+        {link.tenant_logo_url
+          ? <img src={link.tenant_logo_url} alt={link.salon_name} className="relative w-20 h-20 rounded-full object-cover mx-auto ring-2 ring-gold/70 ring-offset-4 ring-offset-[#101012] bg-white shadow-[0_10px_40px_-10px_rgba(212,175,55,.6)]" data-testid="pay-link-tenant-logo" />
+          : <div className="relative w-20 h-20 rounded-full mx-auto ring-2 ring-gold/70 ring-offset-4 ring-offset-[#101012] bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] font-playfair text-3xl font-bold flex items-center justify-center" data-testid="pay-link-tenant-initial">{(link.salon_name || "M").trim()[0]}</div>}
+        <h1 className="relative font-playfair text-2xl sm:text-3xl mt-4">{link.is_trial_offer ? `${link.salon_name}, keep the momentum going` : `Welcome, ${link.salon_name}!`}</h1>
+        {link.tenant_location && <div className="text-[10px] uppercase tracking-[0.25em] text-white/40 mt-1">{link.tenant_location}</div>}
         <p className="text-xs text-white/55 mt-2 leading-relaxed max-w-sm mx-auto">
-          Our team is really happy to onboard you — this exclusive plan was prepared just for your salon by Miracurl HQ ✨</p>
+          {link.is_trial_offer
+            ? `Your free trial is ending — activate now and every booking, bill, staff record and Mira insight stays exactly where it is.`
+            : `Our team is really happy to onboard you — this exclusive plan was prepared just for your ${link.business_type === "restaurant" ? "restaurant" : "salon"} by Miracurl HQ ✨`}</p>
         <div className="inline-block bg-white/95 rounded-2xl px-8 py-4 mt-5">
           <div className="text-[10px] uppercase tracking-widest text-neutral-500">{link.plan_label}</div>
-          <div className="font-bold text-4xl text-neutral-900" data-testid="pay-link-amount">{fmtAmt(link.amount)}</div>
+          <div className="font-bold text-4xl text-neutral-900" data-testid="pay-link-amount">{fmtAmt(link.amount)}
+            {link.discount ? <span className="ml-2 text-lg font-semibold text-neutral-400 line-through align-middle" data-testid="pay-link-original-amount">{fmtAmt(link.original_amount)}</span> : null}</div>
+          {link.discount ? <div className="mt-1 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold" data-testid="pay-link-offer-badge">🎁 {link.offer_label} — you save {fmtAmt(link.discount)} · valid till {new Date(link.expires_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div> : null}
           <div className="text-[11px] text-neutral-500">{link.months} months · full suite access</div>
         </div>
-        {link.note && <p className="text-sm italic text-gold/90 mt-4 max-w-sm mx-auto" data-testid="pay-link-note">"{link.note}"</p>}
+        {link.note && !link.is_trial_offer && <p className="text-sm italic text-gold/90 mt-4 max-w-sm mx-auto" data-testid="pay-link-note">"{link.note}"</p>}
         <div className="mt-5 text-left max-w-sm mx-auto space-y-2">
-          {BENEFITS.map((b, i) => <div key={i} className="text-xs text-white/70 leading-relaxed">{b}</div>)}
+          {(link.business_type === "restaurant" ? BENEFITS_RESTO : BENEFITS).map((b, i) => <div key={i} className="text-xs text-white/70 leading-relaxed">{b}</div>)}
         </div>
         <button onClick={pay} disabled={busy} data-testid="pay-link-pay-btn"
           className="w-full btn-gold justify-center flex items-center gap-2 mt-6 !py-3.5 !text-base disabled:opacity-50">
