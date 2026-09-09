@@ -2958,3 +2958,4 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - `__import__('uuid')` dynamic imports → static `import uuid` (subscription_invoices). Tests: `random` → `secrets.SystemRandom()` in the 3 flagged files. `_log_email` split (`_resend_payload`), `_public_page_payload` split (`_rating_summary`).
 - Not reproducible / false positives: security.py:232 (public CSRF label), 86 undefined variables (ruff F821 = 0), utils.py:8 `is` literal (it's `isinstance`/startswith code — F632 = 0). Skipped by design: server.py/lead_gen import-count splits.
 - Regression: webhook + trial suites pass except congrats-email asserts failing ONLY because Resend daily quota is exhausted (external). Public salon page OK.
+- (later 19) Google Analytics 4 (G-RSXW31FS5L) added to frontend/public/index.html (gtag with send_page_view:false) + SPA page_view events on every route change in App.js ScrollToTop effect. Verified gtag loads (dataLayer populated) on preview.

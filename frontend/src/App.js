@@ -3,7 +3,11 @@ import { useEffect } from "react";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
-  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    // GA4 page views for this single-page app (route changes don't reload the page)
+    if (typeof window.gtag === "function") window.gtag("event", "page_view", { page_path: pathname, page_location: window.location.href, page_title: document.title });
+  }, [pathname]);
   return null;
 }
 
