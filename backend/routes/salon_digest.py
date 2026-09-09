@@ -31,11 +31,15 @@ async def _digest_data(tid: str) -> dict:
     ts, te = _utc_window_for_ist_day(today)
     invs = await _raw_db.invoices.find(
         {"tenant_id": tid, "created_at": {"$gte": ys, "$lt": ye}},
-        {"_id": 0, "total": 1, "staff_name": 1}).to_list(500)
+        {"_id": 0, "total": 1, "staff_name": 1, "items": 1}).to_list(500)
     revenue = sum(i.get("total") or 0 for i in invs)
     by_staff = {}
     for i in invs:
-        if i.get("staff_name"):
+        line_staff = [it for it in (i.get("items") or []) if it.get("staff_name")]
+        if line_staff:
+            for it in line_staff:
+                by_staff[it["staff_name"]] = by_staff.get(it["staff_name"], 0) + (it.get("price") or 0) * (it.get("qty") or 1)
+        elif i.get("staff_name"):
             by_staff[i["staff_name"]] = by_staff.get(i["staff_name"], 0) + (i.get("total") or 0)
     top_staff = max(by_staff.items(), key=lambda kv: kv[1]) if by_staff else None
     lw = yday - timedelta(days=7)
@@ -118,6 +122,13 @@ async def send_salon_daily_digests(force: bool = False) -> int:
             continue
         already = await _raw_db.salon_digest_log.find_one({"tenant_id": t["id"], "date": today})
         if already and not force:
+            continue
+        # Never-billed tenants (fresh signups / HQ test tenants) have nothing to report yet
+        if not await _raw_db.invoices.find_one({"tenant_id": t["id"]}, {"_id": 1}):
+            await _raw_db.salon_digest_log.update_one(
+                {"tenant_id": t["id"], "date": today},
+                {"$set": {"tenant_id": t["id"], "date": today, "sent": False, "skipped": "no_invoices_yet",
+                          "at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
             continue
         try:
             d = await _digest_data(t["id"])

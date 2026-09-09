@@ -1,0 +1,37 @@
+{
+  "summary": "Iter144 — Verified Post History (delete/clear/reuse buttons, white ConfirmDialog, cancel+confirm paths, toast, cross-tenant delete isolation), reuse_post_id 404, CSRF-protected delete, salon digest preview-safe scheduler + never-billed skip log + _digest_data staff aggregation, and GA4 page_view dedupe. Full public-booking / signup wizard flows were NOT driven end-to-end (multi-step selectors + LLM cost + tenant creation cleanup risk); GA wiring for trackBooking/trackSignup verified by code review + on-page dataLayer capture harness. 10/10 backend pytest pass (7 new + 3 pre-existing iter144).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard → MiraDayOffer", "issues": ["React hydration warning: <span> child inside <select>/<option> at src/components/MiraDayOffer.jsx line 55 — cosmetic, but React logs a hydration error. Unrelated to iter144 but worth fixing."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter144_reuse_and_digest.py",
+    "/app/backend/tests/test_iter144_social_history_delete.py",
+    "/app/test_reports/pytest/iter144.xml"
+  ],
+  "action_items": [
+    "(Optional) drive full public-booking + signup wizards in a dedicated E2E run to confirm booking_confirmed + sign_up dataLayer entries end-to-end — code paths look correct.",
+    "Consider fixing MiraDayOffer <option><span>…</span></option> hydration warning (unrelated to iter144)."
+  ],
+  "critical_code_review_comments": [
+    "routes/salon_digest.py send_salon_daily_digests: never-billed branch always upserts a skip log — good; but ignores `force` — a super-admin re-run with force=True won't retry these tenants. Consider: if force and no invoices → still skip but log 'forced_no_invoices' for observability.",
+    "routes/mira_studio.py _reuse_block relies on the past post's caption+topic verbatim; if the past caption included stale prices, Mira may regenerate with stale prices. Consider stripping numeric prices before feeding into reuse prompt or asking Mira to re-fetch current tariff.",
+    "SocialHistoryPanel.jsx confirmDelete: on 401/network error the local posts array is untouched (good) but toast text uses e.response?.data?.detail which for FastAPI 403 CSRF returns {'detail':'CSRF token missing'} — surfaces as a raw string; wrap into a friendlier message.",
+    "frontend/src/lib/analytics.js swallows ALL exceptions silently — fine for prod, but a dev-mode console.warn on failure would aid debugging when gtag is misconfigured.",
+    "App.js `_lastGaPath` is module-level (survives navigation) — correct for SPA dedupe; but on hard reload it's reset which is expected. No issue."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter144_reuse_and_digest.py (new — 7 tests)"
+  ],
+  "success_rate": {"backend": "100% (10/10 pytest across iter144 tests)", "frontend": "100% on tested flows (Post History delete/clear/cancel, regression, page_view dedupe); booking + signup full-wizard flows not driven"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL, X-Tenant-Slug miracurl-marathahalli, CSRF from csrf_token cookie.",
+  "seed_data_creation": "Seeded social_posts docs id=iter144-test-delete, t144-own, t144-other during test runs — all deleted after tests. Zero residual seed docs. salon_digest_log for miracurl-whitefield today's date was written by the digest test (skipped='no_invoices_yet') — this is real product state, left as-is.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "New reusable pytest file /app/backend/tests/test_iter144_reuse_and_digest.py covers: (a) POST /mira-studio/social/generate with reuse_post_id='does-not-exist' → 404; (b) DELETE /social/history/{unknown} → 404 + CSRF-less → 403/401; (c) database.IS_PREVIEW_ENV True on preview; (d) routes.salon_digest._digest_data(MM_TID) returns revenue/bills/top_staff etc; (e) never-billed tenant (miracurl-whitefield ceeceec8-...) gets salon_digest_log skip entry via send_salon_daily_digests(force=False). Uses .env manual-parse (no dotenv) and rebinds database._raw_db + routes.salon_digest._raw_db to a fresh AsyncIOMotorClient inside asyncio.run() to avoid closed-event-loop errors with motor's lazy loop binding. Post History Playwright flow requires dismissing [data-testid=whats-new-modal] (Got it button) first — otherwise its backdrop intercepts pointer events and blocks card clicks. ConfirmDialog appears via Radix portal (role=alertdialog + data-testid=social-history-confirm) with white bg rgb(255,255,255).",
+  "rca_of_the_issue": "No product bugs found. One Playwright-side gotcha documented: WhatsNewModal (z-[80], black/70 backdrop) intercepts clicks on Post History cards until explicitly dismissed. Tests must call a `dismiss_whats_new` helper after every navigation until localStorage flag persists. Also: motor + pytest cross-loop — mitigated by asyncio.run + rebinding _raw_db per test."
+}

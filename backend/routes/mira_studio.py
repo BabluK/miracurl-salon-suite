@@ -18,7 +18,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 
-from database import _raw_db
+from database import db, _raw_db
 from security import require_tenant_admin, current_tenant
 from routes.mira_common import _ask, _ask_json, _gen_image
 
@@ -179,6 +179,17 @@ class SocialIn(BaseModel):
     platforms: list[str] = ["instagram", "facebook", "google"]
     with_image: bool = True
     image_style: str = "luxury"
+    reuse_post_id: str | None = None
+
+
+def _reuse_block(post: dict, services: list) -> str:
+    catalog = "; ".join(f"{s['name']} ₹{s.get('price', 0):g}" for s in services[:120])
+    return ("\n\nREUSE MODE — the owner wants to re-run this past post that performed well. Keep the SAME offer, "
+            "services and core message, but rewrite it fresh: new hook, new wording, updated validity "
+            "line ('today only' / 'this week'). Any price you mention MUST be the CURRENT catalog price below — "
+            "never copy an old price from the past post; keep the same discount % if one was given.\n"
+            f"Current catalog: {catalog}\n"
+            f"Past post:\n\"\"\"{(post.get('caption') or '')[:900]}\"\"\"")
 
 
 def _history_block(ctx: dict) -> str:
@@ -222,11 +233,18 @@ async def social_generate(body: SocialIn, admin=Depends(require_tenant_admin), t
     }
     want = [p for p in body.platforms if p in plat_rules] or ["instagram"]
     ctx = await _social_context(t["id"])
+    reuse = None
+    services = []
+    if body.reuse_post_id:
+        reuse = await _raw_db.social_posts.find_one({"tenant_id": t["id"], "id": body.reuse_post_id}, {"_id": 0})
+        if not reuse:
+            raise HTTPException(404, "That past post is no longer in your history")
+        services = await db.services.find({"active": {"$ne": False}}, {"_id": 0, "name": 1, "price": 1}).sort("price", -1).to_list(300)
     schema = ", ".join(f'"{p}":{{"caption":"...","hashtags":["#..."]}}' for p in want)
     posts = await _ask_json(
         sys, f"Topic: {body.topic}. Create posts for these platforms with their rules:\n"
              + "\n".join(f"- {p}: {plat_rules[p]}" for p in want)
-             + _history_block(ctx)
+             + (_reuse_block(reuse, services) if reuse else _history_block(ctx))
              + f'\nReturn JSON: {{{schema}}}')
     posts = _clean_newlines(posts)
     image_url = ""

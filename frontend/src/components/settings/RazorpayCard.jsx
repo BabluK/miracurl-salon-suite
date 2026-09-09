@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { CreditCard, Check, Sparkles, Loader2, Store } from "lucide-react";
+import { trackPurchase } from "@/lib/analytics";
 
 function loadRazorpayScript() {
   return new Promise(resolve => {
@@ -113,6 +114,7 @@ export function RazorpayCard() {
               razorpay_signature: rzp.razorpay_signature,
             });
             toast.success("Payment successful — subscription active ✦");
+            trackPurchase({ transaction_id: rzp.razorpay_payment_id, value: (order.amount || 0) / 100, currency: order.currency || "INR", plan: chosen.key, gateway: "razorpay", source: "settings" });
           } catch (e) {
             toast.error(e.response?.data?.detail || "Verification failed. Contact support.");
           }

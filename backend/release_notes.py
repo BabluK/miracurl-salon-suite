@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-09.237"
-BUILD_TIME = "09 Sep 2026, 09:30 AM IST"
+BUILD = "2026-09-09.238"
+BUILD_TIME = "09 Sep 2026, 10:15 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-09.238", "note": "Post History → Reuse this post (Mira rewrites a past winner fresh); GA4 conversion events (sign_up, booking_confirmed, purchase); morning digest: only from production, skips never-billed tenants, star-of-day counts per-line stylists"},
     {"build": "2026-09-09.237", "note": "Mira Studio: Post History log can be deleted per entry or cleared; AI social images now carry the salon's own logo (not the Miracurl mark)"},
     {"build": "2026-09-08.236", "note": "Owner/admin bell notifications: HQ changes, payments, offers, campaign settlements, staff leave/week-off requests, payroll-profile gaps"},
     {"build": "2026-09-08.235", "note": "One-tap Resend (with corrected address) on failed/skipped rows of the email delivery log"},
@@ -57,6 +58,8 @@ RELEASES = [
         "changes": [
             "🗑️ Mira Studio → Post History: delete any log entry or clear the whole history (log only — your live posts on Instagram / Facebook / Google are untouched)",
             "🏷️ Mira's AI social images now carry YOUR salon logo in a gold medallion (bottom-right) instead of the Miracurl mark",
+            "♻️ Post History → Reuse: one tap and Mira re-runs a past winning post — same offer & prices, brand-new hook, wording and image — ready to publish",
+            "☀️ Morning digest: no more ₹0 digests from test/preview or never-billed businesses; Star of the day now credits stylists tagged on individual bill lines",
         ],
     },
     {

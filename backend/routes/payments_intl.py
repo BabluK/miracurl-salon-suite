@@ -185,7 +185,8 @@ async def stripe_sub_status(session_id: str, request: Request,
                 rec = await _raw_db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
         except Exception:
             pass
-    return {"session_id": session_id, "payment_status": rec["payment_status"], "plan": rec.get("plan")}
+    return {"session_id": session_id, "payment_status": rec["payment_status"], "plan": rec.get("plan"),
+            "amount": rec.get("amount"), "currency": rec.get("currency")}
 
 
 @router.get("/public/renew/{token}")

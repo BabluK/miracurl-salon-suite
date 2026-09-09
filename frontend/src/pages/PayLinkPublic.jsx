@@ -4,6 +4,7 @@ import axios from "axios";
 import { Loader2, ShieldCheck, Sparkles, Clock, Gift } from "lucide-react";
 import BrandMark from "@/components/BrandMark";
 import { toast, Toaster } from "sonner";
+import { trackPurchase } from "@/lib/analytics";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -53,6 +54,7 @@ export default function PayLinkPublic() {
       try {
         const { data } = await API.get(`/${token}/stripe-status/${sid}`);
         if (data.status === "paid") {
+          trackPurchase({ transaction_id: sid, value: link.amount, currency: link.currency || "USD", plan: link.plan_label, gateway: "stripe", source: "pay_link" });
           setDone({ salon_name: link.salon_name, plan_label: link.plan_label, end_date: "" });
           return;
         }
@@ -83,6 +85,7 @@ export default function PayLinkPublic() {
         handler: async (resp) => {
           try {
             const { data: v } = await API.post(`/${token}/verify`, resp);
+            trackPurchase({ transaction_id: resp.razorpay_payment_id, value: link.amount, currency: "INR", plan: link.plan_label, gateway: "razorpay", source: "pay_link" });
             setDone(v);
           } catch (e) { toast.error(e.response?.data?.detail || "Payment verification failed"); }
         },

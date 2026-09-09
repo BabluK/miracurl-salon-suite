@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { CreditCard, Check, Loader2, Sparkles, Globe } from "lucide-react";
+import { trackPurchase } from "@/lib/analytics";
 
 const fmtUSD = (n) => "$" + Number(n).toLocaleString("en-US");
 const TIERS = [["starter", "Starter"], ["pro", "Professional"], ["premium", "Premium AI"]];
@@ -41,6 +42,7 @@ export function StripeSubscriptionCard() {
         if (data.payment_status === "paid") {
           setVerifying(false);
           toast.success("Payment received — your subscription is active 🎉");
+          trackPurchase({ transaction_id: sid, value: data.amount, currency: data.currency || "USD", plan: data.plan, gateway: "stripe", source: "settings" });
           refresh?.();
           return;
         }

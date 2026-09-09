@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Loader2, Heart, MessageCircle, Share2, CheckCircle2, XCircle, History, Trash2 } from "lucide-react";
+import { Loader2, Heart, MessageCircle, Share2, CheckCircle2, XCircle, History, Trash2, RefreshCw } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -62,7 +62,7 @@ function ConfirmDialog({ open, onOpenChange, title, onConfirm, busy, testId }) {
   );
 }
 
-export const SocialHistoryPanel = () => {
+export const SocialHistoryPanel = ({ onReuse }) => {
   const [posts, setPosts] = useState(null);
   const [target, setTarget] = useState(null); // post id | "__all__"
   const [busy, setBusy] = useState(false);
@@ -131,11 +131,20 @@ export const SocialHistoryPanel = () => {
                 ))}
               </div>
             </div>
-            <button type="button" onClick={() => setTarget(p.id)} title="Delete this log entry"
-              data-testid={`social-history-delete-${p.id}`}
-              className="self-start p-2 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors">
-              <Trash2 className="w-4 h-4" />
-            </button>
+            <div className="self-start flex items-center gap-1 shrink-0">
+              {onReuse && p.caption && (
+                <button type="button" onClick={() => onReuse(p)} title="Reuse this post — Mira rewrites it fresh with a new image"
+                  data-testid={`social-history-reuse-${p.id}`}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-fuchsia-700 bg-fuchsia-50 hover:bg-fuchsia-100 border border-fuchsia-200 rounded-full px-2.5 py-1 transition-colors">
+                  <RefreshCw className="w-3 h-3" /> Reuse
+                </button>
+              )}
+              <button type="button" onClick={() => setTarget(p.id)} title="Delete this log entry"
+                data-testid={`social-history-delete-${p.id}`}
+                className="p-2 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 transition-colors">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         );
       })}

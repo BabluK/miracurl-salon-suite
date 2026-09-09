@@ -9,6 +9,7 @@ import BookingChatWidget from "@/components/BookingChatWidget";
 import { HeroCTAs, GalleryShowcase, OffersShowcase, VerifiedTeam, ReferEarnBanner, AITrustStrip, LocationsSection, openMira } from "@/components/BookPublicExtras";
 import { MiracurlProductsStrip } from "@/components/MiracurlProductsStrip";
 import { BrandSplash } from "@/components/BrandSplash";
+import { trackBooking } from "@/lib/analytics";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const DEFAULT_SLUG = "miracurl-marathahalli";
@@ -379,6 +380,7 @@ export default function BookPublic() {
         seating: salon?.business_type === "restaurant" ? seating : null,
       });
       setConfirmation(data);
+      trackBooking({ slug, business_type: salon?.business_type || "salon", value: total, services: pickedServices.map(s => s.name).join(", ").slice(0, 100), staff_picked: staffId });
       setStep(5);
       toast.success("Booking confirmed!");
     } catch (e) {

@@ -10,6 +10,7 @@ import ChatButton from "@/components/ChatButton";
 import { useAuth } from "@/context/AuthContext";
 import { setTenantSlug, formatApiError } from "@/lib/api";
 import { detectRegion } from "@/lib/region";
+import { trackSignup } from "@/lib/analytics";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const TOASTER_OPTIONS = { style: { background: "#fff", color: "#0f172a", border: "1px solid rgba(14,165,233,0.2)" } };
@@ -140,6 +141,7 @@ export default function SignupSalon() {
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
       });
       setTenantSlug(data.tenant.slug);
+      trackSignup({ slug: data.tenant.slug, business_type: form.business_type, trial_days: data.trial_days, region, referred: ref });
       localStorage.setItem("miracurl_tenant", data.tenant.slug);
       localStorage.removeItem("miracurl_ref");  // consumed
       localStorage.removeItem("miracurl_offer");

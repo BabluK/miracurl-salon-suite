@@ -427,6 +427,10 @@ async def _feedback_reminder_scheduler() -> None:
 async def _salon_digest_scheduler() -> None:
     """Every 15 min: after 8 AM IST send each salon owner their morning digest (once per day)."""
     from routes.salon_digest import send_salon_daily_digests
+    from database import IS_PREVIEW_ENV
+    if IS_PREVIEW_ENV:
+        logging.info("salon digest scheduler disabled on preview (owners only get digests from production)")
+        return
     while True:
         try:
             ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)

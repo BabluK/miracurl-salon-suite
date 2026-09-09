@@ -49,11 +49,11 @@ export default function MiraStudio() {
   }, []);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [result, reply]);
 
-  async function runAgent(agent, topic) {
+  async function runAgent(agent, topic, extra = {}) {
     setBusy(true);
     try {
       if (agent === "social") {
-        const { data } = await api.post("/mira-studio/social/generate", { topic, platforms: ["instagram", "facebook", "google"], with_image: true, image_style: "luxury" });
+        const { data } = await api.post("/mira-studio/social/generate", { topic, platforms: ["instagram", "facebook", "google"], with_image: true, image_style: "luxury", ...extra });
         setResult({ type: "social", ...data });
       } else if (["content", "sales", "seo", "video", "email"].includes(agent)) {
         const { data } = await api.post("/mira-studio/generate", { agent, topic });
@@ -91,6 +91,14 @@ export default function MiraStudio() {
       toast.error(e.response?.data?.detail || "Mira couldn't understand that");
       setBusy(false);
     }
+  }
+
+  function reusePost(p) {
+    const topic = `Refresh of past post: ${(p.caption || "").split("\n")[0].slice(0, 90)}`;
+    setTab("agents"); setResult(null);
+    setReply("♻️ Refreshing your past post — same offer, brand-new wording and a fresh image…");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    runAgent("social", topic, { reuse_post_id: p.id });
   }
 
   return (
@@ -140,7 +148,7 @@ export default function MiraStudio() {
 
       {tab === "autopilot" && <MiraAutopilot />}
       {tab === "calendar" && <MiraCalendar canPost={!!(conns.instagram || conns.facebook)} />}
-      {tab === "history" && <SocialHistoryPanel />}
+      {tab === "history" && <SocialHistoryPanel onReuse={reusePost} />}
 
       {tab === "agents" && <>
       <MiraSocialNudge variant="studio" onSuggest={(kind) => {

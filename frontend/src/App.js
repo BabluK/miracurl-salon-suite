@@ -1,11 +1,14 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 
+let _lastGaPath = null;
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
     window.scrollTo(0, 0);
-    // GA4 page views for this single-page app (route changes don't reload the page)
+    // GA4 page views for this single-page app (route changes don't reload the page); guard against double-mount
+    if (_lastGaPath === pathname) return;
+    _lastGaPath = pathname;
     if (typeof window.gtag === "function") window.gtag("event", "page_view", { page_path: pathname, page_location: window.location.href, page_title: document.title });
   }, [pathname]);
   return null;

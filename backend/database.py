@@ -13,6 +13,11 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 _raw_db = client[os.environ['DB_NAME']]
 
+# Preview pods use a local Mongo; production uses Atlas. Owner-facing scheduled
+# emails must only leave the production environment (override: OWNER_SCHEDULED_EMAILS=on|off).
+_flag = os.environ.get("OWNER_SCHEDULED_EMAILS", "").lower()
+IS_PREVIEW_ENV = (_flag == "off") if _flag in ("on", "off") else ("localhost" in mongo_url or "127.0.0.1" in mongo_url)
+
 # ---------------- Tenant-aware DB wrapper ----------------
 _current_tenant_id: ContextVar[Optional[str]] = ContextVar("current_tenant_id", default=None)
 # When True, TenantCollection allows unscoped global reads. Set by super_admin
