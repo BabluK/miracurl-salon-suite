@@ -12,6 +12,7 @@ import uuid
 import json
 import asyncio
 import logging
+import re
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, HTTPException, Depends, Request
@@ -325,9 +326,46 @@ async def text_agent(body: TextAgentIn, admin=Depends(require_tenant_admin), t=D
     if body.agent not in _TEXT_AGENTS:
         raise HTTPException(400, f"'{body.agent}' is not a text agent")
     sys_tpl, shape = _TEXT_AGENTS[body.agent]
-    out = await _ask_json(sys_tpl.format(name=name, loc=loc),
+    grounding = await _grounding_context(t)
+    out = await _ask_json(sys_tpl.format(name=name, loc=loc) + grounding,
                           f"Topic: {topic}. Return JSON: {shape.format()}")
-    return {"agent": body.agent, "topic": topic, "result": _clean_newlines(out)}
+    return {"agent": body.agent, "topic": topic, "result": _clean_newlines(out),
+            "grounded": True, "catalog_match": _topic_in_catalog(topic, grounding)}
+
+
+_DEFAULT_VOICE = "warm, premium, confident, Indian-English, no clichés like 'Beauty Enthusiast'"
+
+
+async def _grounding_context(t: dict) -> str:
+    """Facts every Mira text agent must respect: real menu + prices, vertical, brand voice, contact & booking link."""
+    from database import _raw_db
+    svcs = await _raw_db.services.find({"tenant_id": t["id"], "active": {"$ne": False}}, {"_id": 0, "name": 1, "price": 1, "category": 1}).sort("price", -1).to_list(60)
+    offers = await _raw_db.day_offers.find({"tenant_id": t["id"], "active": True}, {"_id": 0, "title": 1}).to_list(5)
+    resto = t.get("business_type") == "restaurant"
+    menu = "; ".join(f"{x['name']} ₹{int(x.get('price') or 0)}" + (f" ({x['category']})" if x.get("category") else "") for x in svcs) or "(catalog not set up yet)"
+    kind = "RESTAURANT (food, dining, table orders — never beauty treatments)" if resto else "SALON (hair, skin, nails, grooming — not a medical clinic)"
+    lines = [
+        "", "", "GROUND TRUTH — read before writing:",
+        "• Business type: " + kind + ".",
+        "• Real " + ("menu" if resto else "service") + " catalog with prices: " + menu + ".",
+    ]
+    if offers:
+        lines.append("• Live offers: " + "; ".join(o["title"] for o in offers) + ".")
+    lines += [
+        "• Contact: " + str(t.get("phone") or "") + " · Book online: https://miracurl-suite.com/book/" + str(t.get("slug")) + ".",
+        "• Brand voice: " + str(t.get("brand_voice") or _DEFAULT_VOICE) + ".",
+        "RULES: (1) Only promote items that exist in the catalog above — NEVER invent treatments (e.g. Botox, fillers, laser, surgery) unless listed. "
+        "(2) If the topic is not in the catalog, say so in a 'note' field and pivot to the closest real service. "
+        "(3) Use real prices when quoting; greet as 'Hi there' / by name, never a generic label. (4) Include a clear CTA with the booking link or phone. "
+        "(5) Be concrete, local and specific — mention the city/area and this month's context.",
+    ]
+    return "\n".join(lines)
+
+
+def _topic_in_catalog(topic: str, grounding: str) -> bool:
+    words = [w for w in re.findall(r"[a-z]{4,}", topic.lower()) if w not in {"with", "this", "that", "your", "offer", "campaign", "special"}]
+    hay = grounding.lower()
+    return any(w in hay for w in words) if words else True
 
 
 def _clean_newlines(obj):

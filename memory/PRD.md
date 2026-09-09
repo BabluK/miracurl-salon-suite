@@ -2959,3 +2959,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Not reproducible / false positives: security.py:232 (public CSRF label), 86 undefined variables (ruff F821 = 0), utils.py:8 `is` literal (it's `isinstance`/startswith code — F632 = 0). Skipped by design: server.py/lead_gen import-count splits.
 - Regression: webhook + trial suites pass except congrats-email asserts failing ONLY because Resend daily quota is exhausted (external). Public salon page OK.
 - (later 19) Google Analytics 4 (G-RSXW31FS5L) added to frontend/public/index.html (gtag with send_page_view:false) + SPA page_view events on every route change in App.js ScrollToTop effect. Verified gtag loads (dataLayer populated) on preview.
+
+## 2026-09-09 — Post History delete/clear + tenant logo on Mira AI images
+- `DELETE /api/social/history/{id}` + `DELETE /api/social/history` (tenant-scoped, admin+CSRF). SocialHistoryPanel.jsx: per-card trash icon + "Clear history" button, AlertDialog confirm noting it only removes the log (live posts untouched); broken thumbnails hidden via onError.
+- promo_common.stamp_monogram_bytes(data, logo_bytes) → `stamp_tenant_logo` draws the salon's own logo in a gold-ring medallion bottom-right (contain-fit, dark disc); falls back to MS monogram when no logo. mira_common._gen_image loads tenant logo via `_tenant_logo(t)` (object storage). Flyers already used tenant logo.
+- Tests: backend/tests/test_iter144_social_history_delete.py (3 pass) + Playwright UI check (15→14 after delete). BUILD 2026-09-09.237.

@@ -12,7 +12,7 @@ from fastapi import HTTPException
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 from database import _raw_db
-from services.storage import _put_object, APP_NAME
+from services.storage import _put_object, _get_object, APP_NAME
 
 log = logging.getLogger("mira_common")
 
@@ -114,12 +114,27 @@ async def _gen_image_bytes(prompt: str) -> bytes | None:
         return None
 
 
+async def _tenant_logo(t: dict) -> bytes | None:
+    url = t.get("logo_url") or ""
+    if not url.startswith("/api/files/"):
+        return None
+    up = await _raw_db.uploads.find_one({"id": url.rsplit("/", 1)[-1].split("?")[0]}, {"_id": 0, "storage_path": 1})
+    if not up:
+        return None
+    try:
+        data, _ = await asyncio.to_thread(_get_object, up["storage_path"])
+        return data
+    except Exception as e:
+        log.warning("tenant logo load failed: %s", e)
+        return None
+
+
 async def _gen_image(prompt: str, t: dict, kind: str) -> str:
     data = await _gen_image_bytes(prompt)
     if not data:
         return ""
     from routes.promo_common import stamp_monogram_bytes
-    data = stamp_monogram_bytes(data)
+    data = stamp_monogram_bytes(data, await _tenant_logo(t))
     fid = str(uuid.uuid4())
     path = f"{APP_NAME}/{t['id']}/mira-studio/{kind}/{fid}.png"
     try:

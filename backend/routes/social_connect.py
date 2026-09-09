@@ -441,6 +441,20 @@ async def social_history(admin=Depends(require_tenant_admin), t=Depends(current_
     return {"posts": posts}
 
 
+@router.delete("/social/history")
+async def clear_social_history(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    res = await _raw_db.social_posts.delete_many({"tenant_id": t["id"]})
+    return {"ok": True, "deleted": res.deleted_count}
+
+
+@router.delete("/social/history/{post_id}")
+async def delete_social_history_item(post_id: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    res = await _raw_db.social_posts.delete_one({"tenant_id": t["id"], "id": post_id})
+    if not res.deleted_count:
+        raise HTTPException(404, "Post log not found")
+    return {"ok": True}
+
+
 # ── Google Business local posts ─────────────────────────────────────────────
 async def publish_google_post(tid: str, summary: str, image_abs_url: str | None = None,
                               offer_title: str | None = None) -> dict:

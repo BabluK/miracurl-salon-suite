@@ -61,13 +61,38 @@ def stamp_monogram(img: Image.Image, opacity: float = 0.5) -> Image.Image:
     return base
 
 
-def stamp_monogram_bytes(data: bytes) -> bytes:
-    """Stamp raw image bytes; returns original bytes on any failure."""
+def stamp_tenant_logo(img: Image.Image, logo_bytes: bytes) -> Image.Image:
+    """Salon's own logo as a circular gold-ring medallion, bottom-right."""
+    import io
+    from PIL import ImageDraw, ImageOps
+    size = max(80, int(img.width * 0.14))
+    logo = Image.open(io.BytesIO(logo_bytes)).convert("RGBA")
+    inner = int(size * 0.8)
+    logo = ImageOps.contain(logo, (inner, inner), Image.LANCZOS)
+    medal = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    ImageDraw.Draw(medal).ellipse([0, 0, size - 1, size - 1], fill=(18, 14, 20, 200))
+    medal.alpha_composite(logo, ((size - logo.width) // 2, (size - logo.height) // 2))
+    ImageDraw.Draw(medal).ellipse([1, 1, size - 2, size - 2], outline=(212, 175, 55, 255), width=max(3, size // 40))
+    base = img.convert("RGBA")
+    pad = max(16, int(base.width * 0.025))
+    base.paste(medal, (base.width - size - pad, base.height - size - pad), medal)
+    return base
+
+
+def stamp_monogram_bytes(data: bytes, logo_bytes: bytes | None = None) -> bytes:
+    """Stamp raw image bytes with the salon logo (falls back to MS monogram); returns original bytes on any failure."""
     import io
     try:
         src = Image.open(io.BytesIO(data))
         fmt = (src.format or "PNG").upper()
-        img = stamp_monogram(src)
+        img = None
+        if logo_bytes:
+            try:
+                img = stamp_tenant_logo(src, logo_bytes)
+            except Exception:
+                img = None
+        if img is None:
+            img = stamp_monogram(src)
         buf = io.BytesIO()
         if fmt == "JPEG":
             img.convert("RGB").save(buf, "JPEG", quality=90)

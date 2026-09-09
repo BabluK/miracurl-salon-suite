@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-08.236"
-BUILD_TIME = "08 Sep 2026, 04:30 PM IST"
+BUILD = "2026-09-09.237"
+BUILD_TIME = "09 Sep 2026, 09:30 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-09.237", "note": "Mira Studio: Post History log can be deleted per entry or cleared; AI social images now carry the salon's own logo (not the Miracurl mark)"},
     {"build": "2026-09-08.236", "note": "Owner/admin bell notifications: HQ changes, payments, offers, campaign settlements, staff leave/week-off requests, payroll-profile gaps"},
     {"build": "2026-09-08.235", "note": "One-tap Resend (with corrected address) on failed/skipped rows of the email delivery log"},
     {"build": "2026-09-08.234", "note": "Email delivery log in HQ Billing; deploy-readiness: .env files tracked, startup seed no longer deletes users (one-time guarded migration)"},
@@ -51,6 +52,13 @@ BUILD_LOG = [
 ]
 
 RELEASES = [
+    {
+        "date": "2026-09-09 (Mira Studio polish ✨)",
+        "changes": [
+            "🗑️ Mira Studio → Post History: delete any log entry or clear the whole history (log only — your live posts on Instagram / Facebook / Google are untouched)",
+            "🏷️ Mira's AI social images now carry YOUR salon logo in a gold medallion (bottom-right) instead of the Miracurl mark",
+        ],
+    },
     {
         "date": "2026-09-08 (Custom free trials & trial nudges 🎁)",
         "changes": [
