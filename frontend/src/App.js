@@ -72,6 +72,7 @@ import Reviews from "@/pages/Reviews";
 import OffersStudio from "@/pages/OffersStudio";
 import BookPublic from "@/pages/BookPublic";
 import RewardsCampaign from "@/pages/RewardsCampaign";
+import ColorTryOn from "@/pages/ColorTryOn";
 import LoyaltyClubJoin from "@/pages/LoyaltyClubJoin";
 import OrderPublic from "@/pages/OrderPublic";
 import Kitchen from "@/pages/Kitchen";
@@ -226,6 +227,7 @@ export default function App() {
           <Routes>
             <Route path="/book/:slug" element={<BookPublic />} />
             <Route path="/rewards/:slug" element={<RewardsCampaign />} />
+            <Route path="/color/:slug" element={<ColorTryOn />} />
             <Route path="/order/:slug" element={<OrderPublic />} />
             <Route path="/gift/:slug" element={<GiftCardPublic />} />
             <Route path="/membership/:slug" element={<MembershipPublic />} />

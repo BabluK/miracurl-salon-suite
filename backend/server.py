@@ -67,6 +67,7 @@ from routes.mira_calendar import router as mira_calendar_router  # noqa: E402
 from routes.mira_autopilot import router as mira_autopilot_router, autopilot_scheduler  # noqa: E402
 from routes.promo_video import router as promo_video_router, weekly_promo_scheduler  # noqa: E402
 from routes.veo_studio import router as veo_studio_router, sweep_stale_veo_jobs  # noqa: E402
+from routes.hair_colors import router as hair_colors_router  # noqa: E402
 from routes.platform_tools import router as platform_tools_router  # noqa: E402
 from routes.promo_image import router as promo_image_router  # noqa: E402
 from routes.offer_flyer import router as offer_flyer_router  # noqa: E402
@@ -129,7 +130,7 @@ for _r in (
     public_chat_router, sales_router, registry_router, appointments_pos_router, invoice_edits_router, gift_cards_router, mira_calls_router,
     premium_membership_router,
     mira_studio_router, social_connect_router, mira_calendar_router, mira_autopilot_router,
-    promo_video_router, platform_tools_router, promo_image_router, offer_flyer_router, veo_studio_router,
+    promo_video_router, platform_tools_router, promo_image_router, offer_flyer_router, veo_studio_router, hair_colors_router,
     packages_router, wallet_router, id_cards_router, releases_router, loyalty_stamps_router,
     testimonials_router, diagnostics_router, subscriptions_router, day_offers_router,
     cctv_router, hiring_router, hq_notifications_router, winback_router, payments_intl_router,

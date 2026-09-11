@@ -16,6 +16,7 @@ import { TaxCard } from "@/components/settings/TaxCard";
 import { LoyaltyCard } from "@/components/settings/LoyaltyCard";
 import { AffiliateCard } from "@/components/settings/AffiliateCard";
 import { RazorpayCard } from "@/components/settings/RazorpayCard";
+import { ColorTryOnCard } from "@/components/settings/ColorTryOnCard";
 import { InvoicesCard } from "@/components/settings/InvoicesCard";
 import { AccountProfileCard } from "@/components/settings/AccountProfileCard";
 import { GiftCardsCard } from "@/components/settings/GiftCardsCard";
@@ -117,6 +118,8 @@ export default function Settings() {
         </div>
 
         <AffiliateCard />
+
+        <ColorTryOnCard />
 
         <StripeSubscriptionCard />
 

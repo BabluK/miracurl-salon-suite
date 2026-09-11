@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone as PhoneIcon, MapPin, Star, Instagram, MessageCircle, Sparkles, Gift, CreditCard, UtensilsCrossed, ShieldCheck } from "lucide-react";
 import { toast, Toaster } from "sonner";
@@ -209,6 +209,8 @@ function describeBookingError(err) {
 
 export default function BookPublic() {
   const { slug: routeSlug } = useParams();
+  const [searchParams] = useSearchParams();
+  const [pickedColor, setPickedColor] = useState(null); // from /color/{slug} try-on
   const slug = routeSlug || DEFAULT_SLUG;
   const PUBLIC = useMemo(() => axios.create({ baseURL: `${BACKEND_URL}/api/public` }), []);
 
@@ -245,6 +247,13 @@ export default function BookPublic() {
   const [date, setDate] = useState(localToday);
   const [time, setTime] = useState("");
   const [form, setForm] = useState(INITIAL_FORM);
+  useEffect(() => {
+    const cid = searchParams.get("color");
+    if (!cid || !routeSlug) return;
+    axios.get(`${BACKEND_URL}/api/public/color/${routeSlug}`)
+      .then(r => { const c = (r.data.colors || []).find(x => x.id === cid); if (c) setPickedColor({ ...c, code: searchParams.get("code") || "" }); })
+      .catch(() => {});
+  }, [routeSlug, searchParams]);
   const [referralCheck, setReferralCheck] = useState(null);
   const [couponCheck, setCouponCheck] = useState(null);
   const [availability, setAvailability] = useState(null);
@@ -357,6 +366,7 @@ export default function BookPublic() {
       const scheduled = `${date}T${time}:00+05:30`;
       const isResto2 = salon?.business_type === "restaurant";
       let notesOut = form.notes || "";
+      if (pickedColor) notesOut = [`🎨 Hair colour appointment: ${pickedColor.name}${pickedColor.code ? ` (try-on code ${pickedColor.code})` : ""}`, notesOut].filter(Boolean).join("\n");
       if (isResto2) {
         const SPICE_LBL = { not_spicy: "Not spicy", normal: "Normal", spicy: "Spicy 🌶" };
         const spiceLines = pickedServices.map(s => `${s.name}: ${SPICE_LBL[spiceMap[s.id] || "normal"]}`);
@@ -459,6 +469,11 @@ export default function BookPublic() {
               className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-[#dcc98f] text-[11px] text-[#8a6d1f] hover:bg-[#f6eeda] transition-colors">
               <Star className="w-3 h-3 text-[#b08d3f]" /> {salon.business_type === "restaurant" ? "Explore Miracurl" : "Find a salon"}
             </Link>
+            {salon.business_type !== "restaurant" && !pickedColor && (
+              <Link to={`/color/${slug}`} data-testid="book-color-link" className="hidden sm:inline-flex items-center gap-1 text-xs text-[#b08d3f] font-semibold hover:underline">
+                🎨 Choose your beauty hair colour
+              </Link>
+            )}
             <button
               data-testid="book-header-cta"
               onClick={goToServices}
@@ -469,6 +484,24 @@ export default function BookPublic() {
         </div>
       </div>
 
+      {pickedColor && (
+        <div className="fixed top-20 inset-x-0 z-30 flex justify-center px-3 pointer-events-none" data-testid="book-color-banner">
+          <div className="pointer-events-auto flex items-center gap-3 bg-[#17141c]/95 backdrop-blur border border-[#d4af37]/60 rounded-2xl px-3 py-2 shadow-xl max-w-md w-full">
+            <div className="w-12 h-14 rounded-lg overflow-hidden shrink-0 border border-[#d4af37]/60">
+              {pickedColor.image_url ? <img src={`${BACKEND_URL}${pickedColor.image_url}`} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: `linear-gradient(160deg, ${pickedColor.swatch.join(",")})` }} />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] tracking-[0.2em] text-[#d4af37] font-semibold">COLOUR APPOINTMENT</p>
+              <p className="text-white text-sm font-semibold truncate">{pickedColor.name}</p>
+              <p className="text-white/60 text-[11px] truncate">{pickedColor.tag}{pickedColor.code ? ` · code ${pickedColor.code}` : ""}</p>
+            </div>
+            <button onClick={goToServices} data-testid="book-color-continue" className="shrink-0 px-3 py-2 rounded-full bg-gradient-to-r from-[#d4af37] to-[#e6c66e] text-[#17141c] text-xs font-bold">Pick stylist & time</button>
+          </div>
+        </div>
+      )}
+      {!pickedColor && salon.business_type !== "restaurant" && (
+        <Link to={`/color/${slug}`} data-testid="book-color-link-mobile" className="sm:hidden fixed top-20 inset-x-0 z-30 text-center text-[11px] py-1.5 bg-[#17141c]/90 text-[#e6c66e] font-semibold">🎨 Choose your beauty hair colour →</Link>
+      )}
       <header className="relative overflow-hidden mt-20">
         <img src={salon.hero_image} className="absolute inset-0 w-full h-full object-cover" alt="" />
         {dayOffer?.is_festival && festTheme(dayOffer.occasion) && (() => { const th = festTheme(dayOffer.occasion); return (
