@@ -89,7 +89,10 @@ def render_end_card(W: int, H: int, c: dict) -> Image.Image:
     d.line([(W - line_w) / 2, y, (W + line_w) / 2, y], fill=GOLD, width=max(2, int(2 * s)))
     d.polygon([(W / 2, y - 8 * s), (W / 2 + 8 * s, y), (W / 2, y + 8 * s), (W / 2 - 8 * s, y)], fill=GOLD)
     y += int(40 * s)
-    _center(d, y, "  ".join(c["motto"].split(" ")), _font(int(40 * s)), (255, 255, 255), W); y += int(110 * s if H > W else 200 * s)
+    _center(d, y, "  ".join(c["motto"].split(" ")), _font(int(40 * s)), (255, 255, 255), W); y += int(60 * s)
+    if c.get("sub"):
+        _center(d, y, c["sub"], _font(int(30 * s)), (200, 195, 185), W)
+    y += int(50 * s if H > W else 140 * s)
     rows = [("EMAIL", c.get("email")), ("CALL / WHATSAPP", c.get("phone")), ("INSTAGRAM", c.get("instagram")), ("WEBSITE", c.get("website"))]
     rows = [(k, v) for k, v in rows if v]
     if H > W:  # portrait: 2x2 icon grid, like the brand card
@@ -167,3 +170,19 @@ def brand_finish(src: str, dst: str, tmp: str, contacts: dict) -> int:
                     "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-pix_fmt", "yuv420p", dst],
                    check=True, capture_output=True, timeout=600)
     return END_CARD_SEC
+
+
+def mix_narration(video: str, narration_mp3: str, dst: str, ambient_db: float = -14.0) -> None:
+    """Blocking: lay a narration track over the video, ducking the clip's own ambient audio."""
+    ff = _ffmpeg()
+    subprocess.run([ff, "-y", "-i", video, "-i", narration_mp3, "-filter_complex",
+                    f"[0:a]volume={ambient_db}dB[amb];[amb][1:a]amix=inputs=2:duration=first:dropout_transition=2[a]",
+                    "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", dst],
+                   check=True, capture_output=True, timeout=600)
+
+
+def media_duration(path: str) -> float:
+    import re
+    out = subprocess.run([_ffmpeg(), "-i", path], capture_output=True, text=True, timeout=60).stderr
+    m = re.search(r"Duration: (\d+):(\d+):([\d.]+)", out)
+    return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3)) if m else 0.0

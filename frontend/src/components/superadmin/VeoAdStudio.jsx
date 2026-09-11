@@ -6,6 +6,7 @@ import { confirmAsync } from "@/components/ConfirmDialog";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 const DURATIONS = [{ s: 30, scenes: 4 }, { s: 40, scenes: 5 }, { s: 60, scenes: 8 }];
+const DEFAULT_VOICEOVER = "Have you ever wondered how much time salon owners lose managing everything behind the scenes? Appointments. Payments. Customers. Staff. Inventory. Reports. Then I discovered Miracurl Suite. It's one powerful platform designed to bring salon operations together. Online appointments keep bookings organized. POS and billing simplify payments and invoices. CRM and loyalty tools help you build stronger relationships with your clients. Staff management and inventory tools give you better control of daily operations. And powerful reports show you what's really happening in your business. But what really caught my attention? Mira AI — an intelligent salon assistant available 24/7 to help engage customers and support bookings. One platform. Smarter operations. Better customer experiences. That's Miracurl Suite. Start your 90-day free experience today.";
 const DEFAULT_CONCEPT = "Full Miracurl Salon Suite ad — online booking, WhatsApp automation, staff payroll, GST billing and the 12-agent AI team, for Indian salon owners";
 
 function BrandContactsEditor() {
@@ -57,8 +58,11 @@ export const VeoAdStudio = () => {
   const [concept, setConcept] = useState(DEFAULT_CONCEPT);
   const [duration, setDuration] = useState(40);
   const [aspect, setAspect] = useState("9:16");
-  const [mode, setMode] = useState("cinematic");
+  const [mode, setMode] = useState("narrated");
   const [photo, setPhoto] = useState(null); // {photo_id, url}
+  const [voiceover, setVoiceover] = useState(DEFAULT_VOICEOVER);
+  const [narrator, setNarrator] = useState("nova");
+  const [endCard, setEndCard] = useState({ motto: "90 DAYS FREE", sub: "No Credit Card. No Commitment.", tagline: "AI-Powered Salon Management" });
   const [uploading, setUploading] = useState(false);
   const [job, setJob] = useState(null);
   const [videos, setVideos] = useState([]);
@@ -112,8 +116,9 @@ export const VeoAdStudio = () => {
   const generate = async () => {
     try {
       const { data } = await api.post("/super/veo-ad", {
-        concept, duration, aspect_ratio: aspect, mode: mode === "photo" && !photo ? "cinematic" : mode,
+        concept, duration: mode === "narrated" ? null : duration, aspect_ratio: aspect, mode: mode === "photo" && !photo ? "cinematic" : mode,
         photo_id: photo?.photo_id || null, brand_card: true,
+        voiceover: mode === "narrated" ? voiceover : null, narrator, end_card: mode === "narrated" ? endCard : null,
       });
       setJob({ id: data.job_id, status: "generating", progress: "Starting…" });
       poll(data.job_id);
@@ -155,7 +160,9 @@ export const VeoAdStudio = () => {
       )}
 
       <div className="flex flex-col sm:flex-row gap-3" data-testid="veo-mode-toggle">
-        {modeBtn("cinematic", "veo-mode-cinematic", "🎥 Cinematic Scenes", "Story-style ad — salon scenes, customers, voiceover")}
+        {modeBtn("spokesperson", "veo-mode-spokesperson", "🎙️ Speaking Spokesperson", "AI brand ambassador talks to camera, lip-synced, in premium salon scenes", <span className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-300 to-yellow-600 text-slate-900 font-black flex items-center justify-center text-xs">MS</span>)}
+        {modeBtn("cinematic", "veo-mode-cinematic", "🎥 Cinematic B-roll", "Story-style ad — salon scenes, customers, voiceover only")}
+        {modeBtn("narrated", "veo-mode-narrated", "📝 Narrated — your script", "Paste your exact voiceover; one consistent narrator over Veo film; custom final screen")}
         {modeBtn("photo", "veo-mode-photo", "📸 From your photo", photo ? "Your uploaded photo stars in every scene" : "Upload a founder / brand photo below", photo && <img src={`${BACKEND}${photo.url}`} alt="" className="w-11 h-11 rounded-lg object-cover border-2 border-fuchsia-300" />)}
       </div>
 
@@ -175,6 +182,25 @@ export const VeoAdStudio = () => {
         <span className="text-[11px] text-slate-400">Veo animates your photo (image-to-video) — founder intro, shop front, or the brand card.</span>
       </div>
 
+      {mode === "narrated" && (
+        <div className="space-y-3 bg-slate-50 border border-slate-200 rounded-2xl p-4" data-testid="veo-narrated-block">
+          <textarea value={voiceover} onChange={e => setVoiceover(e.target.value)} rows={7} maxLength={2500} data-testid="veo-voiceover-input"
+            className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 bg-white" placeholder="Paste the full voiceover script. Length decides the film: ~8 s per Veo scene (max 8 scenes ≈ 60 s + 4 s final screen)." />
+          <div className="flex flex-wrap gap-1.5" data-testid="veo-narrator-picker">
+            {[["nova", "🇺🇸 Nova · American female"], ["shimmer", "👩 Shimmer · warm female"], ["alloy", "🇺🇸 Alloy · neutral"], ["echo", "🇺🇸 Echo · male"], ["onyx", "🎙️ Onyx · deep male"], ["fable", "🇬🇧 Fable · British"]].map(([v, l]) => (
+              <button key={v} type="button" data-testid={`veo-narrator-${v}`} onClick={() => setNarrator(v)}
+                className={`text-[11px] px-2.5 py-1.5 rounded-full border font-medium ${narrator === v ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>{l}</button>
+            ))}
+          </div>
+          <div className="grid sm:grid-cols-3 gap-2">
+            {[["tagline", "Final screen · subtitle"], ["motto", "Final screen · headline"], ["sub", "Final screen · small line"]].map(([k, l]) => (
+              <input key={k} value={endCard[k] || ""} onChange={e => setEndCard(c => ({ ...c, [k]: e.target.value }))} placeholder={l} data-testid={`veo-endcard-${k}`}
+                className="border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 bg-white" />
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-500">Final screen always shows MIRACURL SUITE + your website / Instagram from "Brand end card" above. Voiceover is recorded with OpenAI HD voices (no Google cost); only the film scenes use your Veo credits.</p>
+        </div>
+      )}
       <textarea value={concept} onChange={e => setConcept(e.target.value)} rows={3} maxLength={600}
         className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800" data-testid="veo-concept-input" placeholder="One line about the ad — Mira writes the full script" />
 
@@ -198,10 +224,10 @@ export const VeoAdStudio = () => {
             <option value="16:9">YouTube / Landscape 16:9</option>
           </select>
         </label>
-        <button onClick={generate} disabled={generating || !configured} data-testid="veo-generate-btn"
+        <button onClick={generate} disabled={generating || !configured || (mode === "narrated" && voiceover.trim().length < 40)} data-testid="veo-generate-btn"
           className="ml-auto px-5 py-2.5 rounded-xl bg-fuchsia-600 text-white text-sm font-bold disabled:opacity-50 inline-flex items-center gap-2">
           {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          {generating ? "Filming…" : `Generate ${duration}s Cinematic Ad`}
+          {generating ? "Filming…" : mode === "narrated" ? "Generate Narrated Cinematic Ad" : `Generate ${duration}s Cinematic Ad`}
         </button>
       </div>
 
@@ -219,6 +245,10 @@ export const VeoAdStudio = () => {
           {/quota|billing|credit|RESOURCE_EXHAUSTED|depleted/i.test(job.error || "") && (
             <p className="mt-1.5 text-slate-700">💳 Your Google AI Studio prepaid credits are used up — top up at <b>ai.studio/projects</b> (same Google account as the Gemini key) and press Generate again. Meanwhile the <b>Promo Video Studio</b> below renders on Miracurl's own AI credits — no Google billing.</p>
           )}
+          <button type="button" data-testid="veo-resume-btn" onClick={async () => {
+            try { const { data } = await api.post(`/super/veo-ad/${job.id}/resume`); toast.success(`Resuming — ${data.kept_scenes ?? 0} filmed scenes kept`); setJob({ ...job, status: "generating", progress: "Resuming…" }); poll(job.id); }
+            catch (e) { toast.error(e.response?.data?.detail || "Couldn't resume"); }
+          }} className="mt-2 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold">↻ Resume — keep filmed scenes, don't pay twice</button>
         </div>
       )}
 

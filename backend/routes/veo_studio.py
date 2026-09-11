@@ -5,6 +5,7 @@ Mira writes a multi-scene ad script for the Miracurl Suite, Google Veo 3.1
 with native audio, and ffmpeg stitches the scenes into one final MP4.
 """
 import os
+import math
 import uuid
 import shutil
 import asyncio
@@ -20,7 +21,7 @@ from pydantic import BaseModel, Field
 from database import _raw_db
 from security import require_super_admin
 from services.storage import _put_object, _get_object, validate_image_bytes
-from services.veo_brand import get_brand_contacts, brand_finish
+from services.veo_brand import get_brand_contacts, brand_finish, END_CARD_SEC, mix_narration, media_duration
 
 router = APIRouter()
 log = logging.getLogger("veo_studio")
@@ -46,6 +47,8 @@ def _ffmpeg() -> str:
     return imageio_ffmpeg.get_ffmpeg_exe()
 
 
+SPOKESPERSON = ("a confident, elegant Indian woman in her early 30s, glowing skin, sleek dark hair, wearing a tailored "
+                "champagne-gold blazer with a small gold 'MS' pin — the Miracurl Suite brand ambassador, same face and outfit in every scene")
 DURATION_SCENES = {16: 2, 30: 4, 40: 5, 60: 8}  # Veo films 8-second scenes; +4s branded end card
 
 
@@ -54,7 +57,10 @@ class VeoAdIn(BaseModel):
     scenes: int = Field(2, ge=1, le=8)
     duration: int | None = None  # 30 | 40 | 60 → overrides scenes
     aspect_ratio: str = Field("9:16", pattern=r"^(9:16|16:9)$")
-    mode: str = Field("cinematic", pattern=r"^(cinematic|photo)$")
+    mode: str = Field("spokesperson", pattern=r"^(cinematic|spokesperson|photo|narrated)$")
+    voiceover: str | None = Field(None, max_length=2500)  # narrated: your exact script, one consistent TTS narrator
+    narrator: str = Field("nova", pattern=r"^(nova|shimmer|alloy|echo|onyx|fable)$")  # nova = American female
+    end_card: dict | None = None  # narrated: override brand/tagline/motto/sub/website/instagram/email/phone
     photo_id: str | None = None  # uploaded reference photo (founder / brand) → image-to-video
     brand_card: bool = True
 
@@ -106,9 +112,6 @@ async def veo_photo_upload(file: UploadFile = File(...), admin=Depends(require_s
 
 
 AVATAR_PATH = "/app/frontend/public/assets/mira-avatar.png"
-AVATAR_DESC = ("An elegant Indian woman presenter in her early 30s, shoulder-length dark wavy hair, warm confident "
-               "smile, wearing a dark navy blazer with subtle gold trim over a black top, delicate gold necklace, "
-               "standing in a luxury salon with warm golden lighting and softly blurred product shelves behind her")
 
 
 def _is_stale(doc: dict) -> bool:
@@ -131,6 +134,23 @@ async def sweep_stale_veo_jobs():
         log.error("stale veo cleanup failed: %s", e)
 
 
+@router.post("/super/veo-ad/{job_id}/resume")
+async def resume_veo_ad(job_id: str, admin=Depends(require_super_admin)):
+    """Continue a failed/interrupted job — already-filmed scenes are kept (saved to storage as they finish)."""
+    job = await _raw_db.veo_ads.find_one({"id": job_id}, {"_id": 0})
+    if not job or not job.get("params"):
+        raise HTTPException(404, "Job not found or too old to resume")
+    if job.get("status") == "done":
+        return {"ok": True, "status": "done"}
+    if await _raw_db.veo_ads.find_one({"status": "generating", "id": {"$ne": job_id}}):
+        raise HTTPException(409, "Another ad is still generating")
+    await _raw_db.veo_ads.update_one({"id": job_id}, {"$set": {"status": "generating", "error": None,
+                                                              "progress": f"Resuming — {len(job.get('clips') or {})} scenes already filmed…",
+                                                              "updated_at": datetime.now(timezone.utc).isoformat()}})
+    asyncio.create_task(_generate(job_id, VeoAdIn(**job["params"])))
+    return {"ok": True, "kept_scenes": len(job.get("clips") or {})}
+
+
 @router.post("/super/veo-ad")
 async def create_veo_ad(body: VeoAdIn, admin=Depends(require_super_admin)):
     _gemini_key()
@@ -151,7 +171,7 @@ async def create_veo_ad(body: VeoAdIn, admin=Depends(require_super_admin)):
     await _raw_db.veo_ads.insert_one({
         "id": job_id, "status": "generating", "progress": "Mira is writing the cinematic script…",
         "concept": body.concept, "scenes": body.scenes, "aspect_ratio": body.aspect_ratio, "mode": body.mode,
-        "duration": body.duration, "photo_id": body.photo_id, "brand_card": body.brand_card,
+        "duration": body.duration, "photo_id": body.photo_id, "brand_card": body.brand_card, "params": body.model_dump(),
         "video_url": "", "error": "", "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     })
@@ -203,18 +223,31 @@ async def _progress(job_id: str, msg: str):
 
 async def _write_script(body: VeoAdIn) -> list:
     from routes.mira_studio import _ask_json
-    if body.mode == "avatar":
+    if body.mode == "spokesperson":
         system = (
-            "You are a video ad director writing Veo 3.1 image-to-video prompts for a SPOKESPERSON ad. "
-            f"Every scene features {AVATAR_DESC}. She speaks DIRECTLY to camera in warm Indian-English. "
-            "The product is 'Miracurl Suite' salon software.")
+            f"You are a world-class ad director writing Veo 3.1 prompts for a SPEAKING spokesperson ad. The presenter is {SPOKESPERSON}. "
+            "She appears in EVERY scene, framed medium close-up or medium shot, looking into the lens and speaking with natural lip-sync, "
+            "in premium Indian salon / restaurant settings (marble reception, styling chairs, warm golden light, soft bokeh). "
+            "Alternate camera moves (slow push-in, gentle orbit, handheld walk-and-talk). Cinematic film look, shallow depth of field.")
         task = (
             f"Ad concept: {body.concept}\n"
-            f"Write exactly {body.scenes} scenes for consecutive 8-second clips forming ONE continuous "
-            "monologue by the presenter (each spoken line ~20 words max, continuing the previous line naturally). "
-            "Final scene's line ends with a call to action mentioning miracurl hyphen suite dot com. "
-            'Return JSON: {"scenes": [{"visual": "<her gesture/motion + camera move + lighting — plain text, '
-            'no quotation marks>", "line": "<the exact words she speaks — no quotation marks>"}]}')
+            f"Write exactly {body.scenes} scenes for consecutive 8-second clips forming ONE flowing ad. Each scene: the setting + "
+            "what she does + camera move, and the exact words she speaks (Indian-English, 16-20 words, natural, confident, continuing the "
+            "previous line). Final line ends with a call to action mentioning miracurl hyphen suite dot com. "
+            'Return JSON: {"scenes": [{"visual": "<plain text, no quotation marks>", "line": "<exact spoken words, no quotation marks>"}]}')
+    elif body.mode == "narrated":
+        system = (
+            "You are a world-class commercial director writing Veo 3.1 prompts for SILENT cinematic b-roll (no speech, no on-screen "
+            "text) that a separate narrator will be laid over. Premium modern Indian salon settings, real people, warm golden light, "
+            "shallow depth of field, smooth camera moves, 1080p film look. Every scene ends with 'No text, no captions, no logos, "
+            "ambient sound only, nobody speaks.'")
+        task = (
+            f"Ad concept: {body.concept}\n"
+            f"Narration the visuals must follow, in order:\n\"\"\"{body.voiceover}\"\"\"\n"
+            f"Split the narration into exactly {body.scenes} consecutive 8-second beats and write one visual per beat that "
+            "illustrates those words (opening: overwhelmed owner, ringing phones, waiting customers, paperwork; then calm, "
+            "organised salon using tablets/phone; finish on happy owner and clients). "
+            'Return JSON: {"scenes": [{"visual": "<plain text, no quotation marks>", "line": ""}]}')
     elif body.mode == "photo":
         system = (
             "You are a video ad director writing Veo 3.1 IMAGE-TO-VIDEO prompts. A reference photo (the founder / "
@@ -247,9 +280,13 @@ async def _write_script(body: VeoAdIn) -> list:
                 visual = str(s.get("visual") or "").strip()
                 line = str(s.get("line") or "").replace('"', "'").strip()
                 if visual or line:
-                    if body.mode == "avatar":
-                        scenes.append(f'{AVATAR_DESC}. {visual} She looks into the camera and says: "{line}"' if line
-                                      else f"{AVATAR_DESC}. {visual}")
+                    if body.mode == "spokesperson":
+                        scenes.append(f'{SPOKESPERSON}. {visual} She looks into the camera and says, lips in sync: "{line}"' if line
+                                      else f"{SPOKESPERSON}. {visual}")
+                    elif body.mode == "narrated":
+                        scenes.append(visual)
+                    elif body.mode == "photo":
+                        scenes.append(f'The person from the reference image. {visual} They look into the camera and say, lips in sync: "{line}"' if line else visual)
                     else:
                         scenes.append(f'{visual} Voiceover in warm Indian-English says: "{line}"' if line else visual)
             elif isinstance(s, str) and s.strip():
@@ -268,9 +305,23 @@ def _render_scene(prompt: str, aspect_ratio: str, out_path: str, image_path: str
     if image_path and os.path.exists(image_path):
         with open(image_path, "rb") as f:
             kwargs["image"] = types.Image(image_bytes=f.read(), mime_type="image/png")
-    op = client.models.generate_videos(
-        model=VEO_MODEL, prompt=prompt, **kwargs,
-        config=types.GenerateVideosConfig(aspect_ratio=aspect_ratio))
+    op = None
+    for attempt in range(6):  # Veo preview has tight per-minute limits — back off instead of failing the whole ad
+        try:
+            op = client.models.generate_videos(
+                model=VEO_MODEL, prompt=prompt, **kwargs,
+                config=types.GenerateVideosConfig(aspect_ratio=aspect_ratio))
+            break
+        except Exception as e:
+            msg = str(e)
+            if "429" in msg and "exceeded your current quota" in msg and attempt < 5:
+                log.warning("Veo rate-limited, retry %d in 70s", attempt + 1)
+                for _ in range(7):
+                    _time.sleep(10)
+                    if beat:
+                        beat()
+                continue
+            raise
     deadline = _time.time() + 600
     while not op.done:
         if _time.time() > deadline:
@@ -320,16 +371,45 @@ async def _generate(job_id: str, body: VeoAdIn):
                 photo_path = os.path.join(tmp, "ref.png")
                 with open(photo_path, "wb") as f:
                     f.write(data)
-        scenes = await _write_script(body)
+        narration_path, narr_sec = None, 0.0
+        if body.mode == "narrated":
+            if not (body.voiceover or "").strip():
+                raise RuntimeError("Narrated mode needs a voiceover script")
+            await _progress(job_id, "🎙️ Recording the narrator…")
+            from emergentintegrations.llm.openai import OpenAITextToSpeech
+            import base64
+            tts = OpenAITextToSpeech(api_key=os.environ["EMERGENT_LLM_KEY"])
+            b64 = await tts.generate_speech_base64(text=body.voiceover.strip(), model="tts-1-hd", voice=body.narrator, speed=1.0)
+            narration_path = os.path.join(tmp, "narration.mp3")
+            with open(narration_path, "wb") as f:
+                f.write(base64.b64decode(b64))
+            narr_sec = await asyncio.to_thread(media_duration, narration_path)
+            # enough 8-second scenes so the film (plus 4s end card) covers the narration
+            body.scenes = max(2, min(8, math.ceil(max(0.0, narr_sec - END_CARD_SEC + 0.5) / 8)))
+            await _raw_db.veo_ads.update_one({"id": job_id}, {"$set": {"scenes": body.scenes, "narration_sec": round(narr_sec, 1)}})
+        prev = await _raw_db.veo_ads.find_one({"id": job_id}, {"_id": 0, "script": 1, "clips": 1}) or {}
+        scenes = prev.get("script") if prev.get("script") and len(prev["script"]) == body.scenes else await _write_script(body)
         await _raw_db.veo_ads.update_one({"id": job_id}, {"$set": {"script": scenes}})
+        saved = prev.get("clips") or {}
         clip_paths = []
         for i, prompt in enumerate(scenes, 1):
-            await _progress(job_id, f"🎬 Veo is filming scene {i} of {len(scenes)} (~1-3 min per scene)…")
             path = os.path.join(tmp, f"scene{i}.mp4")
+            if str(i) in saved:  # filmed before an interruption — pull from storage, don't pay twice
+                data, _ct = await asyncio.to_thread(_get_object, saved[str(i)])
+                with open(path, "wb") as f:
+                    f.write(data)
+                clip_paths.append(path)
+                continue
+            await _progress(job_id, f"🎬 Veo is filming scene {i} of {len(scenes)} (~1-3 min per scene)…")
             # reference photo drives every scene in photo mode, the opening scene otherwise
             ref = photo_path if (body.mode == "photo" or i == 1) else None
             await asyncio.to_thread(_render_scene, prompt, body.aspect_ratio, path, ref, _beat)
             clip_paths.append(path)
+            with open(path, "rb") as f:
+                clip_bytes = f.read()
+            spath = f"{APP_NAME}/superadmin/veo-clips/{job_id}/scene{i}.mp4"
+            res = await asyncio.to_thread(_put_object, spath, clip_bytes, "video/mp4")
+            await _raw_db.veo_ads.update_one({"id": job_id}, {"$set": {f"clips.{i}": res.get("path", spath)}})
         await _progress(job_id, "🎞️ Stitching scenes into the final ad…")
         stitched = os.path.join(tmp, "stitched.mp4")
         await asyncio.to_thread(_concat_clips, clip_paths, stitched)
@@ -338,11 +418,18 @@ async def _generate(job_id: str, body: VeoAdIn):
             await _progress(job_id, "✨ Adding the Miracurl Suite watermark and brand end card…")
             try:
                 contacts = await get_brand_contacts()
+                if body.end_card:
+                    contacts = {**contacts, **{k: v for k, v in body.end_card.items() if isinstance(v, str)}}
                 final = os.path.join(tmp, "final.mp4")
                 extra = await asyncio.to_thread(brand_finish, stitched, final, tmp, contacts)
             except Exception as e:  # never lose a paid render because of the overlay pass
                 log.error("brand finish failed, shipping unbranded: %s", e)
                 final, extra = stitched, 0
+        if narration_path:
+            await _progress(job_id, "🔊 Mixing the narration over the film…")
+            mixed = os.path.join(tmp, "mixed.mp4")
+            await asyncio.to_thread(mix_narration, final, narration_path, mixed)
+            final = mixed
         await _progress(job_id, "☁️ Uploading the final ad to your gallery…")
         video_bytes = await asyncio.to_thread(lambda: open(final, "rb").read())
         fid = str(uuid.uuid4())

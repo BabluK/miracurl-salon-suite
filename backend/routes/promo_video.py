@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageOps, ImageFont
 
 from database import _raw_db
 from security import public_base_url, require_super_admin
@@ -410,51 +410,91 @@ def _closing_scenes(body: PromoIn) -> list[tuple[bytes, str, bool]]:
     return out
 
 
-def _text_card(text: str, w: int, h: int, accent: bool = False) -> bytes:
-    """Reel-style bold statement card: dark radial backdrop, gold rings, big white/gold text, MS medallion."""
+def _text_card(text: str, w: int, h: int, accent: bool = False, backdrop: bytes | None = None) -> bytes:
+    """Reel statement card: premium photo backdrop (founder office / salon) darkened at the bottom, bold text over it."""
     from services.veo_brand import GOLD, _font, _center
-    img = Image.new("RGB", (w, h), (10, 8, 12))
+    if backdrop:
+        from PIL import ImageFilter, ImageEnhance
+        src = Image.open(io.BytesIO(backdrop)).convert("RGB")
+        img = ImageOps.fit(src, (w, h)).filter(ImageFilter.GaussianBlur(28))
+        img = ImageEnhance.Brightness(img).enhance(0.35)
+        top = ImageOps.contain(src, (w, int(h * 0.62)))  # whole portrait visible — logo, face, desk
+        img.paste(top, ((w - top.width) // 2, 0))
+        # fade the photo's lower edge into the dark text area
+        seam0 = top.height - int(h * 0.12)
+        grad = Image.new("L", (1, h), 0)
+        for yy in range(seam0, h):
+            grad.putpixel((0, yy), int(255 * min(1.0, (yy - seam0) / (h * 0.16))))
+        img = Image.composite(Image.new("RGB", (w, h), (8, 6, 10)), img, grad.resize((w, h)))
+        text_cy = int(h * 0.79)
+    else:
+        img = Image.new("RGB", (w, h), (10, 8, 12))
+        text_cy = h // 2
     d = ImageDraw.Draw(img)
-    cx, cy = w // 2, h // 2
-    for i in range(6):
-        r = int(min(w, h) * (0.35 + i * 0.17))
-        d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=(212, 175, 55, 255), width=max(1, w // 700))
     s_ = w / 1080
-    words = text.split()
-    size = int((150 if len(text) < 40 else 118) * s_)
+    size = int((122 if len(text) < 40 else 100) * s_)
     f = _font(size)
     lines, cur = [], ""
-    for wd in words:
+    for wd in text.split():
         t = (cur + " " + wd).strip()
-        if d.textlength(t, font=f) > w * 0.84 and cur:
+        if d.textlength(t, font=f) > w * 0.86 and cur:
             lines.append(cur); cur = wd
         else:
             cur = t
     lines.append(cur)
-    lh = int(size * 1.18)
-    y = cy - (len(lines) * lh) // 2
+    lh = int(size * 1.15)
+    y = text_cy - (len(lines) * lh) // 2
     for i, ln in enumerate(lines):
         last = i == len(lines) - 1
         _center(d, y, ln, f, GOLD if (accent and last) else (255, 255, 255), w); y += lh
-    bar_w = int(w * 0.18)
-    d.rectangle([cx - bar_w // 2, y + int(30 * s_), cx + bar_w // 2, y + int(38 * s_)], fill=GOLD)
+    bar_w = int(w * 0.16)
+    d.rectangle([w // 2 - bar_w // 2, y + int(26 * s_), w // 2 + bar_w // 2, y + int(34 * s_)], fill=GOLD)
     buf = io.BytesIO(); img.save(buf, "JPEG", quality=92)
     return buf.getvalue()
+
+
+async def _founder_backdrop(body: PromoIn) -> bytes | None:
+    """Uploaded founder/brand photo if given, else the HQ founder portrait, else an AI-painted office backdrop."""
+    if body.photo_url:
+        up = await _raw_db.uploads.find_one({"id": body.photo_url.rstrip("/").split("/")[-1]}, {"_id": 0})
+        if up:
+            data, _ = await asyncio.to_thread(_get_object, up["storage_path"])
+            return data
+    default = os.path.join(os.path.dirname(BROCHURE_DIR), "founder_backdrop.png")
+    if os.path.exists(default):
+        return _read_frame(default)
+    try:
+        from routes.mira_common import _key, paint_offloop
+        from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
+        out = await paint_offloop(OpenAIImageGeneration(api_key=_key()), prompt=(
+            "Vertical 9:16 photo of a premium modern salon-software company office: dark charcoal feature wall with a large "
+            "glowing gold circular monogram emblem, warm LED backlight, marble desk with an open laptop, lush green plants, "
+            "soft daylight from glass panels, shallow depth of field, cinematic, no people, NO text, NO letters"))
+        return out[0] if out else None
+    except Exception as e:
+        log.error("founder backdrop failed: %s", e)
+        return None
 
 
 async def _founder_scenes(body: PromoIn, scenes: list) -> list[tuple[bytes, str, bool]]:
     """Founder-hook reel: bold text cards → real app screenshots → CTA card → gold brand card."""
     vw, vh = SIZES.get(body.size, SIZES["reel"])
     shots = _express_scenes([{"caption": ""}] * len(EXPRESS_SHOTS))
+    backdrop = await _founder_backdrop(body)
     out, si = [], 0
     for i, sc in enumerate(scenes):
         cap = (sc.get("caption") or "").strip()
         if sc.get("kind") == "feature" and si < len(shots):
-            out.append((shots[si][0], cap, True)); si += 1
+            shot = Image.open(io.BytesIO(shots[si][0])).convert("RGB")
+            if vh > vw and shot.width > shot.height * 1.5:  # reel: crop past the sidebar so the app fills the frame
+                x0 = int(shot.width * 0.14)
+                shot = shot.crop((x0, 0, min(shot.width, x0 + int(shot.height * 1.45)), shot.height))
+            b = io.BytesIO(); shot.save(b, "JPEG", quality=92)
+            out.append((b.getvalue(), cap, True)); si += 1
         else:
-            out.append((_text_card(cap, vw, vh, accent=(i >= 4)), "", False))
+            out.append((_text_card(cap, vw, vh, accent=(i >= 4), backdrop=backdrop), "", False))
     if out:
-        out[-1] = (_add_partner_qr(out[-1][0], None, "Scan for FREE demo"), "", False)
+        out[-1] = (_add_partner_qr(out[-1][0], None, "Scan for FREE demo", top=True), "", False)
     out.append((_brand_card_frame(vw, vh), "", False))
     return out
 
