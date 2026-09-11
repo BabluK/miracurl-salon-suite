@@ -25,19 +25,19 @@ router = APIRouter()
 
 # Curated professional catalogue — undertone/depth rules are the classic colourist guidance.
 CATALOG = [
-    {"id": "natural-black", "name": "Natural Black", "tag": "Classic · Shiny · Timeless",
+    {"id": "natural-black", "men": True, "name": "Natural Black", "tag": "Classic · Shiny · Timeless",
      "swatch": ["#0b0a0c", "#1c1a1f", "#33303a"], "suits": ["warm", "cool", "neutral"], "depth": ["medium", "deep"]},
-    {"id": "dark-brown", "name": "Dark Brown", "tag": "Rich · Natural · Elegant",
+    {"id": "dark-brown", "men": True, "name": "Dark Brown", "tag": "Rich · Natural · Elegant",
      "swatch": ["#22150f", "#3d261a", "#5c3d2b"], "suits": ["warm", "cool", "neutral"], "depth": ["medium", "deep"]},
-    {"id": "chocolate-brown", "name": "Chocolate Brown", "tag": "Warm · Glossy · Versatile",
+    {"id": "chocolate-brown", "men": True, "name": "Chocolate Brown", "tag": "Warm · Glossy · Versatile",
      "swatch": ["#3a2115", "#5e3a25", "#86583a"], "suits": ["warm", "neutral"], "depth": ["medium", "deep"]},
-    {"id": "caramel-brown", "name": "Caramel Brown", "tag": "Warm · Radiant · Modern",
+    {"id": "caramel-brown", "men": True, "name": "Caramel Brown", "tag": "Warm · Radiant · Modern",
      "swatch": ["#4e2f1c", "#a5683a", "#e0b97f"], "suits": ["warm", "neutral"], "depth": ["medium", "deep"]},
     {"id": "honey-blonde", "name": "Honey Blonde", "tag": "Bright · Sun-kissed · Vibrant",
      "swatch": ["#7a5a2e", "#c9a25a", "#efd9a3"], "suits": ["warm", "neutral"], "depth": ["light", "medium"]},
     {"id": "ash-blonde", "name": "Ash Blonde", "tag": "Cool · Sophisticated · Chic",
      "swatch": ["#6e6a66", "#a9a39c", "#d9d4cc"], "suits": ["cool"], "depth": ["light"]},
-    {"id": "platinum-blonde", "name": "Platinum Blonde", "tag": "Bold · Striking · Luxe",
+    {"id": "platinum-blonde", "men": True, "name": "Platinum Blonde", "tag": "Bold · Striking · Luxe",
      "swatch": ["#b9b3a8", "#e4dfd6", "#f5f2ec"], "suits": ["cool", "neutral"], "depth": ["light"]},
     {"id": "beige-blonde", "name": "Beige Blonde", "tag": "Soft · Refined · Modern",
      "swatch": ["#8a7a66", "#bfae97", "#e3d6c3"], "suits": ["neutral", "cool"], "depth": ["light", "medium"]},
@@ -45,17 +45,17 @@ CATALOG = [
      "swatch": ["#4a3728", "#8b6f56", "#c9ad8f"], "suits": ["neutral", "cool"], "depth": ["light", "medium", "deep"]},
     {"id": "rose-brown", "name": "Rose Brown", "tag": "Trendy · Soft · Feminine",
      "swatch": ["#4a2f33", "#8c5a62", "#c48f97"], "suits": ["cool", "neutral"], "depth": ["light", "medium"]},
-    {"id": "copper-brown", "name": "Copper Brown", "tag": "Warm · Vibrant · Radiant",
+    {"id": "copper-brown", "men": True, "name": "Copper Brown", "tag": "Warm · Vibrant · Radiant",
      "swatch": ["#5a2a16", "#9c4a24", "#d4783f"], "suits": ["warm"], "depth": ["light", "medium", "deep"]},
-    {"id": "auburn-red", "name": "Auburn Red", "tag": "Bold · Rich · Eye-catching",
+    {"id": "auburn-red", "men": True, "name": "Auburn Red", "tag": "Bold · Rich · Eye-catching",
      "swatch": ["#4a1610", "#7e2a1c", "#a8442a"], "suits": ["warm", "neutral"], "depth": ["medium", "deep"]},
-    {"id": "burgundy", "name": "Burgundy", "tag": "Luxe · Bold · Modern",
+    {"id": "burgundy", "men": True, "name": "Burgundy", "tag": "Luxe · Bold · Modern",
      "swatch": ["#3a0f1e", "#6a1b34", "#93304d"], "suits": ["cool", "neutral"], "depth": ["medium", "deep"]},
-    {"id": "mahogany-brown", "name": "Mahogany Brown", "tag": "Rich · Warm · Sophisticated",
+    {"id": "mahogany-brown", "men": True, "name": "Mahogany Brown", "tag": "Rich · Warm · Sophisticated",
      "swatch": ["#3f1a14", "#6b2e22", "#94483a"], "suits": ["warm", "neutral"], "depth": ["medium", "deep"]},
-    {"id": "ash-brown", "name": "Ash Brown", "tag": "Cool · Natural · Effortless",
+    {"id": "ash-brown", "men": True, "name": "Ash Brown", "tag": "Cool · Natural · Effortless",
      "swatch": ["#3d3733", "#736a63", "#b3a99e"], "suits": ["cool"], "depth": ["light", "medium"]},
-    {"id": "smoky-grey", "name": "Smoky Grey", "tag": "Trendy · Bold · Unique",
+    {"id": "smoky-grey", "men": True, "name": "Smoky Grey", "tag": "Trendy · Bold · Unique",
      "swatch": ["#2b2b30", "#5c5c66", "#9a9aa6"], "suits": ["cool"], "depth": ["light", "medium"]},
     {"id": "pastel-pink", "name": "Pastel Pink", "tag": "Playful · Trendy · Creative",
      "swatch": ["#b76e86", "#e39ab2", "#f6cfdc"], "suits": ["cool", "neutral"], "depth": ["light"]},
@@ -70,7 +70,7 @@ async def _catalog_with_images(tenant_id: str | None = None) -> list[dict]:
     out = [{**c, "image_url": imgs.get(c["id"])} for c in CATALOG]
     if tenant_id:  # the salon's own shades come first — they are the house specialities
         customs = await _raw_db.tenant_hair_colors.find({"tenant_id": tenant_id, "active": {"$ne": False}}, {"_id": 0}).sort("created_at", -1).to_list(60)
-        out = [{**c, "custom": True} for c in customs] + out
+        out = [{"men": True, **c, "custom": True} for c in customs] + out
         links = await _service_links(tenant_id)
         out = [{**c, **links.get(c["id"], {})} for c in out]
     return out
@@ -161,7 +161,7 @@ async def add_custom_shade(body: CustomShadeIn, admin=Depends(require_tenant_adm
     doc = {"id": f"custom-{uuid.uuid4().hex[:8]}", "tenant_id": t["id"], "name": body.name.strip(), "tag": body.tag.strip(),
            "swatch": sw, "suits": [x for x in body.suits if x in ("warm", "cool", "neutral")] or ["warm", "cool", "neutral"],
            "depth": [x for x in body.depth if x in ("light", "medium", "deep")] or ["light", "medium", "deep"],
-           "image_url": None, "active": True, "created_at": datetime.now(timezone.utc).isoformat()}
+           "image_url": None, "active": True, "men": True, "created_at": datetime.now(timezone.utc).isoformat()}
     await _raw_db.tenant_hair_colors.insert_one({**doc})
     asyncio.create_task(_paint_custom(t, doc))
     return {"ok": True, "color": doc}
@@ -193,6 +193,7 @@ class ColorPickIn(BaseModel):
     phone: str = Field("", max_length=20)
     undertone: str = Field("", pattern=r"^(warm|cool|neutral|)$")
     depth: str = Field("", pattern=r"^(light|medium|deep|)$")
+    gender: str = Field("", pattern=r"^(men|women|)$")
     by_staff: bool = False
 
 
@@ -204,7 +205,7 @@ async def public_color_pick(slug: str, body: ColorPickIn):
         raise HTTPException(404, "Unknown colour")
     code = uuid.uuid4().hex[:6].upper()
     doc = {"id": str(uuid.uuid4()), "tenant_id": t["id"], "code": code, "color_id": c["id"], "color_name": c["name"],
-           "name": body.name.strip(), "phone": body.phone.strip(), "undertone": body.undertone, "depth": body.depth,
+           "name": body.name.strip(), "phone": body.phone.strip(), "undertone": body.undertone, "depth": body.depth, "gender": body.gender,
            "by_staff": body.by_staff, "status": "picked", "created_at": datetime.now(timezone.utc).isoformat()}
     await _raw_db.color_picks.insert_one(doc)
     who = body.name.strip() or "A guest"
@@ -305,6 +306,25 @@ async def color_poster(admin=Depends(require_tenant_admin), t=Depends(current_te
 class PreviewIn(BaseModel):
     color_id: str
     selfie_b64: str = Field(..., max_length=3_000_000)  # JPEG data URL or raw base64, ≤ ~2 MB
+    presentation: str = "unclear"   # man|woman|unclear — from /face-check
+    hair_length: str = "unclear"    # short|medium|long|unclear
+    facial_hair: str = "unclear"    # none|stubble|moustache|beard|unclear
+
+
+_NO_FACIAL_HAIR = ("STRICT RULE: recolour ONLY the hair growing on the scalp (top, sides and back of the head). "
+                   "Do NOT change the colour of the beard, moustache, goatee, stubble, sideburns below the ear, eyebrows or eyelashes — "
+                   "facial hair must stay EXACTLY its original colour. Do NOT recolour skin, lips, eyes, clothing or background.")
+
+
+def _subject_note(presentation: str, hair_length: str, facial_hair: str) -> str:
+    who = {"man": "The subject is a man.", "woman": "The subject is a woman."}.get(presentation, "")
+    beard = ""
+    if facial_hair in ("beard", "moustache", "stubble") or presentation == "man":
+        beard = (f" He has {facial_hair if facial_hair != 'unclear' else 'possible facial hair'} — leave it completely untouched."
+                 if presentation == "man" else " Leave any facial hair completely untouched.")
+    length = {"short": " The scalp hair is short/cropped: colour every short strand on the scalp evenly, but nothing on the face.",
+              "medium": " The scalp hair is medium length.", "long": " The scalp hair is long."}.get(hair_length, "")
+    return f"{who}{beard}{length}".strip()
 
 
 async def _recolor(selfie_b64: str, prompt: str) -> str | None:
@@ -328,20 +348,28 @@ async def public_color_preview(slug: str, body: PreviewIn):
     b64 = body.selfie_b64.split(",", 1)[-1]
     if len(b64) < 2000:
         raise HTTPException(400, "Selfie too small")
-    shade = f"{c['name']} hair colour ({(c.get('tag') or 'signature shade').lower()}; tones {', '.join(c['swatch'])})"
+    swatch = ", ".join(c["swatch"])
+    shade = f"'{c['name']}' ({(c.get('tag') or 'signature shade').lower()}) — exact hex tones {swatch}"
+    subject = _subject_note(body.presentation, body.hair_length, body.facial_hair)
     front = (f"Edit this photo: keep the SAME person, same face, same skin, same expression, same background and framing. "
-             f"Only change the hair colour to a professional salon {shade}, realistic glossy salon finish with natural highlights "
-             f"and dimension. Photorealistic, no text, no watermark.")
-    back = (f"Using this person as reference, create a photorealistic salon photo of the SAME person seen from BEHIND "
-            f"(back of the head and shoulders, same hair length and texture, same clothing), showing their hair freshly coloured "
-            f"in professional {shade}, soft salon lighting, plain background. No text, no watermark.")
+             f"Change ONLY the scalp hair colour to the professional salon shade {shade}. Realistic glossy salon finish with "
+             f"natural dimension, the overall hair colour must read clearly as {swatch}. {subject} {_NO_FACIAL_HAIR} "
+             f"Photorealistic, no text, no watermark.")
+    back = (f"This photo shows a person whose scalp hair has just been coloured in the salon shade {shade}. "
+            f"Create a photorealistic salon photo of the SAME person seen from BEHIND (back of the head and shoulders, "
+            f"same hair length, cut and texture, same clothing). The hair colour from behind must be IDENTICAL to the hair colour "
+            f"visible in this photo — same hue, same depth, exact tones {swatch}; do not shift it warmer, cooler, lighter or darker. "
+            f"{subject} Soft salon lighting, plain neutral background. No text, no watermark.")
     try:
-        f_img, b_img = await asyncio.wait_for(asyncio.gather(_recolor(b64, front), _recolor(b64, back)), timeout=150)
+        f_img = await asyncio.wait_for(_recolor(b64, front), timeout=90)
+        if not f_img:
+            raise HTTPException(502, "Couldn't render the preview — try a brighter, front-facing selfie")
+        b_img = await asyncio.wait_for(_recolor(f_img, back), timeout=90)  # back view is derived from the coloured front
+    except HTTPException:
+        raise
     except Exception as e:
         log.error("hair preview failed: %s", e)
         raise HTTPException(502, "Preview is busy right now — please try again in a moment")
-    if not f_img:
-        raise HTTPException(502, "Couldn't render the preview — try a brighter, front-facing selfie")
     return {"color": c, "front": f_img, "back": b_img}
 
 
@@ -620,15 +648,16 @@ async def public_face_check(slug: str, body: FaceCheckIn):
         raise HTTPException(400, "Selfie too small")
     try:
         chat = LlmChat(api_key=_key(), session_id=f"face-{uuid.uuid4().hex[:8]}",
-                       system_message='Answer strictly as JSON: {"face": true|false, "presentation": "man"|"woman"|"unclear", "hair_length": "short"|"medium"|"long"|"unclear", "reason": "<max 10 words>"}').with_model("openai", "gpt-4o-mini")
+                       system_message='Answer strictly as JSON: {"face": true|false, "presentation": "man"|"woman"|"unclear", "hair_length": "short"|"medium"|"long"|"unclear", "facial_hair": "none"|"stubble"|"moustache"|"beard"|"unclear", "reason": "<max 10 words>"}').with_model("openai", "gpt-4o-mini")
         raw = await chat.send_message(UserMessage(
-            text="Is there a real human face clearly visible from the front in this photo? If yes, how does the person present (man/woman/unclear) and what hair length?",
+            text="Is there a real human face clearly visible from the front in this photo? If yes: how does the person present (man/woman/unclear), what scalp hair length (short/medium/long), and what facial hair (none/stubble/moustache/beard)?",
             file_contents=[ImageContent(image_base64=b64)]))
         import json, re
         m = re.search(r"\{.*\}", raw or "", re.S)
         d = json.loads(m.group(0)) if m else {}
     except Exception as e:
         log.warning("face check failed: %s", e)
-        return {"face": True, "presentation": "unclear", "hair_length": "unclear", "reason": "unverified"}
+        return {"face": True, "presentation": "unclear", "hair_length": "unclear", "facial_hair": "unclear", "reason": "unverified"}
     return {"face": bool(d.get("face")), "presentation": d.get("presentation") or "unclear",
-            "hair_length": d.get("hair_length") or "unclear", "reason": d.get("reason") or ""}
+            "hair_length": d.get("hair_length") or "unclear", "facial_hair": d.get("facial_hair") or "unclear",
+            "reason": d.get("reason") or ""}

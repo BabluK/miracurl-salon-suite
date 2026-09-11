@@ -87,15 +87,23 @@ export default function ColorTryOn() {
     setChecking(false);
     if (!info.face) { setCamErr("No face detected — please fit your face inside the oval, look at the camera and try again."); return; }
     setFaceInfo(info);
-    setSkin(res); streamRef.current?.getTracks().forEach(t => t.stop()); setStep("results");
+    setSkin(res); streamRef.current?.getTracks().forEach(t => t.stop());
+    setGender(info.presentation === "man" ? "men" : info.presentation === "woman" ? "women" : null);
+    setStep("gender");
   };
-  const skipCamera = () => { streamRef.current?.getTracks().forEach(t => t.stop()); setSkin(null); setStep("results"); };
+  const skipCamera = () => { streamRef.current?.getTracks().forEach(t => t.stop()); setSkin(null); setGender(null); setStep("gender"); };
+  const [gender, setGender] = useState(null); // men | women — confirmed by the guest
+  const confirmGender = (g) => { setGender(g); setStep("results"); };
 
   const seeItOnMe = async () => {
     if (!picked || !selfie) return;
     setPreviewBusy(true); setPreview(null); setFace("front");
     try {
-      const { data } = await axios.post(`${API}/api/public/color/${slug}/preview`, { color_id: picked.id, selfie_b64: selfie });
+      const { data } = await axios.post(`${API}/api/public/color/${slug}/preview`, {
+        color_id: picked.id, selfie_b64: selfie,
+        presentation: gender === "men" ? "man" : gender === "women" ? "woman" : (faceInfo?.presentation || "unclear"),
+        hair_length: faceInfo?.hair_length || "unclear", facial_hair: faceInfo?.facial_hair || "unclear",
+      });
       setPreview(data);
     } catch (e) { setCamErr(e.response?.data?.detail || "Preview failed — try again"); }
     finally { setPreviewBusy(false); }
@@ -126,7 +134,7 @@ export default function ColorTryOn() {
     try {
       const { data } = await axios.post(`${API}/api/public/color/${slug}/pick`, {
         color_id: picked.id, name: form.name, phone: form.phone, by_staff: form.by_staff,
-        undertone: skin?.undertone || "", depth: skin?.depth || "",
+        undertone: skin?.undertone || "", depth: skin?.depth || "", gender: gender || "",
       });
       setDone(data); setStep("done");
     } catch (e) { setCamErr(e.response?.data?.detail || "Couldn't save — try again"); }
@@ -138,6 +146,31 @@ export default function ColorTryOn() {
 
   const suits = (c) => !skin || (c.suits.includes(skin.undertone) && c.depth.includes(skin.depth));
   const ordered = [...salon.colors].sort((a, b) => Number(suits(b)) - Number(suits(a)));
+  const sections = gender === "men"
+    ? [["Popular for men", ordered.filter(c => c.men)], ["More shades", ordered.filter(c => !c.men)]]
+    : [[gender === "women" ? "Shades for women" : "All shades", ordered]];
+  const guess = faceInfo?.presentation;
+
+  const ShadeCard = (c) => {
+    const good = skin && suits(c), sel = picked?.id === c.id;
+    return (
+      <button key={c.id} onClick={() => setPicked(c)} data-testid={`color-card-${c.id}`}
+        className={`text-left rounded-2xl overflow-hidden border-2 transition-transform active:scale-[0.98] ${sel ? "border-amber-400 ring-2 ring-amber-300/50" : good ? "border-emerald-400/70" : "border-slate-700"} ${skin && !good ? "opacity-60" : ""}`}>
+        <div className="aspect-[4/5] bg-slate-800 relative">
+          {c.image_url ? <img src={`${API}${c.image_url}`} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+            : <div className="w-full h-full" style={{ background: `linear-gradient(160deg, ${c.swatch.join(",")})` }} />}
+          {good && <span className="absolute top-2 left-2 text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded-full">✓ Suits you</span>}
+          {sel && <span className="absolute inset-0 bg-amber-400/20 flex items-center justify-center"><Check className="w-10 h-10 text-white drop-shadow" /></span>}
+        </div>
+        <div className="p-2.5 bg-slate-900">
+          <div className="flex gap-1 mb-1">{c.swatch.map(s => <span key={s} className="w-4 h-4 rounded-full border border-white/20" style={{ background: s }} />)}</div>
+          <p className="text-white text-sm font-semibold leading-tight">{c.name}</p>
+          <p className="text-slate-400 text-[10px] mt-0.5">{c.tag}</p>
+          {c.price != null && <p className="text-emerald-300 text-[11px] font-semibold mt-0.5" data-testid={`color-price-${c.id}`}>{c.service_name} · ₹{c.price}</p>}
+        </div>
+      </button>
+    );
+  };
 
   return (
     <Shell>
@@ -176,42 +209,48 @@ export default function ColorTryOn() {
         </section>
       )}
 
+      {step === "gender" && (
+        <section className="px-5 pb-10" data-testid="color-tryon-gender">
+          <h2 className="text-white text-2xl font-serif mt-4">
+            {guess === "man" ? "Looks like you're a gentleman — is that right?" : guess === "woman" ? "Looks like you're a lady — is that right?" : "Who's trying colour today?"}
+          </h2>
+          <p className="text-slate-300 text-sm mt-2">{guess && guess !== "unclear" ? "Confirm so we colour only your hair — beards and facial hair stay untouched for gentlemen." : "We'll show the right shade collection and keep facial hair untouched for gentlemen."}</p>
+          <div className="grid grid-cols-2 gap-3 mt-6">
+            {[["men", "Gentleman", "Men's shades · beard stays as is"], ["women", "Lady", "Women's shades · full collection"]].map(([g, label, sub]) => (
+              <button key={g} onClick={() => confirmGender(g)} data-testid={`color-gender-${g}`}
+                className={`rounded-2xl p-4 text-left border-2 transition-transform active:scale-[0.98] ${gender === g ? "border-amber-400 bg-amber-400/10" : "border-slate-700 bg-slate-800/60"}`}>
+                <p className="text-white font-bold text-base">{gender === g ? "✓ " : ""}{label}</p>
+                <p className="text-slate-400 text-[11px] mt-1">{sub}</p>
+              </button>
+            ))}
+          </div>
+          {selfie && <button onClick={startCamera} data-testid="color-gender-retake" className="mt-4 w-full py-3 rounded-2xl border border-slate-600 text-slate-200 text-sm">Retake photo</button>}
+        </section>
+      )}
+
       {step === "results" && (
         <section className="px-5 pb-28" data-testid="color-tryon-results">
           {skin ? (
             <div className="flex items-center gap-3 bg-slate-800/70 border border-amber-400/40 rounded-2xl p-3" data-testid="color-skin-result">
               <span className="w-10 h-10 rounded-full border-2 border-white/40" style={{ background: skin.rgb }} />
-              <p className="text-slate-100 text-sm"><b className="capitalize">{skin.undertone}</b> · {skin.depth} — {UNDERTONE_COPY[skin.undertone]}</p>
-              {faceInfo && (
-                <p className="text-emerald-300 text-xs mt-1" data-testid="color-face-info">
-                  ✓ Face detected{faceInfo.presentation && faceInfo.presentation !== "unclear" ? ` · looks like a ${faceInfo.presentation}` : ""}{faceInfo.hair_length && faceInfo.hair_length !== "unclear" ? ` · ${faceInfo.hair_length} hair` : ""}
-                </p>
-              )}
+              <div>
+                <p className="text-slate-100 text-sm"><b className="capitalize">{skin.undertone}</b> · {skin.depth} — {UNDERTONE_COPY[skin.undertone]}</p>
+                {faceInfo && (
+                  <p className="text-emerald-300 text-xs mt-1" data-testid="color-face-info">
+                    ✓ Face detected · {gender === "men" ? "gentleman" : "lady"}{faceInfo.hair_length && faceInfo.hair_length !== "unclear" ? ` · ${faceInfo.hair_length} hair` : ""}{gender === "men" && faceInfo.facial_hair && !["none", "unclear"].includes(faceInfo.facial_hair) ? ` · ${faceInfo.facial_hair} kept` : ""}
+                  </p>
+                )}
+              </div>
               <button onClick={startCamera} className="ml-auto text-amber-300" title="Retry"><RotateCcw className="w-4 h-4" /></button>
             </div>
           ) : <p className="text-slate-300 text-sm">Browse all professional shades — tap one to choose.</p>}
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            {ordered.map(c => {
-              const good = skin && suits(c), sel = picked?.id === c.id;
-              return (
-                <button key={c.id} onClick={() => setPicked(c)} data-testid={`color-card-${c.id}`}
-                  className={`text-left rounded-2xl overflow-hidden border-2 transition-transform active:scale-[0.98] ${sel ? "border-amber-400 ring-2 ring-amber-300/50" : good ? "border-emerald-400/70" : "border-slate-700"} ${skin && !good ? "opacity-60" : ""}`}>
-                  <div className="aspect-[4/5] bg-slate-800 relative">
-                    {c.image_url ? <img src={`${API}${c.image_url}`} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
-                      : <div className="w-full h-full" style={{ background: `linear-gradient(160deg, ${c.swatch.join(",")})` }} />}
-                    {good && <span className="absolute top-2 left-2 text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded-full">✓ Suits you</span>}
-                    {sel && <span className="absolute inset-0 bg-amber-400/20 flex items-center justify-center"><Check className="w-10 h-10 text-white drop-shadow" /></span>}
-                  </div>
-                  <div className="p-2.5 bg-slate-900">
-                    <div className="flex gap-1 mb-1">{c.swatch.map(s => <span key={s} className="w-4 h-4 rounded-full border border-white/20" style={{ background: s }} />)}</div>
-                    <p className="text-white text-sm font-semibold leading-tight">{c.name}</p>
-                    <p className="text-slate-400 text-[10px] mt-0.5">{c.tag}</p>
-                    {c.price != null && <p className="text-emerald-300 text-[11px] font-semibold mt-0.5" data-testid={`color-price-${c.id}`}>{c.service_name} · ₹{c.price}</p>}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          <button onClick={() => setStep("gender")} data-testid="color-change-gender" className="mt-3 text-amber-300 text-xs underline">Showing {gender === "men" ? "men's" : "women's"} collection · change</button>
+          {sections.filter(([, list]) => list.length).map(([title, list]) => (
+            <div key={title} data-testid={`color-section-${title.toLowerCase().replace(/[^a-z]+/g, "-")}`}>
+              <p className="text-amber-300 text-[11px] tracking-[0.25em] font-semibold mt-5 mb-2">{title.toUpperCase()}</p>
+              <div className="grid grid-cols-2 gap-3">{list.map(ShadeCard)}</div>
+            </div>
+          ))}
           {picked && (
             <div className="fixed bottom-0 left-0 right-0 bg-slate-950/95 backdrop-blur border-t border-amber-400/30 p-4" data-testid="color-pick-bar">
               <p className="text-amber-300 text-xs font-semibold mb-2">Selected: {picked.name}</p>
@@ -219,7 +258,7 @@ export default function ColorTryOn() {
                 <button onClick={seeItOnMe} disabled={previewBusy} data-testid="color-see-on-me"
                   className="mb-2 w-full py-3 rounded-2xl bg-white/10 border border-amber-400/50 text-amber-200 text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-60">
                   {previewBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanFace className="w-4 h-4" />}
-                  {previewBusy ? "Colouring your hair… ~30 s" : "See it on me — front & back"}
+                  {previewBusy ? "Colouring your hair… ~45 s" : "See it on me — front & back"}
                 </button>
               )}
               <div className="flex gap-2">
