@@ -11,7 +11,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Depends, Response
+from fastapi import APIRouter, HTTPException, Depends, Response, UploadFile, File
 from pydantic import BaseModel, Field
 from PIL import Image, ImageDraw
 
@@ -71,6 +71,8 @@ async def _catalog_with_images(tenant_id: str | None = None) -> list[dict]:
     if tenant_id:  # the salon's own shades come first — they are the house specialities
         customs = await _raw_db.tenant_hair_colors.find({"tenant_id": tenant_id, "active": {"$ne": False}}, {"_id": 0}).sort("created_at", -1).to_list(60)
         out = [{**c, "custom": True} for c in customs] + out
+        links = await _service_links(tenant_id)
+        out = [{**c, **links.get(c["id"], {})} for c in out]
     return out
 
 
@@ -428,3 +430,176 @@ async def public_share_card(slug: str, body: ShareIn):
     d.text((lx, ty), url.split("?")[0].replace("https://", "") + "  ·  scan →", font=_font(22), fill=GOLD)
     buf = io.BytesIO(); img.save(buf, "PNG")
     return Response(buf.getvalue(), media_type="image/png")
+
+
+# ── Shade → service link (per salon) ───────────────────────────────────────────
+
+async def _service_links(tenant_id: str) -> dict:
+    """color_id → {service_id, service_name, price} for this salon."""
+    links = await _raw_db.tenant_shade_services.find({"tenant_id": tenant_id}, {"_id": 0}).to_list(200)
+    if not links:
+        return {}
+    svcs = {s["id"]: s async for s in _raw_db.services.find(
+        {"tenant_id": tenant_id, "id": {"$in": [l["service_id"] for l in links]}}, {"_id": 0, "id": 1, "name": 1, "price": 1})}
+    return {l["color_id"]: {"service_id": l["service_id"], "service_name": svcs[l["service_id"]]["name"], "price": svcs[l["service_id"]].get("price")}
+            for l in links if l["service_id"] in svcs}
+
+
+class ShadeServiceIn(BaseModel):
+    service_id: str | None = None
+
+
+@router.put("/hair-colors/{color_id}/service")
+async def link_shade_service(color_id: str, body: ShadeServiceIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    if not await _lookup(t["id"], color_id):
+        raise HTTPException(404, "Unknown colour")
+    if not body.service_id:
+        await _raw_db.tenant_shade_services.delete_one({"tenant_id": t["id"], "color_id": color_id})
+        return {"ok": True, "link": None}
+    svc = await _raw_db.services.find_one({"tenant_id": t["id"], "id": body.service_id}, {"_id": 0, "name": 1, "price": 1})
+    if not svc:
+        raise HTTPException(404, "Service not found")
+    await _raw_db.tenant_shade_services.update_one({"tenant_id": t["id"], "color_id": color_id},
+                                                   {"$set": {"tenant_id": t["id"], "color_id": color_id, "service_id": body.service_id}}, upsert=True)
+    return {"ok": True, "link": {"service_id": body.service_id, "service_name": svc["name"], "price": svc.get("price")}}
+
+
+# ── Colour history for CRM ─────────────────────────────────────────────────────
+
+@router.get("/customers/{customer_id}/color-history")
+async def customer_color_history(customer_id: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    cust = await _raw_db.customers.find_one({"tenant_id": t["id"], "id": customer_id}, {"_id": 0, "phone": 1})
+    if not cust:
+        raise HTTPException(404, "Customer not found")
+    appts = await _raw_db.appointments.find({"tenant_id": t["id"], "customer_id": customer_id, "color_pick": {"$exists": True}},
+                                            {"_id": 0, "id": 1, "scheduled_at": 1, "status": 1, "staff_name": 1, "color_pick": 1}).sort("scheduled_at", -1).to_list(50)
+    seen = {a["color_pick"].get("code") for a in appts}
+    picks = []
+    if cust.get("phone"):
+        picks = await _raw_db.color_picks.find({"tenant_id": t["id"], "phone": cust["phone"], "code": {"$nin": list(seen)}},
+                                               {"_id": 0}).sort("created_at", -1).to_list(30)
+    return {"appointments": appts, "picks": picks}
+
+
+# ── Before / After result + Mira reel ──────────────────────────────────────────
+
+async def _vision_check(image_b64: str, which: str) -> tuple[bool, str]:
+    """Ask a vision model whether the stylist's photo is what it claims to be. Never generates anything."""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+    from routes.mira_common import _key
+    q = ("Does this photo show a real person's FACE from the front or three-quarter view, with eyes and nose visible and their hair in frame? (ok=true if yes)"
+         if which == "front" else
+         "Does this photo show the BACK of a person's head with their hair visible and NO face visible? (ok=true if yes)")
+    try:
+        chat = LlmChat(api_key=_key(), session_id=f"vision-{uuid.uuid4().hex[:8]}",
+                       system_message="You verify salon photos. Answer strictly as JSON: {\"ok\": true|false, \"reason\": \"<max 12 words>\"}").with_model("openai", "gpt-4o-mini")
+        raw = await chat.send_message(UserMessage(text=q, file_contents=[ImageContent(image_base64=image_b64)]))
+        import json, re
+        m = re.search(r"\{.*\}", raw or "", re.S)
+        d = json.loads(m.group(0)) if m else {}
+        return bool(d.get("ok")), str(d.get("reason") or "")
+    except Exception as e:
+        log.warning("vision check skipped: %s", e)
+        return True, "unverified"
+
+
+@router.post("/appointments/{appt_id}/color-result")
+async def upload_color_result(appt_id: str, which: str = "front", consent: bool = False, file: UploadFile = File(...),
+                              admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Stylist uploads the finished look: `front` = the client's face, `back` = the hair from behind. Photos are stored as-is."""
+    from services.storage import _put_object, validate_image_bytes, APP_NAME
+    which = {"after": "front", "before": "back"}.get(which, which)
+    if which not in ("front", "back"):
+        raise HTTPException(400, "which must be front|back")
+    appt = await _raw_db.appointments.find_one({"tenant_id": t["id"], "id": appt_id}, {"_id": 0, "color_pick": 1})
+    if not appt or not appt.get("color_pick"):
+        raise HTTPException(404, "No colour pick on this appointment")
+    data = await file.read()
+    if len(data) > 8 * 1024 * 1024:
+        raise HTTPException(400, "Photo must be under 8 MB")
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower()
+    if ext not in ("png", "jpg", "jpeg", "webp"):
+        raise HTTPException(400, "Upload a JPG, PNG or WebP photo")
+    validate_image_bytes(ext, data)
+    ok, reason = await _vision_check(base64.b64encode(data).decode(), which)
+    if not ok:
+        raise HTTPException(400, ("This doesn't look like the client's face from the front" if which == "front"
+                                  else "This doesn't look like the back of the head / hair") + (f" — {reason}" if reason else "") + ". Please retake.")
+    fid = str(uuid.uuid4())
+    path = f"{APP_NAME}/{t['id']}/color-results/{appt_id}-{which}.{ext}"
+    res = await asyncio.to_thread(_put_object, path, data, f"image/{'jpeg' if ext in ('jpg', 'jpeg') else ext}")
+    await _raw_db.uploads.insert_one({"id": fid, "tenant_id": t["id"], "kind": "color_result", "storage_path": res.get("path", path),
+                                      "original_filename": file.filename, "content_type": file.content_type, "size": len(data),
+                                      "uploaded_by": admin.get("id"), "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()})
+    url = f"/api/files/{fid}"
+    await _raw_db.appointments.update_one({"tenant_id": t["id"], "id": appt_id},
+                                          {"$set": {f"color_pick.{which}_url": url, "color_pick.consent": bool(consent)}})
+    return {"ok": True, "url": url}
+
+
+class ReelIn(BaseModel):
+    platforms: list[str] = Field(default_factory=lambda: ["instagram", "facebook"])
+    consent: bool = False
+
+
+@router.post("/appointments/{appt_id}/color-reel")
+async def post_color_reel(appt_id: str, body: ReelIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Mira writes the caption, composes a before/after card with the salon logo, logs it in Post History and publishes."""
+    import os
+    from PIL import ImageOps
+    from services.veo_brand import _font, GOLD
+    from services.storage import _get_object, _put_object, APP_NAME
+    from routes.mira_common import _ask, _tenant_logo
+    from routes.social_connect import publish_content
+    appt = await _raw_db.appointments.find_one({"tenant_id": t["id"], "id": appt_id}, {"_id": 0})
+    cp = (appt or {}).get("color_pick") or {}
+    if not (cp.get("front_url") and cp.get("back_url")):
+        raise HTTPException(400, "Upload both result photos first — client's face (front) and hair from behind (back)")
+    if not (body.consent or cp.get("consent")):
+        raise HTTPException(400, "Guest consent is required before posting")
+
+    async def _load(url):
+        up = await _raw_db.uploads.find_one({"id": url.rsplit("/", 1)[-1]}, {"_id": 0, "storage_path": 1})
+        data, _ = await asyncio.to_thread(_get_object, up["storage_path"])
+        return Image.open(io.BytesIO(data)).convert("RGB")
+    front = await _load(cp["front_url"])
+    back = await _load(cp["back_url"])
+    W, H = 1080, 1130
+    img = Image.new("RGB", (W, H), (12, 9, 14)); d = ImageDraw.Draw(img)
+    d.rounded_rectangle([24, 24, W - 24, H - 24], radius=28, outline=GOLD, width=4)
+    tiles = [("FRONT", front), ("BACK", back)]
+    tw = 480 if len(tiles) == 2 else 760; th = int(tw * 1.25); x = (W - (tw * len(tiles) + 40 * (len(tiles) - 1))) // 2; y = 150
+    for label, im in tiles:
+        tile = ImageOps.fit(im, (tw, th)); m = Image.new("L", (tw, th), 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, tw - 1, th - 1], radius=26, fill=255)
+        img.paste(tile, (x, y), m); ImageDraw.Draw(img).rounded_rectangle([x, y, x + tw - 1, y + th - 1], radius=26, outline=GOLD, width=3)
+        lf = _font(26); ld = ImageDraw.Draw(img); ld.text((x + (tw - ld.textlength(label, font=lf)) / 2, y + th + 14), label, font=lf, fill=GOLD)
+        x += tw + 40
+    d = ImageDraw.Draw(img)
+    tf = _font(48, serif=True); d.text(((W - d.textlength(t.get("name", ""), font=tf)) / 2, 60), t.get("name", ""), font=tf, fill=GOLD)
+    sf = _font(40, serif=True); d.text(((W - d.textlength(cp["color_name"], font=sf)) / 2, y + th + 80), cp["color_name"], font=sf, fill=(255, 255, 255))
+    uf = _font(24); u = f"{os.environ.get('APP_PUBLIC_URL', '').replace('https://', '')}/book/{t['slug']}?color={cp['color_id']}"
+    d.text(((W - d.textlength(u, font=uf)) / 2, y + th + 140), u, font=uf, fill=(200, 190, 200))
+    logo = await _tenant_logo(t)
+    if logo:
+        from routes.promo_common import stamp_tenant_logo
+        img = stamp_tenant_logo(img, logo, pos="top-right", scale=0.12).convert("RGB")
+    buf = io.BytesIO(); img.save(buf, "JPEG", quality=92)
+    fid = str(uuid.uuid4()); path = f"{APP_NAME}/{t['id']}/color-reels/{fid}.jpg"
+    res = await asyncio.to_thread(_put_object, path, buf.getvalue(), "image/jpeg")
+    await _raw_db.uploads.insert_one({"id": fid, "tenant_id": t["id"], "kind": "color_reel", "storage_path": res.get("path", path), "content_type": "image/jpeg",
+                                      "size": len(buf.getvalue()), "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()})
+    image_url = f"/api/files/{fid}"
+    caption = await _ask(
+        f"You are Mira, social media manager for '{t.get('name')}' salon.",
+        f"Write an Instagram caption (max 60 words + 6 hashtags) for a client's finished hair colour result in '{cp['color_name']}' (front and back view). "
+        f"Warm, proud of the stylist {appt.get('staff_name') or ''}, invite bookings at {u}. Plain text, no quotes.")
+    abs_url = f"{os.environ.get('APP_PUBLIC_URL', '')}{image_url}"
+    try:
+        results = await publish_content(t["id"], caption, abs_url, body.platforms)
+    except Exception as e:
+        results = {p: {"ok": False, "error": str(e)[:160]} for p in body.platforms}
+    await _raw_db.social_posts.insert_one({"id": str(uuid.uuid4()), "tenant_id": t["id"], "caption": caption, "image_url": image_url,
+                                           "platforms": body.platforms, "results": results, "kind": "color_reel", "appointment_id": appt_id,
+                                           "created_at": datetime.now(timezone.utc).isoformat()})
+    await _raw_db.appointments.update_one({"tenant_id": t["id"], "id": appt_id}, {"$set": {"color_pick.reel_url": image_url, "color_pick.reel_caption": caption}})
+    return {"ok": True, "image_url": image_url, "caption": caption, "results": results}

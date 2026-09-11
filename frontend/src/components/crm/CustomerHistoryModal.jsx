@@ -5,11 +5,13 @@ import { payLabel } from "@/components/pos/payLabels";
 
 export function CustomerHistoryModal({ customer, onClose }) {
   const [rows, setRows] = useState(null);
+  const [colour, setColour] = useState(null);
 
   useEffect(() => {
     api.get(`/customers/${customer.id}/history`)
       .then(({ data }) => setRows(data))
       .catch(() => setRows([]));
+    api.get(`/customers/${customer.id}/color-history`).then(({ data }) => setColour(data)).catch(() => setColour(null));
   }, [customer.id]);
 
   const fmtDate = (iso) => {
@@ -33,6 +35,29 @@ export function CustomerHistoryModal({ customer, onClose }) {
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700" data-testid="customer-history-close-btn"><X className="w-5 h-5" /></button>
         </div>
+        {colour && (colour.appointments.length > 0 || colour.picks.length > 0) && (
+          <div className="px-5 pt-3" data-testid="customer-colour-history">
+            <p className="text-[10px] tracking-[0.2em] font-semibold text-amber-700 mb-2">🎨 COLOUR HISTORY</p>
+            <div className="space-y-2">
+              {colour.appointments.map(a => (
+                <div key={a.id} className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-2" data-testid="colour-history-row">
+                  <div className="w-10 h-12 rounded-md overflow-hidden border border-amber-300 shrink-0" style={{ background: `linear-gradient(160deg, ${(a.color_pick.swatch || ["#777"]).join(",")})` }}>
+                    {(a.color_pick.front_url || a.color_pick.image_url) && <img src={`${process.env.REACT_APP_BACKEND_URL}${a.color_pick.front_url || a.color_pick.image_url}`} alt="" className="w-full h-full object-cover" />}
+                  </div>
+                  <div className="min-w-0 flex-1 text-xs">
+                    <p className="font-semibold text-slate-800">{a.color_pick.color_name} <span className="font-mono text-amber-700">{a.color_pick.code}</span> <span className="text-slate-400">· {fmtDate(a.scheduled_at)} · {a.staff_name}</span></p>
+                    <p className="text-slate-600">{a.color_pick.formula ? <>Formula: <b>{a.color_pick.formula}</b></> : <span className="text-slate-400">No formula noted yet</span>}{a.color_pick.undertone && <span className="text-slate-400"> · {a.color_pick.undertone} undertone</span>}</p>
+                  </div>
+                </div>
+              ))}
+              {colour.picks.map(p => (
+                <div key={p.id} className="flex items-center justify-between text-xs rounded-lg border border-slate-100 px-2 py-1.5 text-slate-600" data-testid="colour-history-pick">
+                  <span>Tried on <b>{p.color_name}</b> <span className="font-mono text-amber-700">{p.code}</span></span><span className="text-slate-400">{fmtDate(p.created_at)} · not booked</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="overflow-y-auto px-5 py-4 space-y-3">
           {rows === null && <p className="text-sm text-slate-400 text-center py-8">Loading…</p>}
           {rows?.length === 0 && <p className="text-sm text-slate-400 text-center py-8">No bills yet — their first visit will show up here.</p>}

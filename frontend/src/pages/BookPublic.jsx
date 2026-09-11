@@ -251,7 +251,7 @@ export default function BookPublic() {
     const cid = searchParams.get("color");
     if (!cid || !routeSlug) return;
     axios.get(`${BACKEND_URL}/api/public/color/${routeSlug}`)
-      .then(r => { const c = (r.data.colors || []).find(x => x.id === cid); if (c) setPickedColor({ ...c, code: searchParams.get("code") || "" }); })
+      .then(r => { const c = (r.data.colors || []).find(x => x.id === cid); if (c) { setPickedColor({ ...c, code: searchParams.get("code") || "" }); if (c.service_id) setPicked(p => p.includes(c.service_id) ? p : [...p, c.service_id]); } })
       .catch(() => {});
   }, [routeSlug, searchParams]);
   const [referralCheck, setReferralCheck] = useState(null);

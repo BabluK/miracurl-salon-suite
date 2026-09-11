@@ -1,0 +1,48 @@
+{
+  "summary": "Iter148 — Hair Colour shade→service link + colour bookings + CRM colour history + Before/After + Mira colour-reel. Backend pytest: 16/16 pass (test_iter148_shade_service_links.py). PUT /api/hair-colors/{color}/service correctly upserts a shade→service link with service_name+price, deletes on null, 404 on unknown colour or unknown service. GET /api/public/color/{slug} carries service_name+price on linked burgundy. POST /api/public/book/{slug} with color_code auto-adds the linked service to service_names+total for linked burgundy, and appends 'Copper Brown Colour' to service_names for unlinked copper-brown (the 'Bridal Makeup' bug reported by the user is fixed). GET /api/customers/{id}/color-history returns both appointments with color_pick.color_name Burgundy & Copper Brown. POST /api/appointments/{id}/color-result: which=after&consent=true → 200; which=side → 400; .txt → 400. POST /api/appointments/{id}/color-reel: happy path 200 with caption + results.instagram.ok=false 'not connected' (Instagram not connected — expected); GET /api/social/history includes kind='color_reel'; 400 without color_pick; 400 without consent. Frontend UI: (a) /settings → ColorTryOnCard: tap color-tile-burgundy → color-link-row + color-link-select show; select 'Hair Color - Global' → 'Service linked' toast + tile shows ₹2500 badge; set back to '— not linked' → 'Link removed' toast. (b) /appointments Upcoming: both QA Link Guest colour bookings appear with 🎨 badge; ColorPickCard renders with data-testid color-card-<appt>, color-card-reel-row, color-card-before-upload, color-card-after-upload, color-card-consent, color-card-post-reel; post-reel button correctly disabled until after photo + consent. (c) Public /color/miracurl-marathahalli (430px) after Skip: color-card-burgundy shows color-price-burgundy 'Hair Color - Global · ₹2500'. (d) /book/miracurl-marathahalli?color=burgundy&code=X: book-color-banner renders with shade + code; book-color-continue advances to services step where 'Hair Color - Global' is visible in the pre-selected Women · Hair category section. Only issue: QA Link Guest (a colour-booking-only customer with no invoice) does NOT appear in /api/customers → CRM listing, so opening the CRM history modal for this new customer via the UI is not possible from /customers page. Backend /api/customers/{id}/color-history for the same customer works (pytest test_customer_color_history passed with 2 appointments).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "CRM /customers listing",
+        "issue": "Colour-booking-only customers (created via /api/public/book with color_code but never invoiced) do NOT appear in the /api/customers listing that CRM.jsx uses. As a result, the CustomerHistoryModal (and its customer-colour-history block) cannot be opened from /customers for these guests, even though GET /api/customers/{id}/color-history returns 2 valid appointments for them. Search by name 'QA Link Guest' or phone '9000000088' returns 'No customers yet.' Likely the /api/customers query filters on has-invoice / visits>0 / recent activity, but colour bookings should also count.",
+        "selector": "/customers search input + row for 'QA Link Guest'",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter148_shade_service_links.py",
+    "/app/test_reports/pytest/iter148.xml"
+  ],
+  "action_items": [
+    "Include customers with colour bookings (appointments having color_pick, even if no invoice/visits) in the /api/customers CRM listing so the CustomerHistoryModal → customer-colour-history flow is reachable from the UI. Alternatively, add a quick 'Open history' link on Appointments row so staff can open the modal directly for colour guests."
+  ],
+  "critical_code_review_comments": [
+    "backend/routes/hair_colors.py post_color_reel: `_load(cp['image_url'])` treats the try-on preview URL as an internal upload id — but the picker's `image_url` on many shades is an absolute /api/files/<id> (works) OR the catalogue's server-side hair_color_images entry, which does NOT live in the uploads collection. If a shade only has a catalog image (no 'before' upload) the reel silently falls through with `before=None`; the AFTER-only card renders but the 'AI catalogue preview as before' feature won't work. Guard with a try/except and skip on lookup miss.",
+    "backend/routes/hair_colors.py post_color_reel: does not check `body.platforms` — an empty list would still generate the card + caption but publish nothing; consider defaulting to ['instagram','facebook'] via Pydantic default (already there) but also raise 400 if the platforms list is empty after validation.",
+    "backend/routes/public_site.py _create_public_appointment (color_code branch): if the color_code exists but the slug does not match its tenant, the lookup silently misses because it uses tenant_id + code — good; however, the code accepts any body.color_code without upper-casing before .strip(), so a lower-case UUID-suffixed code from an older flow would 404. Already handled (`body.color_code.strip().upper()`) — ok.",
+    "frontend/src/components/settings/ColorTryOnCard.jsx: setLinking(c) uses the whole color object; when the same shade is tapped twice the row toggles between an open and closed state only via the close button — not by re-tapping the tile. Minor UX polish: re-tapping the same tile could close the row.",
+    "frontend/src/components/appointments/ColorPickCard.jsx: `upload` sends `consent=<state>` as a query parameter — but the checkbox default is `!!cp?.consent`, so before consent is checked the very first Before/After upload persists `color_pick.consent=false`. If the stylist then ticks consent and clicks 'Mira: post before/after', the reel POST body carries `consent:true` and 200s — good. But the two-step consent (upload without consent, post with consent) is slightly confusing; consider disabling the upload button until consent is checked, matching the spec 'consent checkbox and post-reel button disabled until After photo + consent'.",
+    "frontend/src/pages/CRM.jsx (implicit): /api/customers appears to hide customers with only colour bookings (no invoice) — see UI bug. Root cause probably in backend customers list endpoint filtering by visits/spend."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter148_shade_service_links.py (new — 16 tests, ~9 s runtime, self-cleans QA data via motor)",
+    "/app/seed_iter148.py (helper — re-seeds QA Link Guest colour bookings for UI tests)"
+  ],
+  "success_rate": {
+    "backend": "100% (16/16)",
+    "frontend": "88% (Settings link/unlink, Appointments ColorPickCard, public price badge, /book banner + services pre-select all pass; CRM history modal not reachable via /customers because listing hides colour-booking-only guests)"
+  },
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL, slug miracurl-marathahalli, Owner PIN 4321.",
+  "seed_data_creation": "Test/seed runs created: 2 color_picks (burgundy + copper-brown for 9000000088), 2 appointments for 'QA Link Guest', 1 tenant_shade_services row (burgundy→Hair Color - Global). Cleanup fixture in the pytest module + a final motor cleanup script hard-deleted all rows matching QA prefix, phones 9000000088/99/77, tenant_shade_services rows, color_reel social_posts, color_result/color_reel uploads. Verified 'cleaned: 2 1 4 0 0 1 0'.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests /app/backend/tests/test_iter148_shade_service_links.py fully cover the shade→service link, booking service_names branch (linked vs unlinked), CRM color-history endpoint, before/after uploads and colour-reel including error paths. Uses /api/public/color/{slug}/pick + /api/public/book/{slug} — rate limited to 8 bookings per IP per 600 s; if you hit 429, `db.rate_limits.delete_many({'_id':{'$regex':'book:miracurl-marathahalli'}})` resets the bucket. Frontend testids to know: color-tryon-card, color-tile-<id>, color-link-row, color-link-select, color-card-<appt_id>, color-card-reel-row, color-card-before-upload, color-card-after-upload, color-card-consent, color-card-post-reel, color-card-<shade> (public), color-price-<shade>, book-color-banner, book-color-continue, customer-history-modal, customer-colour-history, colour-history-row. Settings requires Owner PIN 4321 + WhatsNew modal dismiss (button 'Got it ✨'). Appointments listing defaults to 'Day' — click 'Upcoming' tab or navigate directly to see future colour bookings.",
+  "rca_of_the_issue": "CRM listing hides colour-booking-only customers: /api/customers is the source for the CRM.jsx table and its search. When a customer is created via the public colour-booking flow (POST /api/public/book with color_code, no invoice yet), the customer row DOES exist in db.customers (verified via motor find_one on tenant_id+name), but the CRM listing endpoint returns 0 hits for name 'QA Link Guest' and phone '9000000088'. Likely the endpoint filters on has-invoice or visits > 0 (typical CRM 'past guests' filter). Fix: either (a) union customers-with-color-picks / customers-with-any-appointment into the CRM feed, or (b) expose an explicit 'Open history' shortcut on the /appointments colour row that mounts CustomerHistoryModal for that customer_id — the modal + colour-history block already render correctly when given a valid customer object (GET /api/customers/{id}/color-history works and returns 2 appointments per pytest)."
+}

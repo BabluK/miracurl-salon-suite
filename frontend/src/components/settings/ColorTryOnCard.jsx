@@ -15,6 +15,15 @@ export const ColorTryOnCard = () => {
   const [shade, setShade] = useState(EMPTY_SHADE);
   const [adding, setAdding] = useState(false);
   const [showBuilder, setShowBuilder] = useState(false);
+  const [services, setServices] = useState([]);
+  const [linking, setLinking] = useState(null); // color being linked
+  const linkService = async (colorId, serviceId) => {
+    try {
+      await api.put(`/hair-colors/${colorId}/service`, { service_id: serviceId || null });
+      toast.success(serviceId ? "Service linked — bookings for this shade now pre-select it" : "Link removed");
+      setLinking(null); loadColors();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't link"); }
+  };
   const loadColors = () => api.get("/hair-colors").then(r => setColors(r.data.colors || [])).catch(() => {});
   const toggle = (k, v) => setShade(s => ({ ...s, [k]: s[k].includes(v) ? s[k].filter(x => x !== v) : [...s[k], v] }));
   const addShade = async () => {
@@ -38,6 +47,7 @@ export const ColorTryOnCard = () => {
   useEffect(() => {
     api.get("/color-picks?limit=8").then(r => setPicks(r.data.picks || [])).catch(() => {});
     loadColors();
+    api.get("/services").then(r => setServices((r.data.services || r.data || []).filter(x => x.active !== false))).catch(() => {});
     let url;
     api.get("/color/poster", { responseType: "blob" }).then(r => { url = URL.createObjectURL(r.data); setPoster(url); }).catch(() => {});
     return () => { if (url) URL.revokeObjectURL(url); };
@@ -90,7 +100,9 @@ export const ColorTryOnCard = () => {
           <p className="text-[11px] font-semibold text-slate-500 tracking-wide mt-4 mb-1.5 inline-flex items-center gap-1"><Sparkles className="w-3 h-3 text-amber-500" /> THE COLLECTION · {colors.length} SHADES</p>
           <div className="flex gap-1.5 overflow-x-auto pb-1" data-testid="color-catalog-strip">
             {colors.map(c => (
-              <div key={c.id} title={c.name} className={`relative shrink-0 w-14 h-[70px] rounded-lg overflow-hidden border ${c.custom ? "border-amber-400 ring-1 ring-amber-300" : "border-slate-200"}`} style={{ background: `linear-gradient(160deg, ${c.swatch.join(",")})` }}>
+              <div key={c.id} title={`${c.name}${c.service_name ? ` → ${c.service_name} ₹${c.price}` : " · tap to link a service"}`} onClick={() => setLinking(c)} data-testid={`color-tile-${c.id}`}
+                className={`relative shrink-0 w-14 h-[70px] rounded-lg overflow-hidden border cursor-pointer ${linking?.id === c.id ? "ring-2 ring-slate-900" : ""} ${c.custom ? "border-amber-400 ring-1 ring-amber-300" : "border-slate-200"}`} style={{ background: `linear-gradient(160deg, ${c.swatch.join(",")})` }}>
+                {c.service_name && <span className="absolute bottom-0 inset-x-0 bg-emerald-600/90 text-white text-[9px] text-center font-semibold leading-4">₹{c.price}</span>}
                 {c.image_url && <img src={`${BACKEND}${c.image_url}`} alt={c.name} className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = "none"; }} />}
                 {c.custom && !c.image_url && <Loader2 className="absolute inset-0 m-auto w-4 h-4 text-white animate-spin" />}
                 {c.custom && (
@@ -101,6 +113,18 @@ export const ColorTryOnCard = () => {
             ))}
           </div>
 
+          {linking && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5" data-testid="color-link-row">
+              <span className="text-xs text-slate-700"><b>{linking.name}</b> → colour service:</span>
+              <select defaultValue={linking.service_id || ""} onChange={e => linkService(linking.id, e.target.value)} data-testid="color-link-select"
+                className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-800 [&_option]:bg-white [&_option]:text-slate-800">
+                <option value="">— not linked (booking shows "{linking.name} Colour") —</option>
+                {services.map(sv => <option key={sv.id} value={sv.id}>{sv.name} · ₹{sv.price}</option>)}
+              </select>
+              <button onClick={() => setLinking(null)} className="text-xs text-slate-400 ml-auto">close</button>
+            </div>
+          )}
+          <p className="text-[11px] text-slate-400 mt-1.5">Tap a shade to link it to a colour service — the booking then pre-selects that service and quotes its price.</p>
           <button onClick={() => setShowBuilder(v => !v)} data-testid="color-builder-toggle"
             className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
             <Plus className="w-3.5 h-3.5" /> {showBuilder ? "Close shade builder" : "Add your own shade — Mira paints it"}

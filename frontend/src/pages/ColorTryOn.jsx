@@ -189,6 +189,7 @@ export default function ColorTryOn() {
                     <div className="flex gap-1 mb-1">{c.swatch.map(s => <span key={s} className="w-4 h-4 rounded-full border border-white/20" style={{ background: s }} />)}</div>
                     <p className="text-white text-sm font-semibold leading-tight">{c.name}</p>
                     <p className="text-slate-400 text-[10px] mt-0.5">{c.tag}</p>
+                    {c.price != null && <p className="text-emerald-300 text-[11px] font-semibold mt-0.5" data-testid={`color-price-${c.id}`}>{c.service_name} · ₹{c.price}</p>}
                   </div>
                 </button>
               );

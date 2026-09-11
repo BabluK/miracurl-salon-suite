@@ -1,5 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
+
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-[#fbf8f3]" data-testid="page-loader">
+    <div className="w-9 h-9 rounded-full border-2 border-[#d4af37]/30 border-t-[#d4af37] animate-spin" />
+  </div>
+);
 
 let _lastGaPath = null;
 function ScrollToTop() {
@@ -59,79 +65,79 @@ import { getActAsSalon } from "@/lib/api";
 const TOAST_OPTIONS = { style: { background: '#121212', color: '#fff', border: '1px solid rgba(212,175,55,0.3)' } };
 import Login from "@/pages/Login";
 import AppLayout from "@/components/AppLayout";
-import Dashboard from "@/pages/Dashboard";
-import Appointments from "@/pages/Appointments";
-import Customers from "@/pages/Customers";
-import Staff from "@/pages/Staff";
-import Services from "@/pages/Services";
-import Inventory from "@/pages/Inventory";
-import POS from "@/pages/POS";
-import Reports from "@/pages/Reports";
-import CashRegister from "@/pages/CashRegister";
-import Reviews from "@/pages/Reviews";
-import OffersStudio from "@/pages/OffersStudio";
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Appointments = lazy(() => import("@/pages/Appointments"));
+const Customers = lazy(() => import("@/pages/Customers"));
+const Staff = lazy(() => import("@/pages/Staff"));
+const Services = lazy(() => import("@/pages/Services"));
+const Inventory = lazy(() => import("@/pages/Inventory"));
+const POS = lazy(() => import("@/pages/POS"));
+const Reports = lazy(() => import("@/pages/Reports"));
+const CashRegister = lazy(() => import("@/pages/CashRegister"));
+const Reviews = lazy(() => import("@/pages/Reviews"));
+const OffersStudio = lazy(() => import("@/pages/OffersStudio"));
 import BookPublic from "@/pages/BookPublic";
-import RewardsCampaign from "@/pages/RewardsCampaign";
+const RewardsCampaign = lazy(() => import("@/pages/RewardsCampaign"));
 import ColorTryOn from "@/pages/ColorTryOn";
-import LoyaltyClubJoin from "@/pages/LoyaltyClubJoin";
-import OrderPublic from "@/pages/OrderPublic";
-import Kitchen from "@/pages/Kitchen";
-import PartnerLanding from "@/pages/PartnerLanding";
-import SuccessStories from "@/pages/SuccessStories";
-import Blog from "@/pages/Blog";
-import BlogPost from "@/pages/BlogPost";
-import MiraAIStudio from "@/pages/MiraAIStudio";
-import StaffActivities from "@/pages/StaffActivities";
-import ResetPassword from "@/pages/ResetPassword";
-import ReviewPublic from "@/pages/ReviewPublic";
-import RatePublic from "@/pages/RatePublic";
-import SuperAdmin from "@/pages/SuperAdmin";
-import SignupSalon from "@/pages/SignupSalon";
-import RestaurantLanding from "@/pages/RestaurantLanding";
+const LoyaltyClubJoin = lazy(() => import("@/pages/LoyaltyClubJoin"));
+const OrderPublic = lazy(() => import("@/pages/OrderPublic"));
+const Kitchen = lazy(() => import("@/pages/Kitchen"));
+const PartnerLanding = lazy(() => import("@/pages/PartnerLanding"));
+const SuccessStories = lazy(() => import("@/pages/SuccessStories"));
+const Blog = lazy(() => import("@/pages/Blog"));
+const BlogPost = lazy(() => import("@/pages/BlogPost"));
+const MiraAIStudio = lazy(() => import("@/pages/MiraAIStudio"));
+const StaffActivities = lazy(() => import("@/pages/StaffActivities"));
+const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
+const ReviewPublic = lazy(() => import("@/pages/ReviewPublic"));
+const RatePublic = lazy(() => import("@/pages/RatePublic"));
+const SuperAdmin = lazy(() => import("@/pages/SuperAdmin"));
+const SignupSalon = lazy(() => import("@/pages/SignupSalon"));
+const RestaurantLanding = lazy(() => import("@/pages/RestaurantLanding"));
 import Landing from "@/pages/Landing";
-import ContactUs from "@/pages/ContactUs";
-import WhoCanUse from "@/pages/WhoCanUse";
-import AboutCeo from "@/pages/AboutCeo";
-import Terms from "@/pages/Terms";
-import Privacy from "@/pages/Privacy";
-import Refund from "@/pages/Refund";
-import GiftCardPublic from "@/pages/GiftCardPublic";
-import MembershipPublic from "@/pages/MembershipPublic";
-import MemberCardPublic from "@/pages/MemberCardPublic";
-import PayLinkPublic from "@/pages/PayLinkPublic";
-import FeedbackPublic from "@/pages/FeedbackPublic";
-import Settings from "@/pages/Settings";
-import Assistant from "@/pages/Assistant";
-import MiraStudio from "@/pages/MiraStudio";
-import SetupWizard from "@/pages/SetupWizard";
-import ReferEarn from "@/pages/ReferEarn";
-import StaffPortal from "@/pages/StaffPortal";
-import StaffBankDetails from "@/pages/StaffBankDetails";
-import StaffResume from "@/pages/StaffResume";
-import Attendance from "@/pages/Attendance";
+const ContactUs = lazy(() => import("@/pages/ContactUs"));
+const WhoCanUse = lazy(() => import("@/pages/WhoCanUse"));
+const AboutCeo = lazy(() => import("@/pages/AboutCeo"));
+const Terms = lazy(() => import("@/pages/Terms"));
+const Privacy = lazy(() => import("@/pages/Privacy"));
+const Refund = lazy(() => import("@/pages/Refund"));
+const GiftCardPublic = lazy(() => import("@/pages/GiftCardPublic"));
+const MembershipPublic = lazy(() => import("@/pages/MembershipPublic"));
+const MemberCardPublic = lazy(() => import("@/pages/MemberCardPublic"));
+const PayLinkPublic = lazy(() => import("@/pages/PayLinkPublic"));
+const FeedbackPublic = lazy(() => import("@/pages/FeedbackPublic"));
+const Settings = lazy(() => import("@/pages/Settings"));
+const Assistant = lazy(() => import("@/pages/Assistant"));
+const MiraStudio = lazy(() => import("@/pages/MiraStudio"));
+const SetupWizard = lazy(() => import("@/pages/SetupWizard"));
+const ReferEarn = lazy(() => import("@/pages/ReferEarn"));
+const StaffPortal = lazy(() => import("@/pages/StaffPortal"));
+const StaffBankDetails = lazy(() => import("@/pages/StaffBankDetails"));
+const StaffResume = lazy(() => import("@/pages/StaffResume"));
+const Attendance = lazy(() => import("@/pages/Attendance"));
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ManifestSwitcher from "@/components/ManifestSwitcher";
 import MicroInteractions from "@/components/MicroInteractions";
-import SalonFinder from "@/pages/SalonFinder";
+const SalonFinder = lazy(() => import("@/pages/SalonFinder"));
 import ForceChangePassword from "@/pages/ForceChangePassword";
-import Gallery from "@/pages/Gallery";
-import Messages from "@/pages/Messages";
-import Plans from "@/pages/Plans";
-import CctvAnalytics from "@/pages/CctvAnalytics";
-import CctvCapture from "@/pages/CctvCapture";
-import HireStaff from "@/pages/HireStaff";
-import JobsBoard from "@/pages/JobsBoard";
-import CandidateProfile from "@/pages/CandidateProfile";
-import StaffRegistry from "@/pages/StaffRegistry";
-import RegistryPublic from "@/pages/RegistryPublic";
-import Partners from "@/pages/Partners";
-import SalonPublic from "@/pages/SalonPublic";
-import MiracurlProducts from "@/pages/MiracurlProducts";
-import EmployeePortal from "@/pages/EmployeePortal";
-import DemoSlot from "@/pages/DemoSlot";
-import PublicDemo from "@/pages/PublicDemo";
+const Gallery = lazy(() => import("@/pages/Gallery"));
+const Messages = lazy(() => import("@/pages/Messages"));
+const Plans = lazy(() => import("@/pages/Plans"));
+const CctvAnalytics = lazy(() => import("@/pages/CctvAnalytics"));
+const CctvCapture = lazy(() => import("@/pages/CctvCapture"));
+const HireStaff = lazy(() => import("@/pages/HireStaff"));
+const JobsBoard = lazy(() => import("@/pages/JobsBoard"));
+const CandidateProfile = lazy(() => import("@/pages/CandidateProfile"));
+const StaffRegistry = lazy(() => import("@/pages/StaffRegistry"));
+const RegistryPublic = lazy(() => import("@/pages/RegistryPublic"));
+const Partners = lazy(() => import("@/pages/Partners"));
+const SalonPublic = lazy(() => import("@/pages/SalonPublic"));
+const MiracurlProducts = lazy(() => import("@/pages/MiracurlProducts"));
+const EmployeePortal = lazy(() => import("@/pages/EmployeePortal"));
+const DemoSlot = lazy(() => import("@/pages/DemoSlot"));
+const PublicDemo = lazy(() => import("@/pages/PublicDemo"));
 import { PlayerProvider } from "@/context/PlayerContext";
-import Entertainment from "@/pages/Entertainment";
+const Entertainment = lazy(() => import("@/pages/Entertainment"));
 import { BrandSplash } from "@/components/BrandSplash";
 
 function Protected({ children }) {
@@ -224,6 +230,7 @@ export default function App() {
           <ConfirmHost />
           <ErrorBoundary>
           <PlayerProvider>
+          <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/book/:slug" element={<BookPublic />} />
             <Route path="/rewards/:slug" element={<RewardsCampaign />} />
@@ -306,6 +313,7 @@ export default function App() {
             <Route path="/candidate/:token" element={<CandidateProfile />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
           </PlayerProvider>
           </ErrorBoundary>
         </BrowserRouter>

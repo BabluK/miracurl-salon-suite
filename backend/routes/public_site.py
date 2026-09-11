@@ -452,9 +452,25 @@ async def _create_public_appointment(cust: dict, staff: dict, services: list, bo
                                   "image_url": img, "swatch": c.get("swatch") or [], "undertone": pick.get("undertone"), "depth": pick.get("depth"),
                                   "formula": pick.get("formula") or ""}
             await _raw_db.color_picks.update_one({"id": pick["id"]}, {"$set": {"appointment_id": appt["id"], "booked_at": datetime.now(timezone.utc).isoformat()}})
+            # the booking is named after the colour: linked colour service if the salon set one, else "<Shade> Colour"
+            from routes.hair_colors import _service_links
+            link = (await _service_links(tid)).get(pick["color_id"])
+            if link and link["service_id"] not in appt["service_ids"]:
+                svc = await _raw_db.services.find_one({"tenant_id": tid, "id": link["service_id"]}, {"_id": 0})
+                if svc:
+                    appt["service_ids"].append(svc["id"]); appt["service_names"].append(svc["name"])
+                    appt["duration_min"] = (appt.get("duration_min") or 0) + (svc.get("duration_min") or 0)
+                    appt["total"] = round((appt.get("total") or 0) + (svc.get("price") or 0), 2)
+                    total = appt["total"]
+            elif not link:
+                label = f"{appt['color_pick']['color_name']} Colour"
+                if label not in appt["service_names"]:
+                    appt["service_names"] = [n for n in appt["service_names"] if n != "Table reservation"] + [label]
+                if appt["service_names"] == [label]:
+                    appt["duration_min"] = max(appt.get("duration_min") or 0, 90)
     await db.appointments.insert_one(appt)
     appt.pop("_id", None)
-    return appt, total, duration
+    return appt, total, appt.get("duration_min") or duration
 
 
 @router.post("/public/book/{slug}")
