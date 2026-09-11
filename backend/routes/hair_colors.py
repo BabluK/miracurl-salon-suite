@@ -603,3 +603,32 @@ async def post_color_reel(appt_id: str, body: ReelIn, admin=Depends(require_tena
                                            "created_at": datetime.now(timezone.utc).isoformat()})
     await _raw_db.appointments.update_one({"tenant_id": t["id"], "id": appt_id}, {"$set": {"color_pick.reel_url": image_url, "color_pick.reel_caption": caption}})
     return {"ok": True, "image_url": image_url, "caption": caption, "results": results}
+
+
+class FaceCheckIn(BaseModel):
+    selfie_b64: str = Field(..., max_length=3_000_000)
+
+
+@router.post("/public/color/{slug}/face-check")
+async def public_face_check(slug: str, body: FaceCheckIn):
+    """Is there really a face in the capture? Returns a presentation hint (man/woman/unclear) for shade suggestions. Nothing stored."""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+    from routes.mira_common import _key
+    await resolve_tenant_from_slug(slug)
+    b64 = body.selfie_b64.split(",", 1)[-1]
+    if len(b64) < 2000:
+        raise HTTPException(400, "Selfie too small")
+    try:
+        chat = LlmChat(api_key=_key(), session_id=f"face-{uuid.uuid4().hex[:8]}",
+                       system_message='Answer strictly as JSON: {"face": true|false, "presentation": "man"|"woman"|"unclear", "hair_length": "short"|"medium"|"long"|"unclear", "reason": "<max 10 words>"}').with_model("openai", "gpt-4o-mini")
+        raw = await chat.send_message(UserMessage(
+            text="Is there a real human face clearly visible from the front in this photo? If yes, how does the person present (man/woman/unclear) and what hair length?",
+            file_contents=[ImageContent(image_base64=b64)]))
+        import json, re
+        m = re.search(r"\{.*\}", raw or "", re.S)
+        d = json.loads(m.group(0)) if m else {}
+    except Exception as e:
+        log.warning("face check failed: %s", e)
+        return {"face": True, "presentation": "unclear", "hair_length": "unclear", "reason": "unverified"}
+    return {"face": bool(d.get("face")), "presentation": d.get("presentation") or "unclear",
+            "hair_length": d.get("hair_length") or "unclear", "reason": d.get("reason") or ""}

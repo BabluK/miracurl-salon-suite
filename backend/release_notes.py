@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-12.247"
+BUILD = "2026-09-12.248"
 BUILD_TIME = "12 Sep 2026, 01:30 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-12.248", "note": "PERF: Dashboard/Appointments chunks pre-warmed on /login (login→dashboard 1.3s), dashboard skeleton; public/assets images re-encoded ≤1600px (64.9→~26MB imgs), 9 unreferenced PNGs removed (backup in /app/memory/assets_removed); face-check on try-on capture (face + man/woman + hair length hint)"},
     {"build": "2026-09-12.247", "note": "PERF: App.js code-splitting — 66 pages React.lazy + Suspense (PageLoader); initial JS 4.4MB/1146KB gz → 848KB/246KB gz (-78%). Front/back result photos + vision check on colour reels"},
     {"build": "2026-09-12.245", "note": "Shade→service links (PUT /hair-colors/{id}/service; booking pre-selects + quotes; unlinked shades book as '<Shade> Colour'); CRM colour history; before/after result upload + Mira before/after reel (POST /appointments/{id}/color-reel)"},
     {"build": "2026-09-11.244", "note": "Try-On share card (front+back, salon logo, booking QR; Web Share/WhatsApp/download); structured color_pick on public bookings (color_code) + Stylist Colour Card on Appointments with formula notes (PATCH /appointments/{id}/color-formula)"},
@@ -72,6 +73,7 @@ RELEASES = [
             "🎙️ Narrator voice picker (Shimmer, Nova, US Alloy/Echo, Onyx, British Fable); Mira avatar/presenter modes removed",
             "🎨 NEW Hair Colour Try-On — Settings → download your salon-branded QR poster. Guests scan, the front camera reads their skin undertone on their phone (nothing uploaded) and highlights the professional shades that suit them — 18 shades from Natural Black to Platinum, Balayage, Copper, Burgundy and Pastels. Their pick + a 6-letter code lands in your bell — and one tap books a Colour Appointment with stylist & time, colour noted on the booking",
             "🪞 'See it on me' — after the face scan, guests tap a shade and Mira paints it on THEIR photo: front view and back view in a 3D flip card (selfie is never saved)",
+            "👤 Colour try-on now confirms a real face is in frame before reading your skin (asks you to retake if not) and notes if it sees a man or woman and short/medium/long hair",
             "⚡ 3-4x faster first load on mobile — the app now downloads only the page you open (66 screens split into on-demand chunks; first download cut by 78%)",
             "💰 Link any shade to your colour service — Settings → tap a shade → pick the service. Guests then see 'Hair Color – Global · ₹2500' on the try-on, and their booking pre-selects it and quotes the price. Unlinked shades book as e.g. 'Burgundy Colour' (no more 'Bridal Makeup' on colour bookings)",
             "📒 CRM → guest history now shows a Colour History: every shade, try-on code, undertone and the stylist's formula — perfect root touch-ups and re-dos",

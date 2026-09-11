@@ -71,10 +71,22 @@ export default function ColorTryOn() {
       setCamErr("Camera not available — allow camera access, or skip and browse all shades.");
     }
   };
-  const capture = () => {
+  const [faceInfo, setFaceInfo] = useState(null); // {face, presentation, hair_length}
+  const [checking, setChecking] = useState(false);
+  const capture = async () => {
     const res = analyseSkin(videoRef.current, canvasRef.current);
-    try { setSelfie(canvasRef.current.toDataURL("image/jpeg", 0.85)); } catch { setSelfie(null); }
+    let shot = null;
+    try { shot = canvasRef.current.toDataURL("image/jpeg", 0.85); } catch { shot = null; }
+    setSelfie(shot);
     if (!res) { setCamErr("Couldn't read your skin — move into brighter light and fit your face in the oval."); return; }
+    setChecking(true); setCamErr("");
+    let info = { face: true, presentation: "unclear" };
+    try {
+      if (shot) { const { data } = await axios.post(`${API}/api/public/color/${slug}/face-check`, { selfie_b64: shot }); info = data; }
+    } catch { /* keep going without the hint */ }
+    setChecking(false);
+    if (!info.face) { setCamErr("No face detected — please fit your face inside the oval, look at the camera and try again."); return; }
+    setFaceInfo(info);
     setSkin(res); streamRef.current?.getTracks().forEach(t => t.stop()); setStep("results");
   };
   const skipCamera = () => { streamRef.current?.getTracks().forEach(t => t.stop()); setSkin(null); setStep("results"); };
@@ -159,7 +171,7 @@ export default function ColorTryOn() {
           </div>
           <canvas ref={canvasRef} className="hidden" />
           {camErr && <p className="mt-3 text-rose-300 text-sm" data-testid="color-cam-error">{camErr}</p>}
-          <button onClick={capture} data-testid="color-capture-btn" className="mt-4 w-full py-4 rounded-2xl bg-amber-400 text-slate-900 font-bold inline-flex items-center justify-center gap-2"><Camera className="w-5 h-5" /> Read my skin tone</button>
+          <button onClick={capture} disabled={checking} data-testid="color-capture-btn" className="mt-4 w-full py-4 rounded-2xl bg-amber-400 text-slate-900 font-bold inline-flex items-center justify-center gap-2 disabled:opacity-60">{checking ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />} {checking ? "Checking your face…" : "Read my skin tone"}</button>
           <button onClick={skipCamera} className="mt-3 w-full py-3 rounded-2xl border border-slate-600 text-slate-200 text-sm">Skip</button>
         </section>
       )}
@@ -170,6 +182,11 @@ export default function ColorTryOn() {
             <div className="flex items-center gap-3 bg-slate-800/70 border border-amber-400/40 rounded-2xl p-3" data-testid="color-skin-result">
               <span className="w-10 h-10 rounded-full border-2 border-white/40" style={{ background: skin.rgb }} />
               <p className="text-slate-100 text-sm"><b className="capitalize">{skin.undertone}</b> · {skin.depth} — {UNDERTONE_COPY[skin.undertone]}</p>
+              {faceInfo && (
+                <p className="text-emerald-300 text-xs mt-1" data-testid="color-face-info">
+                  ✓ Face detected{faceInfo.presentation && faceInfo.presentation !== "unclear" ? ` · looks like a ${faceInfo.presentation}` : ""}{faceInfo.hair_length && faceInfo.hair_length !== "unclear" ? ` · ${faceInfo.hair_length} hair` : ""}
+                </p>
+              )}
               <button onClick={startCamera} className="ml-auto text-amber-300" title="Retry"><RotateCcw className="w-4 h-4" /></button>
             </div>
           ) : <p className="text-slate-300 text-sm">Browse all professional shades — tap one to choose.</p>}

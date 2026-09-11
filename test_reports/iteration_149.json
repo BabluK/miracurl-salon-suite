@@ -1,0 +1,29 @@
+{
+  "summary": "Iter149 — Hair Colour Try-On face-check + BookPublic color link + App.js code-split regression. Backend pytest test_iter149_face_check.py: 4/4 pass. POST /api/public/color/miracurl-marathahalli/face-check with the founder_backdrop portrait (JPEG ≤900px data-URL) → 200 {face:true, presentation:'man', hair_length in {short,medium,long}}. Back-of-head fixtures_hair_back.jpg → 200 {face:false}. selfie_b64='abc' → 400 'Selfie too small'. Unknown slug → 404 tenant not found. Frontend (430x900, mobile): /color/miracurl-marathahalli intro renders color-start-camera + color-skip-camera. Clicking Start Camera in headless (fake stream unavailable) actually opens a stream so no color-cam-error appears (getUserMedia resolves); the video + oval + color-capture-btn render enabled; clicking Capture triggers the client-side analyseSkin() first which correctly returns null on the black/green fake frame and shows 'Couldn't read your skin — move into brighter light and fit your face in the oval.' via color-cam-error while STAYING on the camera step (capture-btn still present) — matches the spec's OR-branch. Skip flow: Skip → 19 colour cards render (color-card-*), tap first shade → name form + phone appears (Choose this colour button visible). /book/miracurl-marathahalli at 1280px → book-color-link '🎨 Choose your beauty hair colour' → href=/color/miracurl-marathahalli. At 430px → book-color-link-mobile ribbon '🎨 Choose your beauty hair colour →' visible. Code-split regression: admin login → /dashboard, /appointments (2395 chars), /pos (1448), /mira-studio (3428), /customers (12737), /settings (unlocked with PIN 4321, 35818 chars) all render fully with 0 ChunkLoadErrors. Super admin login → /super-admin renders fully with header, tabs, Mira HQ Assistant, 0 ChunkLoadErrors. Public /color and /book render without chunk errors. Small gold [data-testid=page-loader] Suspense spinner is not sticky.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter149_face_check.py",
+    "/app/test_reports/pytest/iter149.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "backend/routes/hair_colors.py public_face_check: on any LLM exception it falls back to {face:true, presentation:'unclear', hair_length:'unclear', reason:'unverified'} — this is user-friendly but silently masks emergentintegrations outages and lets non-faces through. Consider adding a lightweight retry (1x) before the optimistic fallback, and log the raw response for observability.",
+    "backend/routes/hair_colors.py public_face_check: no rate limiting on this public endpoint despite it invoking a paid vision model per call. Add a per-IP bucket similar to the /api/public/book rate-limit (e.g., 20/10min) to prevent trivial abuse of the LLM key.",
+    "backend/routes/hair_colors.py: Pydantic FaceCheckIn has max_length=3_000_000 but no minimum length; the len(b64) < 2000 check is done manually after base64 split — fine, but consider Field(min_length=2000) so the 400 comes from FastAPI validation with a clearer error body.",
+    "frontend/src/pages/ColorTryOn.jsx capture(): analyseSkin() runs BEFORE the /face-check call, so if the fake/dim frame fails skin-read the user never gets the specific 'No face detected' AI message even when the real culprit is no face; consider always calling face-check first (or in parallel) and prioritise its 'face:false' error over the on-device skin read error for better UX/messaging.",
+    "frontend/src/pages/ColorTryOn.jsx: faceInfo text uses hard-coded emoji '✓' and mixes 'looks like a man/woman' — inclusive-language nit: consider 'appears feminine/masculine presentation' or expose the 'unclear' presentation explicitly instead of omitting the phrase."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter149_face_check.py"],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "100% (all spec flows verified; real camera face-detection path only exercised via backend pytest with real portrait image since headless Chromium fake stream cannot present a face)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (Owner PIN 4321) slug miracurl-marathahalli; super@miracurl.com / og9T@41Es#OQb6",
+  "seed_data_creation": "None — no bookings created; face-check endpoint stores nothing.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests /app/backend/tests/test_iter149_face_check.py cover face-check happy/back-of-head/tiny/unknown-slug. Fixtures: /app/backend/assets/founder_backdrop.png (real portrait) and /app/backend/tests/fixtures_hair_back.jpg (back-of-head). BASE_URL read from /app/frontend/.env because pytest env does not export REACT_APP_BACKEND_URL. UI testids: color-start-camera, color-skip-camera, color-capture-btn, color-cam-error, color-face-info, color-card-<shade>, page-loader, book-color-link (desktop), book-color-link-mobile. Headless getUserMedia in this preview returns a synthetic stream (video plays) but the frame is a solid block so on-device analyseSkin() fails first before face-check is invoked — that is why we can't validate the color-face-info 'looks like a man' text via Playwright; validated equivalently at the backend layer where the vision model returned face=true for the founder portrait. Rate-limit note preserved: /api/public/book bucket is 8/10min per IP.",
+  "rca_of_the_issue": "N/A — no bugs found this iteration."
+}

@@ -15,6 +15,11 @@ function ScrollToTop() {
     // GA4 page views for this single-page app (route changes don't reload the page); guard against double-mount
     if (_lastGaPath === pathname) return;
     _lastGaPath = pathname;
+    // Warm the chunks the user will need next, so the post-login screen paints instantly
+    if (pathname === "/login" || pathname === "/") {
+      const warm = () => { import("@/pages/Dashboard"); import("@/pages/Appointments"); };
+      if ("requestIdleCallback" in window) window.requestIdleCallback(warm, { timeout: 1500 }); else setTimeout(warm, 600);
+    }
     if (typeof window.gtag === "function") window.gtag("event", "page_view", { page_path: pathname, page_location: window.location.href, page_title: document.title });
   }, [pathname]);
   return null;
