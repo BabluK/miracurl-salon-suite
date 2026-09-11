@@ -3,7 +3,6 @@ import base64
 import io
 import os
 
-import pytest
 import requests
 from PIL import Image
 

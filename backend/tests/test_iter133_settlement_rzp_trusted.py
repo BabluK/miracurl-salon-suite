@@ -1,6 +1,5 @@
 """Iteration 133 — Razorpay auto pay-link + trusted badge + salon_share_pct."""
 import os
-import re
 import pytest
 import requests
 

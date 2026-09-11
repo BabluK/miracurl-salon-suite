@@ -8,10 +8,8 @@ Covers:
 5. Regression smoke: /services, /service-categories, /services/image-weight all 200.
 6. Concurrency guard: POST generate-missing-images while another batch running -> 409.
 """
-import os
 import time
 import uuid
-import threading
 import requests
 import pytest
 from creds import password_for

@@ -1,6 +1,5 @@
 """Tests for founder invitation template, demo trial days, and WA quick-invite CRUD."""
 import os
-import re
 import time
 import random
 import pytest

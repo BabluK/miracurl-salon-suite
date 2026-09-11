@@ -357,10 +357,13 @@ def _attachments(inv: dict) -> list:
     ]
 
 
+KIND_SENDERS: dict = {}  # invoice kind -> async sender; other services register here (breaks the trial_onboarding import cycle)
+
+
 async def email_invoice_kit(inv: dict, resend: bool = False) -> dict:
-    if inv.get("kind") == "trial":
-        from services.trial_onboarding import send_trial_congrats
-        return await send_trial_congrats(inv, resend=resend)
+    sender = KIND_SENDERS.get(inv.get("kind"))
+    if sender:
+        return await sender(inv, resend=resend)
     to = [inv.get("notify_email") or inv.get("owner_email") or ""]
     inv["_logo"] = await platform_logo_bytes()
     attachments = await asyncio.to_thread(_attachments, inv)

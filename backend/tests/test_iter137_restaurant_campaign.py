@@ -1,5 +1,5 @@
 """Iter 137 — Restaurant campaign alongside salon campaign; salon regression."""
-import os, io, re
+import os, io
 import pytest
 import requests
 

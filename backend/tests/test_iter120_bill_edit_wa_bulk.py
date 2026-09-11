@@ -6,7 +6,7 @@ import time
 import uuid
 import pytest
 import requests
-from datetime import datetime, timezone
+from datetime import datetime
 
 from _creds import _PW_ADMIN
 

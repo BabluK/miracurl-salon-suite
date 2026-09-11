@@ -9,7 +9,6 @@ Endpoints:
   GET  /api/public/loyalty/{slug}?phone=
 """
 import os
-import re
 import uuid
 import requests
 import pytest

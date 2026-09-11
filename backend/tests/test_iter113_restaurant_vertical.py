@@ -10,7 +10,7 @@ Covers:
 - GET /api/public/plans includes resto_* with vertical=restaurant
 - PUT /api/super-admin/plans/resto_quarter persists price then restored
 """
-import os, uuid, time, datetime as dt
+import os, uuid, datetime as dt
 import pytest, requests
 from creds import password_for
 

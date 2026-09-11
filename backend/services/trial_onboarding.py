@@ -14,7 +14,7 @@ from email_service import _send_email
 from services.pdf_brand import image_bytes_from_url, platform_logo_bytes
 from services.storage import APP_NAME, _put_object
 from services.subscription_invoice import (
-    _app_url, build_invoice_pdf, build_terms_pdf, get_biller, next_invoice_number,
+    KIND_SENDERS, _app_url, build_invoice_pdf, build_terms_pdf, get_biller, next_invoice_number,
 )
 
 log = logging.getLogger("trial_onboarding")
@@ -218,3 +218,6 @@ async def _notify_hq_new_tenant(t: dict, inv: dict, logo_url: str | None) -> dic
     except Exception as e:  # noqa: BLE001
         log.warning("HQ new-tenant notice failed for %s: %s", t.get("slug"), e)
         return {"sent": False, "error": str(e)[:200]}
+
+
+KIND_SENDERS["trial"] = send_trial_congrats

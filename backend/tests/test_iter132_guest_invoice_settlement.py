@@ -1,8 +1,6 @@
 """Iteration 132 — Guest GST invoice PDF/email + settlement tracker."""
 import os
-import re
-import time
-from datetime import date, timedelta
+from datetime import date
 
 import fitz  # pymupdf
 import pytest

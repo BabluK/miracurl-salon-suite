@@ -7,7 +7,6 @@
 import os
 import sys
 import asyncio
-import pytest
 import requests
 
 # Make backend importable for the digest test

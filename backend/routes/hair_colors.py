@@ -242,81 +242,77 @@ async def list_color_picks(limit: int = 50, admin=Depends(require_tenant_admin),
 
 # ── Salon-branded QR poster ────────────────────────────────────────────────────
 
-@router.get("/color/poster")
-async def color_poster(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    import os
-    import qrcode
-    from services.veo_brand import _font, GOLD, _center
-    from routes.mira_common import _tenant_logo
-    W, H = 1080, 1620
+async def _poster_backdrop(W: int, H: int) -> Image.Image:
+    """A real shade photo from the collection, blurred + deepened, with a warm vignette."""
     from PIL import ImageFilter, ImageEnhance, ImageOps
-    # Backdrop: a real shade photo from the collection, blurred + deepened, with a warm vignette
+    from services.storage import _get_object
     img = None
     shot = await _raw_db.hair_color_images.find_one({"id": {"$in": ["mushroom-mocha-balayage", "caramel-brown", "copper-brown"]}}, {"_id": 0, "image_url": 1})
     up = await _raw_db.uploads.find_one({"id": (shot or {}).get("image_url", "").rsplit("/", 1)[-1]}, {"_id": 0, "storage_path": 1}) if shot else None
     if up:
         try:
-            from services.storage import _get_object
             data, _ = await asyncio.to_thread(_get_object, up["storage_path"])
             img = ImageOps.fit(Image.open(io.BytesIO(data)).convert("RGB"), (W, H)).filter(ImageFilter.GaussianBlur(9))
-            img = ImageEnhance.Brightness(img).enhance(0.42)
-            img = ImageEnhance.Color(img).enhance(1.15)
+            img = ImageEnhance.Color(ImageEnhance.Brightness(img).enhance(0.42)).enhance(1.15)
         except Exception:
             img = None
     if img is None:
         img = Image.new("RGB", (W, H), (24, 14, 20))
     vign = Image.new("L", (W, H), 0)
     ImageDraw.Draw(vign).ellipse([-W * 0.25, -H * 0.05, W * 1.25, H * 1.05], fill=255)
-    vign = vign.filter(ImageFilter.GaussianBlur(160))
-    img = Image.composite(img, Image.new("RGB", (W, H), (10, 6, 9)), vign)
+    return Image.composite(img, Image.new("RGB", (W, H), (10, 6, 9)), vign.filter(ImageFilter.GaussianBlur(160)))
+
+
+def _poster_frame(img: Image.Image) -> None:
+    """Ornate double gold frame with corner flourishes."""
+    from services.veo_brand import GOLD
+    W, H = img.size
     d = ImageDraw.Draw(img)
-    # Ornate double gold frame with corner flourishes
     d.rounded_rectangle([30, 30, W - 30, H - 30], radius=30, outline=GOLD, width=5)
     d.rounded_rectangle([52, 52, W - 52, H - 52], radius=22, outline=(196, 160, 70), width=2)
     for cx, cy, sx, sy in ((52, 52, 1, 1), (W - 52, 52, -1, 1), (52, H - 52, 1, -1), (W - 52, H - 52, -1, -1)):
         d.line([cx + sx * 12, cy + sy * 90, cx + sx * 12, cy + sy * 12, cx + sx * 90, cy + sy * 12], fill=GOLD, width=4)
         d.ellipse([cx + sx * 12 - 9, cy + sy * 12 - 9, cx + sx * 12 + 9, cy + sy * 12 + 9], fill=GOLD)
+
+
+def _poster_swatch_ribbon(img: Image.Image, y: int) -> None:
+    W = img.width
+    sw = (W - 160) // len(CATALOG)
+    for i, c in enumerate(CATALOG):
+        x0 = 80 + i * sw
+        col = tuple(int(c["swatch"][1].lstrip("#")[j:j + 2], 16) for j in (0, 2, 4))
+        ImageDraw.Draw(img).rounded_rectangle([x0 + 3, y, x0 + sw - 3, y + 26], radius=8, fill=col, outline=(255, 255, 255), width=1)
+
+
+@router.get("/color/poster")
+async def color_poster(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from services.veo_brand import _font, GOLD, _center
+    from services.color_cards import paste_logo_disc, qr_card, to_png, public_url
+    from routes.mira_common import _tenant_logo
+    W, H = 1080, 1620
+    img = await _poster_backdrop(W, H)
+    _poster_frame(img)
     y = 80
     logo = await _tenant_logo(t)
     if logo:
-        from PIL import ImageOps
-        lg = ImageOps.contain(Image.open(io.BytesIO(logo)).convert("RGBA"), (150, 150))
-        disc = Image.new("RGBA", (190, 190), (255, 255, 255, 255))
-        mask = Image.new("L", (190, 190), 0); ImageDraw.Draw(mask).ellipse([0, 0, 189, 189], fill=255)
-        disc.alpha_composite(lg, ((190 - lg.width) // 2, (190 - lg.height) // 2))
-        img.paste(disc, (W // 2 - 95, y), mask)
-        ImageDraw.Draw(img).ellipse([W // 2 - 95, y, W // 2 + 95, y + 190], outline=GOLD, width=4)
+        paste_logo_disc(img, logo, W // 2 - 95, y, 190, ring=4)
         y += 220
     d = ImageDraw.Draw(img)
     _center(d, y, t.get("name", ""), _font(50, serif=True), GOLD, W); y += 64
     _center(d, y, (t.get("location") or "").upper(), _font(24), (220, 220, 230), W); y += 60
     _center(d, y, "H A I R   C O L O U R   S T U D I O", _font(26), GOLD, W); y += 60
     _center(d, y, "Find Your Perfect Colour", _font(64, serif=True), (255, 255, 255), W); y += 100
-    base = os.environ.get("APP_PUBLIC_URL", "")
-    url = f"{base}/color/{t['slug']}"
-    qr = qrcode.QRCode(box_size=10, border=1); qr.add_data(url); qr.make()
-    qim = qr.make_image(fill_color="black", back_color="white").convert("RGB").resize((520, 520))
-    card = Image.new("RGBA", (600, 600), (0, 0, 0, 0))
-    cd = ImageDraw.Draw(card)
-    cd.rounded_rectangle([0, 0, 599, 599], radius=36, fill=GOLD)
-    cd.rounded_rectangle([10, 10, 589, 589], radius=30, fill=(255, 255, 255, 255))
-    card.paste(qim, (40, 40))
+    url = public_url(f"/color/{t['slug']}")
+    card = qr_card(url, qr_px=520, pad=40, box_size=10, gold_frame=True)
     img.paste(card, (W // 2 - 300, y), card); y += 620
-    # shade swatch ribbon under the QR — the whole collection at a glance
-    sw = (W - 160) // len(CATALOG)
-    for i, c in enumerate(CATALOG):
-        x0 = 80 + i * sw
-        col = tuple(int(c["swatch"][1].lstrip("#")[j:j + 2], 16) for j in (0, 2, 4))
-        ImageDraw.Draw(img).rounded_rectangle([x0 + 3, y, x0 + sw - 3, y + 26], radius=8, fill=col, outline=(255, 255, 255), width=1)
-    y += 50
+    _poster_swatch_ribbon(img, y); y += 50
     d = ImageDraw.Draw(img)
     _center(d, y, "Scan  ·  fit your face  ·  see the colour ON YOU, front & back", _font(30), (255, 255, 255), W); y += 46
     _center(d, y, "We read your skin undertone & show the shades that suit YOU", _font(27), (215, 205, 210), W); y += 62
     _center(d, y, "18 SHADES · BLACK TO PLATINUM · BALAYAGE · COPPER · PASTELS", _font(26), GOLD, W); y += 54
     _center(d, y, "Pick your shade, book your stylist — all from your phone", _font(28), (255, 255, 255), W)
     _center(d, H - 120, url.replace("https://", ""), _font(26), (170, 170, 190), W)
-    buf = io.BytesIO(); img.save(buf, "PNG")
-    return Response(buf.getvalue(), media_type="image/png",
+    return Response(to_png(img), media_type="image/png",
                     headers={"Content-Disposition": f'inline; filename="colour-tryon-{t["slug"]}.png"'})
 
 
@@ -423,69 +419,50 @@ class ShareIn(BaseModel):
     back_b64: str | None = Field(None, max_length=4_000_000)
 
 
+async def _share_footer(img: Image.Image, t: dict, c: dict, url: str) -> None:
+    """Bottom strip: booking QR (right), salon logo disc + 'Book this colour' copy (left)."""
+    from services.veo_brand import _font, GOLD
+    from services.color_cards import paste_logo_disc, qr_card
+    from routes.mira_common import _tenant_logo
+    W, H = img.size
+    card = qr_card(url, qr_px=190, pad=10, box_size=6)
+    img.paste(card, (W - 24 - 40 - 210, H - 24 - 40 - 210), card)
+    lx, top = 64, H - 24 - 40 - 150 - 30
+    logo = await _tenant_logo(t)
+    if logo:
+        paste_logo_disc(img, logo, lx, top, 150, ring=3)
+        lx += 180
+    d = ImageDraw.Draw(img)
+    ty = top + 10
+    d.text((lx, ty), "Book this colour", font=_font(40, serif=True), fill=(255, 255, 255)); ty += 54
+    d.text((lx, ty), c.get("tag") or "Professional salon colour", font=_font(24), fill=(200, 190, 200)); ty += 40
+    d.text((lx, ty), url.split("?")[0].replace("https://", "") + "  ·  scan →", font=_font(22), fill=GOLD)
+
+
 @router.post("/public/color/{slug}/share-card")
 async def public_share_card(slug: str, body: ShareIn, request: Request):
     """Compose a 1080x1350 share image (nothing stored): both views, shade name, salon logo, booking QR."""
     await public_rate_limit(request, "color-share", limit=10, window_sec=600)
     await global_daily_cap("color-share", 1000)
-    import os
-    import qrcode
-    from PIL import ImageOps
     from services.veo_brand import _font, GOLD, _center
-    from routes.mira_common import _tenant_logo
+    from services.color_cards import decode_b64_image, framed_panel, paste_photo_tiles, public_url, to_png
     t = await resolve_tenant_from_slug(slug)
     c = await _lookup(t["id"], body.color_id)
     if not c:
         raise HTTPException(404, "Unknown colour")
     try:
-        Image.MAX_IMAGE_PIXELS = 40_000_000  # pixel-bomb guard
-        front = Image.open(io.BytesIO(base64.b64decode(body.front_b64.split(",", 1)[-1]))).convert("RGB")
-        back = Image.open(io.BytesIO(base64.b64decode(body.back_b64.split(",", 1)[-1]))).convert("RGB") if body.back_b64 else None
+        tiles = [("FRONT", decode_b64_image(body.front_b64))] + ([("BACK", decode_b64_image(body.back_b64))] if body.back_b64 else [])
     except Exception:
         raise HTTPException(400, "Bad image data")
     W, H = 1080, 1220
-    img = Image.new("RGB", (W, H), (12, 9, 14))
+    img = framed_panel(W, H)
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle([24, 24, W - 24, H - 24], radius=28, outline=GOLD, width=4)
     y = 60
     _center(d, y, t.get("name", ""), _font(44, serif=True), GOLD, W); y += 58
     _center(d, y, f"MY NEW LOOK  ·  {c['name'].upper()}", _font(26), (235, 225, 230), W); y += 60
-    tiles = [("FRONT", front)] + ([("BACK", back)] if back else [])
-    tw = 470 if back else 700
-    th = int(tw * 1.25)
-    x = (W - (tw * len(tiles) + 40 * (len(tiles) - 1))) // 2
-    for label, im in tiles:
-        tile = ImageOps.fit(im, (tw, th))
-        mask = Image.new("L", (tw, th), 0); ImageDraw.Draw(mask).rounded_rectangle([0, 0, tw - 1, th - 1], radius=28, fill=255)
-        img.paste(tile, (x, y), mask)
-        ImageDraw.Draw(img).rounded_rectangle([x, y, x + tw - 1, y + th - 1], radius=28, outline=GOLD, width=3)
-        lf = _font(22); ld = ImageDraw.Draw(img)
-        ld.text((x + (tw - ld.textlength(label, font=lf)) / 2, y + th + 14), label, font=lf, fill=GOLD)
-        x += tw + 40
-    y += th + 70
-    d = ImageDraw.Draw(img)
-    base = os.environ.get("APP_PUBLIC_URL", "")
-    url = f"{base}/book/{t['slug']}?color={c['id']}"
-    qr = qrcode.QRCode(box_size=6, border=1); qr.add_data(url); qr.make()
-    qim = qr.make_image(fill_color="black", back_color="white").convert("RGB").resize((190, 190))
-    card = Image.new("RGB", (210, 210), (255, 255, 255)); card.paste(qim, (10, 10))
-    img.paste(card, (W - 24 - 40 - 210, H - 24 - 40 - 210))
-    logo = await _tenant_logo(t)
-    lx = 64
-    if logo:
-        lg = ImageOps.contain(Image.open(io.BytesIO(logo)).convert("RGBA"), (120, 120))
-        disc = Image.new("RGBA", (150, 150), (255, 255, 255, 255)); disc.alpha_composite(lg, ((150 - lg.width) // 2, (150 - lg.height) // 2))
-        m = Image.new("L", (150, 150), 0); ImageDraw.Draw(m).ellipse([0, 0, 149, 149], fill=255)
-        img.paste(disc, (lx, H - 24 - 40 - 150 - 30), m)
-        ImageDraw.Draw(img).ellipse([lx, H - 24 - 40 - 150 - 30, lx + 150, H - 24 - 40 - 30], outline=GOLD, width=3)
-        lx += 180
-    d = ImageDraw.Draw(img)
-    ty = H - 24 - 40 - 150 - 20
-    d.text((lx, ty), "Book this colour", font=_font(40, serif=True), fill=(255, 255, 255)); ty += 54
-    d.text((lx, ty), c.get("tag") or "Professional salon colour", font=_font(24), fill=(200, 190, 200)); ty += 40
-    d.text((lx, ty), url.split("?")[0].replace("https://", "") + "  ·  scan →", font=_font(22), fill=GOLD)
-    buf = io.BytesIO(); img.save(buf, "PNG")
-    return Response(buf.getvalue(), media_type="image/png")
+    paste_photo_tiles(img, tiles, y, tw=470 if len(tiles) == 2 else 700)
+    await _share_footer(img, t, c, public_url(f"/book/{t['slug']}?color={c['id']}"))
+    return Response(to_png(img), media_type="image/png")
 
 
 # ── Shade → service link (per salon) ───────────────────────────────────────────
@@ -599,14 +576,52 @@ class ReelIn(BaseModel):
     consent: bool = False
 
 
+async def _load_upload_image(url: str) -> Image.Image:
+    from services.storage import _get_object
+    up = await _raw_db.uploads.find_one({"id": url.rsplit("/", 1)[-1]}, {"_id": 0, "storage_path": 1})
+    data, _ = await asyncio.to_thread(_get_object, up["storage_path"])
+    return Image.open(io.BytesIO(data)).convert("RGB")
+
+
+async def _compose_reel_card(t: dict, cp: dict, book_url: str) -> bytes:
+    """Front + back result tiles, salon name, shade name and booking URL, logo-stamped. Returns JPEG bytes."""
+    from services.veo_brand import _font, GOLD, _center
+    from services.color_cards import framed_panel, paste_photo_tiles
+    from routes.mira_common import _tenant_logo
+    from routes.promo_common import stamp_tenant_logo
+    tiles = [("FRONT", await _load_upload_image(cp["front_url"])), ("BACK", await _load_upload_image(cp["back_url"]))]
+    W, H = 1080, 1130
+    img = framed_panel(W, H)
+    y = 150
+    th = paste_photo_tiles(img, tiles, y, tw=480, radius=26, label_size=26)
+    d = ImageDraw.Draw(img)
+    _center(d, 60, t.get("name", ""), _font(48, serif=True), GOLD, W)
+    _center(d, y + th + 80, cp["color_name"], _font(40, serif=True), (255, 255, 255), W)
+    _center(d, y + th + 140, book_url.replace("https://", ""), _font(24), (200, 190, 200), W)
+    logo = await _tenant_logo(t)
+    if logo:
+        img = stamp_tenant_logo(img, logo, pos="top-right", scale=0.12).convert("RGB")
+    buf = io.BytesIO()
+    img.save(buf, "JPEG", quality=92)
+    return buf.getvalue()
+
+
+async def _store_reel_image(tenant_id: str, data: bytes) -> str:
+    from services.storage import _put_object, APP_NAME
+    fid = str(uuid.uuid4())
+    path = f"{APP_NAME}/{tenant_id}/color-reels/{fid}.jpg"
+    res = await asyncio.to_thread(_put_object, path, data, "image/jpeg")
+    await _raw_db.uploads.insert_one({"id": fid, "tenant_id": tenant_id, "kind": "color_reel", "storage_path": res.get("path", path),
+                                      "content_type": "image/jpeg", "size": len(data), "is_deleted": False,
+                                      "created_at": datetime.now(timezone.utc).isoformat()})
+    return f"/api/files/{fid}"
+
+
 @router.post("/appointments/{appt_id}/color-reel")
 async def post_color_reel(appt_id: str, body: ReelIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Mira writes the caption, composes a before/after card with the salon logo, logs it in Post History and publishes."""
-    import os
-    from PIL import ImageOps
-    from services.veo_brand import _font, GOLD
-    from services.storage import _get_object, _put_object, APP_NAME
-    from routes.mira_common import _ask, _tenant_logo
+    from services.color_cards import public_url
+    from routes.mira_common import _ask
     from routes.social_connect import publish_content
     appt = await _raw_db.appointments.find_one({"tenant_id": t["id"], "id": appt_id}, {"_id": 0})
     cp = (appt or {}).get("color_pick") or {}
@@ -614,45 +629,14 @@ async def post_color_reel(appt_id: str, body: ReelIn, admin=Depends(require_tena
         raise HTTPException(400, "Upload both result photos first — client's face (front) and hair from behind (back)")
     if not (body.consent or cp.get("consent")):
         raise HTTPException(400, "Guest consent is required before posting")
-
-    async def _load(url):
-        up = await _raw_db.uploads.find_one({"id": url.rsplit("/", 1)[-1]}, {"_id": 0, "storage_path": 1})
-        data, _ = await asyncio.to_thread(_get_object, up["storage_path"])
-        return Image.open(io.BytesIO(data)).convert("RGB")
-    front = await _load(cp["front_url"])
-    back = await _load(cp["back_url"])
-    W, H = 1080, 1130
-    img = Image.new("RGB", (W, H), (12, 9, 14)); d = ImageDraw.Draw(img)
-    d.rounded_rectangle([24, 24, W - 24, H - 24], radius=28, outline=GOLD, width=4)
-    tiles = [("FRONT", front), ("BACK", back)]
-    tw = 480 if len(tiles) == 2 else 760; th = int(tw * 1.25); x = (W - (tw * len(tiles) + 40 * (len(tiles) - 1))) // 2; y = 150
-    for label, im in tiles:
-        tile = ImageOps.fit(im, (tw, th)); m = Image.new("L", (tw, th), 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, tw - 1, th - 1], radius=26, fill=255)
-        img.paste(tile, (x, y), m); ImageDraw.Draw(img).rounded_rectangle([x, y, x + tw - 1, y + th - 1], radius=26, outline=GOLD, width=3)
-        lf = _font(26); ld = ImageDraw.Draw(img); ld.text((x + (tw - ld.textlength(label, font=lf)) / 2, y + th + 14), label, font=lf, fill=GOLD)
-        x += tw + 40
-    d = ImageDraw.Draw(img)
-    tf = _font(48, serif=True); d.text(((W - d.textlength(t.get("name", ""), font=tf)) / 2, 60), t.get("name", ""), font=tf, fill=GOLD)
-    sf = _font(40, serif=True); d.text(((W - d.textlength(cp["color_name"], font=sf)) / 2, y + th + 80), cp["color_name"], font=sf, fill=(255, 255, 255))
-    uf = _font(24); u = f"{os.environ.get('APP_PUBLIC_URL', '').replace('https://', '')}/book/{t['slug']}?color={cp['color_id']}"
-    d.text(((W - d.textlength(u, font=uf)) / 2, y + th + 140), u, font=uf, fill=(200, 190, 200))
-    logo = await _tenant_logo(t)
-    if logo:
-        from routes.promo_common import stamp_tenant_logo
-        img = stamp_tenant_logo(img, logo, pos="top-right", scale=0.12).convert("RGB")
-    buf = io.BytesIO(); img.save(buf, "JPEG", quality=92)
-    fid = str(uuid.uuid4()); path = f"{APP_NAME}/{t['id']}/color-reels/{fid}.jpg"
-    res = await asyncio.to_thread(_put_object, path, buf.getvalue(), "image/jpeg")
-    await _raw_db.uploads.insert_one({"id": fid, "tenant_id": t["id"], "kind": "color_reel", "storage_path": res.get("path", path), "content_type": "image/jpeg",
-                                      "size": len(buf.getvalue()), "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()})
-    image_url = f"/api/files/{fid}"
+    book_url = public_url(f"/book/{t['slug']}?color={cp['color_id']}")
+    image_url = await _store_reel_image(t["id"], await _compose_reel_card(t, cp, book_url))
     caption = await _ask(
         f"You are Mira, social media manager for '{t.get('name')}' salon.",
         f"Write an Instagram caption (max 60 words + 6 hashtags) for a client's finished hair colour result in '{cp['color_name']}' (front and back view). "
-        f"Warm, proud of the stylist {appt.get('staff_name') or ''}, invite bookings at {u}. Plain text, no quotes.")
-    abs_url = f"{os.environ.get('APP_PUBLIC_URL', '')}{image_url}"
+        f"Warm, proud of the stylist {appt.get('staff_name') or ''}, invite bookings at {book_url.replace('https://', '')}. Plain text, no quotes.")
     try:
-        results = await publish_content(t["id"], caption, abs_url, body.platforms)
+        results = await publish_content(t["id"], caption, public_url(image_url), body.platforms)
     except Exception as e:
         results = {p: {"ok": False, "error": str(e)[:160]} for p in body.platforms}
     await _raw_db.social_posts.insert_one({"id": str(uuid.uuid4()), "tenant_id": t["id"], "caption": caption, "image_url": image_url,

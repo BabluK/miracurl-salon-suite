@@ -1,7 +1,6 @@
 """Iteration 134 — Brand Model Campaign agreement docs & e-acceptance (tenant + HQ)."""
 import io
 import os
-import re
 import pytest
 import requests
 from pypdf import PdfReader

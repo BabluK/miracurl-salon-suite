@@ -1,6 +1,7 @@
 """Subscription invoices: tenant downloads, HQ list/resend/backfill, biller identity."""
 import asyncio
 import os
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -10,6 +11,7 @@ from typing import Optional
 from database import _raw_db
 from security import current_tenant, require_super_admin, require_tenant_admin
 from services.pdf_brand import image_bytes_from_url, platform_logo_bytes
+import services.trial_onboarding  # noqa: F401  registers the "trial" invoice sender
 from services.subscription_invoice import (
     build_invoice_pdf, build_receipt_pdf, build_terms_pdf, email_invoice_kit,
     get_biller, issue_subscription_kit, save_biller,
@@ -223,7 +225,7 @@ async def hq_set_trial(tid: str, body: TrialSetIn, user=Depends(require_super_ad
             trial_extended_email_html({**t, **upd}, info))
     from services.tenant_notices import notify_tenant
     await notify_tenant(tid, "trial", f"🎁 Free trial extended — {label}", f"Your complimentary access now runs until {end.strftime('%d %b %Y')} ({days_left} days left)", "/settings")
-    await _raw_db.hq_audit.insert_one({"id": str(__import__('uuid').uuid4()), "kind": "trial_set", "tenant_id": tid, "slug": t["slug"],
+    await _raw_db.hq_audit.insert_one({"id": str(uuid.uuid4()), "kind": "trial_set", "tenant_id": tid, "slug": t["slug"],
                                        "by": user.get("email"), "label": label, "end": end.isoformat(), "at": now.isoformat(),
                                        "email_sent": bool(email_status.get("sent")), "email_error": email_status.get("error")})
     return {"ok": True, "trial_end_date": end.isoformat(), "days_left": days_left, "label": label,

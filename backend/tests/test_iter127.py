@@ -1,5 +1,5 @@
 """Iteration 127: winner card PNG + advisory tracker regression."""
-import os, sys, hmac, hashlib, requests, io
+import os, hmac, hashlib, requests, io
 from dotenv import dotenv_values
 
 API = os.popen("grep REACT_APP_BACKEND_URL /app/frontend/.env | cut -d= -f2").read().strip() + "/api"

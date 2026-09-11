@@ -8,7 +8,6 @@
 import io
 import os
 import sys
-import uuid
 import time
 
 import pytest

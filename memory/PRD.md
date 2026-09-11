@@ -3019,3 +3019,10 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-11 (late 5) — Signature Look Teaser strip
 - `GET /api/public/color/{slug}/trending?limit=8` — shades with photos ranked by color_picks in last 90 days (+ picks count, price).
 - `components/booking/ShadeTeaser.jsx` rendered under the hero on `/book/{slug}` (salons, step 0, no colour picked): horizontal strip of shade tiles ("#1 pick", "N guests chose this"), "Scan your face & find your shade" tile, "Try it on me" CTA → /color/{slug}.
+
+## 2026-09-11 (late 6) — Code review fixes
+- Circular import broken: `subscription_invoice.KIND_SENDERS` registry; `trial_onboarding` registers `send_trial_congrats` for kind "trial" (imported at startup by routes/subscription_invoices.py).
+- `__import__('uuid')` → static import in routes/subscription_invoices.py.
+- hair_colors.py refactor: new `services/color_cards.py` (decode_b64_image, qr_card, paste_logo_disc, paste_photo_tiles, framed_panel, to_png, public_url); color_poster → _poster_backdrop/_poster_frame/_poster_swatch_ribbon; public_share_card → _share_footer; post_color_reel → _load_upload_image/_compose_reel_card/_store_reel_image. All handlers now ≤ 30 lines. Poster/share/reel render verified pixel-identical in layout.
+- False positives (verified, no change): security.py:232 `_CSRF_KEY_LABEL` is a public domain-separation label (secret is JWT_SECRET from .env); ruff F821 = 0 and eslint no-undef = 0 (no undefined variables); ruff F632 = 0 (no `is` literal comparisons; utils.py:8 uses `in`).
+- Deferred: complexity-11 functions in email_service/receipt_email/cash_register/gallery/campaign_agreement/hq_documents (borderline, untouched to avoid regression risk).

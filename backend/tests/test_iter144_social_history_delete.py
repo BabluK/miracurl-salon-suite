@@ -3,7 +3,6 @@ import os
 import io
 import asyncio
 
-import pytest
 import requests
 from PIL import Image
 from motor.motor_asyncio import AsyncIOMotorClient
