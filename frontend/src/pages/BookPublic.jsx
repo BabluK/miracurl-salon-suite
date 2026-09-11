@@ -7,6 +7,7 @@ import { FeaturedReviews, ServicesStep, StaffStep, DateTimeStep, DetailsStep, Co
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import BookingChatWidget from "@/components/BookingChatWidget";
 import { HeroCTAs, GalleryShowcase, OffersShowcase, VerifiedTeam, ReferEarnBanner, AITrustStrip, LocationsSection, openMira } from "@/components/BookPublicExtras";
+import { ShadeTeaser } from "@/components/booking/ShadeTeaser";
 import { MiracurlProductsStrip } from "@/components/MiracurlProductsStrip";
 import { BrandSplash } from "@/components/BrandSplash";
 import { trackBooking } from "@/lib/analytics";
@@ -658,6 +659,7 @@ export default function BookPublic() {
           </div>
         </div>
       </header>
+      {salon.business_type !== "restaurant" && !pickedColor && step === 0 && <ShadeTeaser slug={slug} />}
 
       <main id="booking-wizard" className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
         {step === 0 && dayOffer && (

@@ -3015,3 +3015,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-11 (late 4) — Booking page header CTA
 - `BookPublic.jsx`: header "Book Appointment ✦" + small "Choose your beauty hair colour" link replaced by ONE gold button "Discover Your Signature Look ★" → /color/{slug} (salons only, hidden once a colour is picked; restaurants keep "Reserve a Table"). Mobile colour ribbon removed. Hero keeps its Book Appointment button. data-testid `book-header-cta` retained.
+
+## 2026-09-11 (late 5) — Signature Look Teaser strip
+- `GET /api/public/color/{slug}/trending?limit=8` — shades with photos ranked by color_picks in last 90 days (+ picks count, price).
+- `components/booking/ShadeTeaser.jsx` rendered under the hero on `/book/{slug}` (salons, step 0, no colour picked): horizontal strip of shade tiles ("#1 pick", "N guests chose this"), "Scan your face & find your shade" tile, "Try it on me" CTA → /color/{slug}.

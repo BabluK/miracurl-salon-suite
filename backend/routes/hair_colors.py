@@ -9,7 +9,7 @@ import uuid
 import base64
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, HTTPException, Depends, Response, UploadFile, File, Request
 from pydantic import BaseModel, Field
@@ -185,6 +185,21 @@ async def public_color_catalog(slug: str):
         asyncio.create_task(_paint_missing())
     return {"slug": t["slug"], "name": t.get("name"), "logo_url": t.get("logo_url"),
             "location": t.get("location") or "", "colors": colors}
+
+
+@router.get("/public/color/{slug}/trending")
+async def public_color_trending(slug: str, limit: int = 8):
+    """Most-picked shades (last 90 days) with photos — teaser strip on the booking page."""
+    t = await resolve_tenant_from_slug(slug)
+    since = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()
+    counts = {d["_id"]: d["n"] async for d in _raw_db.color_picks.aggregate([
+        {"$match": {"tenant_id": t["id"], "created_at": {"$gte": since}}},
+        {"$group": {"_id": "$color_id", "n": {"$sum": 1}}}])}
+    colors = [c for c in await _catalog_with_images(t["id"]) if c.get("image_url")]
+    colors.sort(key=lambda c: -counts.get(c["id"], 0))
+    return {"shades": [{"id": c["id"], "name": c["name"], "tag": c.get("tag", ""), "swatch": c["swatch"], "image_url": c["image_url"],
+                        "picks": counts.get(c["id"], 0), "price": c.get("price")} for c in colors[:max(1, min(limit, 12))]],
+            "total_picks": sum(counts.values())}
 
 
 class ColorPickIn(BaseModel):
