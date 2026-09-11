@@ -64,9 +64,33 @@ CATALOG = [
 _BY_ID = {c["id"]: c for c in CATALOG}
 
 
-async def _catalog_with_images() -> list[dict]:
+async def _catalog_with_images(tenant_id: str | None = None) -> list[dict]:
     imgs = {d["id"]: d.get("image_url") async for d in _raw_db.hair_color_images.find({}, {"_id": 0})}
-    return [{**c, "image_url": imgs.get(c["id"])} for c in CATALOG]
+    out = [{**c, "image_url": imgs.get(c["id"])} for c in CATALOG]
+    if tenant_id:  # the salon's own shades come first — they are the house specialities
+        customs = await _raw_db.tenant_hair_colors.find({"tenant_id": tenant_id, "active": {"$ne": False}}, {"_id": 0}).sort("created_at", -1).to_list(60)
+        out = [{**c, "custom": True} for c in customs] + out
+    return out
+
+
+async def _lookup(tenant_id: str, color_id: str) -> dict | None:
+    c = _BY_ID.get(color_id)
+    if c:
+        return c
+    return await _raw_db.tenant_hair_colors.find_one({"tenant_id": tenant_id, "id": color_id, "active": {"$ne": False}}, {"_id": 0})
+
+
+async def _paint_custom(tenant: dict, c: dict):
+    from routes.mira_common import _gen_image
+    prompt = (f"Professional salon back-of-head hair colour photo: long softly waved hair in '{c['name']}' "
+              f"({c.get('tag') or 'signature shade'}; exact tones {', '.join(c['swatch'])}), realistic dimensional colour, "
+              "bright modern salon interior, editorial lighting, 8k detail, the model faces away from camera. NO text, NO letters, NO logos.")
+    try:
+        url = await _gen_image(prompt, tenant, "hair_color_custom")
+        await _raw_db.tenant_hair_colors.update_one({"id": c["id"]}, {"$set": {"image_url": url}})
+    except Exception as e:
+        log.error("custom shade image failed %s: %s", c["id"], e)
+        await _raw_db.tenant_hair_colors.update_one({"id": c["id"]}, {"$set": {"image_error": str(e)[:200]}})
 
 
 async def _paint_one(c: dict) -> str | None:
@@ -109,8 +133,43 @@ async def hq_generate_catalog(force: bool = False, admin=Depends(require_super_a
 
 
 @router.get("/hair-colors")
-async def hair_colors(admin=Depends(require_tenant_admin)):
-    return {"colors": await _catalog_with_images()}
+async def hair_colors(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    return {"colors": await _catalog_with_images(t["id"])}
+
+
+class CustomShadeIn(BaseModel):
+    name: str = Field(..., min_length=2, max_length=40)
+    tag: str = Field("", max_length=60)
+    swatch: list[str] = Field(..., min_length=1, max_length=3)
+    suits: list[str] = Field(default_factory=lambda: ["warm", "cool", "neutral"])
+    depth: list[str] = Field(default_factory=lambda: ["light", "medium", "deep"])
+
+
+@router.post("/hair-colors/custom")
+async def add_custom_shade(body: CustomShadeIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    import re
+    sw = [x for x in body.swatch if re.fullmatch(r"#[0-9a-fA-F]{6}", x or "")]
+    if not sw:
+        raise HTTPException(400, "Pick at least one colour swatch")
+    while len(sw) < 3:
+        sw.append(sw[-1])
+    if await _raw_db.tenant_hair_colors.count_documents({"tenant_id": t["id"], "active": {"$ne": False}}) >= 24:
+        raise HTTPException(400, "You can keep up to 24 custom shades — remove one first")
+    doc = {"id": f"custom-{uuid.uuid4().hex[:8]}", "tenant_id": t["id"], "name": body.name.strip(), "tag": body.tag.strip(),
+           "swatch": sw, "suits": [x for x in body.suits if x in ("warm", "cool", "neutral")] or ["warm", "cool", "neutral"],
+           "depth": [x for x in body.depth if x in ("light", "medium", "deep")] or ["light", "medium", "deep"],
+           "image_url": None, "active": True, "created_at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.tenant_hair_colors.insert_one({**doc})
+    asyncio.create_task(_paint_custom(t, doc))
+    return {"ok": True, "color": doc}
+
+
+@router.delete("/hair-colors/custom/{color_id}")
+async def delete_custom_shade(color_id: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    r = await _raw_db.tenant_hair_colors.update_one({"tenant_id": t["id"], "id": color_id, "active": {"$ne": False}}, {"$set": {"active": False}})
+    if not r.matched_count:
+        raise HTTPException(404, "Shade not found")
+    return {"ok": True}
 
 
 # ── Public picker ──────────────────────────────────────────────────────────────
@@ -118,8 +177,8 @@ async def hair_colors(admin=Depends(require_tenant_admin)):
 @router.get("/public/color/{slug}")
 async def public_color_catalog(slug: str):
     t = await resolve_tenant_from_slug(slug)
-    colors = await _catalog_with_images()
-    if any(not c.get("image_url") for c in colors):
+    colors = await _catalog_with_images(t["id"])
+    if any(not c.get("image_url") and not c.get("custom") for c in colors):
         asyncio.create_task(_paint_missing())
     return {"slug": t["slug"], "name": t.get("name"), "logo_url": t.get("logo_url"),
             "location": t.get("location") or "", "colors": colors}
@@ -137,7 +196,7 @@ class ColorPickIn(BaseModel):
 @router.post("/public/color/{slug}/pick")
 async def public_color_pick(slug: str, body: ColorPickIn):
     t = await resolve_tenant_from_slug(slug)
-    c = _BY_ID.get(body.color_id)
+    c = await _lookup(t["id"], body.color_id)
     if not c:
         raise HTTPException(404, "Unknown colour")
     code = uuid.uuid4().hex[:6].upper()
@@ -151,7 +210,7 @@ async def public_color_pick(slug: str, body: ColorPickIn):
                         f" · {body.undertone or 'undertone n/a'} undertone",
                         link="/pos", dedupe_key=f"color_pick:{doc['id']}")
     img = await _raw_db.hair_color_images.find_one({"id": c["id"]}, {"_id": 0, "image_url": 1})
-    return {"ok": True, "code": code, "color": {**c, "image_url": (img or {}).get("image_url")}}
+    return {"ok": True, "code": code, "color": {**c, "image_url": c.get("image_url") or (img or {}).get("image_url")}}
 
 
 @router.get("/color-picks")
@@ -169,13 +228,33 @@ async def color_poster(admin=Depends(require_tenant_admin), t=Depends(current_te
     from services.veo_brand import _font, GOLD, _center
     from routes.mira_common import _tenant_logo
     W, H = 1080, 1620
-    img = Image.new("RGB", (W, H), (7, 16, 38))
+    from PIL import ImageFilter, ImageEnhance, ImageOps
+    # Backdrop: a real shade photo from the collection, blurred + deepened, with a warm vignette
+    img = None
+    shot = await _raw_db.hair_color_images.find_one({"id": {"$in": ["mushroom-mocha-balayage", "caramel-brown", "copper-brown"]}}, {"_id": 0, "image_url": 1})
+    up = await _raw_db.uploads.find_one({"id": (shot or {}).get("image_url", "").rsplit("/", 1)[-1]}, {"_id": 0, "storage_path": 1}) if shot else None
+    if up:
+        try:
+            from services.storage import _get_object
+            data, _ = await asyncio.to_thread(_get_object, up["storage_path"])
+            img = ImageOps.fit(Image.open(io.BytesIO(data)).convert("RGB"), (W, H)).filter(ImageFilter.GaussianBlur(9))
+            img = ImageEnhance.Brightness(img).enhance(0.42)
+            img = ImageEnhance.Color(img).enhance(1.15)
+        except Exception:
+            img = None
+    if img is None:
+        img = Image.new("RGB", (W, H), (24, 14, 20))
+    vign = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(vign).ellipse([-W * 0.25, -H * 0.05, W * 1.25, H * 1.05], fill=255)
+    vign = vign.filter(ImageFilter.GaussianBlur(160))
+    img = Image.composite(img, Image.new("RGB", (W, H), (10, 6, 9)), vign)
     d = ImageDraw.Draw(img)
-    for i in range(5):  # celestial rings like the casting poster
-        r = int(W * (0.62 + i * 0.16))
-        d.ellipse([W / 2 - r, H * 0.36 - r, W / 2 + r, H * 0.36 + r], outline=(22 + i * 6, 34 + i * 6, 70), width=2)
-    d.rounded_rectangle([28, 28, W - 28, H - 28], radius=26, outline=GOLD, width=3)
-    d.rounded_rectangle([44, 44, W - 44, H - 44], radius=20, outline=(120, 100, 40), width=1)
+    # Ornate double gold frame with corner flourishes
+    d.rounded_rectangle([30, 30, W - 30, H - 30], radius=30, outline=GOLD, width=5)
+    d.rounded_rectangle([52, 52, W - 52, H - 52], radius=22, outline=(196, 160, 70), width=2)
+    for cx, cy, sx, sy in ((52, 52, 1, 1), (W - 52, 52, -1, 1), (52, H - 52, 1, -1), (W - 52, H - 52, -1, -1)):
+        d.line([cx + sx * 12, cy + sy * 90, cx + sx * 12, cy + sy * 12, cx + sx * 90, cy + sy * 12], fill=GOLD, width=4)
+        d.ellipse([cx + sx * 12 - 9, cy + sy * 12 - 9, cx + sx * 12 + 9, cy + sy * 12 + 9], fill=GOLD)
     y = 80
     logo = await _tenant_logo(t)
     if logo:
@@ -196,15 +275,68 @@ async def color_poster(admin=Depends(require_tenant_admin), t=Depends(current_te
     url = f"{base}/color/{t['slug']}"
     qr = qrcode.QRCode(box_size=10, border=1); qr.add_data(url); qr.make()
     qim = qr.make_image(fill_color="black", back_color="white").convert("RGB").resize((520, 520))
-    card = Image.new("RGB", (560, 560), (255, 255, 255))
-    card.paste(qim, (20, 20))
-    img.paste(card, (W // 2 - 280, y)); y += 600
+    card = Image.new("RGBA", (600, 600), (0, 0, 0, 0))
+    cd = ImageDraw.Draw(card)
+    cd.rounded_rectangle([0, 0, 599, 599], radius=36, fill=GOLD)
+    cd.rounded_rectangle([10, 10, 589, 589], radius=30, fill=(255, 255, 255, 255))
+    card.paste(qim, (40, 40))
+    img.paste(card, (W // 2 - 300, y), card); y += 620
+    # shade swatch ribbon under the QR — the whole collection at a glance
+    sw = (W - 160) // len(CATALOG)
+    for i, c in enumerate(CATALOG):
+        x0 = 80 + i * sw
+        col = tuple(int(c["swatch"][1].lstrip("#")[j:j + 2], 16) for j in (0, 2, 4))
+        ImageDraw.Draw(img).rounded_rectangle([x0 + 3, y, x0 + sw - 3, y + 26], radius=8, fill=col, outline=(255, 255, 255), width=1)
+    y += 50
     d = ImageDraw.Draw(img)
-    _center(d, y, "Scan  -  front camera opens  -  fit your face in the oval", _font(30), (255, 255, 255), W); y += 46
-    _center(d, y, "We read your skin undertone & show the shades that suit YOU", _font(28), (200, 200, 215), W); y += 70
-    _center(d, y, "18 SHADES · BLACK TO PLATINUM · BALAYAGE · COPPER · PASTELS", _font(28), GOLD, W); y += 60
-    _center(d, y, "Pick your shade — your stylist starts right away", _font(28), (255, 255, 255), W)
+    _center(d, y, "Scan  ·  fit your face  ·  see the colour ON YOU, front & back", _font(30), (255, 255, 255), W); y += 46
+    _center(d, y, "We read your skin undertone & show the shades that suit YOU", _font(27), (215, 205, 210), W); y += 62
+    _center(d, y, "18 SHADES · BLACK TO PLATINUM · BALAYAGE · COPPER · PASTELS", _font(26), GOLD, W); y += 54
+    _center(d, y, "Pick your shade, book your stylist — all from your phone", _font(28), (255, 255, 255), W)
     _center(d, H - 120, url.replace("https://", ""), _font(26), (170, 170, 190), W)
     buf = io.BytesIO(); img.save(buf, "PNG")
     return Response(buf.getvalue(), media_type="image/png",
                     headers={"Content-Disposition": f'inline; filename="colour-tryon-{t["slug"]}.png"'})
+
+
+class PreviewIn(BaseModel):
+    color_id: str
+    selfie_b64: str = Field(..., max_length=3_000_000)  # JPEG data URL or raw base64, ≤ ~2 MB
+
+
+async def _recolor(selfie_b64: str, prompt: str) -> str | None:
+    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+    from routes.mira_common import _key
+    chat = LlmChat(api_key=_key(), session_id=f"hair-{uuid.uuid4().hex[:8]}",
+                   system_message="You are a master salon colourist and photo retoucher.").with_model(
+        "gemini", "gemini-3.1-flash-image-preview").with_params(modalities=["image", "text"])
+    _, images = await chat.send_message_multimodal_response(
+        UserMessage(text=prompt, file_contents=[ImageContent(image_base64=selfie_b64)]))
+    return images[0]["data"] if images else None
+
+
+@router.post("/public/color/{slug}/preview")
+async def public_color_preview(slug: str, body: PreviewIn):
+    """AI try-on: the guest's selfie with the chosen shade — front view + back view. Nothing is stored."""
+    t = await resolve_tenant_from_slug(slug)
+    c = await _lookup(t["id"], body.color_id)
+    if not c:
+        raise HTTPException(404, "Unknown colour")
+    b64 = body.selfie_b64.split(",", 1)[-1]
+    if len(b64) < 2000:
+        raise HTTPException(400, "Selfie too small")
+    shade = f"{c['name']} hair colour ({(c.get('tag') or 'signature shade').lower()}; tones {', '.join(c['swatch'])})"
+    front = (f"Edit this photo: keep the SAME person, same face, same skin, same expression, same background and framing. "
+             f"Only change the hair colour to a professional salon {shade}, realistic glossy salon finish with natural highlights "
+             f"and dimension. Photorealistic, no text, no watermark.")
+    back = (f"Using this person as reference, create a photorealistic salon photo of the SAME person seen from BEHIND "
+            f"(back of the head and shoulders, same hair length and texture, same clothing), showing their hair freshly coloured "
+            f"in professional {shade}, soft salon lighting, plain background. No text, no watermark.")
+    try:
+        f_img, b_img = await asyncio.wait_for(asyncio.gather(_recolor(b64, front), _recolor(b64, back)), timeout=150)
+    except Exception as e:
+        log.error("hair preview failed: %s", e)
+        raise HTTPException(502, "Preview is busy right now — please try again in a moment")
+    if not f_img:
+        raise HTTPException(502, "Couldn't render the preview — try a brighter, front-facing selfie")
+    return {"color": c, "front": f_img, "back": b_img}

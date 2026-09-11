@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-11.242"
-BUILD_TIME = "11 Sep 2026, 07:00 PM IST"
+BUILD = "2026-09-11.243"
+BUILD_TIME = "11 Sep 2026, 07:45 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-11.243", "note": "Colour Try-On: See-it-on-me AI preview (front & back, 3D flip), custom salon shades painted by Mira (tenant-scoped), beautiful poster backdrop + ornate gold frame + swatch ribbon, Settings card with poster preview"},
     {"build": "2026-09-11.242", "note": "Colour Try-On: 18-shade collection (Natural Black → Pastel Blue), Book-this-colour handoff to /book?color=&code=, colour banner + notes on booking, Choose-your-colour link on booking page"},
     {"build": "2026-09-11.241", "note": "Hair Colour Try-On: 12-shade professional catalogue with AI photos, salon-branded QR poster, public /color/{slug} front-camera skin-undertone picker, stylist code + bell notice, Settings card"},
     {"build": "2026-09-11.240", "note": "Veo: narrated mode (your script + HD narrator + custom final screen), speaking spokesperson, per-scene clip persistence + Resume, 429 back-off; founder-hook reel uses founder-photo backdrop + current app screenshots; brand-contacts clear fix"},
@@ -67,6 +68,8 @@ RELEASES = [
             "🏪 HQ Promo Video Studio: make an Instagram/YouTube promo for ANY tenant — Mira scripts from their real services & prices, paints cinematic backgrounds, stamps their logo and closes with a scan-to-book QR",
             "🎙️ Narrator voice picker (Shimmer, Nova, US Alloy/Echo, Onyx, British Fable); Mira avatar/presenter modes removed",
             "🎨 NEW Hair Colour Try-On — Settings → download your salon-branded QR poster. Guests scan, the front camera reads their skin undertone on their phone (nothing uploaded) and highlights the professional shades that suit them — 18 shades from Natural Black to Platinum, Balayage, Copper, Burgundy and Pastels. Their pick + a 6-letter code lands in your bell — and one tap books a Colour Appointment with stylist & time, colour noted on the booking",
+            "🪞 'See it on me' — after the face scan, guests tap a shade and Mira paints it on THEIR photo: front view and back view in a 3D flip card (selfie is never saved)",
+            "🧪 Build your own shades — Settings → Hair Colour Try-On → 'Add your own shade': name, tagline, root-to-ends tones; Mira paints the photo and it goes live on your try-on page in ~30 s (yours show first)",
             "🎨 Booking page now has a 'Choose your beauty hair colour' link (mobile, tablet & laptop) that opens the try-on",
             "📝 Veo 'Narrated' mode — paste your exact voiceover, pick an American/British HD narrator, Mira films silent cinematic scenes to match and ends on your custom final screen (90 DAYS FREE · No Credit Card)",
             "🛟 Veo jobs now save every filmed scene as they finish — if anything interrupts, press Resume and never pay for the same scene twice",

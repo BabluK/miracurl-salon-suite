@@ -45,6 +45,10 @@ export default function ColorTryOn() {
   const [salon, setSalon] = useState(null);
   const [step, setStep] = useState("intro"); // intro | camera | results | done
   const [skin, setSkin] = useState(null);
+  const [selfie, setSelfie] = useState(null); // JPEG data URL kept on-device until "See it on me"
+  const [preview, setPreview] = useState(null); // {front, back, color}
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const [face, setFace] = useState("front");
   const [camErr, setCamErr] = useState("");
   const [picked, setPicked] = useState(null);
   const [form, setForm] = useState({ name: "", phone: "", by_staff: false });
@@ -69,10 +73,21 @@ export default function ColorTryOn() {
   };
   const capture = () => {
     const res = analyseSkin(videoRef.current, canvasRef.current);
+    try { setSelfie(canvasRef.current.toDataURL("image/jpeg", 0.85)); } catch { setSelfie(null); }
     if (!res) { setCamErr("Couldn't read your skin — move into brighter light and fit your face in the oval."); return; }
     setSkin(res); streamRef.current?.getTracks().forEach(t => t.stop()); setStep("results");
   };
   const skipCamera = () => { streamRef.current?.getTracks().forEach(t => t.stop()); setSkin(null); setStep("results"); };
+
+  const seeItOnMe = async () => {
+    if (!picked || !selfie) return;
+    setPreviewBusy(true); setPreview(null); setFace("front");
+    try {
+      const { data } = await axios.post(`${API}/api/public/color/${slug}/preview`, { color_id: picked.id, selfie_b64: selfie });
+      setPreview(data);
+    } catch (e) { setCamErr(e.response?.data?.detail || "Preview failed — try again"); }
+    finally { setPreviewBusy(false); }
+  };
 
   const submit = async () => {
     if (!picked) return;
@@ -163,6 +178,13 @@ export default function ColorTryOn() {
           {picked && (
             <div className="fixed bottom-0 left-0 right-0 bg-slate-950/95 backdrop-blur border-t border-amber-400/30 p-4" data-testid="color-pick-bar">
               <p className="text-amber-300 text-xs font-semibold mb-2">Selected: {picked.name}</p>
+              {selfie && (
+                <button onClick={seeItOnMe} disabled={previewBusy} data-testid="color-see-on-me"
+                  className="mb-2 w-full py-3 rounded-2xl bg-white/10 border border-amber-400/50 text-amber-200 text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-60">
+                  {previewBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanFace className="w-4 h-4" />}
+                  {previewBusy ? "Colouring your hair… ~30 s" : "See it on me — front & back"}
+                </button>
+              )}
               <div className="flex gap-2">
                 <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Your name" data-testid="color-pick-name" className="flex-1 rounded-xl bg-slate-800 text-white text-sm px-3 py-2.5 border border-slate-700" />
                 <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="Phone (optional)" inputMode="tel" data-testid="color-pick-phone" className="flex-1 rounded-xl bg-slate-800 text-white text-sm px-3 py-2.5 border border-slate-700" />
@@ -175,6 +197,30 @@ export default function ColorTryOn() {
             </div>
           )}
         </section>
+      )}
+
+      {preview && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-5" data-testid="color-preview-modal" style={{ perspective: "1200px" }}>
+          <p className="text-amber-300 text-xs tracking-[0.25em] font-semibold mb-3">YOU IN {preview.color.name.toUpperCase()}</p>
+          <div className="relative w-72 aspect-[4/5] transition-transform duration-700" style={{ transformStyle: "preserve-3d", transform: face === "back" ? "rotateY(180deg)" : "rotateY(0deg)" }} data-testid="color-preview-card">
+            <img src={`data:image/png;base64,${preview.front}`} alt="front" className="absolute inset-0 w-full h-full object-cover rounded-3xl border-2 border-amber-400" style={{ backfaceVisibility: "hidden" }} />
+            {preview.back
+              ? <img src={`data:image/png;base64,${preview.back}`} alt="back" className="absolute inset-0 w-full h-full object-cover rounded-3xl border-2 border-amber-400" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }} />
+              : <div className="absolute inset-0 rounded-3xl border-2 border-amber-400 bg-slate-900 flex items-center justify-center text-slate-400 text-xs" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>Back view unavailable</div>}
+          </div>
+          <div className="flex gap-2 mt-5">
+            {["front", "back"].map(f => (
+              <button key={f} onClick={() => setFace(f)} data-testid={`color-preview-${f}`}
+                className={`px-5 py-2 rounded-full text-sm font-semibold ${face === f ? "bg-amber-400 text-slate-900" : "bg-white/10 text-white"}`}>{f === "front" ? "Front" : "Back"}</button>
+            ))}
+            <button onClick={() => setFace(f => f === "front" ? "back" : "front")} data-testid="color-preview-rotate" className="px-4 py-2 rounded-full bg-white/10 text-white text-sm inline-flex items-center gap-1"><RotateCcw className="w-4 h-4" /> Rotate</button>
+          </div>
+          <p className="text-slate-400 text-[11px] mt-3 text-center max-w-xs">AI preview of {preview.color.name} on your own photo. Your selfie is used only for this preview and is not saved.</p>
+          <div className="flex gap-2 mt-4 w-full max-w-xs">
+            <button onClick={() => setPreview(null)} data-testid="color-preview-close" className="flex-1 py-3 rounded-2xl bg-white/10 text-white text-sm font-semibold">Try another shade</button>
+            <button onClick={() => { setPreview(null); submit(); }} data-testid="color-preview-choose" className="flex-1 py-3 rounded-2xl bg-amber-400 text-slate-900 text-sm font-bold">Choose this colour</button>
+          </div>
+        </div>
       )}
 
       {step === "done" && done && (

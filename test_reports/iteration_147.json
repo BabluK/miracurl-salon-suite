@@ -1,0 +1,47 @@
+{
+  "summary": "Iter147 — Hair Colour Try-On extensions (custom salon shades, AI 'See it on me' preview, redesigned poster, colour→booking hand-off). Backend pytest: 12/13 pass. One real product bug: DELETE /api/hair-colors/custom/{id} returns 200 on the second call instead of 404 because delete_custom_shade filters by {tenant_id,id} without excluding already-inactive rows, so it re-soft-deletes. Preview endpoint validated end-to-end (small selfie → 400, unknown colour → 404, one real Gemini call returned front + back within ~30 s). Poster is 1080x1620 PNG > 300 KB with the blurred shade-photo backdrop, gold frame, swatch ribbon. Frontend admin flow: poster preview image loads (naturalWidth=1080), no layout overflow (right panel scrollWidth==clientWidth==506), builder opens → save shows 'Shade added' toast → thumbnail carries color-custom-remove-<id>, click → 'Shade removed' toast. Public flow (430x900): 20 cards (18 catalogue + 2 residual customs) → color-see-on-me hidden when camera skipped → submit 'QA Flow' → done screen with code → color-book-btn lands on /book/miracurl-marathahalli?color=rose-brown&code=<c> with book-color-banner showing 'Rose Brown' → book-color-continue advances without crash. Regression: /book/{slug} desktop 1280 without params shows book-color-link (data-testid), no banner. Other settings cards still render.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "DELETE /api/hair-colors/custom/{id}",
+        "issue": "Second DELETE on an already soft-deleted shade returns 200 instead of the spec-required 404. Root cause: routes/hair_colors.py delete_custom_shade filters by {tenant_id, id} only, so update_one matches the doc where active is already False and returns matched_count=1. Fix: change filter to {tenant_id: t['id'], 'id': color_id, 'active': {'$ne': False}} — same pattern already used in _lookup and _catalog_with_images."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter147_custom_shades_preview.py",
+    "/app/test_reports/pytest/iter147.xml"
+  ],
+  "action_items": [
+    "Fix DELETE /api/hair-colors/custom/{id} idempotency — add `active: {'$ne': False}` to the delete_custom_shade filter so re-delete returns 404 (per spec).",
+    "Improve pytest cleanup / dev seed to hard-delete residual custom shades left over from previous iterations — the tenant currently has ~7 stale custom rows (20 total shades vs 18 catalogue) that all show trash icons in the admin strip."
+  ],
+  "critical_code_review_comments": [
+    "backend/routes/hair_colors.py delete_custom_shade: soft-delete filter must exclude already-inactive rows or DELETE is not idempotent 404. Currently second call succeeds silently.",
+    "backend/routes/hair_colors.py public_color_preview: no rate-limit on a 150 s Gemini image edit that costs credits — any anonymous visitor can spam POST /api/public/color/{slug}/preview. Add per-IP or per-slug throttle (e.g. 3 req / 5 min) and reject payloads > 2 MB before hitting Gemini.",
+    "backend/routes/hair_colors.py add_custom_shade: swatch normalisation pads to length 3 by repeating the last colour — for a single-colour shade this gives a flat gradient. Consider interpolating a lighter/darker end so the preview swatch reads as a real gradient.",
+    "backend/routes/hair_colors.py _paint_custom failure path: sets image_error but front-end has no surface for that; a shade that failed to paint sits forever with a spinner in the admin strip. Add a small ⚠️ badge with the error text on hover.",
+    "frontend/src/components/settings/ColorTryOnCard.jsx: reads slug from localStorage.getItem('miracurl_tenant') — same fragile pattern noted in iter146. If admin lands on /settings before tenant context is set the poster link goes to '/color/'. Prefer AuthContext / useTenant().",
+    "frontend/src/components/settings/ColorTryOnCard.jsx addShade: setTimeout(loadColors, 35000) re-fetches after 35 s to pick up the painted image, but if the tenant navigates away the timer keeps running & setState-on-unmounted may warn. Clear the timeout in useEffect cleanup or on unmount.",
+    "frontend/src/pages/ColorTryOn.jsx seeItOnMe: single-flight — if user taps twice the second axios call fires (previewBusy check happens after setPreviewBusy). Move the guard to the start of the function."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter147_custom_shades_preview.py (new — 13 tests, ~31 s runtime including a real Gemini preview call)"
+  ],
+  "success_rate": {
+    "backend": "92% (12/13 pytest — 1 real bug on DELETE idempotency)",
+    "frontend": "100% on all requested flows (admin card render + builder → save → remove, public 430x900 skip→pick rose-brown→done→book banner, /book regression 1280 shows link and no banner)"
+  },
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL, slug miracurl-marathahalli, Owner PIN 4321.",
+  "seed_data_creation": "During tests: 3 tenant_hair_colors (QA Rose Gold, QA Rose Gold Del, QA UI Shade), 2 color_picks (QA Custom, QA Flow), 2 tenant_notices kind=color_pick with those titles. test_cleanup_seed_data (last test) hard-deletes them via pymongo. Confirmed: rows removed. Note: the tenant still has ~7 residual custom shades from earlier iterations — not touched by this run's cleanup because they don't match the QA prefix.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "New pytest file /app/backend/tests/test_iter147_custom_shades_preview.py covers full custom-shade CRUD + tenant isolation + AI preview validation + poster. Includes an end-to-end preview test that downloads the catalogue's natural-black image, downscales it to ≤900 px JPEG, base64-encodes as data URL and POSTs it — one real Gemini call is consumed per run (~30 s). If Gemini is over quota it returns 502 and the test skips (retry later). The cleanup fixture hard-deletes rows named 'QA Rose Gold', 'QA Rose Gold Del', 'QA UI Shade', 'QA Custom', 'QA Flow' plus matching notices. Playwright: WhatsNewModal reappears after PIN unlock on /settings — must dismiss twice (once on /dashboard, once after PIN). Owner PIN input has inputmode='numeric'; the confirm button is 'Unlock'.",
+  "rca_of_the_issue": "DELETE /api/hair-colors/custom/{id} idempotency bug: routes/hair_colors.py:169 uses `update_one({'tenant_id': t['id'], 'id': color_id}, {'$set': {'active': False}})` which matches even already-inactive rows. Reproduction: (1) POST /api/hair-colors/custom … → 200 (2) DELETE /api/hair-colors/custom/<id> → 200 ok:true (3) DELETE /api/hair-colors/custom/<id> again → 200 (expected 404). Mitigation: add `'active': {'$ne': False}` to the filter so matched_count is 0 on the second call and the existing HTTPException(404) branch fires."
+}
