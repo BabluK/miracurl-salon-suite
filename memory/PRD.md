@@ -3012,3 +3012,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - SEC-002 (MED): `/api/files/{id}` serves extension-derived allowlisted media type (`_safe_media_type`), `X-Content-Type-Options: nosniff`, attachment for svg/octet-stream; color-result & veo uploads persist server-derived mime.
 - Hardening: PIL MAX_IMAGE_PIXELS in share-card; oauth_states `expires_at` 15 min checked in `_pop_state`.
 - Re-audit verdict: PASS. Housekeeping nit: no TTL index on oauth_states.
+
+## 2026-09-11 (late 4) — Booking page header CTA
+- `BookPublic.jsx`: header "Book Appointment ✦" + small "Choose your beauty hair colour" link replaced by ONE gold button "Discover Your Signature Look ★" → /color/{slug} (salons only, hidden once a colour is picked; restaurants keep "Reserve a Table"). Mobile colour ribbon removed. Hero keeps its Book Appointment button. data-testid `book-header-cta` retained.

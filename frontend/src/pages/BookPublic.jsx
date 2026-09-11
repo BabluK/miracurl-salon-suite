@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams, Link, useSearchParams } from "react-router-dom";
 import axios from "axios";
-import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone as PhoneIcon, MapPin, Star, Instagram, MessageCircle, Sparkles, Gift, CreditCard, UtensilsCrossed, ShieldCheck } from "lucide-react";
+import { Scissors, Check, ArrowRight, ArrowLeft, Clock, IndianRupee, Calendar, Phone as PhoneIcon, MapPin, Star, Instagram, MessageCircle, Sparkles, Gift, CreditCard, UtensilsCrossed, ShieldCheck, Palette } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { FeaturedReviews, ServicesStep, StaffStep, DateTimeStep, DetailsStep, ConfirmStep, SuccessStep } from "./BookPublic.steps";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
@@ -470,17 +470,19 @@ export default function BookPublic() {
               className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-[#dcc98f] text-[11px] text-[#8a6d1f] hover:bg-[#f6eeda] transition-colors">
               <Star className="w-3 h-3 text-[#b08d3f]" /> {salon.business_type === "restaurant" ? "Explore Miracurl" : "Find a salon"}
             </Link>
-            {salon.business_type !== "restaurant" && !pickedColor && (
-              <Link to={`/color/${slug}`} data-testid="book-color-link" className="hidden sm:inline-flex items-center gap-1 text-xs text-[#b08d3f] font-semibold hover:underline">
-                🎨 Choose your beauty hair colour
+            {salon.business_type !== "restaurant" && !pickedColor ? (
+              <Link to={`/color/${slug}`} data-testid="book-header-cta"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#d4af37] to-[#e6c66e] text-[#17141c] text-xs sm:text-sm font-bold shadow-[0_2px_12px_rgba(180,140,50,0.4)] hover:opacity-90 transition-opacity">
+                <Palette className="w-3.5 h-3.5" /> Discover Your Signature Look <Star className="w-3 h-3 fill-current" />
               </Link>
+            ) : (
+              <button
+                data-testid="book-header-cta"
+                onClick={goToServices}
+                className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#d4af37] to-[#e6c66e] text-[#17141c] text-xs sm:text-sm font-bold shadow-[0_2px_12px_rgba(180,140,50,0.4)] hover:opacity-90 transition-opacity">
+                {salon.business_type === "restaurant" ? "Reserve a Table ✦" : "Book Appointment ✦"}
+              </button>
             )}
-            <button
-              data-testid="book-header-cta"
-              onClick={goToServices}
-              className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#d4af37] to-[#e6c66e] text-[#17141c] text-xs sm:text-sm font-bold shadow-[0_2px_12px_rgba(180,140,50,0.4)] hover:opacity-90 transition-opacity">
-              {salon.business_type === "restaurant" ? "Reserve a Table ✦" : "Book Appointment ✦"}
-            </button>
           </div>
         </div>
       </div>
@@ -499,9 +501,6 @@ export default function BookPublic() {
             <button onClick={goToServices} data-testid="book-color-continue" className="shrink-0 px-3 py-2 rounded-full bg-gradient-to-r from-[#d4af37] to-[#e6c66e] text-[#17141c] text-xs font-bold">Pick stylist & time</button>
           </div>
         </div>
-      )}
-      {!pickedColor && salon.business_type !== "restaurant" && (
-        <Link to={`/color/${slug}`} data-testid="book-color-link-mobile" className="sm:hidden fixed top-20 inset-x-0 z-30 text-center text-[11px] py-1.5 bg-[#17141c]/90 text-[#e6c66e] font-semibold">🎨 Choose your beauty hair colour →</Link>
       )}
       <header className="relative overflow-hidden mt-20">
         <img src={salon.hero_image} className="absolute inset-0 w-full h-full object-cover" alt="" />
