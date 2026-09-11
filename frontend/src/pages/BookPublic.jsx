@@ -384,6 +384,7 @@ export default function BookPublic() {
         staff_id: staffId || null,
         scheduled_at: scheduled,
         notes: notesOut || null,
+        color_code: pickedColor?.code || null,
         referral_code: form.referral_code.trim().toUpperCase() || null,
         coupon_code: couponCheck?.valid ? form.coupon_code.trim().toUpperCase() : null,
         party_size: salon?.business_type === "restaurant" ? partySize : null,

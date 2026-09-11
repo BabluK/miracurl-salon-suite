@@ -64,6 +64,7 @@ class PublicBookingIn(BaseModel):
     notes: Optional[str] = Field(None, max_length=500)
     referral_code: Optional[str] = None
     coupon_code: Optional[str] = None
+    color_code: Optional[str] = Field(None, max_length=8)  # hair colour try-on pick code
     party_size: Optional[int] = Field(None, ge=1, le=30)
     seating: Optional[str] = Field(None, pattern="^(any|indoor|outdoor)$")
 
@@ -440,6 +441,17 @@ async def _create_public_appointment(cust: dict, staff: dict, services: list, bo
     if body.party_size:
         appt["party_size"] = body.party_size
         appt["seating"] = body.seating or "any"
+    if body.color_code:
+        tid = _current_tenant_id.get()
+        pick = await _raw_db.color_picks.find_one({"tenant_id": tid, "code": body.color_code.strip().upper()}, {"_id": 0})
+        if pick:
+            from routes.hair_colors import _lookup
+            c = await _lookup(tid, pick["color_id"]) or {}
+            img = c.get("image_url") or ((await _raw_db.hair_color_images.find_one({"id": pick["color_id"]}, {"_id": 0, "image_url": 1}) or {}).get("image_url"))
+            appt["color_pick"] = {"code": pick["code"], "color_id": pick["color_id"], "color_name": pick.get("color_name") or c.get("name"),
+                                  "image_url": img, "swatch": c.get("swatch") or [], "undertone": pick.get("undertone"), "depth": pick.get("depth"),
+                                  "formula": pick.get("formula") or ""}
+            await _raw_db.color_picks.update_one({"id": pick["id"]}, {"$set": {"appointment_id": appt["id"], "booked_at": datetime.now(timezone.utc).isoformat()}})
     await db.appointments.insert_one(appt)
     appt.pop("_id", None)
     return appt, total, duration

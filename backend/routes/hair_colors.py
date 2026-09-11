@@ -6,6 +6,7 @@ them. The pick is saved so the stylist can start straight away.
 """
 import io
 import uuid
+import base64
 import asyncio
 import logging
 from datetime import datetime, timezone
@@ -340,3 +341,90 @@ async def public_color_preview(slug: str, body: PreviewIn):
     if not f_img:
         raise HTTPException(502, "Couldn't render the preview — try a brighter, front-facing selfie")
     return {"color": c, "front": f_img, "back": b_img}
+
+
+# ── Stylist colour card: formula notes ─────────────────────────────────────────
+
+class FormulaIn(BaseModel):
+    formula: str = Field("", max_length=600)
+
+
+@router.patch("/appointments/{appt_id}/color-formula")
+async def save_color_formula(appt_id: str, body: FormulaIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    appt = await _raw_db.appointments.find_one({"tenant_id": t["id"], "id": appt_id}, {"_id": 0, "color_pick": 1})
+    if not appt or not appt.get("color_pick"):
+        raise HTTPException(404, "No colour pick on this appointment")
+    f = body.formula.strip()
+    await _raw_db.appointments.update_one({"tenant_id": t["id"], "id": appt_id}, {"$set": {"color_pick.formula": f}})
+    await _raw_db.color_picks.update_one({"tenant_id": t["id"], "code": appt["color_pick"]["code"]}, {"$set": {"formula": f}})
+    return {"ok": True, "formula": f}
+
+
+# ── Share card: front + back preview with salon logo & booking link ───────────
+
+class ShareIn(BaseModel):
+    color_id: str
+    front_b64: str = Field(..., max_length=4_000_000)
+    back_b64: str | None = Field(None, max_length=4_000_000)
+
+
+@router.post("/public/color/{slug}/share-card")
+async def public_share_card(slug: str, body: ShareIn):
+    """Compose a 1080x1350 share image (nothing stored): both views, shade name, salon logo, booking QR."""
+    import os
+    import qrcode
+    from PIL import ImageOps
+    from services.veo_brand import _font, GOLD, _center
+    from routes.mira_common import _tenant_logo
+    t = await resolve_tenant_from_slug(slug)
+    c = await _lookup(t["id"], body.color_id)
+    if not c:
+        raise HTTPException(404, "Unknown colour")
+    try:
+        front = Image.open(io.BytesIO(base64.b64decode(body.front_b64.split(",", 1)[-1]))).convert("RGB")
+        back = Image.open(io.BytesIO(base64.b64decode(body.back_b64.split(",", 1)[-1]))).convert("RGB") if body.back_b64 else None
+    except Exception:
+        raise HTTPException(400, "Bad image data")
+    W, H = 1080, 1220
+    img = Image.new("RGB", (W, H), (12, 9, 14))
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle([24, 24, W - 24, H - 24], radius=28, outline=GOLD, width=4)
+    y = 60
+    _center(d, y, t.get("name", ""), _font(44, serif=True), GOLD, W); y += 58
+    _center(d, y, f"MY NEW LOOK  ·  {c['name'].upper()}", _font(26), (235, 225, 230), W); y += 60
+    tiles = [("FRONT", front)] + ([("BACK", back)] if back else [])
+    tw = 470 if back else 700
+    th = int(tw * 1.25)
+    x = (W - (tw * len(tiles) + 40 * (len(tiles) - 1))) // 2
+    for label, im in tiles:
+        tile = ImageOps.fit(im, (tw, th))
+        mask = Image.new("L", (tw, th), 0); ImageDraw.Draw(mask).rounded_rectangle([0, 0, tw - 1, th - 1], radius=28, fill=255)
+        img.paste(tile, (x, y), mask)
+        ImageDraw.Draw(img).rounded_rectangle([x, y, x + tw - 1, y + th - 1], radius=28, outline=GOLD, width=3)
+        lf = _font(22); ld = ImageDraw.Draw(img)
+        ld.text((x + (tw - ld.textlength(label, font=lf)) / 2, y + th + 14), label, font=lf, fill=GOLD)
+        x += tw + 40
+    y += th + 70
+    d = ImageDraw.Draw(img)
+    base = os.environ.get("APP_PUBLIC_URL", "")
+    url = f"{base}/book/{t['slug']}?color={c['id']}"
+    qr = qrcode.QRCode(box_size=6, border=1); qr.add_data(url); qr.make()
+    qim = qr.make_image(fill_color="black", back_color="white").convert("RGB").resize((190, 190))
+    card = Image.new("RGB", (210, 210), (255, 255, 255)); card.paste(qim, (10, 10))
+    img.paste(card, (W - 24 - 40 - 210, H - 24 - 40 - 210))
+    logo = await _tenant_logo(t)
+    lx = 64
+    if logo:
+        lg = ImageOps.contain(Image.open(io.BytesIO(logo)).convert("RGBA"), (120, 120))
+        disc = Image.new("RGBA", (150, 150), (255, 255, 255, 255)); disc.alpha_composite(lg, ((150 - lg.width) // 2, (150 - lg.height) // 2))
+        m = Image.new("L", (150, 150), 0); ImageDraw.Draw(m).ellipse([0, 0, 149, 149], fill=255)
+        img.paste(disc, (lx, H - 24 - 40 - 150 - 30), m)
+        ImageDraw.Draw(img).ellipse([lx, H - 24 - 40 - 150 - 30, lx + 150, H - 24 - 40 - 30], outline=GOLD, width=3)
+        lx += 180
+    d = ImageDraw.Draw(img)
+    ty = H - 24 - 40 - 150 - 20
+    d.text((lx, ty), "Book this colour", font=_font(40, serif=True), fill=(255, 255, 255)); ty += 54
+    d.text((lx, ty), c.get("tag") or "Professional salon colour", font=_font(24), fill=(200, 190, 200)); ty += 40
+    d.text((lx, ty), url.split("?")[0].replace("https://", "") + "  ·  scan →", font=_font(22), fill=GOLD)
+    buf = io.BytesIO(); img.save(buf, "PNG")
+    return Response(buf.getvalue(), media_type="image/png")

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Camera, Sparkles, Check, Loader2, RotateCcw, ScanFace, CalendarCheck } from "lucide-react";
+import { Camera, Sparkles, Check, Loader2, RotateCcw, ScanFace, CalendarCheck, Share2, Download } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 const UNDERTONE_COPY = {
@@ -87,6 +87,25 @@ export default function ColorTryOn() {
       setPreview(data);
     } catch (e) { setCamErr(e.response?.data?.detail || "Preview failed — try again"); }
     finally { setPreviewBusy(false); }
+  };
+
+  const [shareBusy, setShareBusy] = useState(false);
+  const shareCard = async (mode) => {
+    if (!preview) return;
+    setShareBusy(true);
+    try {
+      const res = await axios.post(`${API}/api/public/color/${slug}/share-card`, { color_id: preview.color.id, front_b64: preview.front, back_b64: preview.back }, { responseType: "blob" });
+      const file = new File([res.data], `my-new-look-${preview.color.id}.png`, { type: "image/png" });
+      const text = `My new look — ${preview.color.name} at ${salon?.name}. Book yours: ${window.location.origin}/book/${slug}?color=${preview.color.id}`;
+      if (mode === "share" && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text, title: "My new hair colour" });
+      } else if (mode === "share") {
+        window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+      } else {
+        const a = document.createElement("a"); a.href = URL.createObjectURL(res.data); a.download = file.name; a.click();
+      }
+    } catch (e) { if (e?.name !== "AbortError") setCamErr("Couldn't build the share image"); }
+    finally { setShareBusy(false); }
   };
 
   const submit = async () => {
@@ -217,6 +236,16 @@ export default function ColorTryOn() {
           </div>
           <p className="text-slate-400 text-[11px] mt-3 text-center max-w-xs">AI preview of {preview.color.name} on your own photo. Your selfie is used only for this preview and is not saved.</p>
           <div className="flex gap-2 mt-4 w-full max-w-xs">
+            <button onClick={() => shareCard("share")} disabled={shareBusy} data-testid="color-preview-share"
+              className="flex-1 py-3 rounded-2xl bg-[#25D366] text-slate-900 text-sm font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60">
+              {shareBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />} Share / WhatsApp
+            </button>
+            <button onClick={() => shareCard("download")} disabled={shareBusy} data-testid="color-preview-download"
+              className="py-3 px-4 rounded-2xl bg-white/10 text-white text-sm font-semibold inline-flex items-center justify-center gap-1.5 disabled:opacity-60">
+              <Download className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex gap-2 mt-2 w-full max-w-xs">
             <button onClick={() => setPreview(null)} data-testid="color-preview-close" className="flex-1 py-3 rounded-2xl bg-white/10 text-white text-sm font-semibold">Try another shade</button>
             <button onClick={() => { setPreview(null); submit(); }} data-testid="color-preview-choose" className="flex-1 py-3 rounded-2xl bg-amber-400 text-slate-900 text-sm font-bold">Choose this colour</button>
           </div>

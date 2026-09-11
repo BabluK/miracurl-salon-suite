@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { WeekGrid } from "@/components/appointments/WeekGrid";
 import { NewAppointmentModal } from "@/components/appointments/NewAppointmentModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ColorPickCard } from "@/components/appointments/ColorPickCard";
 
 const STATUS_COLOR = {
   scheduled: "bg-blue-500/10 text-blue-400 border-blue-500/20",
@@ -268,8 +269,14 @@ export default function Appointments() {
                     <div className="font-mono text-sky-600">{new Date(a.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                     <div className="text-[10px] text-slate-400">{a.duration_min} min</div>
                   </td>
-                  <td className="font-medium">{a.customer_name}</td>
-                  <td className="text-sm text-slate-500">{a.service_names.join(", ")}</td>
+                  <td className="font-medium">
+                    {a.customer_name}
+                    {a.color_pick && <span className="ml-1.5 inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-[10px] font-semibold px-1.5 py-0.5" title={a.color_pick.color_name} data-testid={`color-badge-${a.id}`}>🎨 {a.color_pick.color_name}</span>}
+                  </td>
+                  <td className="text-sm text-slate-500">
+                    {a.service_names.join(", ")}
+                    {a.color_pick && <ColorPickCard appt={a} />}
+                  </td>
                   <td className="text-sm">{a.staff_name}</td>
                   <td className="text-sky-600 font-medium">₹{a.total}</td>
                   <td>
