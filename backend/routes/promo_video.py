@@ -45,6 +45,9 @@ def _ffmpeg() -> str:
     return imageio_ffmpeg.get_ffmpeg_exe()
 
 
+VOICES = ("shimmer", "nova", "alloy", "echo", "onyx", "fable")
+
+
 class PromoIn(BaseModel):
     photo_url: str | None = None
     mode: str = "feature_tour"  # feature_tour | custom
@@ -53,16 +56,44 @@ class PromoIn(BaseModel):
     size: str = "reel"  # reel (9:16) | square (1:1) | landscape (16:9)
     express: bool = False  # True = real app screenshots (fast), False = AI-generated scenes
     greeting: str = ""  # optional founder intro, e.g. "Meet Bablu, founder of Miracurl"
+    voice: str = "shimmer"  # OpenAI TTS voice: shimmer/nova (female), alloy/echo/onyx (US male), fable (British)
+    tenant_slug: str | None = None  # HQ makes a promo for one salon/restaurant (Instagram / YouTube)
+    tenant: dict | None = None  # server-filled from tenant_slug
+
+
+from contextvars import ContextVar  # noqa: E402
+_BRAND_FRAME: ContextVar[bool] = ContextVar("promo_brand_frame", default=True)  # MS logo on frames (off for tenant promos)
+
+
+async def _load_tenant_ctx(slug: str) -> dict:
+    from routes.mira_common import _tenant_logo
+    t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Tenant not found")
+    svcs = await _raw_db.services.find({"tenant_id": t["id"], "active": {"$ne": False}},
+                                       {"_id": 0, "name": 1, "price": 1}).sort("price", -1).to_list(12)
+    resto = t.get("business_type") == "restaurant"
+    base = os.environ.get("APP_PUBLIC_URL", "")
+    return {"id": t["id"], "slug": slug, "name": t.get("name") or slug, "location": t.get("location") or "",
+            "resto": resto, "services": [f"{x['name']} ₹{x.get('price', 0):g}" for x in svcs],
+            "book_url": f"{base}/{'order' if resto else 'book'}/{slug}", "phone": t.get("phone") or "",
+            "instagram": t.get("instagram_url") or "", "logo": await _tenant_logo(t)}
 
 
 @router.post("/super/promo-video")
 async def create_promo_video(body: PromoIn, request: Request, admin=Depends(require_super_admin)):
+    if body.mode == "presenter":
+        body.mode = "feature_tour"
+    if body.tenant_slug:
+        body.tenant = await _load_tenant_ctx(body.tenant_slug)
+        body.mode, body.express = "tenant_promo", False
     job_id = str(uuid.uuid4())
     base_url = public_base_url(request)
     await _raw_db.promo_videos.insert_one({
         "id": job_id, "status": "generating", "progress": "Mira is writing the script…",
         "focus": body.focus, "video_url": "", "error": "", "base_url": base_url,
-        "params": body.model_dump(),
+        "params": body.model_dump(exclude={"tenant"}), "tenant_slug": body.tenant_slug,
+        "tenant_name": (body.tenant or {}).get("name"),
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
     asyncio.create_task(_generate(job_id, body))
@@ -157,7 +188,35 @@ def _script_prompts(body: PromoIn) -> tuple[str, str]:
     lang_note = "Write in Hindi (Devanagari)." if body.language == "hi" else "Write in simple, energetic English."
     greet_note = (f" Early in the voiceover, warmly introduce the founder with: '{body.greeting.strip()}'."
                   if body.greeting.strip() else "")
-    if body.mode == "presenter":
+    if body.mode == "founder_hook":
+        sys = ("You write viral Instagram Reel scripts for B2B SaaS, in the style of top founder-hook reels: open with a "
+               "relatable pain ('You're not just a salon owner — you're also the receptionist, marketer, accountant and "
+               "collections agent'), 3 punchy pain lines, then the reveal 'Meet Miracurl Suite — your AI salon team', 3 concrete "
+               "feature beats (online booking + WhatsApp reminders, GST billing + payroll, Mira AI marketing + lead follow-up), "
+               f"and a CTA to start a free demo at miracurl hyphen suite dot com.{greet_note} {lang_note} Spoken Indian-English, short sentences.")
+        user = ('Return JSON with EXACTLY 9 scenes in this order: {"voiceover":"<110-130 words, spoken, one or two sentences '
+                'per scene so it covers ALL 9 beats: hook, three pains, the reveal, the three features BY NAME, and the CTA>",'
+                '"scenes":['
+                '{"kind":"text","caption":"<HOOK, max 9 words>"},'
+                '{"kind":"text","caption":"<PAIN 1, max 8 words>"},'
+                '{"kind":"text","caption":"<PAIN 2, max 8 words>"},'
+                '{"kind":"text","caption":"<PAIN 3, max 8 words>"},'
+                '{"kind":"text","caption":"Meet Miracurl Suite - your AI salon team"},'
+                '{"kind":"feature","caption":"<online booking + WhatsApp reminders, max 6 words>"},'
+                '{"kind":"feature","caption":"<GST billing + payroll, max 6 words>"},'
+                '{"kind":"feature","caption":"<Mira AI marketing + lead follow-up, max 6 words>"},'
+                '{"kind":"text","caption":"<CTA: free demo, max 8 words>"}]}')
+    elif body.mode == "tenant_promo":
+        t = body.tenant or {}
+        kind = "restaurant" if t.get("resto") else "salon"
+        sys = (f"You write a 35-second Instagram/YouTube promo voiceover for '{t.get('name')}', a premium Indian {kind} "
+               f"in {t.get('location') or 'the city'}. Menu/services: {'; '.join(t.get('services') or []) or 'premium services'}. "
+               f"Warm, aspirational, sensory language; invite viewers to book/order online at the link on screen.{greet_note} {lang_note}")
+        user = ('Return JSON: {"voiceover":"<~85 words, spoken style, hook first, 2-3 real services with prices, end with '
+                'a call to action to book online>",'
+                '"scenes":[{"caption":"<max 6 words>","image_prompt":"<beautiful cinematic ' + kind + ' visual for this '
+                'moment: interior, service in progress or signature dish, warm golden lighting, premium>"} x4]}')
+    elif body.mode == "presenter":
         sys = ("You ARE Mira — the elegant AI presenter of 'Miracurl Salon Suite', speaking DIRECTLY to salon "
                "owners on camera. Write a 40-second presenter monologue in FIRST PERSON: greet warmly ('Hi, I'm "
                f"Mira!'), tour the suite's best features ({ALL_FEATURES}), and close with a friendly call to "
@@ -207,10 +266,13 @@ async def _persist_video(job_id: str, video_bytes: bytes, voiceover: str) -> Non
 
 
 async def _run_pipeline(job_id: str, body: PromoIn):
+    _BRAND_FRAME.set(body.mode != "tenant_promo")
+    from services.veo_brand import get_brand_contacts
+    _BRAND_CONTACTS.set(await get_brand_contacts())
     sys, user = _script_prompts(body)
     script = await asyncio.wait_for(_ask_json(sys, user), timeout=120)
     voiceover = (script.get("voiceover") or "").strip()
-    scenes = (script.get("scenes") or [])[:6 if body.mode == "booking_demo" else 4]
+    scenes = (script.get("scenes") or [])[:{"booking_demo": 6, "founder_hook": 9}.get(body.mode, 4)]
     if not voiceover or len(scenes) < 2:
         raise RuntimeError("Script generation failed — try again")
 
@@ -219,7 +281,7 @@ async def _run_pipeline(job_id: str, body: PromoIn):
     async def _tts() -> bytes:
         from emergentintegrations.llm.openai import OpenAITextToSpeech
         tts = OpenAITextToSpeech(api_key=os.environ["EMERGENT_LLM_KEY"])
-        b64 = await tts.generate_speech_base64(text=voiceover, model="tts-1", voice="shimmer", speed=1.0)
+        b64 = await tts.generate_speech_base64(text=voiceover, model="tts-1", voice=body.voice if body.voice in VOICES else "shimmer", speed=1.0)
         return base64.b64decode(b64)
 
     audio_bytes, (images, captions, fits) = await asyncio.wait_for(
@@ -289,7 +351,7 @@ async def _ai_scenes(body: PromoIn, scenes: list) -> list[tuple[bytes, str]]:
     from routes.mira_common import _key
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
     gen = OpenAIImageGeneration(api_key=_key())
-    ai_budget = 3 if body.mode == "feature_tour" else 2
+    ai_budget = 4 if body.mode == "tenant_promo" else 3 if body.mode == "feature_tour" else 2
 
     async def _one_scene(s: dict):
         prompt = (f"{s.get('image_prompt', 'modern premium salon interior')}. Vertical 9:16 cinematic promo shot, "
@@ -328,16 +390,110 @@ async def _middle_scene_triples(body: PromoIn, scenes: list) -> list[tuple[bytes
     return [(img, cap, fit) for img, cap in middle]
 
 
+def _brand_card_frame(w: int, h: int) -> bytes:
+    from services.veo_brand import render_end_card, DEFAULTS
+    buf = io.BytesIO()
+    render_end_card(w, h, _BRAND_CONTACTS.get() or DEFAULTS).save(buf, "JPEG", quality=92)
+    return buf.getvalue()
+
+
+_BRAND_CONTACTS: ContextVar[dict | None] = ContextVar("promo_brand_contacts", default=None)
+
+
 def _closing_scenes(body: PromoIn) -> list[tuple[bytes, str, bool]]:
     out = []
     if body.mode == "presenter":
         out.append((_read_frame(MIRA_AVATAR), "Book your free demo today", False))
     out.append((_add_partner_qr(_read_frame(MIRA_OUTRO)), "Get Miracurl Salon Suite", False))
+    vw, vh = SIZES.get(body.size, SIZES["reel"])
+    out.append((_brand_card_frame(vw, vh), "", False))  # gold brand card: email · call · Instagram · website
+    return out
+
+
+def _text_card(text: str, w: int, h: int, accent: bool = False) -> bytes:
+    """Reel-style bold statement card: dark radial backdrop, gold rings, big white/gold text, MS medallion."""
+    from services.veo_brand import GOLD, _font, _center
+    img = Image.new("RGB", (w, h), (10, 8, 12))
+    d = ImageDraw.Draw(img)
+    cx, cy = w // 2, h // 2
+    for i in range(6):
+        r = int(min(w, h) * (0.35 + i * 0.17))
+        d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=(212, 175, 55, 255), width=max(1, w // 700))
+    s_ = w / 1080
+    words = text.split()
+    size = int((150 if len(text) < 40 else 118) * s_)
+    f = _font(size)
+    lines, cur = [], ""
+    for wd in words:
+        t = (cur + " " + wd).strip()
+        if d.textlength(t, font=f) > w * 0.84 and cur:
+            lines.append(cur); cur = wd
+        else:
+            cur = t
+    lines.append(cur)
+    lh = int(size * 1.18)
+    y = cy - (len(lines) * lh) // 2
+    for i, ln in enumerate(lines):
+        last = i == len(lines) - 1
+        _center(d, y, ln, f, GOLD if (accent and last) else (255, 255, 255), w); y += lh
+    bar_w = int(w * 0.18)
+    d.rectangle([cx - bar_w // 2, y + int(30 * s_), cx + bar_w // 2, y + int(38 * s_)], fill=GOLD)
+    buf = io.BytesIO(); img.save(buf, "JPEG", quality=92)
+    return buf.getvalue()
+
+
+async def _founder_scenes(body: PromoIn, scenes: list) -> list[tuple[bytes, str, bool]]:
+    """Founder-hook reel: bold text cards → real app screenshots → CTA card → gold brand card."""
+    vw, vh = SIZES.get(body.size, SIZES["reel"])
+    shots = _express_scenes([{"caption": ""}] * len(EXPRESS_SHOTS))
+    out, si = [], 0
+    for i, sc in enumerate(scenes):
+        cap = (sc.get("caption") or "").strip()
+        if sc.get("kind") == "feature" and si < len(shots):
+            out.append((shots[si][0], cap, True)); si += 1
+        else:
+            out.append((_text_card(cap, vw, vh, accent=(i >= 4)), "", False))
+    if out:
+        out[-1] = (_add_partner_qr(out[-1][0], None, "Scan for FREE demo"), "", False)
+    out.append((_brand_card_frame(vw, vh), "", False))
+    return out
+
+
+def _stamp_tenant_logo(img_bytes: bytes, logo: bytes | None) -> bytes:
+    if not logo:
+        return img_bytes
+    from routes.promo_common import stamp_tenant_logo
+    out = stamp_tenant_logo(Image.open(io.BytesIO(img_bytes)), logo, pos="top-right", scale=0.2, pad_scale=0.09).convert("RGB")  # Ken Burns crops ~6% at the edges
+    buf = io.BytesIO(); out.save(buf, "JPEG", quality=92)
+    return buf.getvalue()
+
+
+async def _tenant_scenes(body: PromoIn, scenes: list) -> list[tuple[bytes, str, bool]]:
+    """Tenant promo: 4 beautiful AI backgrounds — hero (name), 2 services, closing with booking QR."""
+    t = body.tenant or {}
+    ai = await _ai_scenes(body, scenes)
+    if len(ai) < 2:
+        raise RuntimeError("Scene images failed — try again")
+    hero = _stamp_tenant_logo(ai[0][0], t.get("logo"))
+    out = [(hero, t.get("name", ""), False)]
+    out += [(_stamp_tenant_logo(img, t.get("logo")), cap, False) for img, cap in ai[1:-1]]
+    closing = _add_partner_qr(ai[-1][0], t.get("book_url"), "Scan to " + ("order" if t.get("resto") else "book"), top=True)
+    out.append((_stamp_tenant_logo(closing, t.get("logo")), ("Order online" if t.get("resto") else "Book online") + " today", False))
     return out
 
 
 async def _build_scenes(body: PromoIn, scenes: list) -> tuple[list[bytes], list[str], list[bool]]:
     """Mira opens and closes every reel; owner photo (if any) is scene 2; middle is express or AI."""
+    if body.mode == "founder_hook":
+        triples = await _founder_scenes(body, scenes)
+        return [t[0] for t in triples], [t[1] for t in triples], [t[2] for t in triples]
+    if body.mode == "tenant_promo":
+        triples = await _tenant_scenes(body, scenes)
+        if body.photo_url:
+            photo = await _owner_photo_scene(body, scenes)
+            if photo:
+                triples.insert(1, (photo[0], photo[1], False))
+        return [t[0] for t in triples], [t[1].replace("✦", "").replace("—", "-").strip() for t in triples], [t[2] for t in triples]
     triples = [_intro_scene(body)]
     if body.photo_url:
         photo = await _owner_photo_scene(body, scenes)
@@ -351,10 +507,10 @@ async def _build_scenes(body: PromoIn, scenes: list) -> tuple[list[bytes], list[
     return images, captions, fits
 
 
-def _add_partner_qr(img_bytes: bytes) -> bytes:
-    """Bottom-left QR to the /partner demo page on the closing frame."""
+def _add_partner_qr(img_bytes: bytes, url: str | None = None, label: str = "Scan for FREE demo", top: bool = False) -> bytes:
+    """Bottom-left QR (default: the /partner demo page) on the closing frame."""
     import qrcode
-    url = f"{os.environ.get('APP_PUBLIC_URL', '')}/partner"
+    url = url or f"{os.environ.get('APP_PUBLIC_URL', '')}/partner"
     qr = qrcode.QRCode(box_size=10, border=2)
     qr.add_data(url)
     qr.make(fit=True)
@@ -371,10 +527,9 @@ def _add_partner_qr(img_bytes: bytes) -> bytes:
         font = ImageFont.truetype(FONT_PATH, int(30 * scale))
     except OSError:
         font = ImageFont.load_default()
-    label = "Scan for FREE demo"
     tw = d.textlength(label, font=font)
     d.text(((card.width - tw) / 2, size + pad // 2 + int(8 * scale)), label, font=font, fill=(28, 28, 34))
-    x, y = int(40 * scale), base.height - card.height - int(140 * scale)
+    x, y = (int(90 * scale), int(90 * scale)) if top else (int(40 * scale), base.height - card.height - int(140 * scale))
     base.paste(card, (x, y))
     buf = io.BytesIO()
     base.save(buf, format="JPEG", quality=92)
@@ -382,6 +537,7 @@ def _add_partner_qr(img_bytes: bytes) -> bytes:
 
 
 def _caption_frame(img_bytes: bytes, caption: str, w: int = W, h: int = H, fit: bool = False) -> bytes:
+    brand = _BRAND_FRAME.get()
     img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
     if fit:
         # letterbox app screenshots on a dark canvas instead of cropping them
@@ -396,7 +552,7 @@ def _caption_frame(img_bytes: bytes, caption: str, w: int = W, h: int = H, fit: 
         img = img.resize((round(img.width * scale), round(img.height * scale)))
         left, top = (img.width - w) // 2, (img.height - h) // 2
         img = img.crop((left, top, left + w, top + h))
-    logo = _brand_logo(max(110, int(w * 0.14)))
+    logo = _brand_logo(max(110, int(w * 0.14))) if brand else None
     if logo:
         img = img.convert("RGBA")
         img.paste(logo, (w - logo.width - 44, 48), logo)

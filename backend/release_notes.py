@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-09.238"
-BUILD_TIME = "09 Sep 2026, 10:15 AM IST"
+BUILD = "2026-09-11.239"
+BUILD_TIME = "11 Sep 2026, 03:45 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-11.239", "note": "Preview env silenced (29 outbound schedulers prod-only); digest per-tenant timezone; Top-performer badge; Veo 30/40/60s + photo + brand end card; Promo Video: tenant promos, narrator voices, gold brand card closing; Mira avatar/presenter removed"},
     {"build": "2026-09-09.238", "note": "Post History → Reuse this post (Mira rewrites a past winner fresh); GA4 conversion events (sign_up, booking_confirmed, purchase); morning digest: only from production, skips never-billed tenants, star-of-day counts per-line stylists"},
     {"build": "2026-09-09.237", "note": "Mira Studio: Post History log can be deleted per entry or cleared; AI social images now carry the salon's own logo (not the Miracurl mark)"},
     {"build": "2026-09-08.236", "note": "Owner/admin bell notifications: HQ changes, payments, offers, campaign settlements, staff leave/week-off requests, payroll-profile gaps"},
@@ -53,6 +54,18 @@ BUILD_LOG = [
 ]
 
 RELEASES = [
+    {
+        "date": "2026-09-11 (HQ Promo Studio & clean inbox 🎬)",
+        "changes": [
+            "🔇 Test/preview environment no longer sends ANY owner, customer or lead emails, SMS, calls or social posts — only production does. No more ₹0 or dummy digests",
+            "🌍 Morning digest now arrives at 8 AM in each business's own timezone",
+            "🏆 Mira Studio → Post History: 'Top performer' badge on your 3 most-engaged posts + 'Best first' sort — tap Reuse to run a winner again",
+            "🎬 HQ Veo Cinematic Ads: pick 30s / 40s / 60s, upload a founder/brand photo Mira keeps in every scene, and every ad ends with the gold Miracurl brand card (email · call/WhatsApp · Instagram · website) — contacts editable in HQ",
+            "🏪 HQ Promo Video Studio: make an Instagram/YouTube promo for ANY tenant — Mira scripts from their real services & prices, paints cinematic backgrounds, stamps their logo and closes with a scan-to-book QR",
+            "🎙️ Narrator voice picker (Shimmer, Nova, US Alloy/Echo, Onyx, British Fable); Mira avatar/presenter modes removed",
+            "🎯 New 'Founder-hook Reel' type — viral-reel structure: bold text hook → 3 owner pains → 'Meet Miracurl Suite' reveal → real app screens → CTA with demo QR → gold brand card (renders in ~1 min)",
+        ],
+    },
     {
         "date": "2026-09-09 (Mira Studio polish ✨)",
         "changes": [

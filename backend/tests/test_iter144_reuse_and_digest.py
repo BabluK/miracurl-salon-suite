@@ -128,7 +128,17 @@ def test_send_salon_daily_digests_writes_skip_for_whitefield():
         sd_mod._raw_db = fresh_db  # module-level import captured old ref
         today = str((datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date())
         await fresh_db.salon_digest_log.delete_many({"tenant_id": WF_TID, "date": today})
-        await sd_mod.send_salon_daily_digests(force=False)
+        # pin every tenant's local clock to 9 AM (inside the send window) and stub outbound email
+        import email_service
+        real_now, real_send = sd_mod._local_now, email_service._send_email
+        sd_mod._local_now = lambda t: datetime.now(timezone.utc).astimezone(sd_mod._tz(t)).replace(hour=9)
+        async def _fake_send(*a, **k):
+            return {"sent": False, "error": "stubbed in test"}
+        email_service._send_email = _fake_send
+        try:
+            await sd_mod.send_salon_daily_digests(force=False)
+        finally:
+            sd_mod._local_now, email_service._send_email = real_now, real_send
         log = await fresh_db.salon_digest_log.find_one({"tenant_id": WF_TID, "date": today}, {"_id": 0})
         assert log is not None, "expected skip log for miracurl-whitefield"
         assert log["sent"] is False

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Loader2, Heart, MessageCircle, Share2, CheckCircle2, XCircle, History, Trash2, RefreshCw } from "lucide-react";
+import { Loader2, Heart, MessageCircle, Share2, CheckCircle2, XCircle, History, Trash2, RefreshCw, Trophy } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -15,6 +15,9 @@ const PLATFORM_STYLE = {
   instagram: "bg-pink-50 text-pink-700 border-pink-200",
   facebook: "bg-blue-50 text-blue-700 border-blue-200",
 };
+const engagementScore = (p) => Object.entries(p.engagement || {})
+  .filter(([k]) => k !== "fetched_at")
+  .reduce((a, [, e]) => a + (e?.likes || 0) + (e?.comments || 0) + (e?.shares || 0), 0);
 const LOG_ONLY_NOTE = "This only removes the entry from your Miracurl Post History log. The post itself stays live on Instagram / Facebook / Google.";
 
 function PlatformChip({ name, res, eng }) {
@@ -66,6 +69,7 @@ export const SocialHistoryPanel = ({ onReuse }) => {
   const [posts, setPosts] = useState(null);
   const [target, setTarget] = useState(null); // post id | "__all__"
   const [busy, setBusy] = useState(false);
+  const [bestFirst, setBestFirst] = useState(false);
 
   useEffect(() => {
     api.get("/social/history").then(r => setPosts(r.data.posts)).catch(() => setPosts([]));
@@ -101,19 +105,34 @@ export const SocialHistoryPanel = ({ onReuse }) => {
     </div>
   );
 
+  const scored = posts.map(p => ({ p, score: engagementScore(p) }));
+  const topIds = new Set(scored.filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 3).map(x => x.p.id));
+  const ordered = bestFirst ? [...scored].sort((a, b) => b.score - a.score).map(x => x.p) : posts;
+
   return (
     <div className="space-y-3" data-testid="social-history-panel">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-400">{posts.length} {posts.length === 1 ? "post" : "posts"} logged</span>
-        <button type="button" onClick={() => setTarget("__all__")} data-testid="social-history-clear-btn"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-white border border-rose-200 hover:border-rose-300 rounded-full px-3 py-1.5 transition-colors">
-          <Trash2 className="w-3.5 h-3.5" /> Clear history
-        </button>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <span className="text-xs text-slate-400">{posts.length} {posts.length === 1 ? "post" : "posts"} logged
+          {topIds.size > 0 && <span className="ml-2 text-amber-600 font-semibold">· 🏆 top {topIds.size} by engagement — tap Reuse to run them again</span>}
+        </span>
+        <div className="flex items-center gap-2">
+          {topIds.size > 0 && (
+            <button type="button" onClick={() => setBestFirst(v => !v)} data-testid="social-history-best-first"
+              className={`inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1.5 border transition-colors ${bestFirst ? "bg-amber-500 text-white border-amber-500" : "bg-white text-amber-700 border-amber-200 hover:border-amber-300"}`}>
+              <Trophy className="w-3.5 h-3.5" /> {bestFirst ? "Newest first" : "Best first"}
+            </button>
+          )}
+          <button type="button" onClick={() => setTarget("__all__")} data-testid="social-history-clear-btn"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 bg-white border border-rose-200 hover:border-rose-300 rounded-full px-3 py-1.5 transition-colors">
+            <Trash2 className="w-3.5 h-3.5" /> Clear history
+          </button>
+        </div>
       </div>
-      {posts.map(p => {
+      {ordered.map(p => {
         const r = p.results || {};
+        const top = topIds.has(p.id);
         return (
-          <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-4 flex gap-4 group" data-testid="social-history-item">
+          <div key={p.id} className={`bg-white rounded-2xl border p-4 flex gap-4 group ${top ? "border-amber-300 ring-1 ring-amber-200/70 shadow-[0_0_0_3px_rgba(251,191,36,0.08)]" : "border-slate-200"}`} data-testid="social-history-item">
             <Thumb src={p.image_url ? abs(p.image_url) : null} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -122,6 +141,12 @@ export const SocialHistoryPanel = ({ onReuse }) => {
                 </span>
                 {KIND_LABEL[p.kind] && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200 font-semibold">{KIND_LABEL[p.kind]}</span>
+                )}
+                {top && (
+                  <span data-testid={`social-history-top-${p.id}`} title={`${engagementScore(p)} likes + comments + shares`}
+                    className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 text-white font-bold shadow-sm">
+                    <Trophy className="w-3 h-3" /> Top performer · {engagementScore(p)}
+                  </span>
                 )}
               </div>
               <p className="text-sm text-slate-700 mt-1 line-clamp-2 whitespace-pre-line">{p.caption}</p>
@@ -135,7 +160,7 @@ export const SocialHistoryPanel = ({ onReuse }) => {
               {onReuse && p.caption && (
                 <button type="button" onClick={() => onReuse(p)} title="Reuse this post — Mira rewrites it fresh with a new image"
                   data-testid={`social-history-reuse-${p.id}`}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-fuchsia-700 bg-fuchsia-50 hover:bg-fuchsia-100 border border-fuchsia-200 rounded-full px-2.5 py-1 transition-colors">
+                  className={`inline-flex items-center gap-1 text-[11px] font-semibold rounded-full px-2.5 py-1 border transition-colors ${top ? "text-white bg-gradient-to-r from-fuchsia-600 to-pink-600 border-transparent shadow-md hover:from-fuchsia-700 hover:to-pink-700" : "text-fuchsia-700 bg-fuchsia-50 hover:bg-fuchsia-100 border-fuchsia-200"}`}>
                   <RefreshCw className="w-3 h-3" /> Reuse
                 </button>
               )}

@@ -1,0 +1,59 @@
+{
+  "summary": "Iter145 verified: preview scheduler-disable log + IS_PREVIEW_ENV True, Veo studio duration/photo/mode validation (30/40/60, avatar rejected, unknown photo 404), photo upload PNG ok + .txt 400, promo-video unknown tenant 404 + presenter→feature_tour mapping (with cleanup DELETE), promo-videos list contains tenant_name for two most recent Miracurl Unisex Family Salon promos, super admin Promo Studio UI (no avatar/presenter modes; duration buttons + generate text 'Generate 60s Cinematic Ad'; brand-contacts-toggle opens editor with save; veo-photo-input present; all 6 promo-voice-* buttons; promo-mode-tenant reveals 6-option select; 2 promo-video-tenant-badge in previous reels list), and salon Post History top badge + Best-first sort (seeded engagement, saw 'Top performer · 55' badge + Reuse highlighted, cleaned up). One BACKEND BUG found: PUT /api/super/brand-contacts with empty strings does not clear previously-stored phone/instagram (defaults never surface again). 11/12 pytest pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "PUT /api/super/brand-contacts",
+        "issue": "Cannot restore defaults by PUT with empty strings — routes/veo_studio.py brand_contacts_put filters via `{k: v.strip() for k, v in body.model_dump().items() if v and v.strip()}` so empty strings are silently ignored and hq_settings retains the old value. GET keeps returning the stale phone/instagram forever. Fix: apply `$set` for non-empty values AND `$unset` for keys sent explicitly as empty strings; or accept `null` for delete."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "VeoAdStudio brand-contacts editor",
+        "issue": "Input testids are `brand-contact-phone` / `brand-contact-instagram` (singular), but the review spec expects `brand-phone` / `brand-instagram`. Inputs work correctly; only the testid naming disagrees with the request. Consider aliasing or renaming for spec consistency.",
+        "selector": "[data-testid=\"brand-contact-phone\"]",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "PromoVideoStudio tenant <select>",
+        "issues": [
+          "React hydration warning: <span data-ve-dynamic> injected inside <option> at PromoVideoStudio line 109 — <span> cannot be a child of <option>. Cosmetic, but React logs a hydration error. Same pattern flagged in iter144 for MiraDayOffer — likely the Emergent visual-editor wrapper is injecting the span. If unfixable at product level, may need to strip x-source-var attrs from <option> children."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter145_veo_and_promo.py",
+    "/app/test_reports/pytest/iter145.xml"
+  ],
+  "action_items": [
+    "Fix brand_contacts_put to allow clearing phone/instagram by explicit empty strings (use $unset for empty keys, $set for non-empty). Test spec requires PUT {phone:'', instagram:''} to restore defaults.",
+    "(Optional) Rename testids brand-contact-phone/instagram → brand-phone/brand-instagram to match spec, OR update spec to current names.",
+    "(Optional) Suppress <span> injection into <option> children in PromoVideoStudio to remove hydration warning."
+  ],
+  "critical_code_review_comments": [
+    "routes/veo_studio.py brand_contacts_put: empty-string filter makes 'reset' operationally impossible from UI without a separate delete endpoint or magic sentinel — bug (see above).",
+    "routes/promo_video.py create_promo_video: `body.mode='tenant_promo'` forced when tenant_slug present is good; but presenter→feature_tour mapping happens BEFORE the tenant_slug block, meaning `POST {mode:'presenter', tenant_slug:'x'}` still becomes tenant_promo (fine, but the mapping is dead-code in that path — not a bug, just noise).",
+    "routes/veo_studio.py veo_photo_upload: allow-list checks by extension only; validate_image_bytes covers content, good. Consider persisting content-type from magic bytes instead of trusting file.content_type to prevent MIME confusion on serve.",
+    "services/veo_brand.get_brand_contacts merges DEFAULTS ← doc — good, but relies on `v is not None` so stored empty strings would surface as ''; combined with the put-filter bug this makes 'reset' effectively impossible without direct DB access."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter145_veo_and_promo.py (new — 12 tests)"
+  ],
+  "success_rate": {
+    "backend": "92% (11/12 pytest — one intentional fail exposes brand-contacts reset bug)",
+    "frontend": "100% on tested flows (super Promo tab, salon Post History top badge + Best-first, salon regression)"
+  },
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6; admin@miracurl.com / q6QY@tn3p#9DtL (X-Tenant-Slug miracurl-marathahalli); Mongo from /app/backend/.env.",
+  "seed_data_creation": "(1) Seeded social_posts.engagement = {instagram:{likes:50,comments:5}} on post 2a18cae1-… for miracurl-marathahalli → verified badge + Best-first ordering → UNSET after test (modified_count=1, confirmed). (2) Uploaded one veo_photo via POST /super/veo-ad/photo → DELETED from uploads collection in fixture teardown. (3) Set hq_settings.brand_contacts phone/instagram during PUT test → $unset both keys during cleanup (final doc {'key':'brand_contacts'}). (4) Created one promo_videos job in presenter→feature_tour mapping test → DELETE /super/promo-video/{id} returned 200. No residual seed state.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reusable test file /app/backend/tests/test_iter145_veo_and_promo.py covers preview flag+log, brand-contacts GET/PUT (fails until fix), veo photo upload validation, veo-ad duration/photo/mode validation, promo-video 404/presenter-mapping/list-tenant-name. All 29-scheduler preview log line grep from /var/log/supervisor/backend.err.log (WARNING level). The one failing test (test_brand_contacts_put_then_restore) auto-unsets its residue in Mongo so re-runs are idempotent. Frontend super Promo tab is reached via [data-testid=super-nav-more] → [data-testid=super-tab-promo] at 1920px viewport. WhatsNewModal must be dismissed via 'Got it' button before Post History card interactions.",
+  "rca_of_the_issue": "PUT /api/super/brand-contacts empty-string reset bug — RCA: routes/veo_studio.py line 77: `vals = {k: v.strip() for k, v in body.model_dump().items() if v and v.strip()}` filters out empty strings entirely, so `update_one({key:'brand_contacts'}, {$set:{...vals}}, upsert=True)` never touches previously-set phone/instagram fields. Then services/veo_brand.get_brand_contacts merges DEFAULTS ← doc, so old value persists on GET. Repro: PUT {phone:'+91 90000 00000', instagram:'miracurl.suite'} → GET returns those values; then PUT {phone:'', instagram:''} → GET still returns old values (expected fallback to DEFAULTS''). Mitigation: for keys present in body, if empty → $unset that key; else $set. Or accept nulls for reset. Test asserts and reports this; residue is cleaned via $unset in test itself."
+}

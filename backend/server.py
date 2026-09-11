@@ -150,19 +150,27 @@ async def on_startup():
         await _db0.mira_image_batches.update_many({"status": "running"}, {"$set": {"status": "interrupted"}})
     except Exception as e:
         logging.warning(f"could not flag interrupted image batches: {e}")
-    asyncio.get_event_loop().create_task(_weekly_package_scheduler())
-    asyncio.get_event_loop().create_task(_cash_report_scheduler())
-    asyncio.get_event_loop().create_task(_loyalty_nudge_scheduler())
-    asyncio.get_event_loop().create_task(_always_on_time_scheduler())
-    asyncio.get_event_loop().create_task(_late_alert_scheduler())
-    asyncio.get_event_loop().create_task(_renewal_reminder_scheduler())
+    from database import IS_PREVIEW_ENV
+    # Owner / customer / lead-facing automations (emails, SMS, calls, social posts) run ONLY in production —
+    # the preview pod shares real owner addresses and would otherwise send duplicate or test-data digests.
+    _OUTBOUND = (
+        _weekly_package_scheduler, _cash_report_scheduler, _loyalty_nudge_scheduler, _always_on_time_scheduler,
+        _late_alert_scheduler, _renewal_reminder_scheduler, _demo_followup_scheduler, _lead_followup_scheduler,
+        _review_request_scheduler, _referral_nudge_scheduler, _newbiz_followup_scheduler,
+        _google_review_alert_scheduler, _monthly_report_scheduler, _weekly_report_scheduler, _birthday_scheduler,
+        _sms_reminder_scheduler, _gift_card_scheduler, _mira_auto_call_scheduler, _callback_redial_scheduler,
+        _weekly_win_scheduler, _feedback_reminder_scheduler, _salon_digest_scheduler, _open_bill_alert_scheduler,
+        _manager_access_report_scheduler, _late_digest_scheduler, _daily_special_scheduler, _lead_nudge_scheduler,
+        autopilot_scheduler, weekly_promo_scheduler,
+    )
+    if IS_PREVIEW_ENV:
+        logging.warning("PREVIEW environment: %d outbound schedulers disabled (owner/customer emails, SMS, calls, social posts)", len(_OUTBOUND))
+    else:
+        for _sched in _OUTBOUND:
+            asyncio.get_event_loop().create_task(_sched())
+    # HQ-internal + data-maintenance loops run everywhere
     asyncio.get_event_loop().create_task(_weekly_register_scheduler())
-    asyncio.get_event_loop().create_task(_demo_followup_scheduler())
-    asyncio.get_event_loop().create_task(_lead_followup_scheduler())
-    asyncio.get_event_loop().create_task(_review_request_scheduler())
-    asyncio.get_event_loop().create_task(_referral_nudge_scheduler())
     asyncio.get_event_loop().create_task(_city_watch_scheduler())
-    asyncio.get_event_loop().create_task(_newbiz_followup_scheduler())
     asyncio.get_event_loop().create_task(_earnings_anomaly_scheduler())
 
     async def _weekly_blog_loop():
@@ -184,28 +192,12 @@ async def on_startup():
                 logging.getLogger("weekly_blog").error(f"weekly blog draft failed: {e}")
             await asyncio.sleep(3600)
     asyncio.get_event_loop().create_task(_weekly_blog_loop())
-    asyncio.get_event_loop().create_task(_google_review_alert_scheduler())
     asyncio.get_event_loop().create_task(_cctv_poll_scheduler())
-    asyncio.get_event_loop().create_task(_monthly_report_scheduler())
-    asyncio.get_event_loop().create_task(_weekly_report_scheduler())
-    asyncio.get_event_loop().create_task(_birthday_scheduler())
     asyncio.get_event_loop().create_task(_staff_exit_scheduler())
     asyncio.get_event_loop().create_task(_temp_transfer_scheduler())
-    asyncio.get_event_loop().create_task(_sms_reminder_scheduler())
-    asyncio.get_event_loop().create_task(_gift_card_scheduler())
-    asyncio.get_event_loop().create_task(_mira_auto_call_scheduler())
     asyncio.get_event_loop().create_task(_mira_digest_scheduler())
     asyncio.get_event_loop().create_task(_lead_heat_scheduler())
-    asyncio.get_event_loop().create_task(_callback_redial_scheduler())
-    asyncio.get_event_loop().create_task(_weekly_win_scheduler())
-    asyncio.get_event_loop().create_task(_feedback_reminder_scheduler())
-    asyncio.get_event_loop().create_task(_salon_digest_scheduler())
-    asyncio.get_event_loop().create_task(_open_bill_alert_scheduler())
-    asyncio.get_event_loop().create_task(_manager_access_report_scheduler())
-    asyncio.get_event_loop().create_task(_late_digest_scheduler())
     asyncio.get_event_loop().create_task(_db_health_scheduler())
-    asyncio.get_event_loop().create_task(_daily_special_scheduler())
-    asyncio.get_event_loop().create_task(_lead_nudge_scheduler())
     asyncio.get_event_loop().create_task(_phone_backfill_task())
 
     async def _warm_storage():
@@ -215,8 +207,6 @@ async def on_startup():
         except Exception:
             pass
     asyncio.get_event_loop().create_task(_warm_storage())
-    asyncio.get_event_loop().create_task(autopilot_scheduler())
-    asyncio.get_event_loop().create_task(weekly_promo_scheduler())
     asyncio.get_event_loop().create_task(sweep_stale_veo_jobs())
 
     async def _ensure_indexes():

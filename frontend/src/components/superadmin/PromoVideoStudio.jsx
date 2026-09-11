@@ -11,8 +11,12 @@ export const PromoVideoStudio = () => {
   const [photo, setPhoto] = useState("");
   const [greeting, setGreeting] = useState("");
   const [mode, setMode] = useState("feature_tour");
+  const [tenants, setTenants] = useState([]);
+  const [tenantSlug, setTenantSlug] = useState("");
+  useEffect(() => { api.get("/super-admin/tenants").then(r => setTenants((r.data.tenants || r.data || []).filter(t => t.slug))).catch(() => {}); }, []);
   const [focus, setFocus] = useState("Staff Verification Portal — hire trusted, verified staff");
   const [language, setLanguage] = useState("en");
+  const [voice, setVoice] = useState("shimmer");
   const [size, setSize] = useState("reel");
   const [express, setExpress] = useState(true);
   const [job, setJob] = useState(null);
@@ -25,7 +29,7 @@ export const PromoVideoStudio = () => {
 
   const generate = async () => {
     try {
-      const { data } = await api.post("/super/promo-video", { photo_url: photo || null, mode, focus, language, size, express, greeting });
+      const { data } = await api.post("/super/promo-video", { photo_url: photo || null, mode: mode === "tenant_promo" ? "feature_tour" : mode, focus, language, voice, size, express: mode === "tenant_promo" ? false : express, greeting, tenant_slug: mode === "tenant_promo" ? tenantSlug || null : null });
       setJob({ id: data.job_id, status: "generating", progress: "Mira is writing the script…" });
       pollRef.current = setInterval(async () => {
         const { data: st } = await api.get(`/super/promo-video/${data.job_id}`);
@@ -71,12 +75,15 @@ export const PromoVideoStudio = () => {
 
       <div className="grid md:grid-cols-2 gap-4 mt-5">
         <div>
+          <p className="text-xs font-semibold text-slate-600 mb-1.5">Narrator voice</p>
+          <div className="flex flex-wrap gap-1.5 mb-4" data-testid="promo-voice-picker">
+            {[["shimmer", "👩 Shimmer · warm female"], ["nova", "👩 Nova · bright female"], ["alloy", "🇺🇸 Alloy · US neutral"], ["echo", "🇺🇸 Echo · US male"], ["onyx", "🎙️ Onyx · deep male"], ["fable", "🇬🇧 Fable · British"]].map(([v, l]) => (
+              <button key={v} type="button" data-testid={`promo-voice-${v}`} onClick={() => setVoice(v)}
+                className={`text-[11px] px-2.5 py-1.5 rounded-full border font-medium ${voice === v ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700" : "border-slate-200 text-slate-500 hover:border-slate-300"}`}>{l}</button>
+            ))}
+          </div>
           <p className="text-xs font-semibold text-slate-600 mb-1.5">Video type</p>
           <div className="flex gap-2 mb-4">
-            <button data-testid="promo-mode-presenter" onClick={() => setMode("presenter")}
-              className={`text-xs px-3 py-2 rounded-xl border font-medium inline-flex items-center gap-1.5 ${mode === "presenter" ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700" : "border-slate-200 text-slate-500"}`}>
-              <img src="/assets/mira-avatar.png" alt="" className="w-5 h-5 rounded-full object-cover object-top" /> Mira Presenter <span className="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full font-bold">FREE</span>
-            </button>
             <button data-testid="promo-mode-tour" onClick={() => setMode("feature_tour")}
               className={`text-xs px-3 py-2 rounded-xl border font-medium ${mode === "feature_tour" ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700" : "border-slate-200 text-slate-500"}`}>
               ✦ Mira presents — full feature tour
@@ -89,9 +96,27 @@ export const PromoVideoStudio = () => {
               className={`text-xs px-3 py-2 rounded-xl border font-medium ${mode === "custom" ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700" : "border-slate-200 text-slate-500"}`}>
               Custom focus
             </button>
+            <button data-testid="promo-mode-hook" onClick={() => setMode("founder_hook")}
+              className={`text-xs px-3 py-2 rounded-xl border font-medium ${mode === "founder_hook" ? "border-fuchsia-400 bg-fuchsia-50 text-fuchsia-700" : "border-slate-200 text-slate-500"}`}>
+              🎯 Founder-hook Reel
+            </button>
+            <button data-testid="promo-mode-tenant" onClick={() => setMode("tenant_promo")}
+              className={`text-xs px-3 py-2 rounded-xl border font-medium ${mode === "tenant_promo" ? "border-amber-400 bg-amber-50 text-amber-700" : "border-slate-200 text-slate-500"}`}>
+              🏪 Promo for a tenant
+            </button>
           </div>
-          {mode === "presenter" && (
-            <p className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">👩 Mira hosts the reel on camera — her avatar opens & closes, real app screenshots in between, her voice narrating. 100% free, no Google billing.</p>
+          {mode === "founder_hook" && (
+            <p className="mb-4 text-[11px] text-fuchsia-700 bg-fuchsia-50 border border-fuchsia-100 rounded-lg px-3 py-2" data-testid="promo-hook-note">Viral-reel structure: bold text hook → 3 owner pains → "Meet Miracurl Suite" reveal → 3 real app screens → CTA with demo QR → gold brand card. Renders in ~1 min, no AI images needed.</p>
+          )}
+          {mode === "tenant_promo" && (
+            <div className="mb-4 space-y-2" data-testid="promo-tenant-block">
+              <select value={tenantSlug} onChange={e => setTenantSlug(e.target.value)} data-testid="promo-tenant-select"
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 bg-white [&_option]:bg-white [&_option]:text-slate-800">
+                <option value="">Choose a salon / restaurant…</option>
+                {tenants.map(t => <option key={t.slug} value={t.slug}>{t.name} · {t.slug}</option>)}
+              </select>
+              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">Mira writes a script from THEIR real services & prices, paints 4 beautiful cinematic backgrounds, stamps THEIR logo, and closes with a Scan-to-book QR to their booking page — ready for their Instagram Reel or YouTube.</p>
+            </div>
           )}
           {mode === "feature_tour" && (
             <p className="text-[11px] text-slate-400 -mt-2 mb-3">Mira appears as the host, introduces herself in her own voice, and tours every feature — bookings, POS, CRM, Staff Verification Portal, AI marketing &amp; more. No photo needed.</p>
@@ -193,6 +218,7 @@ export const PromoVideoStudio = () => {
                 {videos.map(v => (
                   <div key={v.id} className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
                     <span className="text-xs text-slate-600 min-w-0 truncate">
+                      {v.tenant_name && <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold mr-2" data-testid="promo-video-tenant-badge">🏪 {v.tenant_name}</span>}
                       {(v.created_at || "").slice(0, 16).replace("T", " ")} · {v.size_mb} MB{v.duration_sec ? ` · made in ${Math.floor(v.duration_sec / 60)}m ${v.duration_sec % 60}s` : ""}
                     </span>
                     <div className="flex items-center gap-2 shrink-0">

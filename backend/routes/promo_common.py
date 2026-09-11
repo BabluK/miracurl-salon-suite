@@ -61,11 +61,11 @@ def stamp_monogram(img: Image.Image, opacity: float = 0.5) -> Image.Image:
     return base
 
 
-def stamp_tenant_logo(img: Image.Image, logo_bytes: bytes) -> Image.Image:
-    """Salon's own logo as a circular gold-ring medallion, bottom-right."""
+def stamp_tenant_logo(img: Image.Image, logo_bytes: bytes, pos: str = "bottom-right", scale: float = 0.14, pad_scale: float = 0.025) -> Image.Image:
+    """Salon's own logo as a circular gold-ring medallion (bottom-right by default, or top-right)."""
     import io
     from PIL import ImageDraw, ImageOps
-    size = max(80, int(img.width * 0.14))
+    size = max(80, int(img.width * scale))
     logo = Image.open(io.BytesIO(logo_bytes)).convert("RGBA")
     inner = int(size * 0.8)
     logo = ImageOps.contain(logo, (inner, inner), Image.LANCZOS)
@@ -74,8 +74,9 @@ def stamp_tenant_logo(img: Image.Image, logo_bytes: bytes) -> Image.Image:
     medal.alpha_composite(logo, ((size - logo.width) // 2, (size - logo.height) // 2))
     ImageDraw.Draw(medal).ellipse([1, 1, size - 2, size - 2], outline=(212, 175, 55, 255), width=max(3, size // 40))
     base = img.convert("RGBA")
-    pad = max(16, int(base.width * 0.025))
-    base.paste(medal, (base.width - size - pad, base.height - size - pad), medal)
+    pad = max(16, int(base.width * pad_scale))
+    y = pad if pos == "top-right" else base.height - size - pad
+    base.paste(medal, (base.width - size - pad, y), medal)
     return base
 
 

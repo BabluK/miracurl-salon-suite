@@ -3,6 +3,7 @@ today's bookings and staff highlights. Idempotent per day via salon_digest_log."
 import html as html_lib
 import logging
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends
 
@@ -12,23 +13,29 @@ from security import require_super_admin
 log = logging.getLogger("salon_digest")
 router = APIRouter()
 
-IST = timedelta(hours=5, minutes=30)
+
+def _tz(t: dict) -> ZoneInfo:
+    try:
+        return ZoneInfo(t.get("timezone") or "Asia/Kolkata")
+    except Exception:
+        return ZoneInfo("Asia/Kolkata")
 
 
-def _ist_now() -> datetime:
-    return datetime.now(timezone.utc) + IST
+def _local_now(t: dict) -> datetime:
+    return datetime.now(timezone.utc).astimezone(_tz(t))
 
 
-def _utc_window_for_ist_day(day) -> tuple:
-    start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc) - IST
+def _utc_window_for_local_day(day, tz: ZoneInfo) -> tuple:
+    start = datetime(day.year, day.month, day.day, tzinfo=tz).astimezone(timezone.utc)
     return start.isoformat(), (start + timedelta(days=1)).isoformat()
 
 
-async def _digest_data(tid: str) -> dict:
-    today = _ist_now().date()
+async def _digest_data(tid: str, t: dict | None = None) -> dict:
+    tz = _tz(t or {})
+    today = datetime.now(timezone.utc).astimezone(tz).date()
     yday = today - timedelta(days=1)
-    ys, ye = _utc_window_for_ist_day(yday)
-    ts, te = _utc_window_for_ist_day(today)
+    ys, ye = _utc_window_for_local_day(yday, tz)
+    ts, te = _utc_window_for_local_day(today, tz)
     invs = await _raw_db.invoices.find(
         {"tenant_id": tid, "created_at": {"$gte": ys, "$lt": ye}},
         {"_id": 0, "total": 1, "staff_name": 1, "items": 1}).to_list(500)
@@ -43,7 +50,7 @@ async def _digest_data(tid: str) -> dict:
             by_staff[i["staff_name"]] = by_staff.get(i["staff_name"], 0) + (i.get("total") or 0)
     top_staff = max(by_staff.items(), key=lambda kv: kv[1]) if by_staff else None
     lw = yday - timedelta(days=7)
-    ls, le = _utc_window_for_ist_day(lw)
+    ls, le = _utc_window_for_local_day(lw, tz)
     lw_invs = await _raw_db.invoices.find(
         {"tenant_id": tid, "created_at": {"$gte": ls, "$lt": le}}, {"_id": 0, "total": 1}).to_list(500)
     lw_revenue = sum(i.get("total") or 0 for i in lw_invs)
@@ -77,7 +84,7 @@ def _digest_html(t: dict, d: dict) -> str:
     for a in d["t_appts"][:12]:
         hhmm = ""
         try:
-            hhmm = (datetime.fromisoformat(a["scheduled_at"].replace("Z", "+00:00")) + IST).strftime("%I:%M %p")
+            hhmm = datetime.fromisoformat(a["scheduled_at"].replace("Z", "+00:00")).astimezone(_tz(t)).strftime("%I:%M %p")
         except Exception:
             pass
         svcs = ", ".join((a.get("service_names") or [])[:2])
@@ -112,13 +119,16 @@ def _digest_html(t: dict, d: dict) -> str:
 
 
 async def send_salon_daily_digests(force: bool = False) -> int:
-    """Send once per tenant per IST day. Returns number sent."""
-    today = str(_ist_now().date())
+    """Send once per tenant per LOCAL day, between 8 AM and noon in the tenant's own timezone. Returns number sent."""
     sent = 0
     async for t in _raw_db.tenants.find(
             {"status": {"$ne": "suspended"}}, {"_id": 0}):
         to = t.get("owner_email") or t.get("salon_email")
         if not to:
+            continue
+        local = _local_now(t)
+        today = str(local.date())
+        if not force and not (8 <= local.hour < 12):
             continue
         already = await _raw_db.salon_digest_log.find_one({"tenant_id": t["id"], "date": today})
         if already and not force:
@@ -131,7 +141,7 @@ async def send_salon_daily_digests(force: bool = False) -> int:
                           "at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
             continue
         try:
-            d = await _digest_data(t["id"])
+            d = await _digest_data(t["id"], t)
             from email_service import _send_email
             res = await _send_email(
                 [to], f"☀️ {t.get('name')} — your morning digest ({today})", _digest_html(t, d))

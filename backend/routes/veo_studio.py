@@ -14,12 +14,13 @@ import subprocess
 import time as _time
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from pydantic import BaseModel, Field
 
 from database import _raw_db
 from security import require_super_admin
-from services.storage import _put_object
+from services.storage import _put_object, _get_object, validate_image_bytes
+from services.veo_brand import get_brand_contacts, brand_finish
 
 router = APIRouter()
 log = logging.getLogger("veo_studio")
@@ -45,11 +46,63 @@ def _ffmpeg() -> str:
     return imageio_ffmpeg.get_ffmpeg_exe()
 
 
+DURATION_SCENES = {16: 2, 30: 4, 40: 5, 60: 8}  # Veo films 8-second scenes; +4s branded end card
+
+
 class VeoAdIn(BaseModel):
     concept: str = Field("Full Miracurl Salon Suite ad — online booking, WhatsApp automation, staff payroll, GST billing and the 12-agent AI team, for Indian salon owners", max_length=600)
-    scenes: int = Field(2, ge=1, le=4)
+    scenes: int = Field(2, ge=1, le=8)
+    duration: int | None = None  # 30 | 40 | 60 → overrides scenes
     aspect_ratio: str = Field("9:16", pattern=r"^(9:16|16:9)$")
-    mode: str = Field("cinematic", pattern=r"^(cinematic|avatar)$")
+    mode: str = Field("cinematic", pattern=r"^(cinematic|photo)$")
+    photo_id: str | None = None  # uploaded reference photo (founder / brand) → image-to-video
+    brand_card: bool = True
+
+
+class BrandContactsIn(BaseModel):
+    phone: str = Field("", max_length=40)
+    instagram: str = Field("", max_length=60)
+    email: str = Field("", max_length=120)
+    website: str = Field("", max_length=120)
+    tagline: str = Field("", max_length=80)
+
+
+@router.get("/super/brand-contacts")
+async def brand_contacts_get(admin=Depends(require_super_admin)):
+    return await get_brand_contacts()
+
+
+@router.put("/super/brand-contacts")
+async def brand_contacts_put(body: BrandContactsIn, admin=Depends(require_super_admin)):
+    vals = {k: v.strip() for k, v in body.model_dump().items()}
+    if vals.get("instagram") and not vals["instagram"].startswith("@"):
+        vals["instagram"] = "@" + vals["instagram"].lstrip("@")
+    keep = {k: v for k, v in vals.items() if v}
+    drop = {k: "" for k, v in vals.items() if not v}
+    update = {"$set": {"key": "brand_contacts", **keep}}
+    if drop:
+        update["$unset"] = drop
+    await _raw_db.hq_settings.update_one({"key": "brand_contacts"}, update, upsert=True)
+    return await get_brand_contacts()
+
+
+@router.post("/super/veo-ad/photo")
+async def veo_photo_upload(file: UploadFile = File(...), admin=Depends(require_super_admin)):
+    data = await file.read()
+    if len(data) > 8 * 1024 * 1024:
+        raise HTTPException(400, "Photo must be under 8 MB")
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower()
+    if ext not in ("png", "jpg", "jpeg", "webp"):
+        raise HTTPException(400, "Upload a PNG, JPG or WebP photo")
+    validate_image_bytes(ext, data)
+    fid = str(uuid.uuid4())
+    path = f"{APP_NAME}/superadmin/veo-photos/{fid}.{ext}"
+    result = await asyncio.to_thread(_put_object, path, data, f"image/{'jpeg' if ext in ('jpg', 'jpeg') else ext}")
+    await _raw_db.uploads.insert_one({
+        "id": fid, "tenant_id": "superadmin", "kind": "veo_photo", "storage_path": result.get("path", path),
+        "original_filename": file.filename, "content_type": file.content_type, "size": len(data),
+        "uploaded_by": "veo_studio", "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()})
+    return {"photo_id": fid, "url": f"/api/files/{fid}"}
 
 
 AVATAR_PATH = "/app/frontend/public/assets/mira-avatar.png"
@@ -88,10 +141,17 @@ async def create_veo_ad(body: VeoAdIn, admin=Depends(require_super_admin)):
                                              {"$set": {"status": "failed", "error": STALE_MSG}})
         else:
             raise HTTPException(409, "A Veo ad is already rendering — wait for it to finish.")
+    if body.duration:
+        if body.duration not in DURATION_SCENES:
+            raise HTTPException(400, "Duration must be 30, 40 or 60 seconds")
+        body.scenes = DURATION_SCENES[body.duration]
+    if body.photo_id and not await _raw_db.uploads.find_one({"id": body.photo_id, "kind": "veo_photo"}):
+        raise HTTPException(404, "Uploaded photo not found — please upload it again")
     job_id = str(uuid.uuid4())
     await _raw_db.veo_ads.insert_one({
         "id": job_id, "status": "generating", "progress": "Mira is writing the cinematic script…",
         "concept": body.concept, "scenes": body.scenes, "aspect_ratio": body.aspect_ratio, "mode": body.mode,
+        "duration": body.duration, "photo_id": body.photo_id, "brand_card": body.brand_card,
         "video_url": "", "error": "", "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     })
@@ -155,6 +215,17 @@ async def _write_script(body: VeoAdIn) -> list:
             "Final scene's line ends with a call to action mentioning miracurl hyphen suite dot com. "
             'Return JSON: {"scenes": [{"visual": "<her gesture/motion + camera move + lighting — plain text, '
             'no quotation marks>", "line": "<the exact words she speaks — no quotation marks>"}]}')
+    elif body.mode == "photo":
+        system = (
+            "You are a video ad director writing Veo 3.1 IMAGE-TO-VIDEO prompts. A reference photo (the founder / "
+            "brand of 'Miracurl Suite' salon software) is supplied for EVERY scene — keep that exact person/brand "
+            "look consistent, in premium Indian salon settings, warm golden lighting, cinematic camera motion.")
+        task = (
+            f"Ad concept: {body.concept}\n"
+            f"Write exactly {body.scenes} scenes for consecutive 8-second clips forming ONE flowing ad. Each scene: what "
+            "the person in the reference photo does + camera move, and one short spoken voiceover line (Indian-English, "
+            "~18 words) continuing the story; final line ends with a call to action mentioning miracurl hyphen suite dot com. "
+            'Return JSON: {"scenes": [{"visual": "<plain text, no quotation marks>", "line": "<spoken words, no quotation marks>"}]}')
     else:
         system = (
             "You are a world-class video ad director writing Veo 3.1 prompts. Each scene needs a rich cinematic "
@@ -241,17 +312,37 @@ async def _generate(job_id: str, body: VeoAdIn):
     def _beat():
         asyncio.run_coroutine_threadsafe(_touch(), loop)
     try:
+        photo_path = None
+        if body.photo_id:
+            up = await _raw_db.uploads.find_one({"id": body.photo_id, "kind": "veo_photo"})
+            if up:
+                data, _ct = await asyncio.to_thread(_get_object, up["storage_path"])
+                photo_path = os.path.join(tmp, "ref.png")
+                with open(photo_path, "wb") as f:
+                    f.write(data)
         scenes = await _write_script(body)
         await _raw_db.veo_ads.update_one({"id": job_id}, {"$set": {"script": scenes}})
         clip_paths = []
         for i, prompt in enumerate(scenes, 1):
             await _progress(job_id, f"🎬 Veo is filming scene {i} of {len(scenes)} (~1-3 min per scene)…")
             path = os.path.join(tmp, f"scene{i}.mp4")
-            await asyncio.to_thread(_render_scene, prompt, body.aspect_ratio, path, None, _beat)
+            # reference photo drives every scene in photo mode, the opening scene otherwise
+            ref = photo_path if (body.mode == "photo" or i == 1) else None
+            await asyncio.to_thread(_render_scene, prompt, body.aspect_ratio, path, ref, _beat)
             clip_paths.append(path)
         await _progress(job_id, "🎞️ Stitching scenes into the final ad…")
-        final = os.path.join(tmp, "final.mp4")
-        await asyncio.to_thread(_concat_clips, clip_paths, final)
+        stitched = os.path.join(tmp, "stitched.mp4")
+        await asyncio.to_thread(_concat_clips, clip_paths, stitched)
+        final, extra = stitched, 0
+        if body.brand_card:
+            await _progress(job_id, "✨ Adding the Miracurl Suite watermark and brand end card…")
+            try:
+                contacts = await get_brand_contacts()
+                final = os.path.join(tmp, "final.mp4")
+                extra = await asyncio.to_thread(brand_finish, stitched, final, tmp, contacts)
+            except Exception as e:  # never lose a paid render because of the overlay pass
+                log.error("brand finish failed, shipping unbranded: %s", e)
+                final, extra = stitched, 0
         await _progress(job_id, "☁️ Uploading the final ad to your gallery…")
         video_bytes = await asyncio.to_thread(lambda: open(final, "rb").read())
         fid = str(uuid.uuid4())
@@ -266,7 +357,7 @@ async def _generate(job_id: str, body: VeoAdIn):
         await _raw_db.veo_ads.update_one({"id": job_id}, {"$set": {
             "status": "done", "progress": "Ready!", "video_url": f"/api/files/{fid}",
             "size_mb": round(len(video_bytes) / 1048576, 1),
-            "duration_sec": len(scenes) * 8}})
+            "duration_sec": len(scenes) * 8 + extra, "branded": extra > 0}})
     except Exception as e:
         log.exception("veo ad failed")
         msg = str(e)

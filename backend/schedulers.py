@@ -433,11 +433,9 @@ async def _salon_digest_scheduler() -> None:
         return
     while True:
         try:
-            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
-            if 8 <= ist_now.hour < 12:
-                n = await send_salon_daily_digests()
-                if n:
-                    logging.info(f"salon daily digests sent: {n}")
+            n = await send_salon_daily_digests()  # per-tenant local 8 AM–noon window (tenant.timezone)
+            if n:
+                logging.info(f"salon daily digests sent: {n}")
         except Exception as e:
             logging.error(f"salon digest scheduler error: {e}")
         await asyncio.sleep(900)
