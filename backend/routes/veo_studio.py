@@ -103,10 +103,11 @@ async def veo_photo_upload(file: UploadFile = File(...), admin=Depends(require_s
     validate_image_bytes(ext, data)
     fid = str(uuid.uuid4())
     path = f"{APP_NAME}/superadmin/veo-photos/{fid}.{ext}"
-    result = await asyncio.to_thread(_put_object, path, data, f"image/{'jpeg' if ext in ('jpg', 'jpeg') else ext}")
+    mime = f"image/{'jpeg' if ext in ('jpg', 'jpeg') else ext}"
+    result = await asyncio.to_thread(_put_object, path, data, mime)
     await _raw_db.uploads.insert_one({
         "id": fid, "tenant_id": "superadmin", "kind": "veo_photo", "storage_path": result.get("path", path),
-        "original_filename": file.filename, "content_type": file.content_type, "size": len(data),
+        "original_filename": file.filename, "content_type": mime, "size": len(data),
         "uploaded_by": "veo_studio", "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()})
     return {"photo_id": fid, "url": f"/api/files/{fid}"}
 

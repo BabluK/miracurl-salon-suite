@@ -10,7 +10,7 @@ import uuid
 import asyncio
 import logging
 from urllib.parse import urlencode
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import httpx
 from fastapi import APIRouter, HTTPException, Depends, Request
@@ -97,15 +97,19 @@ async def _conn(tid: str) -> dict:
 
 async def _new_state(tid: str, provider: str) -> str:
     state = uuid.uuid4().hex
+    now = datetime.now(timezone.utc)
     await _raw_db.oauth_states.insert_one({
         "state": state, "tenant_id": tid, "provider": provider,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": now.isoformat(), "expires_at": (now + timedelta(minutes=15)).isoformat(),
     })
     return state
 
 
 async def _pop_state(state: str, provider: str) -> dict | None:
-    return await _raw_db.oauth_states.find_one_and_delete({"state": state, "provider": provider})
+    doc = await _raw_db.oauth_states.find_one_and_delete({"state": state, "provider": provider})
+    if doc and doc.get("expires_at") and doc["expires_at"] < datetime.now(timezone.utc).isoformat():
+        return None
+    return doc
 
 
 # ── Status ──────────────────────────────────────────────────────────────────

@@ -3006,3 +3006,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Frontend `ColorTryOn.jsx`: new `gender` step after scan/skip — "Looks like you're a gentleman — is that right?" (AI guess pre-highlighted) → Gentleman/Lady. Results: men → "Popular for men" + "More shades"; women → "Shades for women". `color-change-gender` link.
 - Verified with a real bearded selfie (beard stayed dark, hair copper front & back). Manual script: backend/tests/test_hair_beard_manual.py (costs Gemini credits).
 - Next: Advance/deposit booking (P1), Guest Bill Split (P1). Veo promo job still blocked on Google quota.
+
+## 2026-09-11 (late 3) — Security audit #2: FAIL → fixed → PASS
+- SEC-001 (HIGH): public try-on endpoints (/pick, /preview, /share-card, /face-check) now use `public_rate_limit` per-IP + `global_daily_cap` (preview 300/day, face 600, share 1000, pick 2000) + `_PREVIEW_SEM` Semaphore(4) concurrency guard.
+- SEC-002 (MED): `/api/files/{id}` serves extension-derived allowlisted media type (`_safe_media_type`), `X-Content-Type-Options: nosniff`, attachment for svg/octet-stream; color-result & veo uploads persist server-derived mime.
+- Hardening: PIL MAX_IMAGE_PIXELS in share-card; oauth_states `expires_at` 15 min checked in `_pop_state`.
+- Re-audit verdict: PASS. Housekeeping nit: no TTL index on oauth_states.

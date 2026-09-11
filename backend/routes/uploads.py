@@ -152,6 +152,16 @@ def _resize_webp(data: bytes, w: int) -> bytes:
     return buf.getvalue()
 
 
+_SAFE_TYPES = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp", "gif": "image/gif",
+               "svg": "image/svg+xml", "mp4": "video/mp4", "webm": "video/webm", "pdf": "application/pdf"}
+
+
+def _safe_media_type(rec: dict, fallback: str) -> str:
+    """Never trust the stored/client content-type: derive from the storage extension (SEC-002)."""
+    ext = (rec.get("storage_path") or "").rsplit(".", 1)[-1].lower()
+    return _SAFE_TYPES.get(ext) or ("application/octet-stream" if not (fallback or "").startswith(("image/", "video/")) else fallback)
+
+
 @router.get("/files/{file_id}")
 async def download_file(file_id: str, w: Optional[int] = Query(None, ge=16, le=2000)):
     """Serve an uploaded image. Public by design — anyone with the URL can view
@@ -161,7 +171,7 @@ async def download_file(file_id: str, w: Optional[int] = Query(None, ge=16, le=2
     rec = await _raw_db.uploads.find_one({"id": file_id, "is_deleted": False})
     if not rec:
         raise HTTPException(404, "File not found")
-    _headers = {"Cache-Control": "public, max-age=31536000, immutable"}
+    _headers = {"Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff"}
     if w:
         w = min(_THUMB_WIDTHS, key=lambda x: abs(x - w))
         variant_path = f"{rec['storage_path']}.w{w}.webp"
@@ -183,7 +193,10 @@ async def download_file(file_id: str, w: Optional[int] = Query(None, ge=16, le=2
         data, ct = await asyncio.to_thread(_get_object, rec["storage_path"])
     except requests.HTTPError as e:
         raise HTTPException(400, f"Storage fetch failed: {e}") from e
-    return Response(content=data, media_type=rec.get("content_type", ct), headers=_headers)
+    mt = _safe_media_type(rec, ct)
+    if mt in ("image/svg+xml", "application/octet-stream"):
+        _headers["Content-Disposition"] = "attachment"
+    return Response(content=data, media_type=mt, headers=_headers)
 
 
 _PROXY_HOSTS = ("static.prod-images.emergentagent.com", "customer-assets.emergentagent.com",

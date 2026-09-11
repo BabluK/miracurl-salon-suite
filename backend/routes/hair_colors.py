@@ -11,12 +11,12 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Depends, Response, UploadFile, File
+from fastapi import APIRouter, HTTPException, Depends, Response, UploadFile, File, Request
 from pydantic import BaseModel, Field
 from PIL import Image, ImageDraw
 
 from database import _raw_db
-from security import require_tenant_admin, current_tenant, require_super_admin
+from security import require_tenant_admin, current_tenant, require_super_admin, public_rate_limit, global_daily_cap
 from schemas import resolve_tenant_from_slug
 from services.tenant_notices import notify_tenant
 
@@ -198,7 +198,9 @@ class ColorPickIn(BaseModel):
 
 
 @router.post("/public/color/{slug}/pick")
-async def public_color_pick(slug: str, body: ColorPickIn):
+async def public_color_pick(slug: str, body: ColorPickIn, request: Request):
+    await public_rate_limit(request, "color-pick", limit=10, window_sec=600)
+    await global_daily_cap("color-pick", 2000)
     t = await resolve_tenant_from_slug(slug)
     c = await _lookup(t["id"], body.color_id)
     if not c:
@@ -338,9 +340,16 @@ async def _recolor(selfie_b64: str, prompt: str) -> str | None:
     return images[0]["data"] if images else None
 
 
+_PREVIEW_SEM = asyncio.Semaphore(4)  # max in-flight Gemini try-ons platform-wide
+
+
 @router.post("/public/color/{slug}/preview")
-async def public_color_preview(slug: str, body: PreviewIn):
+async def public_color_preview(slug: str, body: PreviewIn, request: Request):
     """AI try-on: the guest's selfie with the chosen shade — front view + back view. Nothing is stored."""
+    await public_rate_limit(request, "color-preview", limit=6, window_sec=600)
+    await global_daily_cap("color-preview", 300, "Today's try-on limit has been reached — please try again tomorrow.")
+    if _PREVIEW_SEM.locked():
+        raise HTTPException(429, "The colour studio is busy right now — please try again in a minute")
     t = await resolve_tenant_from_slug(slug)
     c = await _lookup(t["id"], body.color_id)
     if not c:
@@ -361,10 +370,11 @@ async def public_color_preview(slug: str, body: PreviewIn):
             f"visible in this photo — same hue, same depth, exact tones {swatch}; do not shift it warmer, cooler, lighter or darker. "
             f"{subject} Soft salon lighting, plain neutral background. No text, no watermark.")
     try:
-        f_img = await asyncio.wait_for(_recolor(b64, front), timeout=90)
-        if not f_img:
-            raise HTTPException(502, "Couldn't render the preview — try a brighter, front-facing selfie")
-        b_img = await asyncio.wait_for(_recolor(f_img, back), timeout=90)  # back view is derived from the coloured front
+        async with _PREVIEW_SEM:
+            f_img = await asyncio.wait_for(_recolor(b64, front), timeout=90)
+            if not f_img:
+                raise HTTPException(502, "Couldn't render the preview — try a brighter, front-facing selfie")
+            b_img = await asyncio.wait_for(_recolor(f_img, back), timeout=90)  # back view is derived from the coloured front
     except HTTPException:
         raise
     except Exception as e:
@@ -399,8 +409,10 @@ class ShareIn(BaseModel):
 
 
 @router.post("/public/color/{slug}/share-card")
-async def public_share_card(slug: str, body: ShareIn):
+async def public_share_card(slug: str, body: ShareIn, request: Request):
     """Compose a 1080x1350 share image (nothing stored): both views, shade name, salon logo, booking QR."""
+    await public_rate_limit(request, "color-share", limit=10, window_sec=600)
+    await global_daily_cap("color-share", 1000)
     import os
     import qrcode
     from PIL import ImageOps
@@ -411,6 +423,7 @@ async def public_share_card(slug: str, body: ShareIn):
     if not c:
         raise HTTPException(404, "Unknown colour")
     try:
+        Image.MAX_IMAGE_PIXELS = 40_000_000  # pixel-bomb guard
         front = Image.open(io.BytesIO(base64.b64decode(body.front_b64.split(",", 1)[-1]))).convert("RGB")
         back = Image.open(io.BytesIO(base64.b64decode(body.back_b64.split(",", 1)[-1]))).convert("RGB") if body.back_b64 else None
     except Exception:
@@ -555,9 +568,10 @@ async def upload_color_result(appt_id: str, which: str = "front", consent: bool 
                                   else "This doesn't look like the back of the head / hair") + (f" — {reason}" if reason else "") + ". Please retake.")
     fid = str(uuid.uuid4())
     path = f"{APP_NAME}/{t['id']}/color-results/{appt_id}-{which}.{ext}"
-    res = await asyncio.to_thread(_put_object, path, data, f"image/{'jpeg' if ext in ('jpg', 'jpeg') else ext}")
+    mime = f"image/{'jpeg' if ext in ('jpg', 'jpeg') else ext}"
+    res = await asyncio.to_thread(_put_object, path, data, mime)
     await _raw_db.uploads.insert_one({"id": fid, "tenant_id": t["id"], "kind": "color_result", "storage_path": res.get("path", path),
-                                      "original_filename": file.filename, "content_type": file.content_type, "size": len(data),
+                                      "original_filename": file.filename, "content_type": mime, "size": len(data),
                                       "uploaded_by": admin.get("id"), "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat()})
     url = f"/api/files/{fid}"
     await _raw_db.appointments.update_one({"tenant_id": t["id"], "id": appt_id},
@@ -638,8 +652,10 @@ class FaceCheckIn(BaseModel):
 
 
 @router.post("/public/color/{slug}/face-check")
-async def public_face_check(slug: str, body: FaceCheckIn):
+async def public_face_check(slug: str, body: FaceCheckIn, request: Request):
     """Is there really a face in the capture? Returns a presentation hint (man/woman/unclear) for shade suggestions. Nothing stored."""
+    await public_rate_limit(request, "color-face", limit=10, window_sec=600)
+    await global_daily_cap("color-face", 600)
     from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
     from routes.mira_common import _key
     await resolve_tenant_from_slug(slug)
