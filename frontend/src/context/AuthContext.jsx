@@ -137,6 +137,10 @@ export function AuthProvider({ children }) {
     try {
       const { data } = await api.get("/auth/me");
       setUser(data);
+      if (data.role !== "super_admin") {  // branch switch: re-brand the shell (sidebar name/location, nav, logo) without a reload
+        const t = await fetchCurrentTenant();
+        if (t) { setTenant(t); persistTenant(t); }
+      }
       return data;
     } catch (e) {
       log.warn("[auth] refresh failed:", e?.message || e);

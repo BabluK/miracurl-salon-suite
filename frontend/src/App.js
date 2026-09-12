@@ -221,6 +221,12 @@ function ContentGuard() {
   return null;
 }
 
+// Remount the whole page tree when the active salon changes → branch switch is an instant SPA swap, no full reload.
+function TenantKeyedRoutes({ children }) {
+  const { user } = useAuth();
+  return <Routes key={user?.tenant_id || user?.active_tenant_id || "anon"}>{children}</Routes>;
+}
+
 export default function App() {
   return (
     <div className="App">
@@ -236,7 +242,7 @@ export default function App() {
           <ErrorBoundary>
           <PlayerProvider>
           <Suspense fallback={<PageLoader />}>
-          <Routes>
+          <TenantKeyedRoutes>
             <Route path="/book/:slug" element={<BookPublic />} />
             <Route path="/rewards/:slug" element={<RewardsCampaign />} />
             <Route path="/color/:slug" element={<ColorTryOn />} />
@@ -317,7 +323,7 @@ export default function App() {
             <Route path="/jobs" element={<JobsBoard />} />
             <Route path="/candidate/:token" element={<CandidateProfile />} />
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          </TenantKeyedRoutes>
           </Suspense>
           </PlayerProvider>
           </ErrorBoundary>

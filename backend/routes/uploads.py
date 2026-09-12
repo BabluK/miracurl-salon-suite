@@ -112,7 +112,8 @@ def _fit_logo(data: bytes) -> bytes:
     from PIL import Image as PILImage
     import numpy as np
     PILImage.MAX_IMAGE_PIXELS = 40_000_000
-    im = PILImage.open(io.BytesIO(data)).convert("RGBA")
+    from PIL import ImageOps as _IO
+    im = _IO.exif_transpose(PILImage.open(io.BytesIO(data))).convert("RGBA")
     a = np.asarray(im).astype(np.float64) / 255.0
     rgb, orig_alpha = a[..., :3], a[..., 3]
     c = 12
@@ -142,7 +143,8 @@ _THUMB_WIDTHS = (160, 320, 480, 640, 960)
 def _resize_webp(data: bytes, w: int) -> bytes:
     from PIL import Image as _PILImage
     _PILImage.MAX_IMAGE_PIXELS = 40_000_000  # pixel-bomb guard
-    im = _PILImage.open(io.BytesIO(data))
+    from PIL import ImageOps as _ImageOps
+    im = _ImageOps.exif_transpose(_PILImage.open(io.BytesIO(data)))  # honour phone EXIF rotation (portrait shots no longer turn sideways)
     if im.width > w:
         im = im.resize((w, int(im.height * w / im.width)), _PILImage.LANCZOS)
     if im.mode not in ("RGB", "RGBA"):

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import api, { formatApiError } from "@/lib/api";
+import pinApi from "@/lib/ownerPin";
 import { toast } from "sonner";
 import { Clock, Check, X, Pencil, Loader2, RotateCcw } from "lucide-react";
 
@@ -23,7 +24,7 @@ export function OvertimeApprovals({ onChanged }) {
     setBusy(rec.id + action);
     try {
       const hours = edit[rec.id] !== undefined && edit[rec.id] !== "" ? Number(edit[rec.id]) : undefined;
-      await api.post(`/attendance/${rec.id}/overtime-review`, { action, ...(action === "approve" && hours !== undefined ? { hours } : {}) });
+      await pinApi.post(`/attendance/${rec.id}/overtime-review`, { action, ...(action === "approve" && hours !== undefined ? { hours } : {}) });
       toast.success(action === "approve" ? `Overtime approved${hours !== undefined ? ` at ${hours}h` : ""} for ${rec.staff_name}` : action === "reject" ? "Overtime rejected" : "Sent back to pending");
       setEdit(e => { const n = { ...e }; delete n[rec.id]; return n; });
       await load(); onChanged?.();

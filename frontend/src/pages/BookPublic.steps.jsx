@@ -180,7 +180,7 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, cat
                     onClick={() => onToggle(s.id)}
                     className={`w-full text-left flex items-center gap-3 px-4 sm:px-5 py-3.5 transition-colors ${on ? "bg-gold/10" : "hover:bg-white/[0.04]"}`}
                   >
-                    {s.image_url && (
+                    {restaurant && s.image_url && (
                       <span
                         role="button" tabIndex={0}
                         data-testid={`dish-photo-thumb-${s.id}`}
@@ -190,6 +190,11 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, cat
                       >
                         <img src={thumbUrl(s.image_url, 160)} alt={s.name} loading="lazy"
                           className="w-12 h-12 rounded-xl object-cover ring-1 ring-white/15" />
+                      </span>
+                    )}
+                    {!restaurant && (
+                      <span aria-hidden className="shrink-0 w-9 h-9 rounded-full border border-gold/40 bg-gold/10 flex items-center justify-center text-gold text-[11px] font-semibold tracking-wide">
+                        {(s.name || "?").trim().slice(0, 1).toUpperCase()}
                       </span>
                     )}
                     <div className="flex-1 min-w-0">

@@ -3096,3 +3096,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Manager role can now use colour ops (require_admin): catalogue, guide, poster, formula/price, result upload, reel, picks list, CRM colour history. Admin-only: custom shades, links, price override, auto-services.
 - Public pick with a valid mobile → CRM customer upsert (`_crm_customer_for_pick`: new → crm_status pending, tags ["Colour Try-On"], source colour_tryon; existing → tag added); pick stores customer_id. "Recent picks" list removed from Settings (CRM note instead).
 - Settings poster panel compact on mobile (120px poster, no min-height). Auth/route loading now shows the same PageLoader as Suspense (continuous spinner instead of blank→spinner "double refresh" feel on login / branch switch).
+
+## 2026-09-12 (n) — Production readiness pass (BUILD 2026-09-12.262)
+- Branch switch = SPA: SalonSwitcher → switch-salon → queryClient.clear() → AuthContext.refresh() (now also re-fetches tenant → sidebar re-brand) → navigate; App.js `TenantKeyedRoutes` remounts page tree on user.tenant_id. Measured ~1 s, no reload. Route/auth loading uses PageLoader (no blank flash).
+- Booking page: salon service rows show monogram (no per-service thumbnails; only category banners) → fewer image requests; restaurants keep dish thumbs. uploads.py applies EXIF transpose on resize + watermark paths (portrait uploads no longer rotate).
+- Hardening from audit #3 (PASS): OT review requires owner PIN (frontend uses pinApi); per-tenant pick cap 300/day; ColorPickIn name/phone patterns (422 on markup).
+- Deployment check: CORS list kept (cookie auth needs explicit origins) + `allow_origin_regex` for *.emergent.host / *.emergentagent.com. All dashboard APIs 60–80 ms. Regression iteration_152: 25/25 backend + FE flows pass.

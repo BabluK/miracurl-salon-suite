@@ -1,0 +1,24 @@
+{
+  "summary": "Iter152 pre-production regression: 25/25 backend tests pass and full FE flows (SPA branch switch + public colour try-on mobile flow) work end-to-end. Backend smoke — /api/auth/me, /api/reports/dashboard, /api/appointments?upcoming=true, /api/staff, /api/services, /api/customers, /api/products (Note: /api/inventory is 404 — inventory endpoint is /api/products), /api/invoices, /api/whats-new — all 200 with response times 68-84ms (well under 500ms). /api/whats-new contains build 2026-09-12.260. Public colour: GET /public/color/miracurl-marathahalli returns 40+ colours (each with tier/description/level/price on non-custom cards) and 16 men_colors; /trending 200; POST /pick with color_id=men-burgundy returns pick code; POST /public/book/{slug} with color_code (pick code) and empty service_ids returns 200 with appointment.service_names containing 'Burgundy Colour' and booked_via='/book/miracurl-marathahalli'; owner PATCH /appointments/{id}/color-formula {formula, price:1299} updates total to 1299; cleanup DELETE 200. Manager: /hair-colors 200, /hair-colors/dark-brown/guide 200, /color-picks?limit=3 200, POST /hair-colors/auto-services → 403. Payroll: owner /attendance/overtime?status=all 200; staff /staff/me/target-progress 200 with has_target=true and monthly_target=50000; /staff/me/salary-slip?month=2026-09 200 with commission_withheld field present. /colour-price-reminder/preview 200 with {count, appointments, recipients}. FRONTEND desktop 1400x900: login→dashboard in 354ms; salon-switcher-btn → salon-option-miracurl-whitefield → header 'Miracurl Whitefield2' and sidebar both show Whitefield, window.__x=1 sentinel PERSISTED (no full reload), switch completed in 842ms; switched back to Marathahalli OK; no PIN modal appeared during switch. FRONTEND mobile 420x900 public /color/miracurl-marathahalli: skip-camera → gender screen visible → men → color-section-professional-shades-for-men with 16 cards, no women/custom section, 16/16 images loaded (naturalWidth>0); pick men-burgundy → submit without name shows color-pick-name-hint; fill name+phone → submit → color-book-btn → book-color-banner visible → book-color-continue → stylist step visible.",
+  "backend_issues": {"critical": [], "minor": [
+    {"endpoint": "/api/inventory", "issue": "Returns 404 — canonical route is /api/products (spec allowed either); worth aliasing /api/inventory → /api/products for backward compatibility if any legacy caller exists"}
+  ]},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": [
+    {"screen": "Dashboard header salon switcher", "issues": ["Header switcher text shows 'Miracurl Whitefield2' (numeric suffix '2' likely a badge indicator glued to the name without a space) — cosmetic; sidebar label is 'MIRACURL UNISEX FAMILY SALON / MARATHAHALLI' which is correct"]}
+  ]},
+  "test_report_links": ["/app/backend/tests/test_iter152_regression.py", "/app/test_reports/pytest/iter152.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "public_site.py public_book response has service_names in TWO places — response.summary.service_names is derived only from services list (empty for colour-only booking) while response.appointment.service_names has the correct '<Shade> Colour' label. FE/consumers should read appointment.service_names; consider syncing summary.service_names or documenting.",
+    "PublicBookingIn.color_code max_length=8 is intentional (pick code), not the color_id — worth adding a docstring note; guests calling with raw color_id (e.g., 'men-burgundy') get a confusing 422.",
+    "public_site.py is very large — consider splitting book/availability/coupons into a public_book.py module.",
+    "/api/inventory returning 404 while /api/products works is a discovery hazard for integrators; add an alias or 301 redirect."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter152_regression.py"],
+  "success_rate": {"backend": "100% (25/25)", "frontend": "100%"},
+  "test_credentials": "admin@miracurl.com/q6QY@tn3p#9DtL (slug miracurl-marathahalli, PIN 4321); manager@miracurl.com/Manager@1234; priya.staff@miracurl.com/Staff@5678",
+  "seed_data_creation": "Created & then deleted 1 test appointment for phone 9000000123 via public book + owner DELETE. Left color_picks docs for 9000000123 and 9000000124 in color_picks collection (small, harmless).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Public colour-only booking uses the SHORT pick code (max_length=8, returned by POST /public/color/{slug}/pick) as color_code — NOT the color_id. Test file test_iter152_regression.py demonstrates the two-step flow. Response service_names lives at appointment.service_names, not top-level or summary. All perf under 500ms (max 128ms on public catalog). SPA branch switch works without reload; header label carries a numeric badge suffix that visually reads glued to the salon name."
+}

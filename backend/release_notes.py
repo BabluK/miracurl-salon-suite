@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-12.260"
-BUILD_TIME = "12 Sep 2026, 11:45 AM IST"
+BUILD = "2026-09-12.262"
+BUILD_TIME = "12 Sep 2026, 05:15 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-12.262", "note": "Branch switch is now an instant in-app swap (no reload) with sidebar re-brand; booking page uses category banners only (no per-service thumbnails, EXIF-rotation fix on uploads); colour picks land in CRM; manager access to colour tools; colour-price morning reminder; booked_via trace; OT approval owner-PIN gated; per-salon pick cap; CORS accepts *.emergent.host; security audit #3 PASS; regression iter152 25/25"},
     {"build": "2026-09-12.260", "note": "Colour Studio: men's catalogue (16) + 40 women's shades with photos, gender confirm step, beard-safe try-on, split front/back preview (~8s), upload-a-selfie, full-screen preview; Pro formula guide (Igora/Majirel/Koleston/SoColor, vol, ratio); shade tiers + auto colour services + per-shade quotes; colour-only booking → stylist step; staff price on colour card. Payroll: 15h auto-checkout, per-minute OT with owner approval queue, target-gated commission, ₹-to-target nudge. Security audit #2 PASS"},
     {"build": "2026-09-12.248", "note": "PERF: Dashboard/Appointments chunks pre-warmed on /login (login→dashboard 1.3s), dashboard skeleton; public/assets images re-encoded ≤1600px (64.9→~26MB imgs), 9 unreferenced PNGs removed (backup in /app/memory/assets_removed); face-check on try-on capture (face + man/woman + hair length hint)"},
     {"build": "2026-09-12.247", "note": "PERF: App.js code-splitting — 66 pages React.lazy + Suspense (PageLoader); initial JS 4.4MB/1146KB gz → 848KB/246KB gz (-78%). Front/back result photos + vision check on colour reels"},
@@ -74,6 +75,7 @@ RELEASES = [
             "⏱️ Attendance: shifts auto-close after 15 h (late finishes keep their overtime); overtime is calculated per minute and waits in the owner's Overtime approvals queue before payroll",
             "🎯 Commission % is paid only in months the target is reached; stylists see a live '₹ to target' bar in their portal",
             "🔐 Security audit passed — public try-on endpoints rate-limited, file serving hardened",
+            "⚡ Switching between your salons is now instant — no page reload; booking page loads lighter with category banners only",
         ],
     },
     {

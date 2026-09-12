@@ -467,7 +467,7 @@ async def list_overtime(month: Optional[str] = None, status: str = "pending", us
 
 
 @router.post("/attendance/{rec_id}/overtime-review")
-async def review_overtime(rec_id: str, body: OvertimeReviewIn, user=Depends(require_admin), t=Depends(current_tenant)):
+async def review_overtime(rec_id: str, body: OvertimeReviewIn, user=Depends(require_admin), t=Depends(current_tenant), _pin=Depends(require_owner_pin)):
     """Approve (optionally with adjusted hours), reject, or reset a day's overtime before payroll."""
     rec = await db.attendance.find_one({"id": rec_id}, {"_id": 0})
     if not rec:

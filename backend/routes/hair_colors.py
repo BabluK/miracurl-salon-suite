@@ -370,8 +370,8 @@ async def _crm_customer_for_pick(tenant_id: str, body) -> str | None:
 
 class ColorPickIn(BaseModel):
     color_id: str
-    name: str = Field("", max_length=80)
-    phone: str = Field("", max_length=20)
+    name: str = Field("", max_length=80, pattern=r"^[^<>{}\[\]$;\\]*$")  # no markup / operator characters
+    phone: str = Field("", max_length=20, pattern=r"^[0-9+ \-()]*$")
     undertone: str = Field("", pattern=r"^(warm|cool|neutral|)$")
     depth: str = Field("", pattern=r"^(light|medium|deep|)$")
     gender: str = Field("", pattern=r"^(men|women|)$")
@@ -383,6 +383,7 @@ async def public_color_pick(slug: str, body: ColorPickIn, request: Request):
     await public_rate_limit(request, "color-pick", limit=10, window_sec=600)
     await global_daily_cap("color-pick", 2000)
     t = await resolve_tenant_from_slug(slug)
+    await global_daily_cap(f"color-pick:{t['id']}", 300, "This salon's try-on is very busy today — please try again tomorrow.")
     c = await _lookup(t["id"], body.color_id)
     if not c:
         raise HTTPException(404, "Unknown colour")

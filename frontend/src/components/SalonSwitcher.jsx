@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/context/AuthContext";
 import api, { setTenantSlug } from "@/lib/api";
@@ -10,7 +12,9 @@ import {
 
 // Multi-salon owners: switch the active salon (Owner PIN confirms the switch).
 export default function SalonSwitcher() {
-  const { user } = useAuth();
+  const { user, refresh } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [pinFor, setPinFor] = useState(null);
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,7 +34,9 @@ export default function SalonSwitcher() {
         localStorage.setItem("miracurl_tenant", data.active_salon.slug);
       }
       toast.success(`Switched to ${data.active_salon?.name || "salon"} ✦`);
-      window.location.href = (window.location.pathname.startsWith("/partner") ? "/partner" : "") + "/dashboard";
+      queryClient.clear();            // drop the previous branch's cached data
+      await refresh();                // /auth/me → new tenant_id remounts the page tree (no full reload)
+      navigate("/dashboard", { replace: true });
     } catch (e) {
       const detail = e.response?.data?.detail;
       if (detail === "OWNER_PIN_REQUIRED") setPinFor(tenantId);
