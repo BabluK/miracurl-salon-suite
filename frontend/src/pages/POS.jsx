@@ -75,6 +75,7 @@ export default function POS() {
   const [gcSellOpen, setGcSellOpen] = useState(false);
   const [openBillsKey, setOpenBillsKey] = useState(0);
   const [pendingBill, setPendingBill] = useState(null);
+  const [appointmentId, setAppointmentId] = useState("");
 
   function onQrDetected(text) {
     setQrScanOpen(false);
@@ -113,7 +114,7 @@ export default function POS() {
     if (sid && drafts[sid]?.cart?.length) {
       const d = drafts[sid];
       setCart(d.cart); setCustomerId(d.customerId || ""); setGuestQuery(d.guestQuery || "");
-      setOrderNotes(d.orderNotes || ""); if (d.payment) setPayment(d.payment);
+      setOrderNotes(d.orderNotes || ""); if (d.payment) setPayment(d.payment); setAppointmentId(d.appointmentId || "");
       setPendingBill({
         items: d.cart.reduce((s, c) => s + (c.qty || 1), 0),
         total: d.cart.reduce((s, c) => s + (c.qty || 1) * (c.price || 0), 0),
@@ -131,14 +132,14 @@ export default function POS() {
     if (!sidRef.current || !draftsKey) return;
     const drafts = _readDrafts();
     if (cart.length) {
-      drafts[sidRef.current] = { cart, customerId, guestQuery, orderNotes, payment };
+      drafts[sidRef.current] = { cart, customerId, guestQuery, orderNotes, payment, appointmentId };
     } else {
       delete drafts[sidRef.current];
     }
     localStorage.setItem(draftsKey, JSON.stringify(drafts));
     setBillSessions(_summarize(drafts));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart, customerId, guestQuery, orderNotes, payment]);
+  }, [cart, customerId, guestQuery, orderNotes, payment, appointmentId]);
 
   async function applyMemberCode(codeArg) {
     const code = String(codeArg || memberCode).trim().toUpperCase().replace(/\s+/g, "");
@@ -309,6 +310,7 @@ export default function POS() {
       }
       setPendingBill(null);
       setOrderNotes(""); setPayment(p => ({ ...p }));
+      setAppointmentId(apptId);
       const cust = customers.find(c => c.id === data.customer_id);
       if (cust) selectGuest(cust);
       else if (data.customer_id) { setCustomerId(data.customer_id); setGuestQuery(data.customer_name || ""); }
@@ -522,7 +524,7 @@ export default function POS() {
 
   function clearAll() {
     kitchenOrderIdsRef.current = [];
-    setCart([]); setOrderNotes(""); setStaffId("");
+    setCart([]); setOrderNotes(""); setStaffId(""); setAppointmentId("");
     setCustomerId(""); setGuestQuery(""); setGuestOpen(false); setPayment("");
     setRedeemPoints(0); setCouponCode(""); setCouponInfo(null);
     setOfferApplied(null); setOverallDisc(0); setOverallDiscMode("amt");
@@ -537,7 +539,7 @@ export default function POS() {
     sessionStorage.setItem(`pos_sid:${tenant.id}`, sid);
     clearAll();
     setCart(d.cart || []); setCustomerId(d.customerId || ""); setGuestQuery(d.guestQuery || "");
-    setOrderNotes(d.orderNotes || ""); if (d.payment) setPayment(d.payment);
+    setOrderNotes(d.orderNotes || ""); if (d.payment) setPayment(d.payment); setAppointmentId(d.appointmentId || "");
   }
   function newBillSession() {
     const sid = _newSid();
@@ -594,6 +596,7 @@ export default function POS() {
         gift_card_code: gcInfo ? gcCode.trim().toUpperCase() : null,
         wallet_apply: payment === "salon_wallet" ? 0 : Math.min(walletApply, dueAfterGift),
         status: complete ? "completed" : "open",
+        appointment_id: appointmentId || null,
         branch_id: branchId || null,
         force_duplicate: forceDup,
       });

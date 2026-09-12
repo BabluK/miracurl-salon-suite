@@ -3123,3 +3123,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Removed the per-pick "🎨 X picked <shade>" tenant notice (linked to empty POS, flooded the bell); purged existing ones.
 - Briefing "N appointments today" was always 0 (queried non-existent `date` field) → now counts `scheduled_at` for today.
 - Verified E2E (screenshot): colour pick → book → staff bell "Pending bill" → click → POS cart "Women's Global Colour — Espresso Caramel Melt ₹2499"; men's haircut → dashboard Appointments section + Appointments row + admin bell → POS ₹350.
+
+## 2026-09-12 (s) — Paying the bill completes the booking — VERIFIED
+- Found: POS never sent `appointment_id` on `/invoices` (bell auto-clear via `/appointments/billing-status` was silently broken). POS now keeps `appointmentId` per draft session (from `/pos?appointment=`), persisted in drafts, sent on checkout, cleared on clearAll.
+- Backend `_complete_billed_appointment()` (appointments_pos.py) runs after post-invoice effects on both `POST /invoices` (completed) and `POST /invoices/{id}/complete`: status → completed, `crm_counted`/`spend_billed`=True (no double CRM count), `completed_via: billing`. Skips cancelled/completed.
+- Verified E2E: bell → POS → Cash → Charge → INV created; Appointments row shows COMPLETED; booking gone from bell; CRM visits 1 / spent once.

@@ -452,6 +452,16 @@ async def _apply_post_invoice_effects(cust: dict, totals: dict, loyalty_rules: d
     return points_earned
 
 
+async def _complete_billed_appointment(appointment_id: Optional[str]) -> None:
+    """Paying the bill closes the booking: status → completed. Spend/visit already counted by the invoice."""
+    if not appointment_id:
+        return
+    await db.appointments.update_one(
+        {"id": appointment_id, "status": {"$nin": ["completed", "cancelled"]}},
+        {"$set": {"status": "completed", "crm_counted": True, "spend_billed": True,
+                  "completed_via": "billing", "completed_at": datetime.now(timezone.utc).isoformat()}})
+
+
 async def _resolve_tip(body: InvoiceIn, staff: dict | None) -> dict | None:
     """Who receives the tip: explicit pick at POS, else the invoice stylist."""
     tsid = body.tip_staff_id or (staff["id"] if staff else None)
@@ -540,6 +550,7 @@ async def complete_open_invoice(iid: str, body: InvoiceCompleteIn,
     totals = {"total": float(inv.get("total") or 0), "points_used": 0, "referral_credit_used": 0}
     needed = {i["ref_id"]: int(i.get("qty") or 1) for i in inv.get("items", []) if i.get("type") == "product"}
     inv["points_earned"] = await _apply_post_invoice_effects(cust, totals, _loyalty_rules(t), needed, inv.get("appointment_id"))
+    await _complete_billed_appointment(inv.get("appointment_id"))
     await db.invoices.update_one({"id": iid}, {"$set": {"points_earned": inv["points_earned"]}})
     inv["membership_cashback"] = await _apply_membership_cashback(inv, cust)
     inv["gift_cards_issued"] = await _issue_pos_gift_cards(inv, cust, t)
@@ -723,6 +734,7 @@ async def _create_invoice_locked(body: InvoiceIn, cust: dict, user: dict):
         await _deduct_wallet_credit(cust, inv, wallet_apply, body.payment_mode)
 
     points_earned = await _apply_post_invoice_effects(cust, totals, ctx["loyalty_rules"], ctx["needed"], body.appointment_id)
+    await _complete_billed_appointment(body.appointment_id)
     await db.invoices.update_one({"id": inv["id"]}, {"$set": {"points_earned": points_earned}})
     memberships_issued = await _process_benefit_items(inv, cust)
     await _queue_review_request(inv, cust)
