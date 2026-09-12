@@ -153,8 +153,16 @@ export default function ColorTryOn() {
     finally { setShareBusy(false); }
   };
 
+  const nameRef = useRef(null);
+  const [nameNeeded, setNameNeeded] = useState(false);
   const submit = async () => {
     if (!picked) return;
+    if (!form.name.trim()) {  // we need a name (and ideally a number) to save the pick and pre-fill the booking
+      setPreview(null); setNameNeeded(true);
+      setTimeout(() => { nameRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); nameRef.current?.focus(); }, 350);
+      return;
+    }
+    setNameNeeded(false);
     setBusy(true);
     try {
       const { data } = await axios.post(`${API}/api/public/color/${slug}/pick`, {
@@ -313,9 +321,11 @@ export default function ColorTryOn() {
                 </button>
               )}
               <div className="flex gap-2">
-                <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Your name" data-testid="color-pick-name" className="flex-1 rounded-xl bg-slate-800 text-white text-sm px-3 py-2.5 border border-slate-700" />
-                <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="Phone (optional)" inputMode="tel" data-testid="color-pick-phone" className="flex-1 rounded-xl bg-slate-800 text-white text-sm px-3 py-2.5 border border-slate-700" />
+                <input ref={nameRef} value={form.name} onChange={e => { setForm({ ...form, name: e.target.value }); if (e.target.value.trim()) setNameNeeded(false); }} placeholder="Your name *" data-testid="color-pick-name"
+                  className={`flex-1 rounded-xl bg-slate-800 text-white text-sm px-3 py-2.5 border ${nameNeeded ? "border-rose-400 ring-2 ring-rose-400/40" : "border-slate-700"}`} />
+                <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="Mobile number" inputMode="tel" data-testid="color-pick-phone" className="flex-1 rounded-xl bg-slate-800 text-white text-sm px-3 py-2.5 border border-slate-700" />
               </div>
+              {nameNeeded && <p className="mt-1.5 text-rose-300 text-xs" data-testid="color-pick-name-hint">Please enter your name and mobile number so we can save your colour and book your stylist.</p>}
               <label className="flex items-center gap-2 text-slate-300 text-xs mt-2"><input type="checkbox" checked={form.by_staff} onChange={e => setForm({ ...form, by_staff: e.target.checked })} /> Scanned by salon staff</label>
               <button onClick={submit} disabled={busy} data-testid="color-pick-submit" className="mt-2 w-full py-3.5 rounded-2xl bg-amber-400 text-slate-900 font-bold inline-flex items-center justify-center gap-2 disabled:opacity-50">
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Choose this colour
@@ -377,7 +387,7 @@ export default function ColorTryOn() {
             <p className="text-[11px] font-semibold tracking-widest">SHOW THIS TO YOUR STYLIST</p>
             <p className="text-3xl font-black tracking-widest" data-testid="color-pick-code">{done.code}</p>
           </div>
-          <button onClick={() => navigate(`/book/${slug}?color=${done.color.id}&code=${done.code}`)} data-testid="color-book-btn"
+          <button onClick={() => navigate(`/book/${slug}?color=${done.color.id}&code=${done.code}&name=${encodeURIComponent(form.name)}&phone=${encodeURIComponent(form.phone)}${gender ? `&gender=${gender}` : ""}`)} data-testid="color-book-btn"
             className="mt-6 w-full py-4 rounded-2xl bg-white text-slate-900 font-bold inline-flex items-center justify-center gap-2">
             <CalendarCheck className="w-5 h-5" /> Book this colour — pick stylist & time
           </button>

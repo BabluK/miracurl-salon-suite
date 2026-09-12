@@ -252,7 +252,16 @@ export default function BookPublic() {
     const cid = searchParams.get("color");
     if (!cid || !routeSlug) return;
     axios.get(`${BACKEND_URL}/api/public/color/${routeSlug}`)
-      .then(r => { const c = (r.data.colors || []).find(x => x.id === cid); if (c) { setPickedColor({ ...c, code: searchParams.get("code") || "" }); if (c.service_id) setPicked(p => p.includes(c.service_id) ? p : [...p, c.service_id]); } })
+      .then(r => {
+        const c = [...(r.data.colors || []), ...(r.data.men_colors || [])].find(x => x.id === cid);
+        if (!c) return;
+        setPickedColor({ ...c, code: searchParams.get("code") || "" });
+        if (c.service_id) setPicked(p => p.includes(c.service_id) ? p : [...p, c.service_id]);
+        const gender = searchParams.get("gender");
+        setForm(f => ({ ...f, name: f.name || searchParams.get("name") || "", phone: f.phone || searchParams.get("phone") || "",
+                        gender: gender === "men" ? "Male" : gender === "women" ? "Female" : f.gender }));
+        setTimeout(() => (document.getElementById("choose-services") || document.getElementById("booking-wizard"))?.scrollIntoView({ behavior: "smooth", block: "start" }), 600);
+      })
       .catch(() => {});
   }, [routeSlug, searchParams]);
   const [referralCheck, setReferralCheck] = useState(null);

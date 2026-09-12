@@ -10,6 +10,7 @@ const BACKEND = process.env.REACT_APP_BACKEND_URL;
 export const ColorTryOnCard = () => {
   const [picks, setPicks] = useState([]);
   const [colors, setColors] = useState([]);
+  const [menColors, setMenColors] = useState([]);
   const [poster, setPoster] = useState(null); // object URL of the branded PNG
   const [busy, setBusy] = useState(false);
   const [shade, setShade] = useState(EMPTY_SHADE);
@@ -24,7 +25,7 @@ export const ColorTryOnCard = () => {
       setLinking(null); loadColors();
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't link"); }
   };
-  const loadColors = () => api.get("/hair-colors").then(r => setColors(r.data.colors || [])).catch(() => {});
+  const loadColors = () => api.get("/hair-colors").then(r => { setColors(r.data.colors || []); setMenColors((r.data.men_colors || []).filter(c => !c.custom)); }).catch(() => {});
   const toggle = (k, v) => setShade(s => ({ ...s, [k]: s[k].includes(v) ? s[k].filter(x => x !== v) : [...s[k], v] }));
   const addShade = async () => {
     if (shade.name.trim().length < 2) return toast.error("Give the shade a name");
@@ -97,21 +98,25 @@ export const ColorTryOnCard = () => {
           </div>
           <p className="text-[11px] text-slate-400 mt-2 break-all">{link}</p>
 
-          <p className="text-[11px] font-semibold text-slate-500 tracking-wide mt-4 mb-1.5 inline-flex items-center gap-1"><Sparkles className="w-3 h-3 text-amber-500" /> THE COLLECTION · {colors.length} SHADES</p>
-          <div className="flex gap-1.5 overflow-x-auto pb-1" data-testid="color-catalog-strip">
-            {colors.map(c => (
-              <div key={c.id} title={`${c.name}${c.service_name ? ` → ${c.service_name} ₹${c.price}` : " · tap to link a service"}`} onClick={() => setLinking(c)} data-testid={`color-tile-${c.id}`}
-                className={`relative shrink-0 w-14 h-[70px] rounded-lg overflow-hidden border cursor-pointer ${linking?.id === c.id ? "ring-2 ring-slate-900" : ""} ${c.custom ? "border-amber-400 ring-1 ring-amber-300" : "border-slate-200"}`} style={{ background: `linear-gradient(160deg, ${c.swatch.join(",")})` }}>
-                {c.service_name && <span className="absolute bottom-0 inset-x-0 bg-emerald-600/90 text-white text-[9px] text-center font-semibold leading-4">₹{c.price}</span>}
-                {c.image_url && <img src={`${BACKEND}${c.image_url}?w=320`} alt={c.name} className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = "none"; }} />}
-                {c.custom && !c.image_url && <Loader2 className="absolute inset-0 m-auto w-4 h-4 text-white animate-spin" />}
-                {c.custom && (
-                  <button onClick={() => removeShade(c.id)} title="Remove shade" data-testid={`color-custom-remove-${c.id}`}
-                    className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center"><Trash2 className="w-3 h-3" /></button>
-                )}
+          {[["THE COLLECTION · FOR HER", colors, "color-catalog-strip"], ["FOR HIM", menColors, "color-catalog-strip-men"]].map(([title, list, tid]) => (
+            <div key={tid}>
+              <p className="text-[11px] font-semibold text-slate-500 tracking-wide mt-4 mb-1.5 inline-flex items-center gap-1"><Sparkles className="w-3 h-3 text-amber-500" /> {title} · {list.length} SHADES</p>
+              <div className="flex gap-1.5 overflow-x-auto pb-1" data-testid={tid}>
+                {list.map(c => (
+                  <div key={c.id} title={`${c.name}${c.service_name ? ` → ${c.service_name} ₹${c.price}` : " · tap to link a service"}`} onClick={() => setLinking(c)} data-testid={`color-tile-${c.id}`}
+                    className={`relative shrink-0 w-14 h-[70px] rounded-lg overflow-hidden border cursor-pointer ${linking?.id === c.id ? "ring-2 ring-slate-900" : ""} ${c.custom ? "border-amber-400 ring-1 ring-amber-300" : "border-slate-200"}`} style={{ background: `linear-gradient(160deg, ${c.swatch.join(",")})` }}>
+                    {c.service_name && <span className="absolute bottom-0 inset-x-0 bg-emerald-600/90 text-white text-[9px] text-center font-semibold leading-4">₹{c.price}</span>}
+                    {c.image_url && <img src={`${BACKEND}${c.image_url}?w=320`} alt={c.name} className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = "none"; }} />}
+                    {c.custom && !c.image_url && <Loader2 className="absolute inset-0 m-auto w-4 h-4 text-white animate-spin" />}
+                    {c.custom && (
+                      <button onClick={() => removeShade(c.id)} title="Remove shade" data-testid={`color-custom-remove-${c.id}`}
+                        className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center"><Trash2 className="w-3 h-3" /></button>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
 
           {linking && (
             <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5" data-testid="color-link-row">

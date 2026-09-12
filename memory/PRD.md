@@ -3063,3 +3063,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Preview card now sizes to the screen: `height: min(100dvh − 15.5rem, (100vw − 1.5rem) × 1.25, 1000px)` at 4:5 — desktop 442×552, mobile 366×458, tablet 746×932. Controls compacted (py-2.5), modal scrolls on very short screens.
 - Selfie now captured at up to 900px (was 320px) for better AI results; analysis still uses the 320px copy.
 - New "Upload a selfie instead" (intro + camera step) → same face-check / skin / gender pipeline (`processShot`, `uploadSelfie`). data-testids: color-upload-input, color-upload-btn.
+
+## 2026-09-12 (h) — Try-on → booking hand-off fixes
+- BUG: `/book/{slug}?color=men-*` only searched women's `colors` → no banner / "Pick stylist & time" dead for men's shades. Now searches `colors + men_colors`, pre-fills name/phone/gender from URL (`&name=&phone=&gender=`), auto-scrolls to services.
+- "Choose this colour" (pick bar + preview modal) now requires a name: closes preview, highlights the name field with a hint, focuses it. Phone placeholder "Mobile number". Done screen passes name/phone/gender to the booking URL.
+- Settings ColorTryOnCard: added "FOR HIM · 16 shades" strip so men's shades can be linked to a colour service (pre-selects service + price on booking).
