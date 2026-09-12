@@ -3033,3 +3033,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - `services/shade_guide.py`: per-shade guest description + level + brand codes (Schwarzkopf Igora Royal, L'Oréal Majirel, Wella Koleston Perfect, Matrix SoColor), developer volume, mixing ratio, timing, prep (pre-lighten/direct dye) and grey advice. `GET /api/hair-colors/{id}/guide` (tenant admin). Public catalog carries `description` + `level`.
 - Frontend: `components/appointments/ShadeGuide.jsx` inside the stylist ColorPickCard (brand tabs, 4 stat tiles, "Use as formula" fills the note); try-on pick bar shows shade description + level.
 - Verified: guide API for women/men/custom/unknown; appointment card renders + brand switch + Use-as-formula (screenshot). Test appointment "QA Guide Gent" (Salt & Pepper) on 2026-09-13.
+
+## 2026-09-12 (b) — Try-on page background
+- `ColorTryOn.jsx` Shell: fixed blurred backdrop (first/selected shade photo) + gold/rose radial glows, glass centre column (`isolate` stacking fix). Intro adds count chips ("40 shades for her · 16 for him") and a 6-tile shade mosaic.

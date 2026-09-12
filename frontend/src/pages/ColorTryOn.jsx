@@ -173,8 +173,9 @@ export default function ColorTryOn() {
     );
   };
 
+  const bgShade = (picked?.image_url && picked) || salon.colors.find(c => c.image_url && !c.custom) || salon.colors.find(c => c.image_url);
   return (
-    <Shell>
+    <Shell bgUrl={bgShade?.image_url ? `${API}${bgShade.image_url}?w=960` : null}>
       <header className="flex items-center gap-3 px-5 pt-6 pb-3" data-testid="color-tryon-header">
         {salon.logo_url && <img src={`${API}${salon.logo_url}`} alt="" className="w-12 h-12 rounded-full bg-white object-contain border-2 border-amber-400 p-1" />}
         <div>
@@ -191,6 +192,20 @@ export default function ColorTryOn() {
             <ScanFace className="w-5 h-5" /> Open front camera
           </button>
           <button onClick={skipCamera} data-testid="color-skip-camera" className="mt-3 w-full py-3 rounded-2xl border border-slate-600 text-slate-200 text-sm">Skip — show all shades</button>
+          <div className="flex gap-2 mt-6 text-[11px]" data-testid="color-intro-chips">
+            {[`${salon.colors.filter(c => !c.custom).length} shades for her`, `${(salon.men_colors || []).filter(c => !c.custom).length} for him`, "Front & back preview"].map(x => (
+              <span key={x} className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-slate-300">{x}</span>
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-2 mt-3" data-testid="color-intro-mosaic">
+            {[...salon.colors.filter(c => c.image_url && !c.custom).slice(0, 4), ...(salon.men_colors || []).filter(c => c.image_url && !c.custom).slice(0, 2)].map((c, i) => (
+              <div key={c.id} className="relative aspect-[4/5] rounded-xl overflow-hidden border border-white/10" style={{ animation: `teaser-in .5s ease-out ${i * 70}ms both` }}>
+                <img src={`${API}${c.image_url}?w=320`} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1.5 pt-5 text-[10px] text-white font-semibold truncate">{c.name}</span>
+              </div>
+            ))}
+          </div>
+          <style>{`@keyframes teaser-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}`}</style>
         </section>
       )}
 
@@ -334,6 +349,12 @@ export default function ColorTryOn() {
   );
 }
 
-const Shell = ({ children }) => (
-  <div className="min-h-screen bg-[#07101f] text-white max-w-md mx-auto" data-testid="color-tryon-page">{children}</div>
+const Shell = ({ children, bgUrl }) => (
+  <div className="min-h-screen relative isolate text-white" data-testid="color-tryon-page">
+    <div aria-hidden className="fixed inset-0 z-0 bg-[#0b0a12]">
+      {bgUrl && <img src={bgUrl} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60 scale-105" style={{ filter: "blur(6px) saturate(1.15)" }} />}
+      <div className="absolute inset-0" style={{ background: "radial-gradient(60% 50% at 20% 10%, rgba(212,175,55,0.22), transparent 60%), radial-gradient(50% 45% at 85% 90%, rgba(180,90,120,0.22), transparent 60%), linear-gradient(180deg, rgba(8,8,16,0.55), rgba(8,8,16,0.88))" }} />
+    </div>
+    <div className="relative z-10 min-h-screen max-w-md mx-auto bg-[#0a1020]/85 backdrop-blur-xl sm:border-x border-white/10 shadow-[0_0_80px_rgba(0,0,0,0.6)]">{children}</div>
+  </div>
 );
