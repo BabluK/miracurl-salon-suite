@@ -547,6 +547,7 @@ async def public_color_preview(slug: str, body: PreviewIn, request: Request):
 
 class FormulaIn(BaseModel):
     formula: str = Field("", max_length=600)
+    price: float | None = Field(None, ge=0, le=200000)  # staff/manager quote when the shade had no price at booking
 
 
 @router.patch("/appointments/{appt_id}/color-formula")
@@ -555,9 +556,15 @@ async def save_color_formula(appt_id: str, body: FormulaIn, admin=Depends(requir
     if not appt or not appt.get("color_pick"):
         raise HTTPException(404, "No colour pick on this appointment")
     f = body.formula.strip()
-    await _raw_db.appointments.update_one({"tenant_id": t["id"], "id": appt_id}, {"$set": {"color_pick.formula": f}})
+    upd = {"color_pick.formula": f}
+    if body.price is not None:  # custom quote → replaces the previous colour quote in the appointment total
+        full = await _raw_db.appointments.find_one({"tenant_id": t["id"], "id": appt_id}, {"_id": 0, "total": 1, "color_pick": 1})
+        prev = float((full.get("color_pick") or {}).get("quoted_price") or 0)
+        upd["color_pick.quoted_price"] = body.price
+        upd["total"] = round(float(full.get("total") or 0) - prev + body.price, 2)
+    await _raw_db.appointments.update_one({"tenant_id": t["id"], "id": appt_id}, {"$set": upd})
     await _raw_db.color_picks.update_one({"tenant_id": t["id"], "code": appt["color_pick"]["code"]}, {"$set": {"formula": f}})
-    return {"ok": True, "formula": f}
+    return {"ok": True, "formula": f, "quoted_price": upd.get("color_pick.quoted_price"), "total": upd.get("total")}
 
 
 # ── Share card: front + back preview with salon logo & booking link ───────────

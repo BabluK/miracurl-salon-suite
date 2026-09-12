@@ -227,6 +227,11 @@ export default function BookPublic() {
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 120);
   }, []);
+  // Colour try-on hand-off: the shade IS the service — go straight to stylist & time (services stay optional add-ons)
+  const goToStylist = useCallback(() => {
+    setStep(1);
+    setTimeout(() => document.getElementById("booking-wizard")?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+  }, []);
   const [services, setServices] = useState([]);
   const [dayOffer, setDayOffer] = useState(null);
   const [memberPreview, setMemberPreview] = useState(null);
@@ -338,7 +343,7 @@ export default function BookPublic() {
 
   function next() {
     const isResto = salon?.business_type === "restaurant";
-    if (step === 0 && picked.length === 0 && !isResto) { toast.error("Please pick at least one service"); return; }
+    if (step === 0 && picked.length === 0 && !isResto && !pickedColor) { toast.error("Please pick at least one service"); return; }
     if (step === 2 && !time) { toast.error("Pick a time slot"); return; }
     if (step === 3) {
       if (!/^[A-Za-z][A-Za-z .'-]{1,}$/.test(form.name.trim())) { toast.error("Name should contain only letters"); return; }
@@ -508,7 +513,7 @@ export default function BookPublic() {
               <p className="text-white text-sm font-semibold truncate">{pickedColor.name}</p>
               <p className="text-white/60 text-[11px] truncate">{pickedColor.tag}{pickedColor.code ? ` · code ${pickedColor.code}` : ""}</p>
             </div>
-            <button onClick={goToServices} data-testid="book-color-continue" className="shrink-0 px-3 py-2 rounded-full bg-gradient-to-r from-[#d4af37] to-[#e6c66e] text-[#17141c] text-xs font-bold">Pick stylist & time</button>
+            <button onClick={goToStylist} data-testid="book-color-continue" className="shrink-0 px-3 py-2 rounded-full bg-gradient-to-r from-[#d4af37] to-[#e6c66e] text-[#17141c] text-xs font-bold">Pick stylist & time</button>
           </div>
         </div>
       )}
@@ -862,9 +867,11 @@ export default function BookPublic() {
               <ArrowLeft className="w-4 h-4" /> Back
             </button>
             <div className="text-sm text-ink-secondary hidden sm:block">
-              {picked.length > 0 && (
+              {picked.length > 0 ? (
                 <span>{picked.length} service{picked.length > 1 ? "s" : ""} · <span className="text-gold">₹{total}</span> · {duration}m</span>
-              )}
+              ) : pickedColor ? (
+                <span data-testid="book-colour-only-summary">{pickedColor.name} Colour · <span className="text-gold">{pickedColor.price != null ? `₹${pickedColor.price}` : "priced at the salon"}</span></span>
+              ) : null}
             </div>
             {step < 4 ? (
               <button data-testid="book-next-btn" onClick={next} className="btn-gold flex items-center gap-2">
@@ -881,7 +888,7 @@ export default function BookPublic() {
         {step === 0 && (
           <>
             <OffersShowcase items={gallery.filter(g => g.source === "offer")} />
-            <GalleryShowcase items={gallery.filter(g => g.source !== "offer")} />
+            {false && <GalleryShowcase items={gallery.filter(g => g.source !== "offer")} />}
             <VerifiedTeam staff={staff} restaurant={salon.business_type === "restaurant"} />
             {salon.business_type !== "restaurant" && salon.show_products !== false && <MiracurlProductsStrip compact />}
             <ReferEarnBanner salonName={salon.name} reward={salon.referral_reward} />

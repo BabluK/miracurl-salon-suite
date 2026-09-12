@@ -3081,3 +3081,11 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - `tenant_shade_services.price_override` per shade. `PUT /api/hair-colors/{id}/price {price|null}` (admin); `/service` link accepts optional price. `_service_links` returns `price` (override ?? service price), `service_price`, `price_override`.
 - Booking honours the quote: public book adds the linked service at the override price, or swaps service price → override when the guest pre-selected it; stores `color_pick.quoted_price`.
 - Settings link row: "quote ₹ [input] Save · use service price ₹X"; tile badge amber when overridden. Verified API + UI (Dark Brown ₹2299 → cleared).
+
+## 2026-09-12 (l) — Colour booking hand-off round 2 + release notes
+- "Pick stylist & time" now jumps straight to the stylist step (`goToStylist`); services optional when a colour is picked (frontend guard + backend allows empty service_ids with color_code → "<Shade> Colour", 90 min, ₹0 until quoted). Footer shows "<Shade> Colour · priced at the salon".
+- Staff/manager price: `PATCH /appointments/{id}/color-formula {formula, price?}` sets `color_pick.quoted_price` and adjusts `total` (replaces prior quote). ColorPickCard shows a red "No price quoted — set the colour price" input when missing.
+- Settings link dropdown lists only colour-type services (regex on name/category) + hint to use Auto colour services.
+- Removed "Our Work / Transformations we're proud of" gallery from /book (GalleryShowcase disabled).
+- release_notes.py: BUILD 2026-09-12.260 + new RELEASES entry "Colour Studio for him & her" (What's New popup).
+- OPEN: user reports an AECS-layout colour booking appearing under Marathahalli in PRODUCTION. Preview has no `miracurl-aecs` tenant (AECS is a branch of Marathahalli here), so not reproducible; asked user where exactly Marathahalli shows.

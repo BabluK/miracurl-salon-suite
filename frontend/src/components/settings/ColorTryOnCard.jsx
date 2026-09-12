@@ -59,7 +59,8 @@ export const ColorTryOnCard = () => {
   useEffect(() => {
     api.get("/color-picks?limit=8").then(r => setPicks(r.data.picks || [])).catch(() => {});
     loadColors();
-    api.get("/services").then(r => setServices((r.data.services || r.data || []).filter(x => x.active !== false))).catch(() => {});
+    const isColour = (x) => /colou?r|balayage|ombr|highlight|toner|global|streak|bleach|lighten|money piece|keratin/i.test(`${x.name} ${x.category || ""}`);
+    api.get("/services").then(r => setServices((r.data.services || r.data || []).filter(x => x.active !== false && isColour(x)))).catch(() => {});
     let url;
     api.get("/color/poster", { responseType: "blob" }).then(r => { url = URL.createObjectURL(r.data); setPoster(url); }).catch(() => {});
     return () => { if (url) URL.revokeObjectURL(url); };
@@ -134,7 +135,8 @@ export const ColorTryOnCard = () => {
               <span className="text-xs text-slate-700"><b>{linking.name}</b> → colour service:</span>
               <select defaultValue={linking.service_id || ""} onChange={e => linkService(linking.id, e.target.value)} data-testid="color-link-select"
                 className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-800 [&_option]:bg-white [&_option]:text-slate-800">
-                <option value="">— not linked (booking shows "{linking.name} Colour") —</option>
+                <option value="">— not linked (booking shows "{linking.name} Colour", priced at the salon) —</option>
+                {services.length === 0 && <option disabled>No colour services yet — use "Auto colour services" below</option>}
                 {services.map(sv => <option key={sv.id} value={sv.id}>{sv.name} · ₹{sv.price}</option>)}
               </select>
               {linking.service_id && (

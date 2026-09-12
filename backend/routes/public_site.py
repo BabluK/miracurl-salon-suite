@@ -487,8 +487,8 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
 
     services = (await db.services.find({"id": {"$in": body.service_ids}, "active": True}, {"_id": 0}).to_list(50)
                 if body.service_ids else [])
-    if not services and (t.get("business_type") or "salon") != "restaurant":
-        raise HTTPException(400, "Invalid services")
+    if not services and (t.get("business_type") or "salon") != "restaurant" and not body.color_code:
+        raise HTTPException(400, "Invalid services")  # a colour try-on code alone is a valid booking ("<Shade> Colour", priced at the salon)
 
     staff = await _resolve_staff(body.staff_id, body.scheduled_at, sum(s["duration_min"] for s in services) or 30)
     coupon = await _validate_coupon(body.coupon_code)

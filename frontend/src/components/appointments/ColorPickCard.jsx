@@ -16,6 +16,7 @@ export const ColorPickCard = ({ appt, onSaved }) => {
   const [reel, setReel] = useState(cp?.reel_url ? { image_url: cp.reel_url } : null);
   const [reelBusy, setReelBusy] = useState(false);
   const [past, setPast] = useState([]);
+  const [price, setPrice] = useState(cp?.quoted_price ?? "");
   useEffect(() => {
     if (!appt?.customer_id || !cp) return;
     api.get(`/customers/${appt.customer_id}/color-history`)
@@ -47,8 +48,10 @@ export const ColorPickCard = ({ appt, onSaved }) => {
   const save = async () => {
     setBusy(true);
     try {
-      await api.patch(`/appointments/${appt.id}/color-formula`, { formula });
-      toast.success("Formula saved for this guest");
+      const body = { formula };
+      if (price !== "" && Number(price) !== Number(cp?.quoted_price ?? NaN)) body.price = Number(price);
+      const { data } = await api.patch(`/appointments/${appt.id}/color-formula`, body);
+      toast.success(body.price != null ? `Saved — colour quoted at ₹${body.price}, appointment total ₹${data.total}` : "Formula saved for this guest");
       onSaved?.(formula);
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't save"); }
     finally { setBusy(false); }
@@ -69,6 +72,14 @@ export const ColorPickCard = ({ appt, onSaved }) => {
         <p className="text-[11px] text-slate-500">
           {cp.undertone ? `Skin: ${cp.undertone} undertone` : "Skin: not scanned"}{cp.depth ? ` · ${cp.depth}` : ""}
         </p>
+        <div className="flex items-center gap-2 mt-2 text-xs" data-testid="color-card-price-row">
+          <span className={cp.quoted_price == null && price === "" ? "text-rose-600 font-semibold" : "text-slate-600"}>
+            {cp.quoted_price == null && price === "" ? "No price quoted — set the colour price:" : "Colour price ₹"}
+          </span>
+          <input type="number" min="0" step="50" value={price} onChange={e => setPrice(e.target.value)} placeholder="e.g. 2499" data-testid="color-card-price"
+            className="w-24 rounded-lg border border-amber-200 bg-white px-2 py-1 text-slate-800" />
+          {cp.quoted_price != null && <span className="text-slate-400">in total ₹{appt.total}</span>}
+        </div>
         <div className="flex gap-2 mt-2">
           <input value={formula} onChange={e => setFormula(e.target.value)} maxLength={600} data-testid="color-card-formula"
             placeholder="Formula / mix notes, e.g. 6.35 + 7.3 (1:1.5) 20 vol, 35 min"

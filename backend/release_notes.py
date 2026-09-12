@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-12.248"
-BUILD_TIME = "12 Sep 2026, 01:30 AM IST"
+BUILD = "2026-09-12.260"
+BUILD_TIME = "12 Sep 2026, 11:45 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-12.260", "note": "Colour Studio: men's catalogue (16) + 40 women's shades with photos, gender confirm step, beard-safe try-on, split front/back preview (~8s), upload-a-selfie, full-screen preview; Pro formula guide (Igora/Majirel/Koleston/SoColor, vol, ratio); shade tiers + auto colour services + per-shade quotes; colour-only booking → stylist step; staff price on colour card. Payroll: 15h auto-checkout, per-minute OT with owner approval queue, target-gated commission, ₹-to-target nudge. Security audit #2 PASS"},
     {"build": "2026-09-12.248", "note": "PERF: Dashboard/Appointments chunks pre-warmed on /login (login→dashboard 1.3s), dashboard skeleton; public/assets images re-encoded ≤1600px (64.9→~26MB imgs), 9 unreferenced PNGs removed (backup in /app/memory/assets_removed); face-check on try-on capture (face + man/woman + hair length hint)"},
     {"build": "2026-09-12.247", "note": "PERF: App.js code-splitting — 66 pages React.lazy + Suspense (PageLoader); initial JS 4.4MB/1146KB gz → 848KB/246KB gz (-78%). Front/back result photos + vision check on colour reels"},
     {"build": "2026-09-12.245", "note": "Shade→service links (PUT /hair-colors/{id}/service; booking pre-selects + quotes; unlinked shades book as '<Shade> Colour'); CRM colour history; before/after result upload + Mira before/after reel (POST /appointments/{id}/color-reel)"},
@@ -62,6 +63,19 @@ BUILD_LOG = [
 ]
 
 RELEASES = [
+    {
+        "date": "2026-09-12 (Colour Studio for him & her 🎨)",
+        "changes": [
+            "🎨 Hair Colour Try-On: 40 shades for her + 16 professional men's shades with real photos — guests confirm Gentleman/Lady, beards stay untouched, front view in ~8 s then the matching back view",
+            "📸 Upload a selfie instead of the camera; preview now fills the screen on phone, tablet and desktop",
+            "🧪 Pro formula guide on every colour appointment: Schwarzkopf Igora, L'Oréal Majirel, Wella Koleston & Matrix codes, developer volume, mixing ratio, timing — tap 'Use as formula'",
+            "💰 Settings → Try-On: one tap creates Global / Fashion / Technique colour services and links every shade; set your own quote per shade; staff can add a colour price on the appointment card",
+            "📅 Booking from a colour pick now goes straight to stylist & time — no service menu required; name & number pre-filled",
+            "⏱️ Attendance: shifts auto-close after 15 h (late finishes keep their overtime); overtime is calculated per minute and waits in the owner's Overtime approvals queue before payroll",
+            "🎯 Commission % is paid only in months the target is reached; stylists see a live '₹ to target' bar in their portal",
+            "🔐 Security audit passed — public try-on endpoints rate-limited, file serving hardened",
+        ],
+    },
     {
         "date": "2026-09-11 (HQ Promo Studio & clean inbox 🎬)",
         "changes": [
