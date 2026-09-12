@@ -1241,6 +1241,36 @@ async def email_attendance_month_report(month: Optional[str] = None,
     return out
 
 
+@router.get("/staff/me/target-progress")
+async def staff_my_target_progress(s=Depends(_current_staff), t=Depends(current_tenant)):
+    """Live '₹ to target' for the current month — gross so far, what's left, daily pace needed and the commission unlocked on hitting it."""
+    now = datetime.now(IST_TZ)
+    slip = await _compute_salary_for_month(s, now.year, now.month, t)
+    target = float(slip.get("monthly_target") or 0)
+    gross = float(slip.get("gross_earnings") or 0)
+    pct = float(slip.get("commission_pct") or 0)
+    tpct = float(slip.get("target_commission_pct") or 0)
+    import calendar
+    days_in_month = calendar.monthrange(now.year, now.month)[1]
+    days_left = days_in_month - now.day + 1  # today counts
+    remaining = max(0.0, target - gross)
+    unlock = round(float(slip.get("service_gross") or 0) * pct / 100 + gross * tpct / 100, 2)
+    expected_by_now = target * now.day / days_in_month if target else 0
+    return {
+        "month": now.strftime("%Y-%m"), "has_target": target > 0, "monthly_target": target, "gross": round(gross, 2),
+        "service_gross": round(float(slip.get("service_gross") or 0), 2), "product_gross": round(float(slip.get("product_gross") or 0), 2),
+        "remaining": round(remaining, 2), "pct": round(min(100.0, gross / target * 100), 1) if target else 0,
+        "achieved": bool(slip.get("target_achieved")), "days_left": days_left,
+        "per_day_needed": round(remaining / days_left, 0) if remaining and days_left else 0,
+        "per_day_so_far": round(gross / now.day, 0),
+        "on_track": gross >= expected_by_now if target else True,
+        "commission_pct": pct, "target_commission_pct": tpct,
+        "unlock_amount": unlock if not slip.get("target_achieved") else round(float(slip.get("commission_amount") or 0) + float(slip.get("target_bonus") or 0), 2),
+        "unlock_at_target": round(max(unlock, target * (pct + tpct) / 100), 2),  # what hitting the target is worth (all-services estimate)
+        "incentives_configured": pct > 0 or tpct > 0,
+    }
+
+
 @router.get("/staff/me/salary-slip")
 async def staff_my_salary_slip(month: Optional[str] = None,
                                s=Depends(_current_staff),

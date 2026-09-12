@@ -3053,3 +3053,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - `GET /api/attendance/overtime?month=YYYY-MM&status=pending|approved|rejected|all`, `POST /api/attendance/{id}/overtime-review {action: approve|reject|reset, hours?, note}` (admin + owner PIN + CSRF). Approve recomputes pay = hours × staff overtime_rate.
 - `components/attendance/OvertimeApprovals.jsx` on the Attendance page: month + status filter, per-row adjust-hours input, Approve / Reject / Re-open. Staff portal chip shows "awaiting approval / approved / not approved".
 - Verified via HTTP (pending → approve 1.5h → ₹150 on slip → reject → ₹0 → reset) + PDF + UI approve with adjusted 2h.
+
+## 2026-09-12 (f) — Target progress nudge (staff portal)
+- `GET /api/staff/me/target-progress`: current-month gross vs monthly_target, remaining, %, days_left, per_day_needed, per_day_so_far, on_track (vs linear pace), unlock_at_target (target × (pct+tpct)), achieved.
+- `components/staff/TargetNudge.jsx` at the top of StaffPortal (above Today card): "₹ to target" bar (gold when on pace, amber→rose when behind, emerald "Target smashed" when achieved), refreshes every 2 min + on check-in/out. Hidden when no target set. Demo: Priya target ₹50,000 / 10% / 5%.

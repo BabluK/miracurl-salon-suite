@@ -6,6 +6,7 @@ import {
   Calendar, Sparkles, CheckCircle2, TrendingUp, FileText, Camera, QrCode, MapPin,
 } from "lucide-react";
 import { PlannedLeaveCard } from "@/components/staff/PlannedLeaveCard";
+import { TargetNudge } from "@/components/staff/TargetNudge";
 import { QrScanCheckIn } from "@/components/QrScanCheckIn";
 import { playCheckinGreeting, playCheckoutGreeting } from "@/lib/checkinSound";
 
@@ -263,6 +264,7 @@ export default function StaffPortal() {
       </div>
 
       {/* Check In/Out */}
+      <TargetNudge refreshKey={today?.check_out_at || today?.check_in_at} />
       <div className="rounded-2xl bg-[#0F0F0F] border border-white/5 p-5 sm:p-6" data-testid="attendance-card">
         <div className="flex items-center justify-between mb-4">
           <div className="font-playfair text-lg flex items-center gap-2"><Clock className="w-4 h-4 text-gold" /> Today</div>
