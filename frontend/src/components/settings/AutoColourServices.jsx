@@ -5,7 +5,7 @@ import { Wand2, Loader2 } from "lucide-react";
 
 export const AutoColourServices = ({ onDone, linkedCount, total }) => {
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ women_price: 2499, men_price: 799, women_duration: 120, men_duration: 45, overwrite: false });
+  const [f, setF] = useState({ women_price: 2499, men_price: 799, women_duration: 120, men_duration: 45, fashion_extra: 1000, technique_extra: 1500, overwrite: false });
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState(null);
   const run = async () => {
@@ -13,7 +13,8 @@ export const AutoColourServices = ({ onDone, linkedCount, total }) => {
     try {
       const { data } = await api.post("/hair-colors/auto-services", f);
       setRes(data);
-      toast.success(`Linked ${data.linked.women} women's + ${data.linked.men} men's shades`);
+      const l = data.linked;
+      toast.success(`Linked ${l.women + l.men} global, ${l.fashion} fashion, ${l.technique} technique shades`);
       onDone?.();
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
     finally { setBusy(false); }
@@ -28,7 +29,7 @@ export const AutoColourServices = ({ onDone, linkedCount, total }) => {
     <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/40 p-3" data-testid="auto-colour-services">
       <div className="flex items-center gap-2 flex-wrap">
         <Wand2 className="w-4 h-4 text-emerald-600" />
-        <p className="text-xs text-slate-700 flex-1 min-w-[200px]"><b>Auto colour services</b> — create "Women's Global Colour" &amp; "Men's Global Colour" and link every shade so each booking carries a price.
+        <p className="text-xs text-slate-700 flex-1 min-w-[200px]"><b>Auto colour services</b> — create Global, Fashion (pre-lightened) &amp; Technique colour services and link every shade so each booking carries the right price.
           {typeof linkedCount === "number" && <span className="text-slate-500"> {linkedCount}/{total} shades linked.</span>}</p>
         <button onClick={() => setOpen(v => !v)} data-testid="auto-colour-toggle" className="text-xs font-semibold text-emerald-700 bg-white border border-emerald-200 rounded-full px-3 py-1.5">{open ? "Close" : "Set up"}</button>
       </div>
@@ -40,11 +41,16 @@ export const AutoColourServices = ({ onDone, linkedCount, total }) => {
             <Num k="men_price" label="Men's price ₹" step={50} />
             <Num k="men_duration" label="Men's mins" step={15} />
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Num k="fashion_extra" label="+ ₹ for fashion shades (pastels, platinum, greys — pre-lightening)" step={100} />
+            <Num k="technique_extra" label="+ ₹ for techniques (balayage, ombré, money piece)" step={100} />
+          </div>
+          <p className="text-[11px] text-slate-500">Creates: Women's / Men's Global Colour · Women's / Men's Fashion Colour (pre-lightened, +₹{f.fashion_extra}) · Balayage / Ombré / Money Piece (+₹{f.technique_extra}).</p>
           <label className="flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={f.overwrite} onChange={e => setF({ ...f, overwrite: e.target.checked })} data-testid="auto-colour-overwrite" /> Also relink shades already linked to another service</label>
           <button onClick={run} disabled={busy} data-testid="auto-colour-run" className="inline-flex items-center gap-1.5 text-xs font-bold bg-emerald-600 text-white rounded-full px-4 py-2 disabled:opacity-60">
             {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />} Create services &amp; link all shades
           </button>
-          {res && <p className="text-xs text-emerald-700" data-testid="auto-colour-result">✓ {res.women_service.name} ₹{res.women_service.price} · {res.men_service.name} ₹{res.men_service.price} — linked {res.linked.women} + {res.linked.men}{res.linked.skipped ? `, kept ${res.linked.skipped} existing links` : ""}</p>}
+          {res && <p className="text-xs text-emerald-700" data-testid="auto-colour-result">✓ {res.women_service.name} ₹{res.women_service.price} · {res.men_service.name} ₹{res.men_service.price} · Fashion ₹{res.women_fashion_service.price} / ₹{res.men_fashion_service.price} · Technique ₹{res.technique_service.price} — linked {res.linked.women + res.linked.men} global, {res.linked.fashion} fashion, {res.linked.technique} technique{res.linked.skipped ? `, kept ${res.linked.skipped} existing links` : ""}</p>}
         </div>
       )}
     </div>

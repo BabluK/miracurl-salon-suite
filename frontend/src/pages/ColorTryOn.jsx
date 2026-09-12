@@ -194,6 +194,7 @@ export default function ColorTryOn() {
           {c.image_url ? <img src={`${API}${c.image_url}?w=480`} alt={c.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
             : <div className="w-full h-full" style={{ background: `linear-gradient(160deg, ${c.swatch.join(",")})` }} />}
           {good && <span className="absolute top-2 left-2 text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded-full">✓ Suits you</span>}
+          {c.tier && c.tier !== "natural" && <span className={`absolute top-2 right-2 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${c.tier === "fashion" ? "bg-fuchsia-500/90 text-white" : "bg-sky-500/90 text-white"}`} data-testid={`color-tier-${c.id}`}>{c.tier === "fashion" ? "Fashion" : "Technique"}</span>}
           {sel && <span className="absolute inset-0 bg-amber-400/20 flex items-center justify-center"><Check className="w-10 h-10 text-white drop-shadow" /></span>}
         </div>
         <div className="p-2.5 bg-slate-900">

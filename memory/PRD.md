@@ -3072,3 +3072,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-12 (i) — Auto colour services
 - `POST /api/hair-colors/auto-services {women_price, men_price, women_duration=120, men_duration=45, overwrite}`: creates/reuses "Women's Global Colour" (Women Hair, female) + "Men's Global Colour" (Men Hair, male), links all 40 women's + custom shades → women's, 16 men's → men's (`tenant_shade_services`). Idempotent; existing links kept unless overwrite.
 - `components/settings/AutoColourServices.jsx` panel in ColorTryOnCard (prices/durations, overwrite toggle, result line, linked-count badge). Miracurl Marathahalli: 57/57 linked (₹2499 / ₹799).
+
+## 2026-09-12 (j) — Shade price tiers
+- `tier_of()` in hair_colors.py: technique {balayage, ombre, money-piece, mushroom-mocha-balayage}, fashion {platinum/pearl/ash/champagne blonde, cherry red, violet, rose gold, pastel pink/blue, lilac, teal, emerald, smoky/silver grey, men silver-fox/ash-grey/platinum/steel-blue}, else natural. Catalog carries `tier` + `tier_label`; try-on cards show Fashion / Technique badge.
+- Auto-services now also creates "Women's/Men's Fashion Colour (pre-lightened)" (+fashion_extra, default ₹1000, +60/+30 min) and "Balayage / Ombré / Money Piece" (+technique_extra, default ₹1500) and links by tier. Miracurl: 35 global, 18 fashion, 4 technique (₹2499/₹799 · ₹3499/₹1799 · ₹3999).

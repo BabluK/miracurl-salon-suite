@@ -145,12 +145,24 @@ MEN_CATALOG = [
 ]
 _MEN_BY_ID = {c["id"]: c for c in MEN_CATALOG}
 
+# Price tiers — fashion shades need pre-lightening / direct dyes, techniques are hand-painted: both cost more than a global colour.
+TIER_TECHNIQUE = {"balayage", "ombre", "money-piece", "mushroom-mocha-balayage"}
+TIER_FASHION = {"platinum-blonde", "pearl-blonde", "ash-blonde", "champagne-blonde", "cherry-red", "violet", "rose-gold", "pastel-pink",
+                "lilac", "pastel-blue", "teal-blue", "emerald-green", "smoky-grey", "silver-grey",
+                "men-silver-fox", "men-ash-grey", "men-platinum", "men-steel-blue"}
+TIER_LABEL = {"natural": "Global colour", "fashion": "Fashion · pre-lightened", "technique": "Hand-painted technique"}
+
+
+def tier_of(color_id: str) -> str:
+    return "technique" if color_id in TIER_TECHNIQUE else "fashion" if color_id in TIER_FASHION else "natural"
+
 
 async def _catalog_with_images(tenant_id: str | None = None, men: bool = False) -> list[dict]:
     from services.shade_guide import GUIDE
     imgs = {d["id"]: d.get("image_url") async for d in _raw_db.hair_color_images.find({}, {"_id": 0})}
     out = [{**c, "men": men, "image_url": imgs.get(c["id"]), "description": (GUIDE.get(c["id"]) or {}).get("description"),
-            "level": (GUIDE.get(c["id"]) or {}).get("level")} for c in (MEN_CATALOG if men else CATALOG)]
+            "level": (GUIDE.get(c["id"]) or {}).get("level"), "tier": tier_of(c["id"]), "tier_label": TIER_LABEL[tier_of(c["id"])]}
+           for c in (MEN_CATALOG if men else CATALOG)]
     if tenant_id:  # the salon's own shades come first — they are the house specialities
         customs = await _raw_db.tenant_hair_colors.find({"tenant_id": tenant_id, "active": {"$ne": False}}, {"_id": 0}).sort("created_at", -1).to_list(60)
         out = [{**c, "custom": True} for c in customs] + out
@@ -639,6 +651,8 @@ class AutoServicesIn(BaseModel):
     men_price: float = Field(..., ge=0, le=100000)
     women_duration: int = Field(120, ge=15, le=600)
     men_duration: int = Field(45, ge=15, le=600)
+    fashion_extra: float = Field(1000, ge=0, le=100000)    # added for pre-lightened / pastel / grey shades
+    technique_extra: float = Field(1500, ge=0, le=100000)  # added for balayage / ombré / money piece
     overwrite: bool = False  # relink shades that already point at another service
 
 
@@ -660,18 +674,31 @@ async def auto_colour_services(body: AutoServicesIn, admin=Depends(require_tenan
     """One tap: create 'Women's Global Colour' + 'Men's Global Colour' services and link every shade so bookings always carry a price."""
     women = await _ensure_service(t["id"], "Women's Global Colour", "Women Hair", body.women_price, body.women_duration, "female")
     men = await _ensure_service(t["id"], "Men's Global Colour", "Men Hair", body.men_price, body.men_duration, "male")
+    w_fashion = await _ensure_service(t["id"], "Women's Fashion Colour (pre-lightened)", "Women Hair", body.women_price + body.fashion_extra, body.women_duration + 60, "female")
+    m_fashion = await _ensure_service(t["id"], "Men's Fashion Colour (pre-lightened)", "Men Hair", body.men_price + body.fashion_extra, body.men_duration + 30, "male")
+    technique = await _ensure_service(t["id"], "Balayage / Ombré / Money Piece", "Women Hair", body.women_price + body.technique_extra, body.women_duration + 60, "female")
     customs = await _raw_db.tenant_hair_colors.find({"tenant_id": t["id"], "active": {"$ne": False}}, {"_id": 0, "id": 1}).to_list(60)
     existing = {l["color_id"] for l in await _raw_db.tenant_shade_services.find({"tenant_id": t["id"]}, {"_id": 0, "color_id": 1}).to_list(500)}
-    linked = {"women": 0, "men": 0, "skipped": 0}
-    for cid, svc, key in [(c["id"], women, "women") for c in CATALOG + customs] + [(c["id"], men, "men") for c in MEN_CATALOG]:
+    linked = {"women": 0, "men": 0, "fashion": 0, "technique": 0, "skipped": 0}
+
+    def _svc(cid: str, is_men: bool):
+        tier = tier_of(cid)
+        if tier == "technique":
+            return technique, "technique"
+        if tier == "fashion":
+            return (m_fashion if is_men else w_fashion), "fashion"
+        return (men, "men") if is_men else (women, "women")
+    for cid, is_men in [(c["id"], False) for c in CATALOG + customs] + [(c["id"], True) for c in MEN_CATALOG]:
         if cid in existing and not body.overwrite:
             linked["skipped"] += 1
             continue
+        svc, key = _svc(cid, is_men)
         await _raw_db.tenant_shade_services.update_one({"tenant_id": t["id"], "color_id": cid},
                                                        {"$set": {"tenant_id": t["id"], "color_id": cid, "service_id": svc["id"]}}, upsert=True)
         linked[key] += 1
-    return {"ok": True, "women_service": {"id": women["id"], "name": women["name"], "price": women["price"]},
-            "men_service": {"id": men["id"], "name": men["name"], "price": men["price"]}, "linked": linked}
+    brief = lambda x: {"id": x["id"], "name": x["name"], "price": x["price"]}  # noqa: E731
+    return {"ok": True, "women_service": brief(women), "men_service": brief(men), "women_fashion_service": brief(w_fashion),
+            "men_fashion_service": brief(m_fashion), "technique_service": brief(technique), "linked": linked}
 
 
 # ── Colour history for CRM ─────────────────────────────────────────────────────
