@@ -623,12 +623,36 @@ async def _service_links(tenant_id: str) -> dict:
         return {}
     svcs = {s["id"]: s async for s in _raw_db.services.find(
         {"tenant_id": tenant_id, "id": {"$in": [l["service_id"] for l in links]}}, {"_id": 0, "id": 1, "name": 1, "price": 1})}
-    return {l["color_id"]: {"service_id": l["service_id"], "service_name": svcs[l["service_id"]]["name"], "price": svcs[l["service_id"]].get("price")}
-            for l in links if l["service_id"] in svcs}
+    out = {}
+    for l in links:
+        svc = svcs.get(l["service_id"])
+        if not svc:
+            continue
+        override = l.get("price_override")
+        out[l["color_id"]] = {"service_id": l["service_id"], "service_name": svc["name"], "service_price": svc.get("price"),
+                              "price_override": override, "price": override if override is not None else svc.get("price")}
+    return out
 
 
 class ShadeServiceIn(BaseModel):
     service_id: str | None = None
+    price: float | None = Field(None, ge=0, le=100000)  # per-shade quote; None = use the service price
+
+
+class ShadePriceIn(BaseModel):
+    price: float | None = Field(None, ge=0, le=100000)  # None clears the override
+
+
+@router.put("/hair-colors/{color_id}/price")
+async def set_shade_price(color_id: str, body: ShadePriceIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Tenant-editable quote for one shade (e.g. Pastel Pink ₹3,499) — overrides the linked service's price on the try-on and at booking."""
+    if not await _lookup(t["id"], color_id):
+        raise HTTPException(404, "Unknown colour")
+    link = await _raw_db.tenant_shade_services.find_one({"tenant_id": t["id"], "color_id": color_id}, {"_id": 0})
+    if not link:
+        raise HTTPException(400, "Link this shade to a colour service first")
+    await _raw_db.tenant_shade_services.update_one({"tenant_id": t["id"], "color_id": color_id}, {"$set": {"price_override": body.price}})
+    return {"ok": True, "link": (await _service_links(t["id"])).get(color_id)}
 
 
 @router.put("/hair-colors/{color_id}/service")
@@ -642,8 +666,8 @@ async def link_shade_service(color_id: str, body: ShadeServiceIn, admin=Depends(
     if not svc:
         raise HTTPException(404, "Service not found")
     await _raw_db.tenant_shade_services.update_one({"tenant_id": t["id"], "color_id": color_id},
-                                                   {"$set": {"tenant_id": t["id"], "color_id": color_id, "service_id": body.service_id}}, upsert=True)
-    return {"ok": True, "link": {"service_id": body.service_id, "service_name": svc["name"], "price": svc.get("price")}}
+                                                   {"$set": {"tenant_id": t["id"], "color_id": color_id, "service_id": body.service_id, "price_override": body.price}}, upsert=True)
+    return {"ok": True, "link": (await _service_links(t["id"])).get(color_id)}
 
 
 class AutoServicesIn(BaseModel):

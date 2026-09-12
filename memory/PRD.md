@@ -3076,3 +3076,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-12 (j) — Shade price tiers
 - `tier_of()` in hair_colors.py: technique {balayage, ombre, money-piece, mushroom-mocha-balayage}, fashion {platinum/pearl/ash/champagne blonde, cherry red, violet, rose gold, pastel pink/blue, lilac, teal, emerald, smoky/silver grey, men silver-fox/ash-grey/platinum/steel-blue}, else natural. Catalog carries `tier` + `tier_label`; try-on cards show Fashion / Technique badge.
 - Auto-services now also creates "Women's/Men's Fashion Colour (pre-lightened)" (+fashion_extra, default ₹1000, +60/+30 min) and "Balayage / Ombré / Money Piece" (+technique_extra, default ₹1500) and links by tier. Miracurl: 35 global, 18 fashion, 4 technique (₹2499/₹799 · ₹3499/₹1799 · ₹3999).
+
+## 2026-09-12 (k) — Tenant-editable shade quotes
+- `tenant_shade_services.price_override` per shade. `PUT /api/hair-colors/{id}/price {price|null}` (admin); `/service` link accepts optional price. `_service_links` returns `price` (override ?? service price), `service_price`, `price_override`.
+- Booking honours the quote: public book adds the linked service at the override price, or swaps service price → override when the guest pre-selected it; stores `color_pick.quoted_price`.
+- Settings link row: "quote ₹ [input] Save · use service price ₹X"; tile badge amber when overridden. Verified API + UI (Dark Brown ₹2299 → cleared).

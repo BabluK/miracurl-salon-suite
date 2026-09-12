@@ -460,8 +460,14 @@ async def _create_public_appointment(cust: dict, staff: dict, services: list, bo
                 if svc:
                     appt["service_ids"].append(svc["id"]); appt["service_names"].append(svc["name"])
                     appt["duration_min"] = (appt.get("duration_min") or 0) + (svc.get("duration_min") or 0)
-                    appt["total"] = round((appt.get("total") or 0) + (svc.get("price") or 0), 2)
+                    appt["total"] = round((appt.get("total") or 0) + (link.get("price") if link.get("price") is not None else svc.get("price") or 0), 2)
                     total = appt["total"]
+            elif link and link.get("price_override") is not None and link.get("service_price") is not None:
+                # guest already picked the linked service — swap the service price for the shade's own quote
+                appt["total"] = round((appt.get("total") or 0) - float(link["service_price"]) + float(link["price_override"]), 2)
+                total = appt["total"]
+            if link:
+                appt["color_pick"]["quoted_price"] = link.get("price")
             elif not link:
                 label = f"{appt['color_pick']['color_name']} Colour"
                 if label not in appt["service_names"]:
