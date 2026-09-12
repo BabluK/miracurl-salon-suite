@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { Camera, Sparkles, Check, Loader2, RotateCcw, ScanFace, CalendarCheck, Share2, Download } from "lucide-react";
+import { Camera, Sparkles, Check, Loader2, RotateCcw, ScanFace, CalendarCheck, Share2, Download, Upload } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 const UNDERTONE_COPY = {
@@ -11,8 +12,17 @@ const UNDERTONE_COPY = {
 };
 
 // On-device skin read: average the cheek pixels inside the face oval → undertone + depth. Nothing is uploaded.
+const srcSize = (src) => [src.videoWidth || src.naturalWidth || 320, src.videoHeight || src.naturalHeight || 240];
+// Full-res shot for the AI try-on (analysis uses a small 320px copy).
+const shotDataUrl = (src) => {
+  const [sw, sh] = srcSize(src), w = Math.min(900, sw), h = Math.round(w * sh / sw);
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  c.getContext("2d").drawImage(src, 0, 0, w, h);
+  return c.toDataURL("image/jpeg", 0.9);
+};
 function analyseSkin(video, canvas) {
-  const w = 320, h = Math.round(320 * video.videoHeight / video.videoWidth) || 240;
+  const [vw, vh] = srcSize(video);
+  const w = 320, h = Math.round(320 * vh / vw) || 240;
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d");
   ctx.drawImage(video, 0, 0, w, h);
@@ -73,23 +83,31 @@ export default function ColorTryOn() {
   };
   const [faceInfo, setFaceInfo] = useState(null); // {face, presentation, hair_length}
   const [checking, setChecking] = useState(false);
-  const capture = async () => {
-    const res = analyseSkin(videoRef.current, canvasRef.current);
+  const processShot = async (source) => {
+    const res = analyseSkin(source, canvasRef.current);
     let shot = null;
-    try { shot = canvasRef.current.toDataURL("image/jpeg", 0.85); } catch { shot = null; }
+    try { shot = shotDataUrl(source); } catch { shot = null; }
     setSelfie(shot);
-    if (!res) { setCamErr("Couldn't read your skin — move into brighter light and fit your face in the oval."); return; }
+    if (!res) { setCamErr("Couldn't read your skin — use a brighter, front-facing photo with your face in the centre."); return; }
     setChecking(true); setCamErr("");
     let info = { face: true, presentation: "unclear" };
     try {
       if (shot) { const { data } = await axios.post(`${API}/api/public/color/${slug}/face-check`, { selfie_b64: shot }); info = data; }
     } catch { /* keep going without the hint */ }
     setChecking(false);
-    if (!info.face) { setCamErr("No face detected — please fit your face inside the oval, look at the camera and try again."); return; }
+    if (!info.face) { setCamErr("No face detected — please use a clear, front-facing photo and try again."); return; }
     setFaceInfo(info);
     setSkin(res); streamRef.current?.getTracks().forEach(t => t.stop());
     setGender(info.presentation === "man" ? "men" : info.presentation === "woman" ? "women" : null);
     setStep("gender");
+  };
+  const capture = () => processShot(videoRef.current);
+  const uploadSelfie = (file) => {
+    if (!file) return;
+    const img = new Image();
+    img.onload = () => { setStep("camera"); processShot(img); URL.revokeObjectURL(img.src); };
+    img.onerror = () => setCamErr("Couldn't read that photo — try a JPG or PNG.");
+    img.src = URL.createObjectURL(file);
   };
   const skipCamera = () => { streamRef.current?.getTracks().forEach(t => t.stop()); setSkin(null); setGender(null); setStep("gender"); };
   const [gender, setGender] = useState(null); // men | women — confirmed by the guest
@@ -191,6 +209,7 @@ export default function ColorTryOn() {
         </div>
       </header>
 
+      <canvas ref={canvasRef} className="hidden" />
       {step === "intro" && (
         <section className="px-5 pb-10" data-testid="color-tryon-intro">
           <h2 className="text-white text-3xl font-serif mt-4">Find your perfect colour</h2>
@@ -198,6 +217,11 @@ export default function ColorTryOn() {
           <button onClick={startCamera} data-testid="color-start-camera" className="mt-6 w-full py-4 rounded-2xl bg-amber-400 text-slate-900 font-bold text-base inline-flex items-center justify-center gap-2">
             <ScanFace className="w-5 h-5" /> Open front camera
           </button>
+          <label className="mt-3 w-full py-3 rounded-2xl border border-amber-400/50 text-amber-200 text-sm inline-flex items-center justify-center gap-2 cursor-pointer" data-testid="color-upload-btn">
+            <Upload className="w-4 h-4" /> Upload a selfie instead
+            <input type="file" accept="image/*" className="hidden" onChange={e => { uploadSelfie(e.target.files?.[0]); e.target.value = ""; }} data-testid="color-upload-input" />
+          </label>
+          {camErr && step === "intro" && <p className="mt-2 text-rose-300 text-sm" data-testid="color-intro-error">{camErr}</p>}
           <button onClick={skipCamera} data-testid="color-skip-camera" className="mt-3 w-full py-3 rounded-2xl border border-slate-600 text-slate-200 text-sm">Skip — show all shades</button>
           <div className="flex gap-2 mt-6 text-[11px]" data-testid="color-intro-chips">
             {[`${salon.colors.filter(c => !c.custom).length} shades for her`, `${(salon.men_colors || []).filter(c => !c.custom).length} for him`, "Front & back preview"].map(x => (
@@ -225,9 +249,12 @@ export default function ColorTryOn() {
               <p className="absolute bottom-4 left-0 right-0 text-center text-white text-sm font-semibold drop-shadow">Fit your face inside the oval · good light · no filter</p>
             </div>
           </div>
-          <canvas ref={canvasRef} className="hidden" />
           {camErr && <p className="mt-3 text-rose-300 text-sm" data-testid="color-cam-error">{camErr}</p>}
           <button onClick={capture} disabled={checking} data-testid="color-capture-btn" className="mt-4 w-full py-4 rounded-2xl bg-amber-400 text-slate-900 font-bold inline-flex items-center justify-center gap-2 disabled:opacity-60">{checking ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />} {checking ? "Checking your face…" : "Read my skin tone"}</button>
+          <label className="mt-3 w-full py-3 rounded-2xl border border-slate-600 text-slate-200 text-sm inline-flex items-center justify-center gap-2 cursor-pointer" data-testid="color-upload-camera-step">
+            <Upload className="w-4 h-4" /> Upload a photo instead
+            <input type="file" accept="image/*" className="hidden" onChange={e => { uploadSelfie(e.target.files?.[0]); e.target.value = ""; }} data-testid="color-upload-input-camera" />
+          </label>
           <button onClick={skipCamera} className="mt-3 w-full py-3 rounded-2xl border border-slate-600 text-slate-200 text-sm">Skip</button>
         </section>
       )}
@@ -299,41 +326,44 @@ export default function ColorTryOn() {
         </section>
       )}
 
-      {preview && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-5" data-testid="color-preview-modal" style={{ perspective: "1200px" }}>
-          <p className="text-amber-300 text-xs tracking-[0.25em] font-semibold mb-3">YOU IN {preview.color.name.toUpperCase()}</p>
-          <div className="relative w-72 aspect-[4/5] transition-transform duration-700" style={{ transformStyle: "preserve-3d", transform: face === "back" ? "rotateY(180deg)" : "rotateY(0deg)" }} data-testid="color-preview-card">
-            <img src={`data:image/png;base64,${preview.front}`} alt="front" className="absolute inset-0 w-full h-full object-cover rounded-3xl border-2 border-amber-400" style={{ backfaceVisibility: "hidden" }} />
+      {preview && createPortal(
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col items-center justify-center gap-2 px-3 py-3 sm:py-4 overflow-y-auto" data-testid="color-preview-modal" style={{ perspective: "1400px" }}>
+          <p className="text-amber-300 text-[11px] sm:text-xs tracking-[0.25em] font-semibold shrink-0">YOU IN {preview.color.name.toUpperCase()}</p>
+          <div className="relative shrink-0 transition-transform duration-700"
+            style={{ transformStyle: "preserve-3d", transform: face === "back" ? "rotateY(180deg)" : "rotateY(0deg)", aspectRatio: "4 / 5",
+                     height: "min(calc(100dvh - 15.5rem), calc((100vw - 1.5rem) * 1.25), 1000px)", width: "auto" }} data-testid="color-preview-card">
+            <img src={`data:image/png;base64,${preview.front}`} alt="front" className="absolute inset-0 w-full h-full object-cover rounded-2xl sm:rounded-3xl border-2 border-amber-400" style={{ backfaceVisibility: "hidden" }} />
             {preview.back
-              ? <img src={`data:image/png;base64,${preview.back}`} alt="back" className="absolute inset-0 w-full h-full object-cover rounded-3xl border-2 border-amber-400" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }} />
-              : <div className="absolute inset-0 rounded-3xl border-2 border-amber-400 bg-slate-900 flex flex-col items-center justify-center gap-2 text-slate-300 text-xs" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }} data-testid="color-preview-back-pending">
+              ? <img src={`data:image/png;base64,${preview.back}`} alt="back" className="absolute inset-0 w-full h-full object-cover rounded-2xl sm:rounded-3xl border-2 border-amber-400" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }} />
+              : <div className="absolute inset-0 rounded-2xl sm:rounded-3xl border-2 border-amber-400 bg-slate-900 flex flex-col items-center justify-center gap-2 text-slate-300 text-xs" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }} data-testid="color-preview-back-pending">
                   {backBusy ? <><Loader2 className="w-6 h-6 animate-spin text-amber-400" /> Rendering the back view… ~20 s</> : "Back view unavailable"}
                 </div>}
           </div>
-          {backBusy && <p className="text-amber-300/80 text-[11px] mt-2 inline-flex items-center gap-1" data-testid="color-preview-back-status"><Loader2 className="w-3 h-3 animate-spin" /> Back view rendering — flip when ready</p>}
-          <div className="flex gap-2 mt-5">
+          {backBusy && <p className="text-amber-300/80 text-[11px] inline-flex items-center gap-1 shrink-0" data-testid="color-preview-back-status"><Loader2 className="w-3 h-3 animate-spin" /> Back view rendering — flip when ready</p>}
+          <div className="flex gap-2 shrink-0">
             {["front", "back"].map(f => (
               <button key={f} onClick={() => setFace(f)} data-testid={`color-preview-${f}`}
-                className={`px-5 py-2 rounded-full text-sm font-semibold ${face === f ? "bg-amber-400 text-slate-900" : "bg-white/10 text-white"}`}>{f === "front" ? "Front" : "Back"}</button>
+                className={`px-4 py-1.5 rounded-full text-sm font-semibold ${face === f ? "bg-amber-400 text-slate-900" : "bg-white/10 text-white"}`}>{f === "front" ? "Front" : "Back"}</button>
             ))}
-            <button onClick={() => setFace(f => f === "front" ? "back" : "front")} data-testid="color-preview-rotate" className="px-4 py-2 rounded-full bg-white/10 text-white text-sm inline-flex items-center gap-1"><RotateCcw className="w-4 h-4" /> Rotate</button>
+            <button onClick={() => setFace(f => f === "front" ? "back" : "front")} data-testid="color-preview-rotate" className="px-3 py-1.5 rounded-full bg-white/10 text-white text-sm inline-flex items-center gap-1"><RotateCcw className="w-4 h-4" /> Rotate</button>
           </div>
-          <p className="text-slate-400 text-[11px] mt-3 text-center max-w-xs">AI preview of {preview.color.name} on your own photo. Your selfie is used only for this preview and is not saved.</p>
-          <div className="flex gap-2 mt-4 w-full max-w-xs">
+          <p className="text-slate-500 text-[10px] text-center max-w-sm shrink-0">AI preview of {preview.color.name} on your own photo — your selfie is not saved.</p>
+          <div className="flex gap-2 w-full max-w-sm shrink-0">
             <button onClick={() => shareCard("share")} disabled={shareBusy} data-testid="color-preview-share"
-              className="flex-1 py-3 rounded-2xl bg-[#25D366] text-slate-900 text-sm font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60">
+              className="flex-1 py-2.5 rounded-2xl bg-[#25D366] text-slate-900 text-sm font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60">
               {shareBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />} Share / WhatsApp
             </button>
             <button onClick={() => shareCard("download")} disabled={shareBusy} data-testid="color-preview-download"
-              className="py-3 px-4 rounded-2xl bg-white/10 text-white text-sm font-semibold inline-flex items-center justify-center gap-1.5 disabled:opacity-60">
+              className="py-2.5 px-4 rounded-2xl bg-white/10 text-white text-sm font-semibold inline-flex items-center justify-center gap-1.5 disabled:opacity-60">
               <Download className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex gap-2 mt-2 w-full max-w-xs">
-            <button onClick={() => setPreview(null)} data-testid="color-preview-close" className="flex-1 py-3 rounded-2xl bg-white/10 text-white text-sm font-semibold">Try another shade</button>
-            <button onClick={() => { setPreview(null); submit(); }} data-testid="color-preview-choose" className="flex-1 py-3 rounded-2xl bg-amber-400 text-slate-900 text-sm font-bold">Choose this colour</button>
+          <div className="flex gap-2 w-full max-w-sm shrink-0">
+            <button onClick={() => setPreview(null)} data-testid="color-preview-close" className="flex-1 py-2.5 rounded-2xl bg-white/10 text-white text-sm font-semibold">Try another shade</button>
+            <button onClick={() => { setPreview(null); submit(); }} data-testid="color-preview-choose" className="flex-1 py-2.5 rounded-2xl bg-amber-400 text-slate-900 text-sm font-bold">Choose this colour</button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {step === "done" && done && (

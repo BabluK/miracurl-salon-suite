@@ -3057,3 +3057,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-12 (f) — Target progress nudge (staff portal)
 - `GET /api/staff/me/target-progress`: current-month gross vs monthly_target, remaining, %, days_left, per_day_needed, per_day_so_far, on_track (vs linear pace), unlock_at_target (target × (pct+tpct)), achieved.
 - `components/staff/TargetNudge.jsx` at the top of StaffPortal (above Today card): "₹ to target" bar (gold when on pace, amber→rose when behind, emerald "Target smashed" when achieved), refreshes every 2 min + on check-in/out. Hidden when no target set. Demo: Priya target ₹50,000 / 10% / 5%.
+
+## 2026-09-12 (g) — Try-on preview: full-size responsive card + upload option
+- ROOT CAUSE of "big gaps / preview mid-page": the fixed preview modal was inside the Shell's `backdrop-blur` column (backdrop-filter makes fixed descendants position relative to it). Fixed by rendering the modal via `createPortal(document.body)`.
+- Preview card now sizes to the screen: `height: min(100dvh − 15.5rem, (100vw − 1.5rem) × 1.25, 1000px)` at 4:5 — desktop 442×552, mobile 366×458, tablet 746×932. Controls compacted (py-2.5), modal scrolls on very short screens.
+- Selfie now captured at up to 900px (was 320px) for better AI results; analysis still uses the 320px copy.
+- New "Upload a selfie instead" (intro + camera step) → same face-check / skin / gender pipeline (`processShot`, `uploadSelfie`). data-testids: color-upload-input, color-upload-btn.
