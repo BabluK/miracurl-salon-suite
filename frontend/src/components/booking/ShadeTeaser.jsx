@@ -29,7 +29,7 @@ export const ShadeTeaser = ({ slug }) => {
             <Link key={s.id} to={to} data-testid={`shade-teaser-tile-${s.id}`}
               className="group relative shrink-0 w-28 sm:w-32 aspect-[4/5] rounded-2xl overflow-hidden border border-white/10 snap-start hover:border-[#d4af37]/70 transition-colors"
               style={{ animation: `teaser-in .5s ease-out ${i * 60}ms both` }}>
-              <img src={`${API}${s.image_url}`} alt={s.name} loading="lazy" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              <img src={`${API}${s.image_url}?w=320`} alt={s.name} loading="lazy" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
               <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2 pt-6">
                 <span className="flex gap-0.5 mb-1">{s.swatch.map(c => <i key={c} className="w-2.5 h-2.5 rounded-full border border-white/30" style={{ background: c }} />)}</span>
                 <span className="block text-white text-[11px] font-semibold leading-tight truncate">{s.name}</span>

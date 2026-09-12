@@ -95,18 +95,25 @@ export default function ColorTryOn() {
   const [gender, setGender] = useState(null); // men | women — confirmed by the guest
   const confirmGender = (g) => { setGender(g); setStep("results"); };
 
+  const [backBusy, setBackBusy] = useState(false);
   const seeItOnMe = async () => {
     if (!picked || !selfie) return;
     setPreviewBusy(true); setPreview(null); setFace("front");
+    const subject = {
+      presentation: gender === "men" ? "man" : gender === "women" ? "woman" : (faceInfo?.presentation || "unclear"),
+      hair_length: faceInfo?.hair_length || "unclear", facial_hair: faceInfo?.facial_hair || "unclear",
+    };
+    let front;
     try {
-      const { data } = await axios.post(`${API}/api/public/color/${slug}/preview`, {
-        color_id: picked.id, selfie_b64: selfie,
-        presentation: gender === "men" ? "man" : gender === "women" ? "woman" : (faceInfo?.presentation || "unclear"),
-        hair_length: faceInfo?.hair_length || "unclear", facial_hair: faceInfo?.facial_hair || "unclear",
-      });
-      setPreview(data);
-    } catch (e) { setCamErr(e.response?.data?.detail || "Preview failed — try again"); }
-    finally { setPreviewBusy(false); }
+      const { data } = await axios.post(`${API}/api/public/color/${slug}/preview`, { color_id: picked.id, selfie_b64: selfie, view: "front", ...subject });
+      front = data.front; setPreview({ color: data.color, front, back: null });
+    } catch (e) { setCamErr(e.response?.data?.detail || "Preview failed — try again"); setPreviewBusy(false); return; }
+    setPreviewBusy(false); setBackBusy(true);
+    try {  // the back view is rendered from the coloured front so both match — shown as soon as it lands
+      const { data } = await axios.post(`${API}/api/public/color/${slug}/preview`, { color_id: picked.id, selfie_b64: front, view: "back", ...subject });
+      setPreview(p => p && p.front === front ? { ...p, back: data.back } : p);
+    } catch { /* front alone is still useful */ }
+    finally { setBackBusy(false); }
   };
 
   const [shareBusy, setShareBusy] = useState(false);
@@ -148,7 +155,7 @@ export default function ColorTryOn() {
   const bySuits = (list) => [...list].sort((a, b) => Number(suits(b)) - Number(suits(a)));
   const ordered = bySuits(salon.colors);
   const sections = gender === "men"
-    ? [["House specials", ordered.filter(c => c.custom)], ["Professional shades for men", bySuits(salon.men_colors || []).filter(c => !c.custom)]]
+    ? [["Professional shades for men", bySuits(salon.men_colors || []).filter(c => !c.custom)]]
     : [[gender === "women" ? "Shades for women" : "All shades", ordered]];
   const guess = faceInfo?.presentation;
 
@@ -158,7 +165,7 @@ export default function ColorTryOn() {
       <button key={c.id} onClick={() => setPicked(c)} data-testid={`color-card-${c.id}`}
         className={`text-left rounded-2xl overflow-hidden border-2 transition-transform active:scale-[0.98] ${sel ? "border-amber-400 ring-2 ring-amber-300/50" : good ? "border-emerald-400/70" : "border-slate-700"} ${skin && !good ? "opacity-60" : ""}`}>
         <div className="aspect-[4/5] bg-slate-800 relative">
-          {c.image_url ? <img src={`${API}${c.image_url}`} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+          {c.image_url ? <img src={`${API}${c.image_url}?w=480`} alt={c.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
             : <div className="w-full h-full" style={{ background: `linear-gradient(160deg, ${c.swatch.join(",")})` }} />}
           {good && <span className="absolute top-2 left-2 text-[10px] font-bold bg-emerald-500 text-white px-2 py-0.5 rounded-full">✓ Suits you</span>}
           {sel && <span className="absolute inset-0 bg-amber-400/20 flex items-center justify-center"><Check className="w-10 h-10 text-white drop-shadow" /></span>}
@@ -275,7 +282,7 @@ export default function ColorTryOn() {
                 <button onClick={seeItOnMe} disabled={previewBusy} data-testid="color-see-on-me"
                   className="mb-2 w-full py-3 rounded-2xl bg-white/10 border border-amber-400/50 text-amber-200 text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-60">
                   {previewBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanFace className="w-4 h-4" />}
-                  {previewBusy ? "Colouring your hair… ~45 s" : "See it on me — front & back"}
+                  {previewBusy ? "Colouring your hair… ~20 s" : "See it on me — front & back"}
                 </button>
               )}
               <div className="flex gap-2">
@@ -299,8 +306,11 @@ export default function ColorTryOn() {
             <img src={`data:image/png;base64,${preview.front}`} alt="front" className="absolute inset-0 w-full h-full object-cover rounded-3xl border-2 border-amber-400" style={{ backfaceVisibility: "hidden" }} />
             {preview.back
               ? <img src={`data:image/png;base64,${preview.back}`} alt="back" className="absolute inset-0 w-full h-full object-cover rounded-3xl border-2 border-amber-400" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }} />
-              : <div className="absolute inset-0 rounded-3xl border-2 border-amber-400 bg-slate-900 flex items-center justify-center text-slate-400 text-xs" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>Back view unavailable</div>}
+              : <div className="absolute inset-0 rounded-3xl border-2 border-amber-400 bg-slate-900 flex flex-col items-center justify-center gap-2 text-slate-300 text-xs" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }} data-testid="color-preview-back-pending">
+                  {backBusy ? <><Loader2 className="w-6 h-6 animate-spin text-amber-400" /> Rendering the back view… ~20 s</> : "Back view unavailable"}
+                </div>}
           </div>
+          {backBusy && <p className="text-amber-300/80 text-[11px] mt-2 inline-flex items-center gap-1" data-testid="color-preview-back-status"><Loader2 className="w-3 h-3 animate-spin" /> Back view rendering — flip when ready</p>}
           <div className="flex gap-2 mt-5">
             {["front", "back"].map(f => (
               <button key={f} onClick={() => setFace(f)} data-testid={`color-preview-${f}`}

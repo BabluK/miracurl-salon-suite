@@ -3036,3 +3036,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-12 (b) — Try-on page background
 - `ColorTryOn.jsx` Shell: fixed blurred backdrop (first/selected shade photo) + gold/rose radial glows, glass centre column (`isolate` stacking fix). Intro adds count chips ("40 shades for her · 16 for him") and a 6-tile shade mosaic.
+
+## 2026-09-12 (c) — Try-on speed
+- Shade grid/teaser/cards now request `?w=` WEBP thumbnails (480/320/160) instead of 2 MB PNGs; `warm_thumbs()` pre-renders 320/480/960 variants after generation and `_paint_missing` back-fills them (4 concurrent) — all 17 men's tiles load < 2.5 s.
+- `/public/color/{slug}/preview` split per view: `view=front` (~8 s, shown immediately) then `view=back` from the coloured front (~9 s, card shows "Rendering the back view…" until it lands). Men's prompt keeps the short cut. Rate limit 12/10 min, 600/day.
+- Men's view shows ONLY the men's catalogue (no women's house specials).

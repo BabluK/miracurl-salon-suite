@@ -492,7 +492,7 @@ export default function BookPublic() {
         <div className="fixed top-20 inset-x-0 z-30 flex justify-center px-3 pointer-events-none" data-testid="book-color-banner">
           <div className="pointer-events-auto flex items-center gap-3 bg-[#17141c]/95 backdrop-blur border border-[#d4af37]/60 rounded-2xl px-3 py-2 shadow-xl max-w-md w-full">
             <div className="w-12 h-14 rounded-lg overflow-hidden shrink-0 border border-[#d4af37]/60">
-              {pickedColor.image_url ? <img src={`${BACKEND_URL}${pickedColor.image_url}`} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: `linear-gradient(160deg, ${pickedColor.swatch.join(",")})` }} />}
+              {pickedColor.image_url ? <img src={`${BACKEND_URL}${pickedColor.image_url}?w=160`} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: `linear-gradient(160deg, ${pickedColor.swatch.join(",")})` }} />}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] tracking-[0.2em] text-[#d4af37] font-semibold">COLOUR APPOINTMENT</p>

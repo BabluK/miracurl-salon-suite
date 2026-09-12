@@ -57,7 +57,7 @@ export const ColorPickCard = ({ appt, onSaved }) => {
   return (
     <div className="mt-2 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-rose-50 p-3 flex gap-3" data-testid={`color-card-${appt.id}`}>
       <div className="w-16 h-20 rounded-lg overflow-hidden border border-amber-300 shrink-0" style={{ background: `linear-gradient(160deg, ${(cp.swatch || ["#777"]).join(",")})` }}>
-        {cp.image_url && <img src={`${BACKEND}${cp.image_url}`} alt={cp.color_name} className="w-full h-full object-cover" />}
+        {cp.image_url && <img src={`${BACKEND}${cp.image_url}?w=160`} alt={cp.color_name} className="w-full h-full object-cover" />}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">

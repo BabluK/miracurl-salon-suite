@@ -179,11 +179,30 @@ def _shade_prompt(c: dict) -> str:
             "bright modern salon interior, editorial lighting, 8k detail, the model faces away from camera. NO text, NO letters, NO logos.")
 
 
+async def warm_thumbs(file_url: str, widths=(320, 480, 960)) -> bool:
+    """Pre-render the cached WEBP variants so the first guest doesn't wait on a 2 MB PNG."""
+    from routes.uploads import _resize_webp
+    from services.storage import _get_object, _put_object
+    up = await _raw_db.uploads.find_one({"id": file_url.rsplit("/", 1)[-1].split("?")[0]}, {"_id": 0, "storage_path": 1})
+    if not up:
+        return False
+    try:
+        data, _ = await asyncio.to_thread(_get_object, up["storage_path"])
+        for w in widths:
+            small = await asyncio.to_thread(_resize_webp, data, w)
+            await asyncio.to_thread(_put_object, f"{up['storage_path']}.w{w}.webp", small, "image/webp")
+        return True
+    except Exception as e:
+        log.warning("thumb warm failed %s: %s", file_url, e)
+        return False
+
+
 async def _paint_custom(tenant: dict, c: dict):
     from routes.mira_common import _gen_image
     try:
         url = await _gen_image(_shade_prompt(c), tenant, "hair_color_custom")
         await _raw_db.tenant_hair_colors.update_one({"id": c["id"]}, {"$set": {"image_url": url}})
+        await warm_thumbs(url)
     except Exception as e:
         log.error("custom shade image failed %s: %s", c["id"], e)
         await _raw_db.tenant_hair_colors.update_one({"id": c["id"]}, {"$set": {"image_error": str(e)[:200]}})
@@ -193,7 +212,8 @@ async def _paint_one(c: dict) -> str | None:
     from routes.mira_common import _gen_image
     try:
         url = await _gen_image(_shade_prompt(c), {"id": "superadmin", "slug": "hq"}, "hair_color_catalog")
-        await _raw_db.hair_color_images.update_one({"id": c["id"]}, {"$set": {"id": c["id"], "image_url": url,
+        thumbs = await warm_thumbs(url)
+        await _raw_db.hair_color_images.update_one({"id": c["id"]}, {"$set": {"id": c["id"], "image_url": url, "thumbs": thumbs,
                                                     "at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
         return url
     except Exception as e:
@@ -205,6 +225,7 @@ _painting = {"running": False}
 
 
 async def _paint_missing():
+    """Generate missing catalogue photos, then pre-warm thumbnails for any photo that still lacks them."""
     if _painting["running"]:
         return
     _painting["running"] = True
@@ -213,6 +234,15 @@ async def _paint_missing():
         for c in CATALOG + MEN_CATALOG:
             if c["id"] not in have:
                 await _paint_one(c)
+        pending = [("hair_color_images", d) async for d in _raw_db.hair_color_images.find({"thumbs": {"$ne": True}, "image_url": {"$ne": None}}, {"_id": 0, "id": 1, "image_url": 1})]
+        pending += [("tenant_hair_colors", d) async for d in _raw_db.tenant_hair_colors.find({"thumbs": {"$ne": True}, "image_url": {"$ne": None}}, {"_id": 0, "id": 1, "image_url": 1})]
+        sem = asyncio.Semaphore(4)
+
+        async def _warm(coll, d):
+            async with sem:
+                if await warm_thumbs(d["image_url"]):
+                    await _raw_db[coll].update_one({"id": d["id"]}, {"$set": {"thumbs": True}})
+        await asyncio.gather(*(_warm(coll, d) for coll, d in pending))
     finally:
         _painting["running"] = False
 
@@ -283,7 +313,8 @@ async def public_color_catalog(slug: str):
     t = await resolve_tenant_from_slug(slug)
     colors = await _catalog_with_images(t["id"])
     men_colors = await _catalog_with_images(t["id"], men=True)
-    if any(not c.get("image_url") and not c.get("custom") for c in colors + men_colors):
+    if any(not c.get("image_url") and not c.get("custom") for c in colors + men_colors) or \
+            await _raw_db.hair_color_images.count_documents({"thumbs": {"$ne": True}}, limit=1):
         asyncio.create_task(_paint_missing())
     return {"slug": t["slug"], "name": t.get("name"), "logo_url": t.get("logo_url"),
             "location": t.get("location") or "", "colors": colors, "men_colors": men_colors}
@@ -426,6 +457,7 @@ class PreviewIn(BaseModel):
     presentation: str = "unclear"   # man|woman|unclear — from /face-check
     hair_length: str = "unclear"    # short|medium|long|unclear
     facial_hair: str = "unclear"    # none|stubble|moustache|beard|unclear
+    view: str = Field("front", pattern=r"^(front|back)$")  # back = derive the rear view from the already-coloured front
 
 
 _NO_FACIAL_HAIR = ("STRICT RULE: recolour ONLY the hair growing on the scalp (top, sides and back of the head). "
@@ -460,9 +492,10 @@ _PREVIEW_SEM = asyncio.Semaphore(4)  # max in-flight Gemini try-ons platform-wid
 
 @router.post("/public/color/{slug}/preview")
 async def public_color_preview(slug: str, body: PreviewIn, request: Request):
-    """AI try-on: the guest's selfie with the chosen shade — front view + back view. Nothing is stored."""
-    await public_rate_limit(request, "color-preview", limit=6, window_sec=600)
-    await global_daily_cap("color-preview", 300, "Today's try-on limit has been reached — please try again tomorrow.")
+    """AI try-on, one view per call so the front appears fast: view=front colours the selfie; view=back takes the
+    coloured front (as selfie_b64) and renders the same person from behind. Nothing is stored."""
+    await public_rate_limit(request, "color-preview", limit=12, window_sec=600)
+    await global_daily_cap("color-preview", 600, "Today's try-on limit has been reached — please try again tomorrow.")
     if _PREVIEW_SEM.locked():
         raise HTTPException(429, "The colour studio is busy right now — please try again in a minute")
     t = await resolve_tenant_from_slug(slug)
@@ -475,27 +508,27 @@ async def public_color_preview(slug: str, body: PreviewIn, request: Request):
     swatch = ", ".join(c["swatch"])
     shade = f"'{c['name']}' ({(c.get('tag') or 'signature shade').lower()}) — exact hex tones {swatch}"
     subject = _subject_note(body.presentation, body.hair_length, body.facial_hair)
-    front = (f"Edit this photo: keep the SAME person, same face, same skin, same expression, same background and framing. "
-             f"Change ONLY the scalp hair colour to the professional salon shade {shade}. Realistic glossy salon finish with "
-             f"natural dimension, the overall hair colour must read clearly as {swatch}. {subject} {_NO_FACIAL_HAIR} "
-             f"Photorealistic, no text, no watermark.")
-    back = (f"This photo shows a person whose scalp hair has just been coloured in the salon shade {shade}. "
-            f"Create a photorealistic salon photo of the SAME person seen from BEHIND (back of the head and shoulders, "
-            f"same hair length, cut and texture, same clothing). The hair colour from behind must be IDENTICAL to the hair colour "
-            f"visible in this photo — same hue, same depth, exact tones {swatch}; do not shift it warmer, cooler, lighter or darker. "
-            f"{subject} Soft salon lighting, plain neutral background. No text, no watermark.")
+    mens_cut = " Keep his short men's haircut exactly as it is — do NOT lengthen or restyle the hair." if body.presentation == "man" else ""
+    if body.view == "front":
+        prompt = (f"Edit this photo: keep the SAME person, same face, same skin, same expression, same background and framing. "
+                  f"Change ONLY the scalp hair colour to the professional salon shade {shade}. Realistic glossy salon finish with "
+                  f"natural dimension, the overall hair colour must read clearly as {swatch}. {subject}{mens_cut} {_NO_FACIAL_HAIR} "
+                  f"Photorealistic, no text, no watermark.")
+    else:
+        prompt = (f"This photo shows a person whose scalp hair has just been coloured in the salon shade {shade}. "
+                  f"Create a photorealistic salon photo of the SAME person seen from BEHIND (back of the head and shoulders, "
+                  f"same hair length, cut and texture, same clothing). The hair colour from behind must be IDENTICAL to the hair colour "
+                  f"visible in this photo — same hue, same depth, exact tones {swatch}; do not shift it warmer, cooler, lighter or darker. "
+                  f"{subject}{mens_cut} Soft salon lighting, plain neutral background. No text, no watermark.")
     try:
         async with _PREVIEW_SEM:
-            f_img = await asyncio.wait_for(_recolor(b64, front), timeout=90)
-            if not f_img:
-                raise HTTPException(502, "Couldn't render the preview — try a brighter, front-facing selfie")
-            b_img = await asyncio.wait_for(_recolor(f_img, back), timeout=90)  # back view is derived from the coloured front
-    except HTTPException:
-        raise
+            img = await asyncio.wait_for(_recolor(b64, prompt), timeout=90)
     except Exception as e:
         log.error("hair preview failed: %s", e)
         raise HTTPException(502, "Preview is busy right now — please try again in a moment")
-    return {"color": c, "front": f_img, "back": b_img}
+    if not img:
+        raise HTTPException(502, "Couldn't render the preview — try a brighter, front-facing selfie")
+    return {"color": c, "view": body.view, "image": img, **({"front": img} if body.view == "front" else {"back": img})}
 
 
 # ── Stylist colour card: formula notes ─────────────────────────────────────────

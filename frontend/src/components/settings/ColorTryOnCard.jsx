@@ -103,7 +103,7 @@ export const ColorTryOnCard = () => {
               <div key={c.id} title={`${c.name}${c.service_name ? ` → ${c.service_name} ₹${c.price}` : " · tap to link a service"}`} onClick={() => setLinking(c)} data-testid={`color-tile-${c.id}`}
                 className={`relative shrink-0 w-14 h-[70px] rounded-lg overflow-hidden border cursor-pointer ${linking?.id === c.id ? "ring-2 ring-slate-900" : ""} ${c.custom ? "border-amber-400 ring-1 ring-amber-300" : "border-slate-200"}`} style={{ background: `linear-gradient(160deg, ${c.swatch.join(",")})` }}>
                 {c.service_name && <span className="absolute bottom-0 inset-x-0 bg-emerald-600/90 text-white text-[9px] text-center font-semibold leading-4">₹{c.price}</span>}
-                {c.image_url && <img src={`${BACKEND}${c.image_url}`} alt={c.name} className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = "none"; }} />}
+                {c.image_url && <img src={`${BACKEND}${c.image_url}?w=320`} alt={c.name} className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = "none"; }} />}
                 {c.custom && !c.image_url && <Loader2 className="absolute inset-0 m-auto w-4 h-4 text-white animate-spin" />}
                 {c.custom && (
                   <button onClick={() => removeShade(c.id)} title="Remove shade" data-testid={`color-custom-remove-${c.id}`}
