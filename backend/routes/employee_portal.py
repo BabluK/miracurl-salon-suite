@@ -54,7 +54,7 @@ def _norm_phone(p: str) -> str:
 def _make_emp_token(account_id: str, employee_id: str) -> str:
     payload = {"sub": account_id, "emp": employee_id,
                "iat": int(datetime.now(timezone.utc).timestamp()),
-               "exp": datetime.now(timezone.utc) + timedelta(hours=12),
+               "exp": datetime.now(timezone.utc) + timedelta(hours=15),
                "type": "emp_access"}
     return jwt.encode(payload, jwt_secret(), algorithm=JWT_ALG)
 
@@ -62,7 +62,7 @@ def _make_emp_token(account_id: str, employee_id: str) -> str:
 def _set_emp_cookie(resp: Response, token: str):
     import os
     sec = os.environ.get("COOKIE_SECURE", "true").lower() != "false"
-    resp.set_cookie(_COOKIE, token, httponly=True, secure=sec, samesite="lax", max_age=43200, path="/")
+    resp.set_cookie(_COOKIE, token, httponly=True, secure=sec, samesite="lax", max_age=54000, path="/")
 
 
 async def current_employee(request: Request) -> dict:

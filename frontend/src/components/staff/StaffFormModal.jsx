@@ -78,7 +78,8 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="label-light block mb-1">Commission %</label>
-              <input type="number" step="0.5" className="input-light" value={form.commission_pct} onChange={e => setForm({ ...form, commission_pct: e.target.value })} />
+              <input data-testid="staff-commission-pct-input" type="number" step="0.5" min="0" className="input-light" value={form.commission_pct} onChange={e => setForm({ ...form, commission_pct: e.target.value })} />
+              <p className="text-[10px] text-slate-400 mt-1">% of SERVICE sales — paid only in months the target below is reached. 0 = never paid.</p>
             </div>
             <div>
               <label className="label-light block mb-1 inline-flex items-center gap-1"><IndianRupee className="w-3 h-3" /> Monthly base salary</label>
@@ -97,13 +98,13 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
               <label className="label-light block mb-1 inline-flex items-center gap-1">🎯 Monthly target (₹)</label>
               <input data-testid="staff-target-input" type="number" step="1000" min="0" className="input-light"
                 value={form.monthly_target} onChange={e => setForm({ ...form, monthly_target: e.target.value })} placeholder="e.g. 100000" />
-              <p className="text-[10px] text-slate-400 mt-1">Business goal for the month (services + products)</p>
+              <p className="text-[10px] text-slate-400 mt-1">Business goal for the month (services + products). 0 = no commission of any kind.</p>
             </div>
             <div>
               <label className="label-light block mb-1">Target commission %</label>
               <input data-testid="staff-target-pct-input" type="number" step="0.5" min="0" max="50" className="input-light"
                 value={form.target_commission_pct} onChange={e => setForm({ ...form, target_commission_pct: e.target.value })} placeholder="e.g. 5" />
-              <p className="text-[10px] text-slate-400 mt-1">On hitting target — % of FULL business auto-added to salary</p>
+              <p className="text-[10px] text-slate-400 mt-1">On hitting target — % of FULL business (services + products) added to salary. 0 = no target bonus.</p>
             </div>
           </div>
           <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer select-none">
@@ -212,7 +213,7 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
               <div>
                 <label className="label-light block mb-1">Overtime ₹/hr</label>
                 <input data-testid="staff-overtime-rate-input" type="number" min="0" step="10" className="input-light" value={form.overtime_rate} onChange={e => setForm({ ...form, overtime_rate: e.target.value })} placeholder="50 Beautician · 100 Senior" />
-                <p className="text-[10px] text-slate-400 mt-1">Leave 0 = no overtime is paid; late fines still apply.</p>
+                <p className="text-[10px] text-slate-400 mt-1">Paid per minute past shift end (min 15 min). Shift auto-closes 15 h after check-in. 0 = no overtime; late fines still apply.</p>
               </div>
               <div>
                 <label className="label-light block mb-1">Max advance ₹/month</label>

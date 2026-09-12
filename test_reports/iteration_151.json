@@ -1,0 +1,19 @@
+{
+  "summary": "iter151 payroll target-gated commission rules — 7 backend tests pass (1 attendance test skipped due to geo-fence in preview env, as advised). Verified: (A) commission_pct=10 with monthly_target=0 → commission_amount=0, commission_withheld=true, target_bonus=0; (B) monthly_target=1 (reached) → commission_amount=service_gross*0.10, withheld=false, target_bonus=gross*0.05, target_achieved=true; (C) commission_pct=0 with target reached → commission=0 but withheld=false (semantics respected); (D) huge target → withheld=true, bonus=0; (E) admin PDF salary slip returns 200 application/pdf and contains 'withheld' / 'not reached' text for the withheld case; (F) skipped — server IP 22706m from salon so geo-fence blocks check-in (report per spec); regression: /api/hair-colors 200 (dict {colors, men_colors}), /api/public/color/miracurl-marathahalli 200. Priya restored to original values (commission_pct=10, monthly_target=0, target_commission_pct=0, monthly_base_salary=18000).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_iter151_salary_target_rules.py", "/app/test_reports/pytest/iter151.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "staff_portal.py has grown to 1738 lines — consider splitting attendance, salary, and profile routes into separate modules for maintainability (file-size guideline is <700).",
+    "/api/hair-colors response shape is dict {colors, men_colors} — historically tests expected list; leave a note in docs so future regression writers don't get tripped.",
+    "commission_withheld semantics: withheld==true only when pct>0 AND target not reached. When pct=0 and target unreached, withheld is false and commission is 0 — this matches the intended UI slip messaging; if the frontend also shows 'withheld' banner it must check the flag, not compute from commission_amount==0."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter151_salary_target_rules.py"],
+  "success_rate": {"backend": "100% (7/7 executable, 1 env-blocked skip)", "frontend": "N/A (backend only)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (slug miracurl-marathahalli, PIN 4321); priya.staff@miracurl.com / Staff@5678",
+  "seed_data_creation": "None — Priya's staff record was mutated then restored to original values (commission_pct=10, monthly_target=0, target_commission_pct=0, monthly_base_salary=18000).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Preview server is ~22km from the Marathahalli salon coordinates so geo-fenced /api/staff/me/check-in returns 403. To test attendance flows use the desk-QR path or seed check_in_at directly, or lower GEO_FENCE_M via tenant override. Salary tests rely on August 2026 invoices for Priya — service_gross was >0 confirming path B."
+}

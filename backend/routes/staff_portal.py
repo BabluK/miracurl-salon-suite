@@ -297,7 +297,7 @@ def _half_day_amount(staff: dict) -> float:
     """Half of one day's salary: (monthly base / 30) / 2."""
     base = float(staff.get("monthly_base_salary") or 0)
     return round(base / 30 / 2, 2)
-AUTO_CHECKOUT_HOURS = 12    # forgot to check out — shift auto-closes at 12h
+AUTO_CHECKOUT_HOURS = 15    # forgot to check out — shift auto-closes at 15h (10 AM check-in → 1 AM), so late-night OT is kept
 
 
 class GeoIn(BaseModel):
@@ -369,26 +369,27 @@ async def save_late_fine_settings(body: LateFineSettingsIn, user=Depends(require
     return {**data, "geo_fence_m": fence}
 
 
-# OT policy: every completed 30-min block past shift end earns ₹50 by default.
-OT_BLOCK_MINUTES = 30
-OT_BLOCK_PAY = 50.0
+# OT policy: pro-rata to the minute past shift end at the staff member's hourly overtime_rate,
+# once at least OT_MIN_MINUTES have been worked past shift end (ignores a few minutes of wrap-up).
+OT_MIN_MINUTES = 15
 PRODUCT_COMMISSION_PCT = 2.0  # % of product price credited to the selling staff's salary
 
 
 def _overtime_for(staff: dict, checkout_ist: datetime) -> tuple:
-    """(overtime_hours, overtime_pay ₹) for time worked past shift_end.
+    """(overtime_hours, overtime_pay ₹) for time worked past shift_end — exact minutes × hourly rate.
     Only when the owner has set an hourly overtime_rate for this staff (else no overtime — late fines still apply)."""
     rate = float(staff.get("overtime_rate") or 0)
     if rate <= 0:
         return 0.0, 0.0
     h, m = _parse_hhmm(staff.get("shift_end"), "21:00")
     end = checkout_ist.replace(hour=h, minute=m, second=0, microsecond=0)
-    if checkout_ist <= end:
+    if end > checkout_ist and (end - checkout_ist) > timedelta(hours=12):
+        end -= timedelta(days=1)  # shift ended yesterday evening, checkout is after midnight
+    minutes = int((checkout_ist - end).total_seconds() // 60)
+    if minutes < OT_MIN_MINUTES:
         return 0.0, 0.0
-    secs = (checkout_ist - end).total_seconds()
-    hours = round(secs / 3600, 2)
-    blocks = int(secs // (OT_BLOCK_MINUTES * 60))
-    return hours, round(blocks * rate / 2, 2)
+    hours = round(minutes / 60, 2)
+    return hours, round(minutes / 60 * rate, 2)
 
 
 def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -400,7 +401,7 @@ def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
 
 
 async def _auto_close_stale_attendance():
-    """Close any shift still open after 12h (staff forgot to check out)."""
+    """Close any shift still open after 15h (staff forgot to check out)."""
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=AUTO_CHECKOUT_HOURS)).isoformat()
     stale = await db.attendance.find(
         {"check_out_at": None, "check_in_at": {"$ne": None, "$lt": cutoff}},
@@ -1005,18 +1006,19 @@ async def _compute_salary_for_month(staff: dict, year: int, month: int, tenant: 
     pct = float(staff.get("commission_pct") or 0)
     earn = _staff_invoice_earnings(invs, staff["id"])
     gross, service_gross, service_count = earn["gross"], earn["service_gross"], earn["service_count"]
-    commission = round(service_gross * pct / 100, 2)
     # Product sales commission (default 2% of product price; tenant can override)
     product_pct = float(tenant.get("product_commission_pct") or PRODUCT_COMMISSION_PCT)
     product_commission = round(earn["product_gross"] * product_pct / 100, 2)
-    # Monthly target bonus: if staff's FULL business crosses the admin-set target,
-    # the target % applies on the entire business amount (owner's chosen scheme).
+    # Two separate, target-gated incentives — nothing is paid per service on its own:
+    #  • Commission %        → % of SERVICE gross, paid only when the monthly target (₹) is set AND reached
+    #  • Target commission % → % of FULL business (services + products), paid only when the target is reached
+    # A 0 in either % (or a 0 target) means that incentive is never paid.
     monthly_target = float(staff.get("monthly_target") or 0)
     target_pct = float(staff.get("target_commission_pct") or 0)
     target_achieved = monthly_target > 0 and gross >= monthly_target
+    commission = round(service_gross * pct / 100, 2) if (target_achieved and pct > 0) else 0.0
+    commission_withheld = pct > 0 and not target_achieved
     target_bonus = round(gross * target_pct / 100, 2) if (target_achieved and target_pct > 0) else 0.0
-    # Service commission is always paid on service gross; the target bonus is an extra on top when the target is hit.
-    commission_withheld = False
     # Attendance
     att_start = f"{year:04d}-{month:02d}-01"
     att_end = f"{year:04d}-{month:02d}-{end_day:02d}"

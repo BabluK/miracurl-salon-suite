@@ -560,7 +560,8 @@ def _render_salary_slip_pdf(slip: dict) -> bytes:
     line("Monthly base salary", f"Rs. {slip['monthly_base_salary']:.2f}")
     pct_txt = f" ({slip['commission_pct']}%)" if slip['commission_pct'] else ""
     if slip.get("commission_withheld"):
-        line(f"Service commission{pct_txt} — withheld (target Rs. {slip.get('monthly_target', 0):.0f} not reached)", "Rs. 0.00")
+        why = f"target Rs. {slip.get('monthly_target', 0):.0f} not reached" if float(slip.get("monthly_target") or 0) > 0 else "no monthly target set"
+        line(f"Service commission{pct_txt} — withheld ({why})", "Rs. 0.00")
     else:
         line(f"Service commission{pct_txt}", f"Rs. {slip['commission_amount']:.2f}")
     if slip.get("product_commission_amount"):

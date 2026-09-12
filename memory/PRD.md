@@ -3041,3 +3041,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Shade grid/teaser/cards now request `?w=` WEBP thumbnails (480/320/160) instead of 2 MB PNGs; `warm_thumbs()` pre-renders 320/480/960 variants after generation and `_paint_missing` back-fills them (4 concurrent) — all 17 men's tiles load < 2.5 s.
 - `/public/color/{slug}/preview` split per view: `view=front` (~8 s, shown immediately) then `view=back` from the coloured front (~9 s, card shows "Rendering the back view…" until it lands). Men's prompt keeps the short cut. Rate limit 12/10 min, 600/day.
 - Men's view shows ONLY the men's catalogue (no women's house specials).
+
+## 2026-09-12 (d) — Payroll: 15h auto-checkout, per-minute OT, target-gated commission (iteration_151 pass)
+- `AUTO_CHECKOUT_HOURS` 12 → 15 (10 AM check-in closes at 1 AM, so 11–11:30 PM finishes keep OT). HQ employee-portal token 12h → 15h.
+- `_overtime_for`: pro-rata per minute past shift_end × overtime_rate (min 15 min, after-midnight safe). Still 0 when overtime_rate = 0 (owner setting).
+- `_compute_salary_for_month`: Commission % (service gross) paid ONLY when monthly_target > 0 AND gross ≥ target; else `commission_withheld`. Target commission % (full gross) only when target reached. 0 in any of pct / target / target_pct = that incentive never paid. Product commission unchanged.
+- PDF slip + StaffPortal slip show "withheld — target not reached / no monthly target set"; StaffFormModal helper texts updated.
