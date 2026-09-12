@@ -108,7 +108,7 @@ from routes.blog import router as blog_router  # noqa: E402
 
 from seeds import backfill_tenant_ids, seed_super_admin, seed_default_tenant, seed_admin, seed_data  # noqa: E402
 from schedulers import (  # noqa: E402
-    _monthly_report_scheduler, _weekly_report_scheduler, _birthday_scheduler,
+    _colour_price_reminder_scheduler, _monthly_report_scheduler, _weekly_report_scheduler, _birthday_scheduler,
     _cctv_poll_scheduler, _renewal_reminder_scheduler, _review_request_scheduler, _weekly_register_scheduler,
     _demo_followup_scheduler, _late_alert_scheduler, _weekly_package_scheduler,
     _lead_followup_scheduler, _staff_exit_scheduler, _sms_reminder_scheduler,
@@ -162,7 +162,7 @@ async def on_startup():
         _sms_reminder_scheduler, _gift_card_scheduler, _mira_auto_call_scheduler, _callback_redial_scheduler,
         _weekly_win_scheduler, _feedback_reminder_scheduler, _salon_digest_scheduler, _open_bill_alert_scheduler,
         _manager_access_report_scheduler, _late_digest_scheduler, _daily_special_scheduler, _lead_nudge_scheduler,
-        autopilot_scheduler, weekly_promo_scheduler,
+        _colour_price_reminder_scheduler, autopilot_scheduler, weekly_promo_scheduler,
     )
     if IS_PREVIEW_ENV:
         logging.warning("PREVIEW environment: %d outbound schedulers disabled (owner/customer emails, SMS, calls, social posts)", len(_OUTBOUND))

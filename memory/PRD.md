@@ -3089,3 +3089,10 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Removed "Our Work / Transformations we're proud of" gallery from /book (GalleryShowcase disabled).
 - release_notes.py: BUILD 2026-09-12.260 + new RELEASES entry "Colour Studio for him & her" (What's New popup).
 - OPEN: user reports an AECS-layout colour booking appearing under Marathahalli in PRODUCTION. Preview has no `miracurl-aecs` tenant (AECS is a branch of Marathahalli here), so not reproducible; asked user where exactly Marathahalli shows.
+
+## 2026-09-12 (m) — AECS trace, colour price reminder, manager access, CRM picks, UI polish
+- Trace: appointments store `booked_via: /book/{slug}`, picks store `picked_via`; Confirm step shows "Salon · location" + colour line; Success step names the salon/location (was hard-coded "Miracurl", referral link now /book/{slug}). Colour-only booking no longer labelled "Table reservation".
+- Colour price reminder: `_colour_price_reminder_scheduler` (08:30 IST daily, idempotent flag `colour_price_reminder_auto`, in _OUTBOUND so preview-silenced) → `_run_colour_price_reminders` in routes/eod_digests.py emails owner + admin/manager users today's colour appts with no quoted price. `GET /api/colour-price-reminder/preview`.
+- Manager role can now use colour ops (require_admin): catalogue, guide, poster, formula/price, result upload, reel, picks list, CRM colour history. Admin-only: custom shades, links, price override, auto-services.
+- Public pick with a valid mobile → CRM customer upsert (`_crm_customer_for_pick`: new → crm_status pending, tags ["Colour Try-On"], source colour_tryon; existing → tag added); pick stores customer_id. "Recent picks" list removed from Settings (CRM note instead).
+- Settings poster panel compact on mobile (120px poster, no min-height). Auth/route loading now shows the same PageLoader as Suspense (continuous spinner instead of blank→spinner "double refresh" feel on login / branch switch).

@@ -462,7 +462,7 @@ function ReferralRow({ form, onChange, referralCheck, onCheckReferral }) {
   );
 }
 
-export function ConfirmStep({ pickedServices, staff, staffId, date, time, form, total, duration, restaurant = false }) {
+export function ConfirmStep({ pickedServices, staff, staffId, date, time, form, total, duration, restaurant = false, salon = null, pickedColor = null }) {
   const stylistName = staffId ? (staff.find(s => s.id === staffId)?.name || "—") : "Any available";
   const whenLabel = new Date(`${date}T${time}`).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   return (
@@ -472,6 +472,18 @@ export function ConfirmStep({ pickedServices, staff, staffId, date, time, form, 
         <p className="text-ink-secondary text-sm mt-1">Tap confirm to lock in your {restaurant ? "reservation" : "appointment"}.</p>
       </div>
       <div className="card-luxe space-y-4">
+        {salon && (
+          <div data-testid="confirm-salon-location">
+            <div className="label-luxe">{restaurant ? "Restaurant" : "Salon"}</div>
+            <p className="mt-1 text-sm font-semibold">{salon.name}{salon.location ? <span className="text-ink-muted font-normal"> · {salon.location}</span> : null}</p>
+          </div>
+        )}
+        {pickedColor && (
+          <div data-testid="confirm-colour">
+            <div className="label-luxe">Hair colour</div>
+            <p className="mt-1 text-sm">{pickedColor.name} Colour <span className="text-ink-muted text-xs">· {pickedColor.price != null ? `₹${pickedColor.price}` : "priced at the salon"}</span></p>
+          </div>
+        )}
         <div>
           <div className="label-luxe">{restaurant ? "Dishes" : "Services"}</div>
           <ul className="mt-2 space-y-2">
@@ -507,10 +519,11 @@ async function copyReferralCode(code) {
   }
 }
 
-export function SuccessStep({ confirmation, onBookAnother }) {
+export function SuccessStep({ confirmation, onBookAnother, salon = null, slug = "" }) {
   if (!confirmation) return null;
   const code = confirmation.summary.customer_referral_code;
-  const shareText = `I just booked at Miracurl ✦ — try them out! Use my referral code ${code} and get ₹100 off. Book here: ${window.location.origin}/book`;
+  const where = salon ? `${salon.name}${salon.location ? ` (${salon.location})` : ""}` : "Miracurl";
+  const shareText = `I just booked at ${where} ✦ — try them out! Use my referral code ${code} and get ₹100 off. Book here: ${window.location.origin}/book/${slug}`;
   const onShareReferral = (payload) => shareTextLib(payload);
   return (
     <section className="max-w-2xl mx-auto text-center animate-fade-up py-10" data-testid="book-success">
@@ -518,7 +531,7 @@ export function SuccessStep({ confirmation, onBookAnother }) {
         <Check className="w-10 h-10 text-bg-base" />
       </div>
       <h2 className="font-playfair text-4xl">You&apos;re booked ✦</h2>
-      <p className="text-ink-secondary mt-3">A confirmation has been recorded. See you soon at Miracurl.</p>
+      <p className="text-ink-secondary mt-3" data-testid="success-salon-location">A confirmation has been recorded. See you soon at <b>{where}</b>.</p>
 
       <button
         data-testid="book-whatsapp-confirm-btn"

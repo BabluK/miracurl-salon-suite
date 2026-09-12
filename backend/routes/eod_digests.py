@@ -82,6 +82,62 @@ async def _run_open_bill_alerts(tenant_id: Optional[str] = None) -> dict:
     return await _dispatch(await _target_tenants(tenant_id), _make_open_bill_email)
 
 
+# ---------------- morning colour-price reminder ----------------
+async def _manager_emails(t: dict) -> list:
+    users = await _raw_db.users.find({"tenant_id": t["id"], "role": {"$in": ["admin", "manager"]}, "active": {"$ne": False}},
+                                     {"_id": 0, "email": 1}).to_list(20)
+    return sorted({*(u["email"] for u in users if u.get("email")), *_owner_emails(t)})
+
+
+async def _unpriced_colour_appts_today(tenant_id: str) -> list:
+    day = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d")
+    return await _raw_db.appointments.find(
+        {"tenant_id": tenant_id, "scheduled_at": {"$regex": f"^{day}"}, "status": {"$nin": ["cancelled", "no_show", "completed"]},
+         "color_pick.color_name": {"$exists": True},
+         "$or": [{"color_pick.quoted_price": {"$exists": False}}, {"color_pick.quoted_price": None}, {"color_pick.quoted_price": 0}]},
+        {"_id": 0, "id": 1, "customer_name": 1, "customer_phone": 1, "scheduled_at": 1, "staff_name": 1, "color_pick": 1, "total": 1},
+    ).sort("scheduled_at", 1).to_list(50)
+
+
+def _colour_price_html(t: dict, appts: list) -> str:
+    rows = "".join(
+        f"<tr><td style='padding:6px 8px;border-bottom:1px solid #eee'>{_fmt_ist(a.get('scheduled_at'))}</td>"
+        f"<td style='padding:6px 8px;border-bottom:1px solid #eee'>{a.get('customer_name') or 'Guest'}</td>"
+        f"<td style='padding:6px 8px;border-bottom:1px solid #eee'><b>{a['color_pick'].get('color_name')}</b>"
+        f"{' · ' + a['color_pick']['gender'] if a['color_pick'].get('gender') else ''}</td>"
+        f"<td style='padding:6px 8px;border-bottom:1px solid #eee'>{a.get('staff_name') or 'Any stylist'}</td></tr>" for a in appts)
+    return f"""<div style="font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#222">
+    <h2 style="color:#1c1c22">🎨 {len(appts)} colour appointment{'s' if len(appts) != 1 else ''} today still need a price — {t.get('name') or 'your salon'}</h2>
+    <p>These guests chose a shade in the Hair Colour Try-On but no price has been quoted yet. Open the appointment, tap the <b>Colour card</b> and set the colour price before they arrive.</p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin:14px 0">
+    <tr style="background:#f6f3ee"><th style="text-align:left;padding:6px 8px">Time</th><th style="text-align:left;padding:6px 8px">Guest</th><th style="text-align:left;padding:6px 8px">Shade</th><th style="text-align:left;padding:6px 8px">Stylist</th></tr>{rows}</table>
+    <p style="font-size:13px;color:#555">Tip: <b>Settings → Hair Colour Try-On → Auto colour services</b> links every shade to a priced service so this never happens again.</p>
+    <p style="font-size:12px;color:#888">— Miracurl Suite · morning check</p></div>"""
+
+
+async def _make_colour_price_email(t: dict):
+    if (t.get("business_type") or "salon") == "restaurant":
+        return None
+    appts = await _unpriced_colour_appts_today(t["id"])
+    recipients = await _manager_emails(t)
+    if not appts or not recipients:
+        return None
+    n = len(appts)
+    return recipients, f"🎨 {n} colour appointment{'s' if n != 1 else ''} today with no price quoted ({t.get('name')})", _colour_price_html(t, appts)
+
+
+async def _run_colour_price_reminders(tenant_id: Optional[str] = None) -> dict:
+    """Morning: tell owner + managers which of today's colour appointments still have no quoted price."""
+    return await _dispatch(await _target_tenants(tenant_id), _make_colour_price_email)
+
+
+@router.get("/colour-price-reminder/preview")
+async def colour_price_reminder_preview(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """What today's reminder would contain for this salon (also drives the dashboard banner)."""
+    appts = await _unpriced_colour_appts_today(t["id"])
+    return {"count": len(appts), "appointments": appts, "recipients": await _manager_emails(t)}
+
+
 # ---------------- weekly manager access reports ----------------
 
 def _aggregate_access_logs(logs: list) -> dict:

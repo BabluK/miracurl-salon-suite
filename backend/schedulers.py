@@ -625,6 +625,27 @@ async def _open_bill_alert_scheduler() -> None:
         await asyncio.sleep(1800)
 
 
+async def _colour_price_reminder_scheduler() -> None:
+    """Daily (after 08:30 IST) email owner + managers today's colour appointments with no quoted price. Idempotent."""
+    from routes.eod_digests import _run_colour_price_reminders
+    while True:
+        try:
+            ist_now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+            if ist_now.hour >= 8 and (ist_now.hour > 8 or ist_now.minute >= 30):
+                period = ist_now.strftime("%Y-%m-%d")
+                flag = await _raw_db.system_flags.find_one({"key": "colour_price_reminder_auto"})
+                if not flag or flag.get("value") != period:
+                    out = await _run_colour_price_reminders(None)
+                    await _raw_db.system_flags.update_one({"key": "colour_price_reminder_auto"},
+                        {"$set": {"value": period, "ran_at": datetime.now(timezone.utc).isoformat(),
+                                  "sent": out.get("sent", 0), "failed": out.get("failed", 0)}}, upsert=True)
+                    if out.get("sent") or out.get("failed"):
+                        logging.info(f"Colour price reminders {period}: {out}")
+        except Exception as e:
+            logging.error(f"colour price reminder scheduler error: {e}")
+        await asyncio.sleep(1800)
+
+
 async def _manager_access_report_scheduler() -> None:
     """Every Monday (after 09:00 IST) email owners last week's manager locked-tab activity. Idempotent."""
     from routes.eod_digests import _run_manager_access_reports

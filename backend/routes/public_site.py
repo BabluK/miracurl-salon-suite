@@ -434,10 +434,12 @@ async def _create_public_appointment(cust: dict, staff: dict, services: list, bo
         customer_id=cust["id"], customer_name=cust["name"],
         staff_id=staff["id"], staff_name=staff["name"],
         service_ids=[s["id"] for s in services],
-        service_names=[s["name"] for s in services] or ["Table reservation"],
+        service_names=[s["name"] for s in services] or (["Table reservation"] if body.party_size or not body.color_code else []),
         scheduled_at=body.scheduled_at, duration_min=duration,
         notes=body.notes, total=total,
     ).model_dump()
+    t_doc = await _raw_db.tenants.find_one({"id": _current_tenant_id.get()}, {"_id": 0, "slug": 1, "name": 1})
+    appt["booked_via"] = f"/book/{(t_doc or {}).get('slug', '')}"  # trace: which salon URL/QR the guest used
     if body.party_size:
         appt["party_size"] = body.party_size
         appt["seating"] = body.seating or "any"

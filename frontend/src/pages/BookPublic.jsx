@@ -857,9 +857,11 @@ export default function BookPublic() {
             total={total}
             duration={duration}
             restaurant={salon.business_type === "restaurant"}
+            salon={salon}
+            pickedColor={pickedColor}
           />
         )}
-        {step === 5 && <SuccessStep confirmation={confirmation} onBookAnother={bookAnother} />}
+        {step === 5 && <SuccessStep confirmation={confirmation} onBookAnother={bookAnother} salon={salon} slug={slug} />}
 
         {step < 5 && (
           <div className="mt-10 flex items-center justify-between gap-4 sticky bottom-0 py-4 bg-bg-base/90 backdrop-blur-xl border-t border-white/5 -mx-4 sm:-mx-6 px-4 sm:px-6">

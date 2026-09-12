@@ -8,6 +8,7 @@ import io
 import uuid
 import base64
 import asyncio
+import re
 import logging
 from datetime import datetime, timezone, timedelta
 
@@ -16,8 +17,9 @@ from pydantic import BaseModel, Field
 from PIL import Image, ImageDraw
 
 from database import _raw_db
-from security import require_tenant_admin, current_tenant, require_super_admin, public_rate_limit, global_daily_cap
+from security import require_tenant_admin, require_admin, current_tenant, require_super_admin, public_rate_limit, global_daily_cap
 from schemas import resolve_tenant_from_slug
+from models import Customer
 from services.tenant_notices import notify_tenant
 
 log = logging.getLogger("hair_colors")
@@ -268,12 +270,12 @@ async def hq_generate_catalog(force: bool = False, admin=Depends(require_super_a
 
 
 @router.get("/hair-colors")
-async def hair_colors(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def hair_colors(admin=Depends(require_admin), t=Depends(current_tenant)):
     return {"colors": await _catalog_with_images(t["id"]), "men_colors": await _catalog_with_images(t["id"], men=True)}
 
 
 @router.get("/hair-colors/{color_id}/guide")
-async def hair_color_guide(color_id: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def hair_color_guide(color_id: str, admin=Depends(require_admin), t=Depends(current_tenant)):
     """Stylist reference: description, level, brand shade codes, developer volume, mixing ratio and timing."""
     from services.shade_guide import shade_guide
     c = await _lookup(t["id"], color_id)
@@ -349,6 +351,23 @@ async def public_color_trending(slug: str, limit: int = 8):
             "total_picks": sum(counts.values())}
 
 
+async def _crm_customer_for_pick(tenant_id: str, body) -> str | None:
+    """Every try-on pick with a mobile number lands in CRM (new guest → 'pending' lead tagged Colour Try-On)."""
+    phone = (body.phone or "").strip()
+    if len(re.sub(r"\D", "", phone)) < 10:
+        return None
+    cust = await _raw_db.customers.find_one({"tenant_id": tenant_id, "phone": phone}, {"_id": 0, "id": 1, "tags": 1})
+    if cust is None:
+        doc = Customer(name=body.name.strip() or "Guest", phone=phone, gender={"men": "Male", "women": "Female"}.get(body.gender, "Other"),
+                       crm_status="pending").model_dump()
+        doc.update({"tenant_id": tenant_id, "tags": ["Colour Try-On"], "source": "colour_tryon"})
+        await _raw_db.customers.insert_one({**doc})
+        return doc["id"]
+    if "Colour Try-On" not in (cust.get("tags") or []):
+        await _raw_db.customers.update_one({"id": cust["id"]}, {"$addToSet": {"tags": "Colour Try-On"}})
+    return cust["id"]
+
+
 class ColorPickIn(BaseModel):
     color_id: str
     name: str = Field("", max_length=80)
@@ -369,7 +388,8 @@ async def public_color_pick(slug: str, body: ColorPickIn, request: Request):
         raise HTTPException(404, "Unknown colour")
     code = uuid.uuid4().hex[:6].upper()
     doc = {"id": str(uuid.uuid4()), "tenant_id": t["id"], "code": code, "color_id": c["id"], "color_name": c["name"],
-           "name": body.name.strip(), "phone": body.phone.strip(), "undertone": body.undertone, "depth": body.depth, "gender": body.gender,
+           "name": body.name.strip(), "phone": body.phone.strip(), "undertone": body.undertone, "depth": body.depth, "gender": body.gender, "picked_via": f"/color/{slug}",
+           "customer_id": await _crm_customer_for_pick(t["id"], body),
            "by_staff": body.by_staff, "status": "picked", "created_at": datetime.now(timezone.utc).isoformat()}
     await _raw_db.color_picks.insert_one(doc)
     who = body.name.strip() or "A guest"
@@ -382,7 +402,7 @@ async def public_color_pick(slug: str, body: ColorPickIn, request: Request):
 
 
 @router.get("/color-picks")
-async def list_color_picks(limit: int = 50, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def list_color_picks(limit: int = 50, admin=Depends(require_admin), t=Depends(current_tenant)):
     picks = await _raw_db.color_picks.find({"tenant_id": t["id"]}, {"_id": 0}).sort("created_at", -1).to_list(limit)
     return {"picks": picks}
 
@@ -432,7 +452,7 @@ def _poster_swatch_ribbon(img: Image.Image, y: int) -> None:
 
 
 @router.get("/color/poster")
-async def color_poster(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def color_poster(admin=Depends(require_admin), t=Depends(current_tenant)):
     from services.veo_brand import _font, GOLD, _center
     from services.color_cards import paste_logo_disc, qr_card, to_png, public_url
     from routes.mira_common import _tenant_logo
@@ -551,7 +571,7 @@ class FormulaIn(BaseModel):
 
 
 @router.patch("/appointments/{appt_id}/color-formula")
-async def save_color_formula(appt_id: str, body: FormulaIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def save_color_formula(appt_id: str, body: FormulaIn, admin=Depends(require_admin), t=Depends(current_tenant)):
     appt = await _raw_db.appointments.find_one({"tenant_id": t["id"], "id": appt_id}, {"_id": 0, "color_pick": 1})
     if not appt or not appt.get("color_pick"):
         raise HTTPException(404, "No colour pick on this appointment")
@@ -735,7 +755,7 @@ async def auto_colour_services(body: AutoServicesIn, admin=Depends(require_tenan
 # ── Colour history for CRM ─────────────────────────────────────────────────────
 
 @router.get("/customers/{customer_id}/color-history")
-async def customer_color_history(customer_id: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def customer_color_history(customer_id: str, admin=Depends(require_admin), t=Depends(current_tenant)):
     cust = await _raw_db.customers.find_one({"tenant_id": t["id"], "id": customer_id}, {"_id": 0, "phone": 1})
     if not cust:
         raise HTTPException(404, "Customer not found")
@@ -773,7 +793,7 @@ async def _vision_check(image_b64: str, which: str) -> tuple[bool, str]:
 
 @router.post("/appointments/{appt_id}/color-result")
 async def upload_color_result(appt_id: str, which: str = "front", consent: bool = False, file: UploadFile = File(...),
-                              admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+                              admin=Depends(require_admin), t=Depends(current_tenant)):
     """Stylist uploads the finished look: `front` = the client's face, `back` = the hair from behind. Photos are stored as-is."""
     from services.storage import _put_object, validate_image_bytes, APP_NAME
     which = {"after": "front", "before": "back"}.get(which, which)
@@ -853,7 +873,7 @@ async def _store_reel_image(tenant_id: str, data: bytes) -> str:
 
 
 @router.post("/appointments/{appt_id}/color-reel")
-async def post_color_reel(appt_id: str, body: ReelIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def post_color_reel(appt_id: str, body: ReelIn, admin=Depends(require_admin), t=Depends(current_tenant)):
     """Mira writes the caption, composes a before/after card with the salon logo, logs it in Post History and publishes."""
     from services.color_cards import public_url
     from routes.mira_common import _ask

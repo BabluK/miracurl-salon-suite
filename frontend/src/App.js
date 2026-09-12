@@ -178,7 +178,7 @@ function OwnerOnly({ children }) {
 function RootRoute() {
   // Public marketing landing for guests; logged-in users go to their workspace.
   const { user, loading } = useAuth();
-  if (loading) return null;
+  if (loading) return <PageLoader />;
   if (!user) return <Landing />;
   if (user.role === "super_admin") return <Navigate to="/super-admin" replace />;
   if (user.role === "staff") return <Navigate to="/staff-portal" replace />;
@@ -187,7 +187,7 @@ function RootRoute() {
 
 function SuperAdminProtected({ children }) {
   const { user, loading, refresh } = useAuth();
-  if (loading) return null;
+  if (loading) return <PageLoader />;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== "super_admin") return <Navigate to="/dashboard" replace />;
   if (user.must_change_password) {
@@ -199,7 +199,7 @@ function SuperAdminProtected({ children }) {
 function PublicOnly({ children }) {
   const { user, loading } = useAuth();
   const { search } = useLocation();
-  if (loading) return null;
+  if (loading) return <PageLoader />;
   if (user) {
     const next = new URLSearchParams(search).get("next") || "";
     if (/^\/(?!\/)[^\s]*$/.test(next) && !next.startsWith("/login")) return <Navigate to={next} replace />;

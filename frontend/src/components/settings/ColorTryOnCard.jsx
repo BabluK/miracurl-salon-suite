@@ -9,7 +9,6 @@ const EMPTY_SHADE = { name: "", tag: "", swatch: ["#4a3728", "#8b6f56", "#c9ad8f
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 
 export const ColorTryOnCard = () => {
-  const [picks, setPicks] = useState([]);
   const [colors, setColors] = useState([]);
   const [menColors, setMenColors] = useState([]);
   const [poster, setPoster] = useState(null); // object URL of the branded PNG
@@ -57,7 +56,6 @@ export const ColorTryOnCard = () => {
   const link = `${window.location.origin}/color/${slug}`;
 
   useEffect(() => {
-    api.get("/color-picks?limit=8").then(r => setPicks(r.data.picks || [])).catch(() => {});
     loadColors();
     const isColour = (x) => /colou?r|balayage|ombr|highlight|toner|global|streak|bleach|lighten|money piece|keratin/i.test(`${x.name} ${x.category || ""}`);
     api.get("/services").then(r => setServices((r.data.services || r.data || []).filter(x => x.active !== false && isColour(x)))).catch(() => {});
@@ -80,13 +78,13 @@ export const ColorTryOnCard = () => {
     <div className="rounded-2xl overflow-hidden border border-amber-200/70 shadow-[0_8px_30px_-12px_rgba(180,140,50,0.35)]" data-testid="color-tryon-card">
       <div className="grid md:grid-cols-[260px_1fr]">
         {/* Poster preview on a rich gradient panel */}
-        <div className="relative bg-[radial-gradient(120%_90%_at_20%_0%,#3a2418_0%,#17111a_55%,#0b0810_100%)] p-5 flex items-center justify-center min-h-[300px]">
-          <div className="absolute inset-3 rounded-2xl border border-amber-400/30 pointer-events-none" />
+        <div className="relative bg-[radial-gradient(120%_90%_at_20%_0%,#3a2418_0%,#17111a_55%,#0b0810_100%)] p-3 md:p-5 flex items-center justify-center md:min-h-[300px]">
+          <div className="absolute inset-2 md:inset-3 rounded-2xl border border-amber-400/30 pointer-events-none" />
           {poster ? (
             <img src={poster} alt="QR poster" data-testid="color-poster-preview"
-              className="w-[190px] rounded-xl border-2 border-amber-400 shadow-[0_12px_40px_-10px_rgba(212,175,55,0.6)]" />
+              className="w-[120px] md:w-[190px] rounded-xl border-2 border-amber-400 shadow-[0_12px_40px_-10px_rgba(212,175,55,0.6)]" />
           ) : (
-            <div className="w-[190px] aspect-[2/3] rounded-xl border-2 border-amber-400/40 flex items-center justify-center text-amber-200/70 text-xs"><Loader2 className="w-5 h-5 animate-spin" /></div>
+            <div className="w-[120px] md:w-[190px] aspect-[2/3] rounded-xl border-2 border-amber-400/40 flex items-center justify-center text-amber-200/70 text-xs"><Loader2 className="w-5 h-5 animate-spin" /></div>
           )}
         </div>
 
@@ -187,17 +185,7 @@ export const ColorTryOnCard = () => {
             </div>
           )}
 
-          {picks.length > 0 && (
-            <div className="mt-4 border-t border-slate-100 pt-3" data-testid="color-picks-list">
-              <p className="text-[11px] font-semibold text-slate-500 tracking-wide mb-2">RECENT PICKS</p>
-              {picks.map(p => (
-                <div key={p.id} className="flex items-center justify-between text-sm py-1.5 border-b border-slate-50 last:border-0">
-                  <span className="text-slate-800"><b className="font-mono text-amber-700">{p.code}</b> · {p.name || "Guest"} {p.phone && <span className="text-slate-400">· {p.phone}</span>}</span>
-                  <span className="text-slate-600 text-xs text-right">{p.color_name}{p.undertone && <span className="text-slate-400"> · {p.undertone}</span>}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          <p className="text-[11px] text-slate-400 mt-3" data-testid="color-picks-crm-note">Every pick with a mobile number is added to <b>CRM</b> (tag “Colour Try-On”) — open Customers to follow up.</p>
           <p className="text-[11px] text-slate-400 mt-3">Also works for staff: tick "Scanned by salon staff" when you scan for a walk-in.</p>
         </div>
       </div>
