@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from database import _raw_db
-from security import require_tenant_admin, current_tenant, public_rate_limit, public_base_url
+from security import require_tenant_admin, current_tenant, public_rate_limit, public_base_url, get_current_user
 
 router = APIRouter()
 
@@ -700,7 +700,7 @@ def _gift_card_summary(gc: dict) -> dict:
 
 
 @router.post("/gift-cards/check")
-async def check_gift_card(body: GiftCheckIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def check_gift_card(body: GiftCheckIn, user=Depends(get_current_user), t=Depends(current_tenant)):
     """POS: look up a gift card code before billing."""
     gc = await _raw_db.gift_cards.find_one(
         {"code": body.code.strip().upper(), "tenant_id": t["id"]}, {"_id": 0})

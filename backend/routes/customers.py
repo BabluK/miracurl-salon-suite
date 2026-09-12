@@ -107,6 +107,15 @@ async def resync_customer_stats(customer_id: Optional[str] = None, user=Depends(
     return {"ok": True, "checked": len(custs), "corrected": changed}
 
 
+# Staff bill at POS but must not harvest the client book: only what billing needs.
+_STAFF_CUSTOMER_FIELDS = {"_id": 0, "id": 1, "name": 1, "phone": 1, "gender": 1, "loyalty_points": 1,
+                          "wallet_balance": 1, "referral_code": 1, "visits": 1, "crm_status": 1, "created_at": 1}
+
+
+def _customer_projection(user: dict) -> dict:
+    return _STAFF_CUSTOMER_FIELDS if user.get("role") == "staff" else {"_id": 0}
+
+
 @router.get("/customers")
 async def list_customers(q: Optional[str] = None, user=Depends(get_current_user)):
     # CRM shows only customers who completed a service (or were added manually) —
@@ -116,12 +125,13 @@ async def list_customers(q: Optional[str] = None, user=Depends(get_current_user)
         # SEC-P3 fix: escape user input so `q` cannot inject a $regex DoS pattern.
         safe_q = re.escape(q)
         flt["$or"] = [{"name": {"$regex": safe_q, "$options": "i"}}, {"phone": {"$regex": safe_q}}]
-    docs = await db.customers.find(flt, {"_id": 0}).sort("created_at", -1).to_list(500)
+    proj = _customer_projection(user)
+    docs = await db.customers.find(flt, proj).sort("created_at", -1).to_list(500)
     digits = re.sub(r"\D", "", q or "")
     if q and len(digits) >= 4:
         # also match normalized digits so formatted numbers ('+91 98765 …') are found
         seen = {d["id"] for d in docs}
-        extra = await db.customers.find({"crm_status": {"$ne": "pending"}}, {"_id": 0}).to_list(10000)
+        extra = await db.customers.find({"crm_status": {"$ne": "pending"}}, proj).to_list(10000)
         docs += [c for c in extra if c["id"] not in seen and digits in re.sub(r"\D", "", c.get("phone") or "")]
     return docs
 
@@ -362,7 +372,7 @@ async def import_customers_csv(file: UploadFile = File(...), user=Depends(requir
 
 @router.get("/customers/{cid}")
 async def get_customer(cid: str, user=Depends(get_current_user)):
-    c = await db.customers.find_one({"id": cid}, {"_id": 0})
+    c = await db.customers.find_one({"id": cid}, _customer_projection(user))
     if not c:
         raise HTTPException(404, "Not found")
     return c

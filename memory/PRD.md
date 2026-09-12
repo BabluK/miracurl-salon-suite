@@ -3128,3 +3128,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Found: POS never sent `appointment_id` on `/invoices` (bell auto-clear via `/appointments/billing-status` was silently broken). POS now keeps `appointmentId` per draft session (from `/pos?appointment=`), persisted in drafts, sent on checkout, cleared on clearAll.
 - Backend `_complete_billed_appointment()` (appointments_pos.py) runs after post-invoice effects on both `POST /invoices` (completed) and `POST /invoices/{id}/complete`: status → completed, `crm_counted`/`spend_billed`=True (no double CRM count), `completed_via: billing`. Skips cancelled/completed.
 - Verified E2E: bell → POS → Cash → Charge → INV created; Appointments row shows COMPLETED; booking gone from bell; CRM visits 1 / spent once.
+
+## 2026-09-12 (t) — Security audit #4 (CONDITIONAL PASS → fixed)
+- SEC-001 (MEDIUM) fixed: staff role now gets a minimal customer projection on GET /customers and /customers/{id} (id, name, phone, gender, loyalty_points, wallet_balance, referral_code, visits, crm_status, created_at) — no email/dob/address/notes/total_spent/referral_credit. Admin/manager unchanged. Verified via curl as staff vs admin.
+- P3 gap fixed: POST /gift-cards/check now get_current_user (tenant-scoped) so staff POS gift-card lookup works.
+- Verified safe by audit: cross-tenant appointment flip blocked (tenant-scoped db), colour_code/color_picks tenant-scoped + rate-limited, banner schedules tenant-bound, briefings regex server-side only, CORS/CSRF/cookies OK, no secrets in frontend .env.
+- Accepted/backlog (P3): client-priced POS line items are the existing trust model (now reachable by staff) — consider catalogue price validation for non-admin billers.
