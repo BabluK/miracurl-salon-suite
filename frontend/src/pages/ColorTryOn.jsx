@@ -145,9 +145,10 @@ export default function ColorTryOn() {
   if (salon.error) return <Shell><p className="text-center text-white mt-24">Salon not found</p></Shell>;
 
   const suits = (c) => !skin || (c.suits.includes(skin.undertone) && c.depth.includes(skin.depth));
-  const ordered = [...salon.colors].sort((a, b) => Number(suits(b)) - Number(suits(a)));
+  const bySuits = (list) => [...list].sort((a, b) => Number(suits(b)) - Number(suits(a)));
+  const ordered = bySuits(salon.colors);
   const sections = gender === "men"
-    ? [["Popular for men", ordered.filter(c => c.men)], ["More shades", ordered.filter(c => !c.men)]]
+    ? [["House specials", ordered.filter(c => c.custom)], ["Professional shades for men", bySuits(salon.men_colors || []).filter(c => !c.custom)]]
     : [[gender === "women" ? "Shades for women" : "All shades", ordered]];
   const guess = faceInfo?.presentation;
 
@@ -253,7 +254,8 @@ export default function ColorTryOn() {
           ))}
           {picked && (
             <div className="fixed bottom-0 left-0 right-0 bg-slate-950/95 backdrop-blur border-t border-amber-400/30 p-4" data-testid="color-pick-bar">
-              <p className="text-amber-300 text-xs font-semibold mb-2">Selected: {picked.name}</p>
+              <p className="text-amber-300 text-xs font-semibold mb-1">Selected: {picked.name}{picked.level ? <span className="text-slate-400 font-normal"> · Level {picked.level}</span> : null}</p>
+              {picked.description && <p className="text-slate-300 text-[11px] mb-2" data-testid="color-pick-description">{picked.description}</p>}
               {selfie && (
                 <button onClick={seeItOnMe} disabled={previewBusy} data-testid="color-see-on-me"
                   className="mb-2 w-full py-3 rounded-2xl bg-white/10 border border-amber-400/50 text-amber-200 text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-60">

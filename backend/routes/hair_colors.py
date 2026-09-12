@@ -25,71 +25,164 @@ router = APIRouter()
 
 # Curated professional catalogue — undertone/depth rules are the classic colourist guidance.
 CATALOG = [
-    {"id": "natural-black", "men": True, "name": "Natural Black", "tag": "Classic · Shiny · Timeless",
+    {"id": "natural-black", "name": "Natural Black", "tag": "Classic · Shiny · Timeless",
      "swatch": ["#0b0a0c", "#1c1a1f", "#33303a"], "suits": ["warm", "cool", "neutral"], "depth": ["medium", "deep"]},
-    {"id": "dark-brown", "men": True, "name": "Dark Brown", "tag": "Rich · Natural · Elegant",
+    {"id": "soft-black", "name": "Soft Black", "tag": "Natural · Shine",
+     "swatch": ["#141216", "#26222b", "#3f3945"], "suits": ["warm", "cool", "neutral"], "depth": ["medium", "deep"]},
+    {"id": "dark-brown", "name": "Dark Brown", "tag": "Rich · Natural · Elegant",
      "swatch": ["#22150f", "#3d261a", "#5c3d2b"], "suits": ["warm", "cool", "neutral"], "depth": ["medium", "deep"]},
-    {"id": "chocolate-brown", "men": True, "name": "Chocolate Brown", "tag": "Warm · Glossy · Versatile",
+    {"id": "chocolate-brown", "name": "Chocolate Brown", "tag": "Warm · Glossy · Versatile",
      "swatch": ["#3a2115", "#5e3a25", "#86583a"], "suits": ["warm", "neutral"], "depth": ["medium", "deep"]},
-    {"id": "caramel-brown", "men": True, "name": "Caramel Brown", "tag": "Warm · Radiant · Modern",
+    {"id": "mocha-brown", "name": "Mocha Brown", "tag": "Smooth · Sophisticated",
+     "swatch": ["#3b2a22", "#5f4638", "#8a6b58"], "suits": ["neutral", "cool"], "depth": ["medium", "deep"]},
+    {"id": "caramel-brown", "name": "Caramel Brown", "tag": "Warm · Radiant · Modern",
      "swatch": ["#4e2f1c", "#a5683a", "#e0b97f"], "suits": ["warm", "neutral"], "depth": ["medium", "deep"]},
+    {"id": "hazel-brown", "name": "Hazel Brown", "tag": "Multi-Dimensional",
+     "swatch": ["#4a3320", "#7d5a36", "#b08a5a"], "suits": ["warm", "neutral"], "depth": ["light", "medium", "deep"]},
+    {"id": "golden-brown", "name": "Golden Brown", "tag": "Sun-Kissed Glow",
+     "swatch": ["#5a3a1a", "#9a6a2e", "#d4a55a"], "suits": ["warm"], "depth": ["medium", "deep"]},
     {"id": "honey-blonde", "name": "Honey Blonde", "tag": "Bright · Sun-kissed · Vibrant",
      "swatch": ["#7a5a2e", "#c9a25a", "#efd9a3"], "suits": ["warm", "neutral"], "depth": ["light", "medium"]},
-    {"id": "ash-blonde", "name": "Ash Blonde", "tag": "Cool · Sophisticated · Chic",
-     "swatch": ["#6e6a66", "#a9a39c", "#d9d4cc"], "suits": ["cool"], "depth": ["light"]},
-    {"id": "platinum-blonde", "men": True, "name": "Platinum Blonde", "tag": "Bold · Striking · Luxe",
-     "swatch": ["#b9b3a8", "#e4dfd6", "#f5f2ec"], "suits": ["cool", "neutral"], "depth": ["light"]},
     {"id": "beige-blonde", "name": "Beige Blonde", "tag": "Soft · Refined · Modern",
      "swatch": ["#8a7a66", "#bfae97", "#e3d6c3"], "suits": ["neutral", "cool"], "depth": ["light", "medium"]},
-    {"id": "mushroom-mocha-balayage", "name": "Mushroom Mocha Balayage", "tag": "Natural · Dimensional · Timeless",
+    {"id": "ash-blonde", "name": "Ash Blonde", "tag": "Cool · Sophisticated · Chic",
+     "swatch": ["#6e6a66", "#a9a39c", "#d9d4cc"], "suits": ["cool"], "depth": ["light"]},
+    {"id": "platinum-blonde", "name": "Platinum Blonde", "tag": "Bold · Striking · Luxe",
+     "swatch": ["#b9b3a8", "#e4dfd6", "#f5f2ec"], "suits": ["cool", "neutral"], "depth": ["light"]},
+    {"id": "pearl-blonde", "name": "Pearl Blonde", "tag": "Luminous · Modern",
+     "swatch": ["#b5aca5", "#d9d2cc", "#f2ede8"], "suits": ["cool", "neutral"], "depth": ["light"]},
+    {"id": "sandy-blonde", "name": "Sandy Blonde", "tag": "Natural · Effortless",
+     "swatch": ["#8c7658", "#bfa47c", "#e2cba6"], "suits": ["warm", "neutral"], "depth": ["light", "medium"]},
+    {"id": "champagne-blonde", "name": "Champagne Blonde", "tag": "Smooth · Classy",
+     "swatch": ["#a89578", "#d3c1a1", "#efe3cc"], "suits": ["neutral", "warm"], "depth": ["light"]},
+    {"id": "butter-bronde", "name": "Butter Bronde", "tag": "Light · Creamy",
+     "swatch": ["#7a5e3c", "#b8965f", "#e6cfa0"], "suits": ["warm", "neutral"], "depth": ["light", "medium"]},
+    {"id": "mushroom-blonde", "name": "Mushroom Blonde", "tag": "Natural · Dimensional",
+     "swatch": ["#6e6258", "#a2948a", "#cfc4ba"], "suits": ["cool", "neutral"], "depth": ["light", "medium"]},
+    {"id": "mushroom-mocha-balayage", "name": "Mushroom Mocha", "tag": "Trendy · Timeless",
      "swatch": ["#4a3728", "#8b6f56", "#c9ad8f"], "suits": ["neutral", "cool"], "depth": ["light", "medium", "deep"]},
-    {"id": "rose-brown", "name": "Rose Brown", "tag": "Trendy · Soft · Feminine",
+    {"id": "rose-brown", "name": "Rose Brown", "tag": "Soft · Feminine",
      "swatch": ["#4a2f33", "#8c5a62", "#c48f97"], "suits": ["cool", "neutral"], "depth": ["light", "medium"]},
-    {"id": "copper-brown", "men": True, "name": "Copper Brown", "tag": "Warm · Vibrant · Radiant",
+    {"id": "copper-brown", "name": "Copper Brown", "tag": "Warm · Bold",
      "swatch": ["#5a2a16", "#9c4a24", "#d4783f"], "suits": ["warm"], "depth": ["light", "medium", "deep"]},
-    {"id": "auburn-red", "men": True, "name": "Auburn Red", "tag": "Bold · Rich · Eye-catching",
+    {"id": "ginger-copper", "name": "Ginger Copper", "tag": "Vibrant · Fiery",
+     "swatch": ["#7a2e12", "#c4562a", "#ef8a4a"], "suits": ["warm"], "depth": ["light", "medium"]},
+    {"id": "auburn-red", "name": "Auburn Red", "tag": "Rich · Eye-Catching",
      "swatch": ["#4a1610", "#7e2a1c", "#a8442a"], "suits": ["warm", "neutral"], "depth": ["medium", "deep"]},
-    {"id": "burgundy", "men": True, "name": "Burgundy", "tag": "Luxe · Bold · Modern",
-     "swatch": ["#3a0f1e", "#6a1b34", "#93304d"], "suits": ["cool", "neutral"], "depth": ["medium", "deep"]},
-    {"id": "mahogany-brown", "men": True, "name": "Mahogany Brown", "tag": "Rich · Warm · Sophisticated",
+    {"id": "mahogany-brown", "name": "Mahogany Brown", "tag": "Deep · Luxurious",
      "swatch": ["#3f1a14", "#6b2e22", "#94483a"], "suits": ["warm", "neutral"], "depth": ["medium", "deep"]},
-    {"id": "ash-brown", "men": True, "name": "Ash Brown", "tag": "Cool · Natural · Effortless",
-     "swatch": ["#3d3733", "#736a63", "#b3a99e"], "suits": ["cool"], "depth": ["light", "medium"]},
-    {"id": "smoky-grey", "men": True, "name": "Smoky Grey", "tag": "Trendy · Bold · Unique",
-     "swatch": ["#2b2b30", "#5c5c66", "#9a9aa6"], "suits": ["cool"], "depth": ["light", "medium"]},
-    {"id": "pastel-pink", "name": "Pastel Pink", "tag": "Playful · Trendy · Creative",
+    {"id": "burgundy", "name": "Burgundy", "tag": "Bold · Modern",
+     "swatch": ["#3a0f1e", "#6a1b34", "#93304d"], "suits": ["cool", "neutral"], "depth": ["medium", "deep"]},
+    {"id": "wine-red", "name": "Wine Red", "tag": "Intense · Sophisticated",
+     "swatch": ["#4a0f1c", "#7b1a30", "#a52a48"], "suits": ["cool", "neutral"], "depth": ["medium", "deep"]},
+    {"id": "cherry-red", "name": "Cherry Red", "tag": "Vibrant · Playful",
+     "swatch": ["#6a0f1e", "#a8182f", "#d63a4f"], "suits": ["cool", "warm"], "depth": ["medium", "deep"]},
+    {"id": "violet", "name": "Violet", "tag": "Trendy · Unique",
+     "swatch": ["#2e1a4a", "#5a3585", "#8a5cc0"], "suits": ["cool"], "depth": ["medium", "deep"]},
+    {"id": "plum", "name": "Plum", "tag": "Deep · Mysterious",
+     "swatch": ["#2f1226", "#5a2148", "#87406f"], "suits": ["cool", "neutral"], "depth": ["medium", "deep"]},
+    {"id": "rose-gold", "name": "Rose Gold", "tag": "Trendy · Radiant",
+     "swatch": ["#8a4a48", "#c9807a", "#efb7ad"], "suits": ["warm", "neutral"], "depth": ["light", "medium"]},
+    {"id": "pastel-pink", "name": "Pastel Pink", "tag": "Playful · Creative",
      "swatch": ["#b76e86", "#e39ab2", "#f6cfdc"], "suits": ["cool", "neutral"], "depth": ["light"]},
-    {"id": "pastel-blue", "name": "Pastel Blue", "tag": "Unique · Modern · Expressive",
+    {"id": "lilac", "name": "Lilac", "tag": "Soft · Dreamy",
+     "swatch": ["#7a6a9a", "#a999c9", "#d3c8ea"], "suits": ["cool"], "depth": ["light"]},
+    {"id": "pastel-blue", "name": "Pastel Blue", "tag": "Unique · Expressive",
      "swatch": ["#3e5a86", "#6f8fbf", "#a9c3e6"], "suits": ["cool"], "depth": ["light", "medium"]},
+    {"id": "teal-blue", "name": "Teal Blue", "tag": "Bold · Unconventional",
+     "swatch": ["#0f3a4a", "#1d6f85", "#3aa3bd"], "suits": ["cool"], "depth": ["medium", "deep"]},
+    {"id": "emerald-green", "name": "Emerald Green", "tag": "Vibrant · Stylish",
+     "swatch": ["#0d3a2a", "#1a6b4a", "#2fa06e"], "suits": ["cool", "neutral"], "depth": ["medium", "deep"]},
+    {"id": "smoky-grey", "name": "Smoky Grey", "tag": "Modern · Chic",
+     "swatch": ["#2b2b30", "#5c5c66", "#9a9aa6"], "suits": ["cool"], "depth": ["light", "medium"]},
+    {"id": "silver-grey", "name": "Silver Grey", "tag": "Sleek · Sophisticated",
+     "swatch": ["#6c6f75", "#a3a7ae", "#d5d8dd"], "suits": ["cool"], "depth": ["light"]},
+    {"id": "ash-brown", "name": "Ash Brown", "tag": "Cool · Natural",
+     "swatch": ["#3d3733", "#736a63", "#b3a99e"], "suits": ["cool"], "depth": ["light", "medium"]},
+    {"id": "balayage", "name": "Balayage", "tag": "Sun-Kissed Dimension",
+     "swatch": ["#3a2618", "#8a5f3a", "#d9b07a"], "suits": ["warm", "cool", "neutral"], "depth": ["light", "medium", "deep"]},
+    {"id": "ombre", "name": "Ombré", "tag": "Seamless Blend",
+     "swatch": ["#22150f", "#7a4e2c", "#cfa470"], "suits": ["warm", "cool", "neutral"], "depth": ["light", "medium", "deep"]},
+    {"id": "money-piece", "name": "Money Piece", "tag": "Face-Framing Highlight",
+     "swatch": ["#2c1b12", "#6b4a2e", "#ecd7a6"], "suits": ["warm", "cool", "neutral"], "depth": ["light", "medium", "deep"]},
 ]
 _BY_ID = {c["id"]: c for c in CATALOG}
 
+# Professional men's colour menu — short/textured cuts, natural-looking coverage, grey blending & fashion tones.
+MEN_CATALOG = [
+    {"id": "men-jet-black", "name": "Jet Black", "tag": "Sharp · Classic · Full coverage",
+     "swatch": ["#050507", "#141418", "#2a2a33"], "suits": ["warm", "cool", "neutral"], "depth": ["medium", "deep"]},
+    {"id": "men-natural-black", "name": "Natural Black", "tag": "Soft black · Grey coverage",
+     "swatch": ["#0e0c10", "#211d24", "#3a343f"], "suits": ["warm", "cool", "neutral"], "depth": ["medium", "deep"]},
+    {"id": "men-espresso", "name": "Espresso Brown", "tag": "Deep · Natural · Everyday",
+     "swatch": ["#1f130d", "#3a2418", "#563a2a"], "suits": ["warm", "cool", "neutral"], "depth": ["medium", "deep"]},
+    {"id": "men-dark-brown", "name": "Dark Brown", "tag": "Rich · Subtle · Grey blending",
+     "swatch": ["#26170f", "#43291b", "#64432d"], "suits": ["warm", "cool", "neutral"], "depth": ["medium", "deep"]},
+    {"id": "men-chestnut", "name": "Chestnut Brown", "tag": "Warm · Natural · Sun-touched",
+     "swatch": ["#3b2316", "#6a412a", "#93613f"], "suits": ["warm", "neutral"], "depth": ["medium", "deep"]},
+    {"id": "men-ash-brown", "name": "Ash Brown", "tag": "Cool · Matte · Modern",
+     "swatch": ["#3a3532", "#665d57", "#9b908a"], "suits": ["cool", "neutral"], "depth": ["light", "medium"]},
+    {"id": "men-salt-pepper", "name": "Salt & Pepper Blend", "tag": "Distinguished · Natural grey blend",
+     "swatch": ["#2b2b2f", "#6d6d74", "#b8b8c0"], "suits": ["cool", "neutral"], "depth": ["medium", "deep"]},
+    {"id": "men-silver-fox", "name": "Silver Fox", "tag": "Steel silver · Bold · Premium",
+     "swatch": ["#6f7278", "#a4a8b0", "#d8dbe0"], "suits": ["cool"], "depth": ["light", "medium"]},
+    {"id": "men-ash-grey", "name": "Ash Grey", "tag": "Trend · Smoky · Fashion",
+     "swatch": ["#3f4147", "#767a84", "#aeb2bc"], "suits": ["cool", "neutral"], "depth": ["light", "medium"]},
+    {"id": "men-platinum", "name": "Platinum Blonde", "tag": "Icy · Statement · Editorial",
+     "swatch": ["#b8b2a6", "#dcd6cb", "#f1ede6"], "suits": ["cool", "neutral"], "depth": ["light"]},
+    {"id": "men-sandy-blonde", "name": "Sandy Blonde", "tag": "Beach · Natural · Light",
+     "swatch": ["#7d6a4a", "#b59a6c", "#dcc59b"], "suits": ["warm", "neutral"], "depth": ["light", "medium"]},
+    {"id": "men-copper", "name": "Copper", "tag": "Warm · Vivid · Confident",
+     "swatch": ["#5a2a16", "#9a4a25", "#cf7540"], "suits": ["warm"], "depth": ["light", "medium", "deep"]},
+    {"id": "men-mahogany", "name": "Mahogany", "tag": "Red-brown · Rich · Subtle shine",
+     "swatch": ["#3e1913", "#6a2e22", "#8f4736"], "suits": ["warm", "neutral"], "depth": ["medium", "deep"]},
+    {"id": "men-burgundy", "name": "Burgundy", "tag": "Wine · Bold · Low-light",
+     "swatch": ["#38101e", "#651a33", "#8c2d4b"], "suits": ["cool", "neutral"], "depth": ["medium", "deep"]},
+    {"id": "men-blue-black", "name": "Blue Black", "tag": "Cool black · Glossy · Sharp",
+     "swatch": ["#07080f", "#141a2c", "#26304a"], "suits": ["cool", "neutral"], "depth": ["medium", "deep"]},
+    {"id": "men-steel-blue", "name": "Steel Blue", "tag": "Fashion · Denim · Statement",
+     "swatch": ["#26364d", "#40597a", "#6a86a8"], "suits": ["cool"], "depth": ["light", "medium"]},
+]
+_MEN_BY_ID = {c["id"]: c for c in MEN_CATALOG}
 
-async def _catalog_with_images(tenant_id: str | None = None) -> list[dict]:
+
+async def _catalog_with_images(tenant_id: str | None = None, men: bool = False) -> list[dict]:
+    from services.shade_guide import GUIDE
     imgs = {d["id"]: d.get("image_url") async for d in _raw_db.hair_color_images.find({}, {"_id": 0})}
-    out = [{**c, "image_url": imgs.get(c["id"])} for c in CATALOG]
+    out = [{**c, "men": men, "image_url": imgs.get(c["id"]), "description": (GUIDE.get(c["id"]) or {}).get("description"),
+            "level": (GUIDE.get(c["id"]) or {}).get("level")} for c in (MEN_CATALOG if men else CATALOG)]
     if tenant_id:  # the salon's own shades come first — they are the house specialities
         customs = await _raw_db.tenant_hair_colors.find({"tenant_id": tenant_id, "active": {"$ne": False}}, {"_id": 0}).sort("created_at", -1).to_list(60)
-        out = [{"men": True, **c, "custom": True} for c in customs] + out
+        out = [{**c, "custom": True} for c in customs] + out
         links = await _service_links(tenant_id)
         out = [{**c, **links.get(c["id"], {})} for c in out]
     return out
 
 
 async def _lookup(tenant_id: str, color_id: str) -> dict | None:
-    c = _BY_ID.get(color_id)
+    c = _BY_ID.get(color_id) or _MEN_BY_ID.get(color_id)
     if c:
         return c
     return await _raw_db.tenant_hair_colors.find_one({"tenant_id": tenant_id, "id": color_id, "active": {"$ne": False}}, {"_id": 0})
 
 
+def _shade_prompt(c: dict) -> str:
+    tones = ", ".join(c["swatch"])
+    if c["id"].startswith("men-"):
+        tag = c.get("tag") or "men's shade"
+        return (f"Professional barbershop hair colour photo of a MAN seen from behind and slightly to the side: short textured "
+                f"crop with a clean taper fade, hair coloured '{c['name']}' ({tag}; exact tones {tones}), "
+                "realistic natural-looking colour, sharp neckline, masculine build, dark t-shirt, premium modern barbershop interior, "
+                "editorial lighting, 8k detail. The man faces away from camera, no face visible. NO text, NO letters, NO logos.")
+    return (f"Professional salon back-of-head hair colour photo: long softly waved hair in '{c['name']}' "
+            f"({c.get('tag') or 'signature shade'}; exact tones {tones}), realistic dimensional colour, "
+            "bright modern salon interior, editorial lighting, 8k detail, the model faces away from camera. NO text, NO letters, NO logos.")
+
+
 async def _paint_custom(tenant: dict, c: dict):
     from routes.mira_common import _gen_image
-    prompt = (f"Professional salon back-of-head hair colour photo: long softly waved hair in '{c['name']}' "
-              f"({c.get('tag') or 'signature shade'}; exact tones {', '.join(c['swatch'])}), realistic dimensional colour, "
-              "bright modern salon interior, editorial lighting, 8k detail, the model faces away from camera. NO text, NO letters, NO logos.")
     try:
-        url = await _gen_image(prompt, tenant, "hair_color_custom")
+        url = await _gen_image(_shade_prompt(c), tenant, "hair_color_custom")
         await _raw_db.tenant_hair_colors.update_one({"id": c["id"]}, {"$set": {"image_url": url}})
     except Exception as e:
         log.error("custom shade image failed %s: %s", c["id"], e)
@@ -98,11 +191,8 @@ async def _paint_custom(tenant: dict, c: dict):
 
 async def _paint_one(c: dict) -> str | None:
     from routes.mira_common import _gen_image
-    prompt = (f"Professional salon back-of-head hair colour photo: long softly waved hair in '{c['name']}' "
-              f"({c['tag']}), realistic dimensional colour, bright modern salon interior, editorial lighting, "
-              "8k detail, the model faces away from camera. NO text, NO letters, NO logos.")
     try:
-        url = await _gen_image(prompt, {"id": "superadmin", "slug": "hq"}, "hair_color_catalog")
+        url = await _gen_image(_shade_prompt(c), {"id": "superadmin", "slug": "hq"}, "hair_color_catalog")
         await _raw_db.hair_color_images.update_one({"id": c["id"]}, {"$set": {"id": c["id"], "image_url": url,
                                                     "at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
         return url
@@ -120,7 +210,7 @@ async def _paint_missing():
     _painting["running"] = True
     try:
         have = {d["id"] async for d in _raw_db.hair_color_images.find({}, {"_id": 0, "id": 1})}
-        for c in CATALOG:
+        for c in CATALOG + MEN_CATALOG:
             if c["id"] not in have:
                 await _paint_one(c)
     finally:
@@ -132,12 +222,23 @@ async def hq_generate_catalog(force: bool = False, admin=Depends(require_super_a
     if force:
         await _raw_db.hair_color_images.delete_many({})
     asyncio.create_task(_paint_missing())
-    return {"ok": True, "total": len(CATALOG)}
+    return {"ok": True, "total": len(CATALOG) + len(MEN_CATALOG)}
 
 
 @router.get("/hair-colors")
 async def hair_colors(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    return {"colors": await _catalog_with_images(t["id"])}
+    return {"colors": await _catalog_with_images(t["id"]), "men_colors": await _catalog_with_images(t["id"], men=True)}
+
+
+@router.get("/hair-colors/{color_id}/guide")
+async def hair_color_guide(color_id: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Stylist reference: description, level, brand shade codes, developer volume, mixing ratio and timing."""
+    from services.shade_guide import shade_guide
+    c = await _lookup(t["id"], color_id)
+    if not c:
+        raise HTTPException(404, "Unknown colour")
+    return {"color": {"id": c["id"], "name": c["name"], "tag": c.get("tag"), "swatch": c["swatch"], "custom": bool(c.get("tenant_id"))},
+            "guide": shade_guide(color_id)}
 
 
 class CustomShadeIn(BaseModel):
@@ -161,7 +262,7 @@ async def add_custom_shade(body: CustomShadeIn, admin=Depends(require_tenant_adm
     doc = {"id": f"custom-{uuid.uuid4().hex[:8]}", "tenant_id": t["id"], "name": body.name.strip(), "tag": body.tag.strip(),
            "swatch": sw, "suits": [x for x in body.suits if x in ("warm", "cool", "neutral")] or ["warm", "cool", "neutral"],
            "depth": [x for x in body.depth if x in ("light", "medium", "deep")] or ["light", "medium", "deep"],
-           "image_url": None, "active": True, "men": True, "created_at": datetime.now(timezone.utc).isoformat()}
+           "image_url": None, "active": True, "created_at": datetime.now(timezone.utc).isoformat()}
     await _raw_db.tenant_hair_colors.insert_one({**doc})
     asyncio.create_task(_paint_custom(t, doc))
     return {"ok": True, "color": doc}
@@ -181,10 +282,11 @@ async def delete_custom_shade(color_id: str, admin=Depends(require_tenant_admin)
 async def public_color_catalog(slug: str):
     t = await resolve_tenant_from_slug(slug)
     colors = await _catalog_with_images(t["id"])
-    if any(not c.get("image_url") and not c.get("custom") for c in colors):
+    men_colors = await _catalog_with_images(t["id"], men=True)
+    if any(not c.get("image_url") and not c.get("custom") for c in colors + men_colors):
         asyncio.create_task(_paint_missing())
     return {"slug": t["slug"], "name": t.get("name"), "logo_url": t.get("logo_url"),
-            "location": t.get("location") or "", "colors": colors}
+            "location": t.get("location") or "", "colors": colors, "men_colors": men_colors}
 
 
 @router.get("/public/color/{slug}/trending")
@@ -195,10 +297,12 @@ async def public_color_trending(slug: str, limit: int = 8):
     counts = {d["_id"]: d["n"] async for d in _raw_db.color_picks.aggregate([
         {"$match": {"tenant_id": t["id"], "created_at": {"$gte": since}}},
         {"$group": {"_id": "$color_id", "n": {"$sum": 1}}}])}
-    colors = [c for c in await _catalog_with_images(t["id"]) if c.get("image_url")]
+    women = await _catalog_with_images(t["id"])
+    men = [c for c in await _catalog_with_images(None, men=True)]
+    colors = [c for c in women + men if c.get("image_url")]
     colors.sort(key=lambda c: -counts.get(c["id"], 0))
     return {"shades": [{"id": c["id"], "name": c["name"], "tag": c.get("tag", ""), "swatch": c["swatch"], "image_url": c["image_url"],
-                        "picks": counts.get(c["id"], 0), "price": c.get("price")} for c in colors[:max(1, min(limit, 12))]],
+                        "picks": counts.get(c["id"], 0), "price": c.get("price"), "men": bool(c.get("men"))} for c in colors[:max(1, min(limit, 12))]],
             "total_picks": sum(counts.values())}
 
 
@@ -309,7 +413,7 @@ async def color_poster(admin=Depends(require_tenant_admin), t=Depends(current_te
     d = ImageDraw.Draw(img)
     _center(d, y, "Scan  ·  fit your face  ·  see the colour ON YOU, front & back", _font(30), (255, 255, 255), W); y += 46
     _center(d, y, "We read your skin undertone & show the shades that suit YOU", _font(27), (215, 205, 210), W); y += 62
-    _center(d, y, "18 SHADES · BLACK TO PLATINUM · BALAYAGE · COPPER · PASTELS", _font(26), GOLD, W); y += 54
+    _center(d, y, f"{len(CATALOG)} SHADES FOR HER · {len(MEN_CATALOG)} FOR HIM · BLACK TO PLATINUM · BALAYAGE · PASTELS", _font(26), GOLD, W); y += 54
     _center(d, y, "Pick your shade, book your stylist — all from your phone", _font(28), (255, 255, 255), W)
     _center(d, H - 120, url.replace("https://", ""), _font(26), (170, 170, 190), W)
     return Response(to_png(img), media_type="image/png",

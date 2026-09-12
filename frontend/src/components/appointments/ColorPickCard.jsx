@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Palette, Save, Loader2, Camera, Clapperboard, Check } from "lucide-react";
+import { ShadeGuide } from "./ShadeGuide";
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL;
 
@@ -77,6 +78,7 @@ export const ColorPickCard = ({ appt, onSaved }) => {
             {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Save
           </button>
         </div>
+        <ShadeGuide colorId={cp.color_id} onUse={(line) => setFormula(line)} />
         {past.length > 0 && (
           <div className="mt-2 rounded-lg bg-white/70 border border-amber-200 p-2 text-[11px]" data-testid="color-card-past">
             <p className="font-semibold text-amber-800 mb-1">Previous colour formulas for this guest</p>
