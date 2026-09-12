@@ -3047,3 +3047,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - `_overtime_for`: pro-rata per minute past shift_end × overtime_rate (min 15 min, after-midnight safe). Still 0 when overtime_rate = 0 (owner setting).
 - `_compute_salary_for_month`: Commission % (service gross) paid ONLY when monthly_target > 0 AND gross ≥ target; else `commission_withheld`. Target commission % (full gross) only when target reached. 0 in any of pct / target / target_pct = that incentive never paid. Product commission unchanged.
 - PDF slip + StaffPortal slip show "withheld — target not reached / no monthly target set"; StaffFormModal helper texts updated.
+
+## 2026-09-12 (e) — OT approval before payroll
+- Attendance records with overtime get `ot_status: pending` at checkout (staff / admin manual / auto-close). `_ot_paid()` counts only approved OT (adjusted `ot_approved_hours/pay`) in `_attendance_month_totals`; pending/rejected = 0; pre-feature records grandfathered. Slip gets `overtime_pending_total/count` (app + PDF line).
+- `GET /api/attendance/overtime?month=YYYY-MM&status=pending|approved|rejected|all`, `POST /api/attendance/{id}/overtime-review {action: approve|reject|reset, hours?, note}` (admin + owner PIN + CSRF). Approve recomputes pay = hours × staff overtime_rate.
+- `components/attendance/OvertimeApprovals.jsx` on the Attendance page: month + status filter, per-row adjust-hours input, Approve / Reject / Re-open. Staff portal chip shows "awaiting approval / approved / not approved".
+- Verified via HTTP (pending → approve 1.5h → ₹150 on slip → reject → ₹0 → reset) + PDF + UI approve with adjusted 2h.

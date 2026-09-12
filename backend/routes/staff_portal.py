@@ -392,6 +392,23 @@ def _overtime_for(staff: dict, checkout_ist: datetime) -> tuple:
     return hours, round(minutes / 60 * rate, 2)
 
 
+def _ot_status(ot_pay: float) -> dict:
+    """Overtime waits for the owner's approval before it reaches the salary slip."""
+    return {"ot_status": "pending" if ot_pay > 0 else None, "ot_approved_hours": None, "ot_approved_pay": None}
+
+
+def _ot_paid(r: dict) -> tuple:
+    """(hours, ₹) of overtime that counts towards salary: approved (possibly adjusted) only.
+    Records from before approvals existed (no ot_status) are grandfathered as approved."""
+    st = r.get("ot_status")
+    if st == "approved":
+        return float(r.get("ot_approved_hours") if r.get("ot_approved_hours") is not None else r.get("overtime_hours") or 0), \
+               float(r.get("ot_approved_pay") if r.get("ot_approved_pay") is not None else r.get("overtime_pay") or 0)
+    if st in ("pending", "rejected"):
+        return 0.0, 0.0
+    return float(r.get("overtime_hours") or 0), float(r.get("overtime_pay") or 0)
+
+
 def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     p1, p2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
@@ -417,11 +434,59 @@ async def _auto_close_stale_attendance():
         await db.attendance.update_one(
             {"id": rec["id"]},
             {"$set": {"check_out_at": co.isoformat(), "hours_worked": float(AUTO_CHECKOUT_HOURS),
-                      "auto_checked_out": True, "overtime_hours": ot_h, "overtime_pay": ot_pay}})
+                      "auto_checked_out": True, "overtime_hours": ot_h, "overtime_pay": ot_pay, **_ot_status(ot_pay)}})
 
 
 class WaiveFineIn(BaseModel):
     note: str = Field("", max_length=200)
+
+
+class OvertimeReviewIn(BaseModel):
+    action: str = Field(..., pattern=r"^(approve|reject|reset)$")
+    hours: Optional[float] = Field(None, ge=0, le=12)  # approve with adjusted hours (defaults to the recorded hours)
+    note: str = Field("", max_length=200)
+
+
+@router.get("/attendance/overtime")
+async def list_overtime(month: Optional[str] = None, status: str = "pending", user=Depends(require_admin), t=Depends(current_tenant)):
+    """Owner's OT queue: every attendance record with overtime, newest first. status=pending|approved|rejected|all."""
+    month = month or datetime.now(IST_TZ).strftime("%Y-%m")
+    flt = {"date": {"$regex": f"^{month}"}, "overtime_pay": {"$gt": 0}}
+    if status != "all":
+        flt["ot_status"] = status if status != "approved" else {"$in": ["approved", None]}
+    recs = await db.attendance.find(flt, {"_id": 0}).sort("date", -1).to_list(500)
+    staff = {s["id"]: s for s in await db.staff.find({"id": {"$in": list({r["staff_id"] for r in recs})}},
+                                                     {"_id": 0, "id": 1, "name": 1, "role": 1, "overtime_rate": 1, "shift_end": 1}).to_list(300)}
+    out = []
+    for r in recs:
+        st = staff.get(r["staff_id"], {})
+        out.append({**r, "staff_name": st.get("name"), "role": st.get("role"), "overtime_rate": st.get("overtime_rate") or 0,
+                    "shift_end": st.get("shift_end") or "21:00", "ot_status": r.get("ot_status") or "approved"})
+    return {"month": month, "records": out,
+            "pending_total": round(sum(float(r["overtime_pay"] or 0) for r in out if r["ot_status"] == "pending"), 2)}
+
+
+@router.post("/attendance/{rec_id}/overtime-review")
+async def review_overtime(rec_id: str, body: OvertimeReviewIn, user=Depends(require_admin), t=Depends(current_tenant)):
+    """Approve (optionally with adjusted hours), reject, or reset a day's overtime before payroll."""
+    rec = await db.attendance.find_one({"id": rec_id}, {"_id": 0})
+    if not rec:
+        raise HTTPException(404, "Attendance record not found")
+    if not (rec.get("overtime_pay") or 0) > 0:
+        raise HTTPException(400, "This day has no overtime to review")
+    staff = await db.staff.find_one({"id": rec["staff_id"]}, {"_id": 0, "overtime_rate": 1, "name": 1}) or {}
+    rate = float(staff.get("overtime_rate") or 0)
+    now = datetime.now(timezone.utc).isoformat()
+    if body.action == "approve":
+        hours = round(float(body.hours if body.hours is not None else rec.get("overtime_hours") or 0), 2)
+        upd = {"ot_status": "approved", "ot_approved_hours": hours, "ot_approved_pay": round(hours * rate, 2)}
+    elif body.action == "reject":
+        upd = {"ot_status": "rejected", "ot_approved_hours": 0.0, "ot_approved_pay": 0.0}
+    else:
+        upd = {"ot_status": "pending", "ot_approved_hours": None, "ot_approved_pay": None}
+    upd.update({"ot_note": body.note.strip(), "ot_reviewed_by": user.get("email"), "ot_reviewed_at": now})
+    await db.attendance.update_one({"id": rec_id}, {"$set": upd})
+    return await db.attendance.find_one({"id": rec_id}, {"_id": 0})
 
 
 @router.post("/attendance/{rec_id}/undo-checkout")
@@ -434,7 +499,7 @@ async def undo_checkout(rec_id: str, admin=Depends(require_admin), _pin=Depends(
         raise HTTPException(400, "This record has no check-out to undo")
     await db.attendance.update_one({"id": rec_id}, {"$set": {
         "check_out_at": None, "hours_worked": 0.0,
-        "overtime_hours": 0.0, "overtime_pay": 0.0,
+        "overtime_hours": 0.0, "overtime_pay": 0.0, "ot_status": None, "ot_approved_hours": None, "ot_approved_pay": None,
         "auto_checked_out": False, "check_out_method": None,
         "checkout_undone_by": admin.get("email"),
         "checkout_undone_at": datetime.now(timezone.utc).isoformat(),
@@ -564,7 +629,7 @@ async def manual_attendance(body: ManualAttnIn, admin=Depends(require_admin),
         await db.attendance.update_one(
             {"staff_id": staff["id"], "date": today},
             {"$set": {"check_out_at": when_utc.isoformat(), "hours_worked": hours,
-                      "overtime_hours": ot_h, "overtime_pay": ot_pay,
+                      "overtime_hours": ot_h, "overtime_pay": ot_pay, **_ot_status(ot_pay),
                       "check_out_method": "manual_admin", **audit}})
     return await db.attendance.find_one({"staff_id": staff["id"], "date": today}, {"_id": 0})
 
@@ -682,7 +747,7 @@ async def staff_check_out(body: Optional[GeoIn] = None, s=Depends(_current_staff
     await db.attendance.update_one(
         {"staff_id": s["id"], "date": today},
         {"$set": {"check_out_at": now.isoformat(), "hours_worked": hours,
-                  "overtime_hours": ot_h, "overtime_pay": ot_pay,
+                  "overtime_hours": ot_h, "overtime_pay": ot_pay, **_ot_status(ot_pay),
                   "check_out_lat": geo.lat, "check_out_lng": geo.lng}},
     )
     return await db.attendance.find_one({"staff_id": s["id"], "date": today}, {"_id": 0})
@@ -984,8 +1049,10 @@ def _attendance_month_totals(recs: list) -> dict:
     return {
         "days_present": sum(1 for r in recs if r.get("check_in_at")),
         "total_hours": round(sum(float(r.get("hours_worked") or 0) for r in recs), 2),
-        "overtime_hours_total": round(sum(float(r.get("overtime_hours") or 0) for r in recs), 2),
-        "overtime_total": round(sum(float(r.get("overtime_pay") or 0) for r in recs), 2),
+        "overtime_hours_total": round(sum(_ot_paid(r)[0] for r in recs), 2),
+        "overtime_total": round(sum(_ot_paid(r)[1] for r in recs), 2),
+        "overtime_pending_total": round(sum(float(r.get("overtime_pay") or 0) for r in recs if r.get("ot_status") == "pending"), 2),
+        "overtime_pending_count": sum(1 for r in recs if r.get("ot_status") == "pending"),
         "late_penalty_total": round(sum(float(r.get("late_penalty") or 0) for r in recs), 2),
         "late_days": sum(1 for r in recs if (r.get("late_penalty") or 0) > 0),
         "half_days": sum(1 for r in recs if r.get("half_day")),

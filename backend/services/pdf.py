@@ -568,7 +568,9 @@ def _render_salary_slip_pdf(slip: dict) -> bytes:
         line(f"Product sales commission ({slip.get('product_commission_pct', 2)}% of Rs. {slip.get('product_gross', 0):.0f})",
              f"Rs. {slip['product_commission_amount']:.2f}")
     if slip.get("overtime_total"):
-        line(f"Overtime ({slip.get('overtime_hours_total', 0)}h past shift end)", f"Rs. {slip['overtime_total']:.2f}")
+        line(f"Overtime ({slip.get('overtime_hours_total', 0)}h approved past shift end)", f"Rs. {slip['overtime_total']:.2f}")
+    if slip.get("overtime_pending_total"):
+        line(f"Overtime awaiting owner approval ({slip.get('overtime_pending_count', 0)} day(s)) — not included", f"Rs. {slip['overtime_pending_total']:.2f}")
     if slip.get("review_bonus_total"):
         line(f"5-star review bonus ({slip.get('review_bonus_count', 0)} review(s))", f"Rs. {slip['review_bonus_total']:.2f}")
     if slip.get("target_bonus"):

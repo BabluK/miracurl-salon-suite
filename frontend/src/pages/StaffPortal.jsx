@@ -287,7 +287,7 @@ export default function StaffPortal() {
             )}
             {today?.overtime_pay > 0 && (
               <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300" data-testid="today-ot-chip">
-                Overtime {today.overtime_hours}h · +₹{today.overtime_pay}
+                Overtime {today.overtime_hours}h · +₹{today.overtime_pay}{today.ot_status === "pending" ? " · awaiting approval" : today.ot_status === "rejected" ? " · not approved" : today.ot_status === "approved" ? " · approved" : ""}
               </span>
             )}
             {today?.auto_checked_out && (
@@ -420,7 +420,8 @@ export default function StaffPortal() {
                 sub={slip.commission_withheld ? (slip.monthly_target > 0 ? `withheld — monthly target ₹${Number(slip.monthly_target).toLocaleString("en-IN")} not reached` : "withheld — no monthly target set")
                   : slip.service_gross ? `${slip.commission_pct || 0}% of ₹${Number(slip.service_gross).toLocaleString("en-IN")} services · target reached` : undefined} />
               <SlipRow label={`Product sales (${slip.product_commission_pct || 2}%)`} value={`+ ₹${(slip.product_commission_amount || 0).toLocaleString("en-IN")}`} sub={slip.product_count ? `${slip.product_count} product${slip.product_count > 1 ? "s" : ""} sold · ₹${(slip.product_gross || 0).toLocaleString("en-IN")}` : "no products sold"} />
-              <SlipRow label="Overtime" value={`+ ₹${(slip.overtime_total || 0).toLocaleString("en-IN")}`} sub={slip.overtime_hours_total ? `${slip.overtime_hours_total}h past shift end` : "no overtime"} />
+              <SlipRow label="Overtime" value={`+ ₹${(slip.overtime_total || 0).toLocaleString("en-IN")}`}
+                sub={slip.overtime_pending_total > 0 ? `${slip.overtime_hours_total || 0}h approved · ₹${Number(slip.overtime_pending_total).toLocaleString("en-IN")} awaiting owner approval` : slip.overtime_hours_total ? `${slip.overtime_hours_total}h approved past shift end` : "no overtime"} />
               <SlipRow label="Late fines" value={`− ₹${(slip.late_penalty_total || 0).toLocaleString("en-IN")}`} sub={slip.late_days ? `${slip.late_days} late day(s)` : "no late marks"} />
               <SlipRow label="Advance taken" value={`− ₹${(slip.advance_total || 0).toLocaleString("en-IN")}`} />
               <SlipRow label="Days present" value={slip.days_present || 0} />

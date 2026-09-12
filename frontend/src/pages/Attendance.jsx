@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
 import pinApi from "@/lib/ownerPin";
 import { ManualAttendanceModal } from "@/components/ManualAttendanceModal";
+import { OvertimeApprovals } from "@/components/attendance/OvertimeApprovals";
 import { ConfirmDialog, askConfirm } from "@/components/ConfirmDialog";
 import { getSelectedBranch, mainSalonLabel } from "@/lib/branch";
 import { toast } from "sonner";
@@ -209,6 +210,8 @@ export default function Attendance() {
       <LeaveManager roster={data?.roster || []} onChanged={load} />
 
       <WeekOffManager onChanged={load} />
+
+      <OvertimeApprovals onChanged={load} />
 
       {/* Roster table */}
       <div className="card-light p-0 overflow-x-auto" data-testid="attendance-roster">
