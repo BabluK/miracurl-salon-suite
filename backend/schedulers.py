@@ -1,11 +1,11 @@
 """Background schedulers (extracted from server.py). Registered in server.on_startup."""
-import asyncio  # noqa: F401
-import logging  # noqa: F401
+import asyncio
+import logging
 import os
-from datetime import datetime, timezone, timedelta  # noqa: F401
+from datetime import datetime, timezone, timedelta
 
-from database import db, _raw_db, _current_tenant_id  # noqa: F401
-from email_service import _send_email  # noqa: F401
+from database import _raw_db
+from email_service import _send_email
 from routes.crm import _run_birthday_emails, _run_review_requests
 from routes.staff_portal import IST_TZ, _run_late_alerts
 from routes.super_admin_ops import _run_monthly_reports, _run_weekly_reports, _run_platform_digest

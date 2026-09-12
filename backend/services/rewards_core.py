@@ -1,5 +1,5 @@
 """Rewards campaign core — defaults, campaign lookup and eligibility. Shared by rewards_campaign & rewards_settlements routes (no route imports)."""
-from datetime import datetime, timezone, timedelta, date  # noqa: F401
+from datetime import datetime, timezone
 
 from database import _raw_db
 

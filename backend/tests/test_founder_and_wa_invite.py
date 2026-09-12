@@ -1,7 +1,7 @@
 """Tests for founder invitation template, demo trial days, and WA quick-invite CRUD."""
 import os
 import time
-import random
+import secrets
 import pytest
 import requests
 from creds import password_for
@@ -76,8 +76,8 @@ def test_demo_send_bogus_template_422(super_session):
 
 
 # ---------- Founder send + history ----------
-FOUNDER_EMAIL = f"qa.founder.{random.randint(100000,999999)}@example.com"
-DEMO_EMAIL = f"qa.demo.{random.randint(100000,999999)}@example.com"
+FOUNDER_EMAIL = f"qa.founder.{(100000 + secrets.randbelow(900000))}@example.com"
+DEMO_EMAIL = f"qa.demo.{(100000 + secrets.randbelow(900000))}@example.com"
 
 
 @pytest.fixture(scope="module")
@@ -142,7 +142,7 @@ def test_demo_send_history_30day(super_session):
 # ---------- Founder signup → 180 days ----------
 def test_founder_signup_180_days(super_session):
     # Fresh send to delivered+<tag>@resend.dev so Resend accepts and invite row is stored
-    tag = f"iter124f{random.randint(100000, 999999)}"
+    tag = f"iter124f{(100000 + secrets.randbelow(900000))}"
     email = f"delivered+{tag}@resend.dev"
     send_payload = {
         "recipients": [{"email": email, "name": "Anita Rao", "salon_name": "Rose Petal Salon"}],
@@ -163,7 +163,7 @@ def test_founder_signup_180_days(super_session):
         "owner_name": "Anita Rao",
         "owner_email": email,
         "password": "TestPass@123",
-        "phone": f"9{random.randint(100000000, 999999999)}",
+        "phone": f"9{(100000000 + secrets.randbelow(900000000))}",
         "city": "Bengaluru",
     }
     r2 = requests.post(f"{BASE_URL}/api/public/signup-salon", json=signup_payload, timeout=30)

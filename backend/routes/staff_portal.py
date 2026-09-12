@@ -1,49 +1,33 @@
 # Extracted from server.py — domain route module (auto-split refactor)
-import os  # noqa: F401
-import re  # noqa: F401
-import io  # noqa: F401
-import csv  # noqa: F401
-import math  # noqa: F401
-import uuid  # noqa: F401
-import hmac  # noqa: F401
-import hashlib  # noqa: F401
-import asyncio  # noqa: F401
-import base64  # noqa: F401
-import secrets  # noqa: F401
-import logging  # noqa: F401
-import html as html_lib  # noqa: F401
-from datetime import datetime, timezone, timedelta  # noqa: F401
-from typing import Dict, List, Optional  # noqa: F401
-from urllib.parse import quote, urlparse  # noqa: F401
+import os
+import re
+import io
+import math
+import uuid
+import asyncio
+import secrets
+import logging
+import html as html_lib
+from datetime import datetime, timezone, timedelta
+from typing import Dict, List, Optional
 
-import requests  # noqa: F401
-from fastapi import (  # noqa: F401
-    APIRouter, HTTPException, Depends, Request, Response, Query, UploadFile, File, Form,
+import requests
+from fastapi import (
+    APIRouter, HTTPException, Depends, Request, UploadFile, File,
 )
-from starlette.responses import StreamingResponse  # noqa: F401
-from pydantic import BaseModel, Field, EmailStr, field_validator  # noqa: F401
+from starlette.responses import StreamingResponse
+from pydantic import BaseModel, Field, field_validator
 
-from database import client, _raw_db, db, _current_tenant_id, _clean  # noqa: F401
-from security import (  # noqa: F401
-    hash_pw, verify_pw, get_current_user, require_admin, public_rate_limit,
-    durable_rate_limit, ai_daily_quota, require_super_admin, require_tenant_admin,
-    current_tenant, require_owner_pin, _pin_attempt_guard, _pin_attempt_fail, _pin_attempt_clear,
+from database import _raw_db, db
+from security import (
+    get_current_user, require_admin, require_tenant_admin, current_tenant, require_owner_pin,
     branch_lock,
 )
-from models import (  # noqa: F401
-    Tenant, Customer, Appointment, REVIEW_REWARD_CREDITS, MAX_CUSTOMER_CREDIT,
-    REFERRAL_REWARD_REFERRER, REFERRAL_REWARD_REFERRED,
+from email_service import (
+    _send_email,
 )
-from email_service import (  # noqa: F401
-    _send_email, _welcome_email_html, _credentials_email_html, _monthly_report_html,
-    _weekly_report_html, _birthday_email_html, _platform_digest_html,
-)
-from services.storage import _put_object, _get_object, _MIME, APP_NAME, validate_image_bytes  # noqa: F401
-from services.pdf import _render_salary_slip_pdf, _render_resume_pdf  # noqa: F401
-from services.billing import (  # noqa: F401
-    _validate_coupon, _consume_coupon, _coupon_discount, _active_membership, _loyalty_rules,
-)
-from utils import _csv_cell, _csv_row, _read_csv_upload, MAX_CSV_BYTES  # noqa: F401
+from services.storage import _put_object, _get_object, _MIME, APP_NAME, validate_image_bytes
+from services.pdf import _render_salary_slip_pdf, _render_resume_pdf
 
 router = APIRouter()
 

@@ -514,6 +514,32 @@ def _founder_signature_block() -> str:
   </td></tr>"""
 
 
+_FOUNDER_LETTERHEAD = """  <tr><td style="background:#15151b;padding:26px 40px 22px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td><div style="font-family:Georgia,serif;font-size:22px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+          <div style="color:#b9b2a3;font-size:11px;letter-spacing:2.5px;margin-top:4px">A NOTE FROM THE FOUNDER</div></td>
+      <td align="right" valign="middle"><div style="display:inline-block;border:1px solid #d4af37;color:#d4af37;font-size:10.5px;letter-spacing:1.5px;padding:6px 12px;border-radius:999px">PERSONAL INVITATION</div></td>
+    </tr></table>
+  </td></tr>"""
+
+
+def _founder_cta_and_signoff(explore: str, p: str) -> str:
+    return f"""  <tr><td align="center" style="padding:10px 40px 8px">
+    <a href="{explore}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
+       text-decoration:none;padding:15px 44px;border-radius:999px;letter-spacing:.4px">Explore Miracurl Suite ✦</a>
+    <div style="font-size:12.5px;color:#7d7668;margin-top:14px;line-height:1.6">Or simply reply to this email, and I’ll personally arrange
+      a quick demonstration at a time convenient for you.</div>
+  </td></tr>
+  <tr><td style="padding:22px 40px 8px">
+    <p {p}>Thank you for taking the time to read my message. I genuinely appreciate it.</p>
+    <p {p} style="margin-bottom:0">Warm regards,</p>
+  </td></tr>
+{_founder_signature_block()}
+  <tr><td style="background:#15151b;padding:14px 40px;text-align:center">
+    <div style="color:#6d675c;font-size:11px">© Miracurl Suite · Built in India, for salons everywhere. If this isn’t relevant, simply ignore this email.</div>
+  </td></tr>"""
+
+
 def _founder_email_html(recipient_name: str, salon_name: str, note: str, tracking: tuple = ("", "")) -> str:
     salon = html_lib.escape((salon_name or "").strip())
     greeting = _greeting(recipient_name)
@@ -525,13 +551,7 @@ def _founder_email_html(recipient_name: str, salon_name: str, note: str, trackin
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#efece5;padding:32px 12px">
 <tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fffdf9;border-radius:20px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 6px 30px rgba(20,18,12,.10)">
-  <tr><td style="background:#15151b;padding:26px 40px 22px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td><div style="font-family:Georgia,serif;font-size:22px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
-          <div style="color:#b9b2a3;font-size:11px;letter-spacing:2.5px;margin-top:4px">A NOTE FROM THE FOUNDER</div></td>
-      <td align="right" valign="middle"><div style="display:inline-block;border:1px solid #d4af37;color:#d4af37;font-size:10.5px;letter-spacing:1.5px;padding:6px 12px;border-radius:999px">PERSONAL INVITATION</div></td>
-    </tr></table>
-  </td></tr>
+{_FOUNDER_LETTERHEAD}
   <tr><td style="padding:34px 40px 6px">
     <p {p}>{greeting}</p>
     <p {p}>I hope you’re having a wonderful day. 😊</p>
@@ -555,20 +575,7 @@ def _founder_email_html(recipient_name: str, salon_name: str, note: str, trackin
       As a founder, that feedback is incredibly valuable to me.</p>
     <p {p} style="margin-bottom:8px">Would you be open to taking a quick look?</p>
   </td></tr>
-  <tr><td align="center" style="padding:10px 40px 8px">
-    <a href="{explore}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:15px;font-weight:bold;
-       text-decoration:none;padding:15px 44px;border-radius:999px;letter-spacing:.4px">Explore Miracurl Suite ✦</a>
-    <div style="font-size:12.5px;color:#7d7668;margin-top:14px;line-height:1.6">Or simply reply to this email, and I’ll personally arrange
-      a quick demonstration at a time convenient for you.</div>
-  </td></tr>
-  <tr><td style="padding:22px 40px 8px">
-    <p {p}>Thank you for taking the time to read my message. I genuinely appreciate it.</p>
-    <p {p} style="margin-bottom:0">Warm regards,</p>
-  </td></tr>
-{_founder_signature_block()}
-  <tr><td style="background:#15151b;padding:14px 40px;text-align:center">
-    <div style="color:#6d675c;font-size:11px">© Miracurl Suite · Built in India, for salons everywhere. If this isn’t relevant, simply ignore this email.</div>
-  </td></tr>
+{_founder_cta_and_signoff(explore, p)}
 </table>
 </td></tr></table>{pixel}</body></html>"""
 
@@ -1153,30 +1160,40 @@ async def run_founder_feedback_asks() -> dict:
     return {"sent": sent, "failed": failed}
 
 
-@router.get("/super-admin/founder-funnel")
-async def founder_funnel(user=Depends(require_super_admin)):
-    """Founder-offer funnel: letters sent → replied → live (6 months set up) → logged in → rated."""
-    sent = await _raw_db.demo_invites.count_documents({"template": "founder"})
-    opened = await _raw_db.demo_invites.count_documents({"template": "founder", "opened_at": {"$nin": [None, ""]}})
-    replied = await _raw_db.demo_invites.count_documents(
-        {"template": "founder", "$or": [{"responded": True}, {"replied_at": {"$exists": True}}]})
-    tenants = await _raw_db.tenants.find({"signup_offer": "founder_6m", "status": {"$ne": "cancelled"}},
-                                         {"_id": 0, "id": 1, "name": 1, "slug": 1, "owner_email": 1, "status": 1,
-                                          "founder_first_login_at": 1, "founder_feedback": 1, "trial_end_date": 1}).to_list(500)
-    logged_in = 0
+async def _founder_invite_counts() -> dict:
+    q = {"template": "founder"}
+    return {"sent": await _raw_db.demo_invites.count_documents(q),
+            "opened": await _raw_db.demo_invites.count_documents({**q, "opened_at": {"$nin": [None, ""]}}),
+            "replied": await _raw_db.demo_invites.count_documents(
+                {**q, "$or": [{"responded": True}, {"replied_at": {"$exists": True}}]})}
+
+
+async def _mark_founder_first_logins(tenants: list) -> int:
+    """Back-fill founder_first_login_at from the users collection; returns how many have logged in."""
     for t in tenants:
         if not t.get("founder_first_login_at") and await _owner_has_logged_in(str(t.get("owner_email") or "").lower()):
             await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"founder_first_login_at": datetime.now(timezone.utc).isoformat()}})
             t["founder_first_login_at"] = "now"
-        logged_in += bool(t.get("founder_first_login_at"))
+    return sum(bool(t.get("founder_first_login_at")) for t in tenants)
+
+
+def _founder_salon_row(t: dict) -> dict:
+    return {"name": t["name"], "slug": t["slug"], "status": t.get("status"), "trial_end_date": t.get("trial_end_date"),
+            "logged_in": bool(t.get("founder_first_login_at")), "rating": (t.get("founder_feedback") or {}).get("rating")}
+
+
+@router.get("/super-admin/founder-funnel")
+async def founder_funnel(user=Depends(require_super_admin)):
+    """Founder-offer funnel: letters sent → replied → live (6 months set up) → logged in → rated."""
+    tenants = await _raw_db.tenants.find({"signup_offer": "founder_6m", "status": {"$ne": "cancelled"}},
+                                         {"_id": 0, "id": 1, "name": 1, "slug": 1, "owner_email": 1, "status": 1,
+                                          "founder_first_login_at": 1, "founder_feedback": 1, "trial_end_date": 1}).to_list(500)
+    logged_in = await _mark_founder_first_logins(tenants)
     ratings = [int(t["founder_feedback"]["rating"]) for t in tenants if (t.get("founder_feedback") or {}).get("rating")]
-    paid = sum(1 for t in tenants if t.get("status") == "active")
-    return {"sent": sent, "opened": opened, "replied": replied, "live": len(tenants), "logged_in": logged_in,
+    return {**await _founder_invite_counts(), "live": len(tenants), "logged_in": logged_in,
             "rated": len(ratings), "avg_rating": round(sum(ratings) / len(ratings), 1) if ratings else None,
-            "paid": paid,
-            "salons": [{"name": t["name"], "slug": t["slug"], "status": t.get("status"), "trial_end_date": t.get("trial_end_date"),
-                        "logged_in": bool(t.get("founder_first_login_at")),
-                        "rating": (t.get("founder_feedback") or {}).get("rating")} for t in tenants]}
+            "paid": sum(1 for t in tenants if t.get("status") == "active"),
+            "salons": [_founder_salon_row(t) for t in tenants]}
 
 
 @router.post("/super-admin/founder-replies/feedback/run")

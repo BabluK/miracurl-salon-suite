@@ -19,13 +19,12 @@ from pydantic import BaseModel, Field, EmailStr
 
 from database import _raw_db
 from security import public_base_url, require_super_admin
-from services.pdf import screens_tour_attachment  # noqa: F401
 
 router = APIRouter()
 log = logging.getLogger("mira_leads")
-from routes.lead_common import (  # noqa: F401
-    _live_plans, _lead_intl, _plans_for, _pricing_lines, _pricing_table_html,
-    _outreach_email_html, _lead_reply_to, _lead_headers, _unsub_footer, _unsub_url,
+from routes.lead_common import (
+    _live_plans, _lead_intl, _plans_for, _pricing_lines, _outreach_email_html,
+    _lead_reply_to, _lead_headers, _unsub_footer,
 )
 
 _UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36"}
@@ -310,23 +309,18 @@ def _score(lead: dict) -> tuple:
 _PRICE_RE = re.compile(r"(?:for |at )?(?:just |only )?(?:Rs\.?|₹|INR|\$|USD)\s?[\d,]+(?:\.\d+)?\s?(?:/-|/month|/year|per month|per year|a month|a year)?", re.I)
 
 
-async def _draft_email(lead: dict) -> dict:
-    from routes.mira_common import _ask_json
-    vertical = lead.get("vertical") or "salon"
-    pricing = _pricing_lines(_plans_for(await _live_plans(), _lead_intl(lead.get("city")), vertical))
-    research = {k: v for k, v in lead.items()
-                if k not in ("email_body", "email_subject", "id", "_id", "run_id", "score_breakdown", "status")}
-    if vertical == "restaurant":
-        system = (
+_OUTREACH_PROMPTS = {
+    "restaurant": {
+        "system": (
             "You are Mira, the outreach agent for Miracurl Suite — an all-in-one RESTAURANT management platform "
             "(QR table ordering straight to the kitchen, live Kitchen Ticket display, table-wise billing, "
             "table reservations, AI menu photos & descriptions, waiter-call buttons, WhatsApp marketing, GST billing). "
-            f"Current live plan pricing:\n{pricing}\n"
+            "Current live plan pricing:\n{pricing}\n"
             "Write warm, short, personalized B2B outreach emails to restaurant owners anywhere in the world — "
-            "match the tone and spelling to the restaurant's country (the city may include a country like 'London, UK').")
-        user = (
-            f"Restaurant research data: {research}\n"
-            "Write a personalized email to this restaurant's owner. Rules: greet as 'Hi {name} team' or owner if known; "
+            "match the tone and spelling to the restaurant's country (the city may include a country like 'London, UK')."),
+        "user": (
+            "Restaurant research data: {research}\n"
+            "Write a personalized email to this restaurant's owner. Rules: greet as 'Hi {{name}} team' or owner if known; "
             "1st line must reference something SPECIFIC from the research (their rating/reviews, cuisine, branches); "
             "if they're popular (500+ reviews) but have no online ordering/reservations, emphasize how much revenue walks "
             "out when diners wait for menus and bills; "
@@ -338,34 +332,48 @@ async def _draft_email(lead: dict) -> dict:
             "The subject line must be a scroll-stopping HOT hook personalized with the restaurant's name, rating or a "
             "money angle (e.g. 'Table 7 just ordered — before the waiter arrived 🍽️'), exactly ONE tasteful emoji "
             "(🍽️ 🔥 ✨ 📈 ⭐), max 60 chars, never spammy ALL-CAPS. "
-            'Return JSON: {"subject":"<hot personalized subject max 60 chars>","body":"<email body, use \\n between paragraphs>"}')
-        out = await _ask_json(system, user)
-        return {"subject": (out.get("subject") or "Grow your restaurant with Miracurl Suite")[:120],
-                "body": _PRICE_RE.sub("at the plans priced below", out.get("body") or "")}
-    out = await _ask_json(
-        "You are Mira, the outreach agent for Miracurl Suite — an all-in-one salon management platform "
-        "(online booking, WhatsApp marketing & automation, staff attendance & payroll, memberships, GST billing). "
-        f"Current live plan pricing:\n{pricing}\n"
-        "Write warm, short, personalized B2B outreach emails to salon owners anywhere in the world — "
-        "match the tone and spelling to the salon's country (the city may include a country like 'London, UK').",
-        f"Salon research data: {research}\n"
-        "Write a personalized email to this salon's owner. Rules: greet as 'Hi {name} team' or owner if known; "
-        "1st line must reference something SPECIFIC from the research (their rating/reviews, services, branches); "
-        "if the research shows a 'competitor' field (e.g. Fresha/Vagaro/Mindbody/Booksy), this is a MIGRATION lead — "
-        "warmly acknowledge they already use online booking software, then position Miracurl as an all-in-one upgrade "
-        "at a lower cost with easy migration and simple onboarding (no long contracts, no per-booking commissions); "
-        "if the salon has 500+ reviews but no website, emphasize how much repeat business they're losing without "
-        "online booking given their popularity; "
-        "2nd para: point out what they seem to be missing (online booking / WhatsApp automation / website) and how "
-        "Miracurl Suite fixes it; recommend the plan that best fits their branch count and note the annual plan is "
-        "the best value; do NOT list prices in the body — a full pricing table is appended below your email "
-        "automatically; mention the attached brochure PDF has full details; CTA: free live demo — reply to this email or visit "
-        "https://miracurl-suite.com/demo to pick a demo slot. Max 140 words, no fluff, plain paragraphs. "
-        "The subject line must be a scroll-stopping HOT hook: personalized with the salon's name, rating, review "
-        "count or a money angle (e.g. 'Kudos on 4.9⭐ Atmos — now automate the rush 🔥'), create curiosity or FOMO, "
-        "exactly ONE tasteful emoji (🔥 ✨ 💇 📈 ⭐), max 60 chars, never spammy ALL-CAPS. "
-        'Return JSON: {"subject":"<hot personalized subject max 60 chars>","body":"<email body, use \\n between paragraphs>"}')
-    return {"subject": (out.get("subject") or "Grow your salon with Miracurl Suite")[:120],
+            'Return JSON: {{"subject":"<hot personalized subject max 60 chars>","body":"<email body, use \\n between paragraphs>"}}'),
+        "fallback_subject": "Grow your restaurant with Miracurl Suite",
+    },
+    "salon": {
+        "system": (
+            "You are Mira, the outreach agent for Miracurl Suite — an all-in-one salon management platform "
+            "(online booking, WhatsApp marketing & automation, staff attendance & payroll, memberships, GST billing). "
+            "Current live plan pricing:\n{pricing}\n"
+            "Write warm, short, personalized B2B outreach emails to salon owners anywhere in the world — "
+            "match the tone and spelling to the salon's country (the city may include a country like 'London, UK')."),
+        "user": (
+            "Salon research data: {research}\n"
+            "Write a personalized email to this salon's owner. Rules: greet as 'Hi {{name}} team' or owner if known; "
+            "1st line must reference something SPECIFIC from the research (their rating/reviews, services, branches); "
+            "if the research shows a 'competitor' field (e.g. Fresha/Vagaro/Mindbody/Booksy), this is a MIGRATION lead — "
+            "warmly acknowledge they already use online booking software, then position Miracurl as an all-in-one upgrade "
+            "at a lower cost with easy migration and simple onboarding (no long contracts, no per-booking commissions); "
+            "if the salon has 500+ reviews but no website, emphasize how much repeat business they're losing without "
+            "online booking given their popularity; "
+            "2nd para: point out what they seem to be missing (online booking / WhatsApp automation / website) and how "
+            "Miracurl Suite fixes it; recommend the plan that best fits their branch count and note the annual plan is "
+            "the best value; do NOT list prices in the body — a full pricing table is appended below your email "
+            "automatically; mention the attached brochure PDF has full details; CTA: free live demo — reply to this email or visit "
+            "https://miracurl-suite.com/demo to pick a demo slot. Max 140 words, no fluff, plain paragraphs. "
+            "The subject line must be a scroll-stopping HOT hook: personalized with the salon's name, rating, review "
+            "count or a money angle (e.g. 'Kudos on 4.9⭐ Atmos — now automate the rush 🔥'), create curiosity or FOMO, "
+            "exactly ONE tasteful emoji (🔥 ✨ 💇 📈 ⭐), max 60 chars, never spammy ALL-CAPS. "
+            'Return JSON: {{"subject":"<hot personalized subject max 60 chars>","body":"<email body, use \\n between paragraphs>"}}'),
+        "fallback_subject": "Grow your salon with Miracurl Suite",
+    },
+}
+
+
+async def _draft_email(lead: dict) -> dict:
+    from routes.mira_common import _ask_json
+    vertical = lead.get("vertical") or "salon"
+    prompts = _OUTREACH_PROMPTS["restaurant" if vertical == "restaurant" else "salon"]
+    pricing = _pricing_lines(_plans_for(await _live_plans(), _lead_intl(lead.get("city")), vertical))
+    research = {k: v for k, v in lead.items()
+                if k not in ("email_body", "email_subject", "id", "_id", "run_id", "score_breakdown", "status")}
+    out = await _ask_json(prompts["system"].format(pricing=pricing), prompts["user"].format(research=research))
+    return {"subject": (out.get("subject") or prompts["fallback_subject"])[:120],
             "body": _PRICE_RE.sub("at the plans priced below", out.get("body") or "")}
 
 

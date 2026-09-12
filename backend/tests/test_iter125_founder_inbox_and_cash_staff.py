@@ -7,7 +7,7 @@ Covers:
      rejected, selected staff recorded).
 """
 import os
-import random
+import secrets
 import uuid
 from datetime import datetime, timezone, timedelta
 
@@ -91,7 +91,7 @@ async def _mongo_db():
 
 # ============================ A. FOUNDER REPLY INBOX ============================
 
-RAND = random.randint(100000, 999999)
+RAND = (100000 + secrets.randbelow(900000))
 FOUNDER_EMAIL = f"qa.founder.reply.{RAND}@example.com"
 INVITE_STATE = {}  # shared across A tests
 

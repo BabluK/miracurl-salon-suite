@@ -11,7 +11,6 @@ from typing import Optional
 from database import _raw_db
 from security import current_tenant, require_super_admin, require_tenant_admin
 from services.pdf_brand import image_bytes_from_url, platform_logo_bytes
-import services.trial_onboarding  # noqa: F401  registers the "trial" invoice sender
 from services.subscription_invoice import (
     build_invoice_pdf, build_receipt_pdf, build_terms_pdf, email_invoice_kit,
     get_biller, issue_subscription_kit, save_biller,

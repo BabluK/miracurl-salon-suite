@@ -297,7 +297,7 @@ class SalonSignupIn(BaseModel):
     business_type: str | None = Field("salon", pattern="^(salon|restaurant)$")
 
 
-from constants import AFFILIATE_REWARD_INR  # noqa: F401  (re-exported for back-compat)
+from constants import AFFILIATE_REWARD_INR
 
 
 async def _resolve_unique_slug(body: SalonSignupIn) -> str:

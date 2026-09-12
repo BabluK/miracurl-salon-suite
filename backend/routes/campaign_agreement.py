@@ -86,34 +86,46 @@ class AcceptIn(BaseModel):
     agree: bool
 
 
-@router.post("/settings/rewards-campaign/agreement/accept")
-async def accept_agreement(body: AcceptIn, request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    if not body.agree:
-        raise HTTPException(400, "Tick 'I agree' to accept the agreement")
+async def _open_campaign_or_400(t: dict) -> tuple[dict, str]:
     c = await get_campaign_for(t)
     if not c.get("enabled"):
         raise HTTPException(400, "The campaign is not open for participation yet")
     ver = agreement_version(c)
     if (await get_acceptance(t["id"], c["id"]) or {}).get("version") == ver:
         raise HTTPException(400, "Agreement already accepted")
-    acc = {
+    return c, ver
+
+
+def _acceptance_doc(body: AcceptIn, request: Request, user: dict, t: dict, c: dict, ver: str) -> dict:
+    return {
         "id": str(uuid.uuid4()), "tenant_id": t["id"], "tenant_name": t.get("name"), "campaign_id": c["id"], "version": ver,
         "share_pct": float(c.get("salon_share_pct") or 10), "campaign_snapshot": {k: c.get(k) for k in ("name", "start_date", "end_date", "min_transaction")},
         "full_name": body.full_name.strip(), "designation": body.designation.strip(),
         "user_id": user.get("id"), "user_email": user.get("email"), "ip": _client_ip(request),
         "user_agent": request.headers.get("user-agent", "")[:200], "accepted_at": datetime.now(timezone.utc).isoformat(),
     }
-    await _raw_db.rewards_agreements.insert_one(dict(acc))
-    emailed = None
+
+
+async def _email_acceptance_pack(c: dict, t: dict, acc: dict) -> bool:
+    """Acceptance is recorded even if the email fails."""
     try:
         from routes.rewards_settlements import _real_email
         em = await _real_email(t)
-        if em:
-            emailed = await email_doc_pack(c, t, acc, [em])
-    except Exception:  # noqa: BLE001 — acceptance is recorded even if the email fails
-        emailed = {"sent": False}
+        res = await email_doc_pack(c, t, acc, [em]) if em else None
+        return bool((res or {}).get("sent"))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+@router.post("/settings/rewards-campaign/agreement/accept")
+async def accept_agreement(body: AcceptIn, request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    if not body.agree:
+        raise HTTPException(400, "Tick 'I agree' to accept the agreement")
+    c, ver = await _open_campaign_or_400(t)
+    acc = _acceptance_doc(body, request, user, t, c, ver)
+    await _raw_db.rewards_agreements.insert_one(dict(acc))
     return {"ok": True, "acceptance": {k: acc[k] for k in ("id", "full_name", "designation", "accepted_at", "version")},
-            "emailed": bool((emailed or {}).get("sent"))}
+            "emailed": await _email_acceptance_pack(c, t, acc)}
 
 
 # ---------------- HQ ----------------

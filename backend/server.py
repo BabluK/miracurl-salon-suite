@@ -11,7 +11,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI, APIRouter, Request
 from starlette.middleware.cors import CORSMiddleware
 
-from database import client, _raw_db, db, _current_tenant_id  # noqa: F401
+from database import client, _raw_db, db, _current_tenant_id
 
 # ---------------- App ----------------
 app = FastAPI(title="Miracurl Salon Management API")

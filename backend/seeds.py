@@ -1,12 +1,12 @@
 """Startup seed data + legacy backfill (extracted from server.py)."""
-import os  # noqa: F401
-import uuid  # noqa: F401
-import logging  # noqa: F401
-from datetime import datetime, timezone  # noqa: F401
+import os
+import uuid
+import logging
+from datetime import datetime, timezone
 
-from database import db, _raw_db, _current_tenant_id, _clean  # noqa: F401
-from security import hash_pw  # noqa: F401
-from models import Tenant, Customer  # noqa: F401
+from database import db, _raw_db
+from security import hash_pw
+from models import Tenant, Customer
 from schemas import DEFAULT_TENANT_SLUG, Service, Staff, Product
 
 # ---------------- Seed ----------------

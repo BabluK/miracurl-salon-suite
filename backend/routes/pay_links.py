@@ -13,10 +13,10 @@ from pydantic import BaseModel
 from database import _raw_db, db
 from security import require_super_admin, public_rate_limit, public_base_url
 from routes.payments_common import _checkout
-from routes.subscriptions import (
+from services.subscription_common import (
     _rzp_client, _verify_rzp_signature, _fresh_plan_or_400,
     _apply_subscription_to_tenants, PLAN_CATALOG,
-    RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, SubscriptionPayment,
+    RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, SubscriptionPayment, load_plan_overrides,
 )
 
 router = APIRouter()
@@ -84,7 +84,6 @@ async def list_pay_links(tenant_id: str = "", user=Depends(require_super_admin))
     stats = {"total": len(all_rows), "opened": sum(1 for r in all_rows if r.get("opened_at")),
              "paid": len(paid), "revenue": round(sum(float(r.get("amount") or 0) for r in paid), 2),
              "conversion_pct": round(len(paid) * 100 / len(all_rows), 1) if all_rows else 0}
-    from routes.subscriptions import load_plan_overrides
     await load_plan_overrides()
     return {"plans": _link_plans(currency), "links": rows, "stats": stats, "valid_days": LINK_VALID_DAYS,
             "currency": currency, "currency_symbol": _CUR_SYM.get(currency, "₹"),

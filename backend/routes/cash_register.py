@@ -344,27 +344,30 @@ async def cash_report_target(user=Depends(get_current_user), t=Depends(current_t
     return {"to": rcpt, "source": "salon_email" if (tt or {}).get("salon_email") else "owner_email"}
 
 
+async def _send_cash_report(t: dict, s: dict, day: str, rcpt: list) -> bool:
+    subj = f"💵 Cash register {day} · {t.get('name')} — {_inr(s['closing'])} in hand" + (" ⚠️ SHORT" if s["short"] else "")
+    try:
+        r = await _send_email(rcpt, subj, cash_report_html(t, s))
+        return bool(r.get("sent"))
+    except Exception as e:
+        logging.warning(f"cash report failed for {t.get('name')}: {e}")
+        return False
+
+
 async def _run_cash_reports(tenant_id: Optional[str] = None, day: Optional[str] = None) -> dict:
     day = day or _today()
     flt = {"id": tenant_id} if tenant_id else {"status": {"$in": ["active", "trial"]}}
-    sent = failed = skipped = 0
+    out = {"sent": 0, "failed": 0, "skipped": 0}
     async for t in _raw_db.tenants.find(flt, {"_id": 0, "id": 1, "name": 1, "owner_email": 1, "salon_email": 1}):
         s = await _snapshot(t["id"], day)
         if not s["entries"] and not s["cash_in"] and not tenant_id:
-            skipped += 1  # nothing happened today — don't spam
+            out["skipped"] += 1  # nothing happened today — don't spam
             continue
         rcpt = _report_recipients(t)
         if not rcpt:
             continue
-        subj = f"💵 Cash register {day} · {t.get('name')} — {_inr(s['closing'])} in hand" + (" ⚠️ SHORT" if s["short"] else "")
-        try:
-            r = await _send_email(rcpt, subj, cash_report_html(t, s))
-            sent += 1 if r.get("sent") else 0
-            failed += 0 if r.get("sent") else 1
-        except Exception as e:
-            logging.warning(f"cash report failed for {t.get('name')}: {e}")
-            failed += 1
-    return {"sent": sent, "failed": failed, "skipped": skipped}
+        out["sent" if await _send_cash_report(t, s, day, rcpt) else "failed"] += 1
+    return out
 
 
 @router.post("/cash/send-report")

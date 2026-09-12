@@ -1339,7 +1339,6 @@ async def send_weekly_win_report(force: bool = False) -> bool:
 @router.get("/super-admin/mira/home")
 async def mira_home(user=Depends(require_super_admin)):
     """Everything Mira Home needs in one call: snapshot cards + memory timeline."""
-    from routes.lead_common import log_mira_event  # noqa: F401 — same collection
     snap = await _hq_snapshot()
     now = datetime.now(timezone.utc)
     two_days = (now - timedelta(hours=48)).isoformat()

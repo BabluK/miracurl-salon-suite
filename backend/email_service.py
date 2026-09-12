@@ -220,21 +220,24 @@ def _welcome_poster_row(poster_url: str) -> str:
             f'style="display:block;width:100%;border-radius:0"/>')
 
 
+def _plan_row_html(p: dict) -> str:
+    sym = "$" if (p.get("currency") == "USD") else "₹"
+    months = int(round((p.get("duration_days") or 30) / 30))
+    return (f"<tr><td style='padding:10px 14px;border-bottom:1px solid #f0e9da;font-size:14px;color:#333'>"
+            f"<b>{html_lib.escape(p.get('label') or '')}</b></td>"
+            f"<td style='padding:10px 14px;border-bottom:1px solid #f0e9da;font-size:13px;color:#777'>{months} months</td>"
+            f"<td style='padding:10px 14px;border-bottom:1px solid #f0e9da;font-size:15px;color:#1c1c22;font-weight:bold;white-space:nowrap'>"
+            f"{sym}{int(p.get('price') or 0):,}</td></tr>")
+
+
 def newbiz_plan_email_html(tenant: dict, trial_end: str, plans: list) -> str:
     """Special plan sheet for newly-opened businesses — sent right after they claim the 90-day offer."""
     name = html_lib.escape(tenant.get("name") or "your business")
     opening = html_lib.escape(tenant.get("opening_date") or "")
     resto = tenant.get("business_type") == "restaurant"
     noun = "restaurant" if resto else "salon"
-    rows = ""
-    for p in plans:
-        sym = "$" if (p.get("currency") == "USD") else "₹"
-        months = int(round((p.get("duration_days") or 30) / 30))
-        rows += (f"<tr><td style='padding:10px 14px;border-bottom:1px solid #f0e9da;font-size:14px;color:#333'>"
-                 f"<b>{html_lib.escape(p.get('label') or '')}</b></td>"
-                 f"<td style='padding:10px 14px;border-bottom:1px solid #f0e9da;font-size:13px;color:#777'>{months} months</td>"
-                 f"<td style='padding:10px 14px;border-bottom:1px solid #f0e9da;font-size:15px;color:#1c1c22;font-weight:bold;white-space:nowrap'>"
-                 f"{sym}{int(p.get('price') or 0):,}</td></tr>")
+    rows = "".join(_plan_row_html(p) for p in plans)
+    opening_row = f'<div style="color:#999;font-size:12px;margin-top:4px">Opening date on record: {opening}</div>' if opening else ""
     feats = ("QR table ordering, kitchen tickets, table-wise billing, reservations"
              if resto else "online bookings, POS billing, staff attendance, memberships")
     return f"""
@@ -248,7 +251,7 @@ def newbiz_plan_email_html(tenant: dict, trial_end: str, plans: list) -> str:
         <div style="background:#1c1c22;border-radius:12px;padding:16px 20px;text-align:center">
           <div style="color:#e6c66e;font-size:11px;text-transform:uppercase;letter-spacing:3px">Your welcome gift</div>
           <div style="color:#fff;font-size:19px;font-weight:bold;margin-top:6px">FREE 90-day setup — until {html_lib.escape(trial_end)}</div>
-          {f'<div style="color:#999;font-size:12px;margin-top:4px">Opening date on record: {opening}</div>' if opening else ''}
+          {opening_row}
         </div>
         <p style="font-size:14px;color:#555;line-height:1.7;margin:18px 0 10px">
           For the next 90 days everything is on us — {feats}, WhatsApp marketing and Mira AI.
@@ -481,6 +484,8 @@ def trial_ending_email_html(t: dict, nudge: dict) -> str:
     noun = "restaurant" if resto else "salon"
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
     when = "ends <b>tomorrow</b>" if days_left == 1 else f"ends in <b>{days_left} days</b>"
+    days_label = f"{days_left} day{'s' if days_left != 1 else ''} left"
+    owner = e(t.get('owner_name') or t.get('name') or 'there')
     keeps = ("QR table ordering, kitchen tickets, POS billing, staff payroll and Mira AI"
              if resto else "online bookings, POS billing, staff payroll, WhatsApp reminders and Mira AI")
     stat_rows = "".join(f"<div style='padding:4px 0'>{s}</div>" for s in nudge.get("stats") or [])
@@ -490,10 +495,10 @@ def trial_ending_email_html(t: dict, nudge: dict) -> str:
       <div style="background:#1c1c22;padding:28px 30px;text-align:center">
         {_brand_logo_img(t)}
         <div style="color:#fff;font-size:22px;font-weight:bold">{e(t.get('name') or '')}</div>
-        <div style="color:#d4af37;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-top:6px">Free trial · {days_left} day{'s' if days_left != 1 else ''} left</div>
+        <div style="color:#d4af37;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-top:6px">Free trial · {days_label}</div>
       </div>
       <div style="padding:28px 30px;color:#333">
-        <p style="font-family:Arial,sans-serif;font-size:14px">Hi <b>{e(t.get('owner_name') or t.get('name') or 'there')}</b> 👋</p>
+        <p style="font-family:Arial,sans-serif;font-size:14px">Hi <b>{owner}</b> 👋</p>
         <p style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7">
           A friendly heads-up: your Miracurl free trial {when} (on <b>{e(nudge['end_date'])}</b>). {_trial_urgency(days_left)}</p>
         <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:14px 18px;margin:18px 0;font-size:13.5px;font-family:Arial,sans-serif;line-height:1.8">

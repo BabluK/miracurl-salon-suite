@@ -54,40 +54,55 @@ def _pricing_table_html(plans: dict) -> str:
         '</div>')
 
 
+_OUTREACH_FOOTER_LINKS = (("", "🌐 Website"), ("/features", "Features"), ("/pricing", "Pricing"),
+                          ("/about-us", "About Us"), ("/contact-us", "Contact"))
+
+
+def _outreach_tracking_pixel(base: str, lead_id: str) -> str:
+    if not lead_id:
+        return ""
+    return (f'<img src="{base}/api/public/lead-track/{lead_id}/open.png" '
+            'width="1" height="1" style="display:block;width:1px;height:1px" alt="" />')
+
+
+def _outreach_paragraphs(body: str) -> str:
+    return "".join(f'<p style="font-size:14px;color:#3a3a40;line-height:1.8;margin:0 0 15px">{_html.escape(p)}</p>'
+                   for p in body.split("\n") if p.strip())
+
+
+def _outreach_footer_html(base: str, vert: str) -> str:
+    links = "".join(f'<a href="{base}{path}" style="color:#b08d3f;text-decoration:none;font-size:12px;margin:0 9px">{label}</a>'
+                    for path, label in _OUTREACH_FOOTER_LINKS)
+    return f"""
+        <div style="border-top:1px solid #e6ddc8;padding:14px 34px;text-align:center;background:#f7f2e7">{links}</div>
+        <div style="background:#1c1c22;padding:16px 34px;text-align:center">
+          <a href="{base}" style="text-decoration:none"><span style="color:#e8c37f;font-size:15px;letter-spacing:2px">MIRACURL ✦ SUITE</span></a>
+          <div style="color:#8a8a92;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin-top:3px">Mira — your AI {vert} partner</div>
+          <div style="margin-top:6px"><a href="{base}" style="color:#b08d3f;font-size:11px;text-decoration:none">miracurl-suite.com</a></div>
+        </div>"""
+
+
 def _outreach_email_html(lead: dict, plans: dict) -> str:
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
-    pixel = (f'<img src="{base}/api/public/lead-track/{lead.get("id", "")}/open.png" '
-             'width="1" height="1" style="display:block;width:1px;height:1px" alt="" />') if lead.get("id") else ""
-    paras = "".join(f'<p style="font-size:14px;color:#3a3a40;line-height:1.8;margin:0 0 15px">{_html.escape(p)}</p>'
-                    for p in (lead.get("email_body") or "").split("\n") if p.strip())
+    lead_id = lead.get("id", "")
     vert = "restaurant" if (lead.get("vertical") or "salon") == "restaurant" else "salon"
     hero = "mira-outreach-hero-restaurant.png" if vert == "restaurant" else "mira-outreach-hero.png"
+    brochure = "brochure-restaurant" if vert == "restaurant" else "brochure"
+    pricing = _pricing_table_html(_plans_for(plans, _lead_intl(lead.get("city")), vert))
     return f"""
     <div style="background:#efe9dc;padding:28px 12px;font-family:Georgia,serif">
       <div style="max-width:600px;margin:0 auto;background:#fdfbf7;border:1px solid #e6ddc8;border-radius:18px;overflow:hidden;box-shadow:0 10px 34px rgba(28,28,34,.14)">
         <img src="{base}/assets/{hero}" alt="Miracurl Suite — Mira, your AI {vert} partner" width="600" style="width:100%;display:block" />
         <div style="height:3px;background:linear-gradient(90deg,#b08d3f,#e8c37f,#b08d3f)"></div>
-        <div style="padding:30px 34px 4px">{paras}</div>
-        <div style="padding:0 34px">{_pricing_table_html(_plans_for(plans, _lead_intl(lead.get("city")), lead.get("vertical") or "salon"))}</div>
+        <div style="padding:30px 34px 4px">{_outreach_paragraphs(lead.get("email_body") or "")}</div>
+        <div style="padding:0 34px">{pricing}</div>
         <div style="padding:2px 34px 20px">
           <a href="{base}/demo" style="display:inline-block;background:#1c1c22;color:#e8c37f;text-decoration:none;padding:13px 32px;border-radius:999px;font-size:14px;letter-spacing:.6px">Book a free live demo ✦</a>
-          <p style="font-size:12px;color:#8a8474;margin:16px 0 0">📖 <a href="{base}/api/public/{"brochure-restaurant" if (lead.get("vertical") or "salon") == "restaurant" else "brochure"}.pdf" style="color:#b08d3f">View the full brochure</a> — it covers every module of Miracurl Suite.</p>
-        </div>
-        <div style="border-top:1px solid #e6ddc8;padding:14px 34px;text-align:center;background:#f7f2e7">
-          <a href="{base}" style="color:#b08d3f;text-decoration:none;font-size:12px;margin:0 9px">🌐 Website</a>
-          <a href="{base}/features" style="color:#b08d3f;text-decoration:none;font-size:12px;margin:0 9px">Features</a>
-          <a href="{base}/pricing" style="color:#b08d3f;text-decoration:none;font-size:12px;margin:0 9px">Pricing</a>
-          <a href="{base}/about-us" style="color:#b08d3f;text-decoration:none;font-size:12px;margin:0 9px">About Us</a>
-          <a href="{base}/contact-us" style="color:#b08d3f;text-decoration:none;font-size:12px;margin:0 9px">Contact</a>
-        </div>
-        <div style="background:#1c1c22;padding:16px 34px;text-align:center">
-          <a href="{base}" style="text-decoration:none"><span style="color:#e8c37f;font-size:15px;letter-spacing:2px">MIRACURL ✦ SUITE</span></a>
-          <div style="color:#8a8a92;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin-top:3px">Mira — your AI {"restaurant" if (lead.get("vertical") or "salon") == "restaurant" else "salon"} partner</div>
-          <div style="margin-top:6px"><a href="{base}" style="color:#b08d3f;font-size:11px;text-decoration:none">miracurl-suite.com</a></div>
-        </div>
+          <p style="font-size:12px;color:#8a8474;margin:16px 0 0">📖 <a href="{base}/api/public/{brochure}.pdf" style="color:#b08d3f">View the full brochure</a> — it covers every module of Miracurl Suite.</p>
+        </div>{_outreach_footer_html(base, vert)}
       </div>
-      {pixel}
-      {_unsub_footer(lead.get("id", ""))}
+      {_outreach_tracking_pixel(base, lead_id)}
+      {_unsub_footer(lead_id)}
     </div>"""
 
 

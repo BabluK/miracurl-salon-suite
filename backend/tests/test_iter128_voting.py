@@ -1,6 +1,6 @@
 """Iteration 128: Model voting public endpoints for miracurl-marathahalli."""
 import os
-import random
+import secrets
 import requests
 
 BASE_URL = (os.environ.get("REACT_APP_BACKEND_URL") or open("/app/frontend/.env").read().split("REACT_APP_BACKEND_URL=")[1].splitlines()[0]).rstrip("/")
@@ -61,7 +61,7 @@ def test_vote_toggle_new_phone():
     ananya = next((a for a in apps if a["name"].startswith("Ananya")), apps[0])
     before = ananya["votes"]
     # Fresh phone (avoid clashing with existing 9811100001/2)
-    ph = f"981110{random.randint(1000, 9999)}"
+    ph = f"981110{(1000 + secrets.randbelow(9000))}"
     r1 = SESSION.post(f"{BASE_URL}/api/public/rewards/{SLUG}/vote",
                       json={"participant_id": ananya["id"], "phone": ph})
     assert r1.status_code == 200, r1.text

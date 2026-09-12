@@ -1,48 +1,19 @@
 # Extracted from server.py — domain route module (auto-split refactor)
-import os  # noqa: F401
-import re  # noqa: F401
-import io  # noqa: F401
-import csv  # noqa: F401
-import math  # noqa: F401
-import uuid  # noqa: F401
-import hmac  # noqa: F401
-import hashlib  # noqa: F401
-import asyncio  # noqa: F401
-import base64  # noqa: F401
-import secrets  # noqa: F401
-import logging  # noqa: F401
-import html as html_lib  # noqa: F401
-from datetime import datetime, timezone, timedelta  # noqa: F401
-from typing import Dict, List, Optional  # noqa: F401
-from urllib.parse import quote, urlparse  # noqa: F401
+import uuid
+import asyncio
+from datetime import datetime, timezone
 
-import requests  # noqa: F401
-from fastapi import (  # noqa: F401
-    APIRouter, HTTPException, Depends, Request, Response, Query, UploadFile, File, Form,
+import requests
+from fastapi import (
+    APIRouter, HTTPException, Depends, Query, UploadFile, File,
 )
-from starlette.responses import StreamingResponse  # noqa: F401
-from pydantic import BaseModel, Field, EmailStr, field_validator  # noqa: F401
+from pydantic import BaseModel, Field
 
-from database import client, _raw_db, db, _current_tenant_id, _clean  # noqa: F401
-from security import (  # noqa: F401
-    hash_pw, verify_pw, get_current_user, require_admin, public_rate_limit,
-    durable_rate_limit, ai_daily_quota, require_super_admin, require_tenant_admin,
-    current_tenant, require_owner_pin, _pin_attempt_guard, _pin_attempt_fail, _pin_attempt_clear,
+from database import _raw_db, db, _clean
+from security import (
+    get_current_user, require_tenant_admin, current_tenant,
 )
-from models import (  # noqa: F401
-    Tenant, Customer, Appointment, REVIEW_REWARD_CREDITS, MAX_CUSTOMER_CREDIT,
-    REFERRAL_REWARD_REFERRER, REFERRAL_REWARD_REFERRED,
-)
-from email_service import (  # noqa: F401
-    _send_email, _welcome_email_html, _credentials_email_html, _monthly_report_html,
-    _weekly_report_html, _birthday_email_html, _platform_digest_html,
-)
-from services.storage import _put_object, _get_object, _MIME, APP_NAME, validate_image_bytes  # noqa: F401
-from services.pdf import _render_salary_slip_pdf, _render_resume_pdf  # noqa: F401
-from services.billing import (  # noqa: F401
-    _validate_coupon, _consume_coupon, _coupon_discount, _active_membership, _loyalty_rules,
-)
-from utils import _csv_cell, _csv_row, _read_csv_upload, MAX_CSV_BYTES  # noqa: F401
+from services.storage import _put_object, _MIME, APP_NAME, validate_image_bytes
 
 router = APIRouter()
 
@@ -172,54 +143,56 @@ async def gallery_upload(file: UploadFile = File(...), caption: str = Query("", 
 class PromoGenIn(BaseModel):
     prompt: str = Field(..., min_length=5, max_length=500)
 
-@router.post("/gallery/generate")
-async def gallery_generate(body: PromoGenIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    from routes.offer_flyer import TEMPLATES, FlyerIn, _compose_flyer, _load_logo
-    from routes.mira_common import _ask_json, _gen_image_bytes
-    tpl_keys = ", ".join(TEMPLATES.keys())
-    resto = t.get("business_type") == "restaurant"
+_PROMO_JSON_SHAPE = ('Return JSON: {"template":"<key>","headline":"<2-4 word offer headline>",'
+                     '"offer_text":"<one punchy line with the discount % or price>",'
+                     '"services":["<{item} — price>", "...max 3, ONLY if distinct {items} beyond the main offer are mentioned, else []"],'
+                     '"valid_until":"<validity text or empty>",'
+                     '"post_caption":"<ready-to-post social caption: hook line, offer details, validity, {cta} CTA, 5-8 hashtags>"}')
+_PROMO_IMG_SUFFIX = (". Vertical poster composition with generous empty space on the left half "
+                     "for text overlay. Absolutely NO text, NO letters, NO logos, NO watermarks.")
+_RESTO_BG_PROMPT = ("Appetizing spread of gourmet restaurant dishes with rich garnishes on a dark elegant table, "
+                    "warm candlelight and golden bokeh, premium editorial food photography")
+
+
+async def _promo_plan(prompt: str, t: dict, resto: bool, tpl_keys: str) -> dict:
+    from routes.mira_common import _ask_json
     if resto:
-        plan = await _ask_json(
-            f"You design restaurant promo flyers for '{t.get('name', 'the restaurant')}', a premium Indian restaurant. "
-            "Parse the owner's offer request into flyer fields.",
-            f"Offer request: {body.prompt}\nPick the best template from: dark_glam, royal_gold, emerald_luxe, festive_sparkle, navy_classic.\n"
-            'Return JSON: {"template":"<key>","headline":"<2-4 word offer headline>",'
-            '"offer_text":"<one punchy line with the discount % or price>",'
-            '"services":["<dish — price>", "...max 3, ONLY if distinct dishes beyond the main offer are mentioned, else []"],'
-            '"valid_until":"<validity text or empty>",'
-            '"post_caption":"<ready-to-post social caption: hook line, offer details, validity, order-now CTA, 5-8 hashtags>"}')
+        system = (f"You design restaurant promo flyers for '{t.get('name', 'the restaurant')}', a premium Indian restaurant. "
+                  "Parse the owner's offer request into flyer fields.")
+        pick = "Pick the best template from: dark_glam, royal_gold, emerald_luxe, festive_sparkle, navy_classic."
+        shape = _PROMO_JSON_SHAPE.format(item="dish", items="dishes", cta="order-now")
     else:
-        plan = await _ask_json(
-            f"You design salon promo flyers for '{t.get('name', 'the salon')}', a premium Indian salon. "
-            "Parse the owner's offer request into flyer fields.",
-            f"Offer request: {body.prompt}\nPick the best template from: {tpl_keys} "
-            "(bridal→bridal_blush, men→mens_edge, festive→festive_sparkle, otherwise royal_gold/dark_glam/navy_classic).\n"
-            'Return JSON: {"template":"<key>","headline":"<2-4 word offer headline>",'
-            '"offer_text":"<one punchy line with the discount % or price>",'
-            '"services":["<service — price>", "...max 3, ONLY if distinct services beyond the main offer are mentioned, else []"],'
-            '"valid_until":"<validity text or empty>",'
-            '"post_caption":"<ready-to-post social caption: hook line, offer details, validity, book-now CTA, 5-8 hashtags>"}')
-    template = plan.get("template") if plan.get("template") in TEMPLATES else "royal_gold"
-    tpl = TEMPLATES[template]
-    if resto:
-        img_prompt = ("Appetizing spread of gourmet restaurant dishes with rich garnishes on a dark elegant table, "
-                      "warm candlelight and golden bokeh, premium editorial food photography. "
-                      "Vertical poster composition with generous empty space on the left half "
-                      "for text overlay. Absolutely NO text, NO letters, NO logos, NO watermarks.")
-    else:
-        img_prompt = (f"{tpl['prompt']}. Vertical poster composition with generous empty space on the left half "
-                      "for text overlay. Absolutely NO text, NO letters, NO logos, NO watermarks.")
-    bg = await _gen_image_bytes(img_prompt)
-    if not bg:
-        raise HTTPException(400, "Image generation failed — try again")
-    flyer = FlyerIn(
+        system = (f"You design salon promo flyers for '{t.get('name', 'the salon')}', a premium Indian salon. "
+                  "Parse the owner's offer request into flyer fields.")
+        pick = (f"Pick the best template from: {tpl_keys} "
+                "(bridal→bridal_blush, men→mens_edge, festive→festive_sparkle, otherwise royal_gold/dark_glam/navy_classic).")
+        shape = _PROMO_JSON_SHAPE.format(item="service", items="services", cta="book-now")
+    return await _ask_json(system, f"Offer request: {prompt}\n{pick}\n{shape}")
+
+
+def _promo_flyer_in(plan: dict, prompt: str, template: str):
+    from routes.offer_flyer import FlyerIn
+    return FlyerIn(
         template=template,
         headline=(plan.get("headline") or "Special Offer")[:40],
-        offer_text=(plan.get("offer_text") or body.prompt)[:80],
+        offer_text=(plan.get("offer_text") or prompt)[:80],
         services=[str(s)[:44] for s in (plan.get("services") or [])[:3]],
         valid_until=str(plan.get("valid_until") or "")[:40])
+
+
+@router.post("/gallery/generate")
+async def gallery_generate(body: PromoGenIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from routes.offer_flyer import TEMPLATES, _compose_flyer, _load_logo
+    from routes.mira_common import _gen_image_bytes
+    resto = t.get("business_type") == "restaurant"
+    plan = await _promo_plan(body.prompt, t, resto, ", ".join(TEMPLATES.keys()))
+    template = plan.get("template") if plan.get("template") in TEMPLATES else "royal_gold"
+    tpl = TEMPLATES[template]
+    bg = await _gen_image_bytes((_RESTO_BG_PROMPT if resto else tpl["prompt"]) + _PROMO_IMG_SUFFIX)
+    if not bg:
+        raise HTTPException(400, "Image generation failed — try again")
     logo_bytes = await _load_logo(t)
-    final = await asyncio.to_thread(_compose_flyer, bg, flyer, tpl, t, logo_bytes)
+    final = await asyncio.to_thread(_compose_flyer, bg, _promo_flyer_in(plan, body.prompt, template), tpl, t, logo_bytes)
     item = await _store_gallery_media(t, GalleryMedia(
         data=final, ext="jpg", mime="image/jpeg", kind="image",
         caption=body.prompt, source="ai", uploaded_by=user["id"]))
