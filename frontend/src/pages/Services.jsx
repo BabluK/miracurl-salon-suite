@@ -37,6 +37,7 @@ export default function Services() {
   const [catImages, setCatImages] = useState({});
   const [catModal, setCatModal] = useState(null);
   const [catUrl, setCatUrl] = useState("");
+  const [bannerMood, setBannerMood] = useState("classic");
   const [catRename, setCatRename] = useState("");
   const [genImg, setGenImg] = useState(false);
   const csvRef = useRef(null);
@@ -681,11 +682,17 @@ export default function Services() {
               <div className="w-full h-32 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center text-3xl mb-3">🍽️</div>
             )}
             <ImageUploader kind="category" value={catUrl} onChange={setCatUrl} fallback={isResto ? "" : catImage(catModal, {})} />
+            <div className="flex flex-wrap gap-1.5 mt-3 mb-2" data-testid="cat-banner-moods">
+              {[["classic", "✨ Classic"], ["festive", "🪔 Festive"], ["monsoon", "🌧️ Monsoon"], ["bridal", "💍 Bridal"], ["summer", "☀️ Summer"], ["christmas", "🎄 Christmas"], ["valentine", "🌹 Valentine"]].map(([k, label]) => (
+                <button key={k} type="button" onClick={() => setBannerMood(k)} data-testid={`cat-banner-mood-${k}`}
+                  className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${bannerMood === k ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>{label}</button>
+              ))}
+            </div>
             <button type="button" data-testid="cat-banner-generate-btn" disabled={genImg}
               onClick={async () => {
                 setGenImg(true);
                 try {
-                  const { data } = await api.post("/services/generate-banner-preview", { category: catModal });
+                  const { data } = await api.post("/services/generate-banner-preview", { category: catModal, mood: bannerMood });
                   let done = false;
                   for (let i = 0; i < 60; i++) {
                     await new Promise(r => setTimeout(r, 3000));
@@ -698,7 +705,7 @@ export default function Services() {
                 finally { setGenImg(false); }
               }}
               className="mt-2 inline-flex items-center gap-1.5 text-xs text-amber-600 font-semibold hover:text-amber-700 disabled:opacity-50">
-              {genImg ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Mira is painting… (~30s)</> : <>✨ Generate with Mira</>}
+              {genImg ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Mira is painting… (~30s)</> : <>✨ Repaint banner{bannerMood !== "classic" ? ` — ${bannerMood} mood` : " with Mira"}</>}
             </button>
             <div className="flex gap-3 pt-4">
               {catUrl && (

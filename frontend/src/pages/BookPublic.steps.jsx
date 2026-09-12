@@ -147,70 +147,67 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, cat
       {shown.map(cat => {
         const rows = (byCategory[cat] || []).filter(visible);
         return (
-          <div key={cat} className="rounded-2xl overflow-hidden border border-white/10 bg-white/[0.03]" data-testid={`book-cat-section-${cat.replace(/\s+/g, "-").toLowerCase()}`}>
-            {/* Category banner — one elegant image per category */}
-            <div className="relative h-24 sm:h-28 flex items-stretch overflow-hidden">
-              <div
-                className="flex-1 relative flex items-center pl-5 sm:pl-7"
-                style={{
-                  background:
-                    "repeating-linear-gradient(115deg, rgba(212,175,55,0.10) 0px, rgba(212,175,55,0.10) 1px, transparent 1px, transparent 26px), linear-gradient(100deg, #1d1812 0%, #262016 70%, #1d1812 100%)",
-                }}
-              >
+          <div key={cat} className="group/cat rounded-3xl overflow-hidden border border-white/10 bg-[#120f0c] shadow-[0_30px_80px_-40px_rgba(0,0,0,0.9)]" data-testid={`book-cat-section-${cat.replace(/\s+/g, "-").toLowerCase()}`}>
+            {/* Cinematic full-bleed category banner */}
+            <div className="relative h-40 sm:h-52 overflow-hidden">
+              {(!restaurant || catImages[cat]) && (
+                <img src={restaurant ? catImages[cat] : catImage(cat, catImages)} alt={cat} loading="lazy"
+                  className="absolute inset-0 w-full h-full object-cover scale-105 transition-transform duration-[1600ms] ease-out group-hover/cat:scale-110" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#120f0c] via-[#120f0c]/55 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-r from-[#120f0c]/85 via-transparent to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-gold/70 to-transparent" />
+              <div className="absolute left-5 sm:left-7 bottom-4 sm:bottom-5 right-5 flex items-end justify-between gap-4">
                 <div>
-                  <h3 className="font-playfair text-2xl sm:text-3xl text-gold">{cat}</h3>
-                  <div className="text-[10px] uppercase tracking-[0.25em] text-white/45 mt-1">{rows.length} {restaurant ? "dishes" : "services"}</div>
+                  <div className="text-[10px] uppercase tracking-[0.35em] text-gold/80 mb-1.5">{restaurant ? "From the kitchen" : "Signature menu"}</div>
+                  <h3 className="font-playfair text-3xl sm:text-4xl text-white leading-none drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]">{cat}</h3>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-white/90 text-sm font-semibold">{rows.length} {restaurant ? "dishes" : "services"}</div>
+                  <div className="text-[10px] uppercase tracking-[0.25em] text-white/50">from ₹{Math.min(...rows.map(r => Number(r.price) || 0))}</div>
                 </div>
               </div>
-              {(!restaurant || catImages[cat]) && (
-                <div className="w-[42%] sm:w-[38%] relative shrink-0">
-                  <img src={restaurant ? catImages[cat] : catImage(cat, catImages)} alt={cat} loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#1d1812] via-transparent to-transparent" />
-                </div>
-              )}
             </div>
-            {/* Compact service rows — no per-service photos needed */}
-            <div className="divide-y divide-white/5">
-              {rows.map(s => {
+            {/* Glass service cards */}
+            <div className="p-3 sm:p-4 grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              {rows.map((s, idx) => {
                 const on = picked.includes(s.id);
                 return (
                   <button
                     key={s.id}
                     data-testid={`book-service-${s.id}`}
                     onClick={() => onToggle(s.id)}
-                    className={`w-full text-left flex items-center gap-3 px-4 sm:px-5 py-3.5 transition-colors ${on ? "bg-gold/10" : "hover:bg-white/[0.04]"}`}
+                    style={{ animation: `fade-up .45s ease-out ${Math.min(idx, 8) * 45}ms both` }}
+                    className={`relative w-full text-left flex items-center gap-3 rounded-2xl px-3.5 py-3 border backdrop-blur-md transition-[transform,background-color,border-color,box-shadow] duration-300 active:scale-[0.99]
+                      ${on ? "bg-gold/[0.14] border-gold/70 shadow-[0_0_0_1px_rgba(212,175,55,0.35),0_18px_40px_-24px_rgba(212,175,55,0.8)]"
+                           : "bg-white/[0.035] border-white/10 hover:border-gold/40 hover:bg-white/[0.06] hover:-translate-y-0.5"}`}
                   >
-                    {restaurant && s.image_url && (
-                      <span
-                        role="button" tabIndex={0}
-                        data-testid={`dish-photo-thumb-${s.id}`}
+                    {restaurant && s.image_url ? (
+                      <span role="button" tabIndex={0} data-testid={`dish-photo-thumb-${s.id}`}
                         onClick={(e) => { e.stopPropagation(); setPhotoDish(s); }}
                         onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setPhotoDish(s); } }}
-                        className="shrink-0 cursor-zoom-in active:scale-95 transition-transform"
-                      >
-                        <img src={thumbUrl(s.image_url, 160)} alt={s.name} loading="lazy"
-                          className="w-12 h-12 rounded-xl object-cover ring-1 ring-white/15" />
+                        className="shrink-0 cursor-zoom-in active:scale-95 transition-transform">
+                        <img src={thumbUrl(s.image_url, 160)} alt={s.name} loading="lazy" className="w-14 h-14 rounded-xl object-cover ring-1 ring-white/15" />
                       </span>
-                    )}
-                    {!restaurant && (
-                      <span aria-hidden className="shrink-0 w-9 h-9 rounded-full border border-gold/40 bg-gold/10 flex items-center justify-center text-gold text-[11px] font-semibold tracking-wide">
-                        {(s.name || "?").trim().slice(0, 1).toUpperCase()}
+                    ) : (
+                      <span aria-hidden className={`shrink-0 w-11 h-11 rounded-full flex items-center justify-center font-playfair text-base transition-colors ${on ? "bg-gold text-bg-base" : "bg-gradient-to-br from-gold/25 to-gold/5 text-gold border border-gold/40"}`}>
+                        {on ? <Check className="w-5 h-5" /> : (s.name || "?").trim().slice(0, 1).toUpperCase()}
                       </span>
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-[15px]">{s.name}</span>
-                        {s.trending && <span className="bg-gold text-bg-base text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded">Trending</span>}
+                        <span className={`font-medium text-[15px] leading-tight ${on ? "text-white" : "text-white/90"}`}>{s.name}</span>
+                        {s.trending && <span className="bg-gold text-bg-base text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded">Popular</span>}
                       </div>
-                      <div className="text-ink-secondary text-xs flex items-center gap-2 mt-1">
-                        {!restaurant && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{s.duration_min}m</span>}
-                        {s.description && <span className="truncate hidden sm:inline">· {s.description}</span>}
+                      <div className="text-white/50 text-xs flex items-center gap-2 mt-1 min-w-0">
+                        {!restaurant && <span className="inline-flex items-center gap-1 shrink-0"><Clock className="w-3 h-3" />{s.duration_min} min</span>}
+                        {s.description && <span className="truncate">· {s.description}</span>}
                       </div>
                     </div>
-                    <span className="text-gold font-bold text-base flex items-center shrink-0"><IndianRupee className="w-3.5 h-3.5" />{s.price}</span>
-                    <span className={`text-xs font-semibold px-4 py-1.5 rounded-lg border transition-colors shrink-0 flex items-center gap-1.5 ${on ? "bg-gold text-bg-base border-gold" : "border-gold/60 text-gold"}`}>
-                      {on && <Check className="w-3.5 h-3.5" />}{on ? "Selected" : "Select"}
-                    </span>
+                    <div className="text-right shrink-0">
+                      <div className="text-gold font-bold text-[17px] leading-none flex items-center justify-end"><IndianRupee className="w-3.5 h-3.5" />{s.price}</div>
+                      <div className={`text-[10px] uppercase tracking-[0.2em] mt-1.5 ${on ? "text-gold" : "text-white/40"}`}>{on ? "Added ✓" : "Tap to add"}</div>
+                    </div>
                   </button>
                 );
               })}

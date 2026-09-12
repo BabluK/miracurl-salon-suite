@@ -679,7 +679,18 @@ async def _run_image_job(jid: str, tenant_id: str, name: str, category: str, sid
             {"id": jid}, {"$set": {"status": "failed", "error": msg[:220]}})
 
 
-async def _generate_category_banner_bytes(category: str, restaurant: bool) -> bytes:
+BANNER_MOODS = {
+    "classic": "",
+    "festive": "Festive Diwali mood: warm golden fairy lights, marigold garlands and soft diya glow in the background, celebratory and luxurious.",
+    "monsoon": "Monsoon mood: rain-kissed window, fresh green foliage, cool grey-teal light with warm interior glow, cosy and calm.",
+    "bridal": "Bridal mood: soft blush and ivory florals, gold accents, romantic dreamy light, elegant wedding-season luxury.",
+    "summer": "Summer mood: bright airy daylight, tropical greens, citrus and coral accents, fresh and energetic.",
+    "christmas": "Christmas / New Year mood: deep green and red accents, twinkling lights, champagne gold sparkle, cosy celebration.",
+    "valentine": "Valentine mood: red roses, blush pinks, candlelight, romantic and intimate luxury.",
+}
+
+
+async def _generate_category_banner_bytes(category: str, restaurant: bool, mood: str = "classic") -> bytes:
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
     from routes.mira_common import paint_offloop
     key = os.environ.get("EMERGENT_LLM_KEY")
@@ -695,16 +706,18 @@ async def _generate_category_banner_bytes(category: str, restaurant: bool) -> by
         prompt = (f"Wide premium banner photograph for the beauty-salon category '{category}'. "
                   "Elegant luxury salon scene, soft warm lighting, rose-gold and cream tones, marble textures, "
                   "photorealistic editorial quality. Absolutely NO text, NO letters, NO watermarks, NO logos.")
+    if BANNER_MOODS.get(mood):
+        prompt = prompt.replace("Absolutely NO text", BANNER_MOODS[mood] + " Absolutely NO text", 1)
     imgs = await asyncio.wait_for(paint_offloop(gen, prompt=prompt), timeout=240)
     if not imgs:
         raise RuntimeError("empty generation")
     return imgs[0]
 
 
-async def _run_banner_job(jid: str, tenant_id: str, category: str):
+async def _run_banner_job(jid: str, tenant_id: str, category: str, mood: str = "classic"):
     try:
         resto = await _tenant_is_restaurant(tenant_id)
-        img = await _generate_category_banner_bytes(category, resto)
+        img = await _generate_category_banner_bytes(category, resto, mood)
         url = await _store_service_image(tenant_id, img, f"banner-{category[:24]}")
         await _raw_db.mira_image_jobs.update_one({"id": jid}, {"$set": {"status": "done", "image_url": url}})
     except Exception as e:
@@ -715,6 +728,7 @@ async def _run_banner_job(jid: str, tenant_id: str, category: str):
 
 class BannerPreviewIn(BaseModel):
     category: str = Field(..., min_length=1, max_length=60)
+    mood: str = Field("classic", pattern=r"^(classic|festive|monsoon|bridal|summer|christmas|valentine)$")
 
 
 @router.post("/services/generate-banner-preview")
@@ -722,7 +736,7 @@ async def generate_category_banner(body: BannerPreviewIn, user=Depends(require_a
     """Mira paints a category banner in the background — poll /services/image-jobs/{id}."""
     tenant_id = _current_tenant_id.get()
     jid = await _new_image_job(tenant_id)
-    asyncio.get_event_loop().create_task(_run_banner_job(jid, tenant_id, body.category.strip()))
+    asyncio.get_event_loop().create_task(_run_banner_job(jid, tenant_id, body.category.strip(), body.mood))
     return {"ok": True, "job_id": jid}
 
 

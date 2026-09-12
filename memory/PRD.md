@@ -3105,3 +3105,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-12 (o) — Services page polish (salons)
 - Salon service rows show a 2-letter monogram instead of per-service thumbnails; "Paint: category" select, "Mira Photos" and "Shrink heavy photos" hidden for salons (kept for restaurants where dish photos are guest-facing). "Service image" uploader + "Let Mira paint this" hidden in the salon add/edit modal. Category "Mira Banners" remains — the only imagery guests see on /book.
+
+## 2026-09-12 (p) — Mood banners + booking service redesign
+- `BANNER_MOODS` (classic/festive/monsoon/bridal/summer/christmas/valentine) in services_catalog.py; `POST /services/generate-banner-preview {category, mood}` (422 on unknown mood) → `_run_banner_job(..., mood)`. Services page category modal has mood chips + "Repaint banner — {mood} mood". Verified festive Women Hair banner job → done.
+- BookPublic.steps ServicesStep redesign: full-bleed cinematic category banner (h-40/52, gradient overlays, gold hairline, "Signature menu / {n} services / from ₹x"), glass service cards in 2-col grid (md+), monogram → gold check when added, staggered fade-up, "Tap to add / Added ✓", hover lift. Restaurants keep dish thumbs. Verified desktop + mobile.
