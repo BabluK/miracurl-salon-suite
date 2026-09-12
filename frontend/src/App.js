@@ -300,7 +300,7 @@ export default function App() {
               <Route path="attendance" element={<OwnerOnly><Attendance /></OwnerOnly>} />
               <Route path="services" element={<AdminOnly><Services /></AdminOnly>} />
               <Route path="inventory" element={<OwnerOnly><Inventory /></OwnerOnly>} />
-              <Route path="pos" element={<AdminOnly><POS /></AdminOnly>} />
+              <Route path="pos" element={<POS />} />
               <Route path="kitchen" element={<Kitchen />} />
               <Route path="reviews" element={<AdminOnly><Reviews /></AdminOnly>} />
               <Route path="offers-studio" element={<AdminOnly><OffersStudio /></AdminOnly>} />

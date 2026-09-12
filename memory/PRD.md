@@ -3109,3 +3109,17 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-12 (p) — Mood banners + booking service redesign
 - `BANNER_MOODS` (classic/festive/monsoon/bridal/summer/christmas/valentine) in services_catalog.py; `POST /services/generate-banner-preview {category, mood}` (422 on unknown mood) → `_run_banner_job(..., mood)`. Services page category modal has mood chips + "Repaint banner — {mood} mood". Verified festive Women Hair banner job → done.
 - BookPublic.steps ServicesStep redesign: full-bleed cinematic category banner (h-40/52, gradient overlays, gold hairline, "Signature menu / {n} services / from ₹x"), glass service cards in 2-col grid (md+), monogram → gold check when added, staggered fade-up, "Tap to add / Added ✓", hover lift. Restaurants keep dish thumbs. Verified desktop + mobile.
+
+## 2026-09-12 (q) — Seasonal Auto-Switch (banner schedules) — VERIFIED
+- Backend: `banner_schedules` collection; `GET/POST/DELETE /api/services/banner-schedules` (mood, start, end, categories[] empty=all, label); `_banner_schedule_scheduler` paints on start date (stores original_url in `painted`) and reverts after end; DELETE on an active schedule reverts immediately.
+- Frontend: `components/services/SeasonalBanners.jsx` inside Services → category "Banner" modal (mood chips, From/Until date row, scope select "Only <cat>"/"All categories", label, list with status chip + remove). Category modal now `max-h-[90vh] overflow-y-auto`.
+- Verified via screenshot E2E: render → schedule Bridal 2026-11-05→11-12 → row listed "scheduled" → remove → list empty. Note: a schedule starting today paints immediately (uses image credits).
+- Backlog (user chose to test first): P1 Advance/deposit booking (Razorpay), P1 Guest bill split, P2 Rewards QR on KOT, P2 mid-term plan upgrade, P2 gift-card expiry.
+
+## 2026-09-12 (r) — Colour booking = normal booking (appointments → bell → billing) — VERIFIED
+- POS `/pos?appointment=` prefill now handles `color_pick`: linked colour service line renamed "<Service> — <Shade>" and priced at `quoted_price`; unlinked pick adds a "<Shade> Colour" line (₹0 + warning if unpriced). Backend stores `color_pick.service_id`.
+- public_site: colour-only booking duration = linked service duration (was 90+svc); booking summary `service_names` now includes the colour service.
+- Staff role: bell notifications enabled (`/notifications/new-bookings` allows staff), POS route open to staff + "POS / Billing" in staff nav; GET `/customers` and `/settings/tax` readable by staff.
+- Removed the per-pick "🎨 X picked <shade>" tenant notice (linked to empty POS, flooded the bell); purged existing ones.
+- Briefing "N appointments today" was always 0 (queried non-existent `date` field) → now counts `scheduled_at` for today.
+- Verified E2E (screenshot): colour pick → book → staff bell "Pending bill" → click → POS cart "Women's Global Colour — Espresso Caramel Melt ₹2499"; men's haircut → dashboard Appointments section + Appointments row + admin bell → POS ₹350.

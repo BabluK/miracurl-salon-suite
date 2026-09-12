@@ -625,6 +625,19 @@ async def _open_bill_alert_scheduler() -> None:
         await asyncio.sleep(1800)
 
 
+async def _banner_schedule_scheduler() -> None:
+    """Every 30 min: swap category banners into a scheduled seasonal mood and revert when the window ends (idempotent)."""
+    from routes.services_catalog import run_banner_schedules
+    while True:
+        try:
+            out = await run_banner_schedules(None)
+            if out.get("activated") or out.get("reverted"):
+                logging.info(f"Seasonal banners: {out}")
+        except Exception as e:
+            logging.error(f"banner schedule scheduler error: {e}")
+        await asyncio.sleep(1800)
+
+
 async def _colour_price_reminder_scheduler() -> None:
     """Daily (after 08:30 IST) email owner + managers today's colour appointments with no quoted price. Idempotent."""
     from routes.eod_digests import _run_colour_price_reminders

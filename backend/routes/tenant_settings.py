@@ -565,7 +565,7 @@ class TaxSettingsIn(BaseModel):
 
 
 @router.get("/settings/tax")
-async def get_tax_settings(user=Depends(require_admin), t=Depends(current_tenant)):
+async def get_tax_settings(user=Depends(get_current_user), t=Depends(current_tenant)):
     return {
         "tax_enabled": bool(t.get("tax_enabled", False)),
         "gst_number": t.get("gst_number") or "",

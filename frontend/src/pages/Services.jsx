@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import api, { thumbUrl } from "@/lib/api";
 import { Plus, X, Edit3, Trash2, Clock, Flame, Sparkles, Download, Upload, Globe, Search, Image as ImageIcon, Loader2, Scissors, Hand, Paintbrush, Flower2, Tag, LayoutGrid, GripVertical, ArrowUpDown, Camera } from "lucide-react";
 import { toast } from "sonner";
+import { SeasonalBanners } from "@/components/services/SeasonalBanners";
 import { askConfirm } from "@/components/ConfirmDialog";
 import ImageUploader from "@/components/ImageUploader";
 import { catImage } from "@/lib/categoryImages";
@@ -659,7 +660,7 @@ export default function Services() {
 
       {catModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setCatModal(null)}>
-          <div className="card-light w-full max-w-md mx-4" onClick={e => e.stopPropagation()} data-testid="cat-image-modal">
+          <div className="card-light w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()} data-testid="cat-image-modal">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-playfair text-xl">{catModal} — category banner</h3>
               <button onClick={() => setCatModal(null)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
@@ -682,6 +683,7 @@ export default function Services() {
               <div className="w-full h-32 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center text-3xl mb-3">🍽️</div>
             )}
             <ImageUploader kind="category" value={catUrl} onChange={setCatUrl} fallback={isResto ? "" : catImage(catModal, {})} />
+            <SeasonalBanners category={catModal} allCats={allCats} />
             <div className="flex flex-wrap gap-1.5 mt-3 mb-2" data-testid="cat-banner-moods">
               {[["classic", "✨ Classic"], ["festive", "🪔 Festive"], ["monsoon", "🌧️ Monsoon"], ["bridal", "💍 Bridal"], ["summer", "☀️ Summer"], ["christmas", "🎄 Christmas"], ["valentine", "🌹 Valentine"]].map(([k, label]) => (
                 <button key={k} type="button" onClick={() => setBannerMood(k)} data-testid={`cat-banner-mood-${k}`}

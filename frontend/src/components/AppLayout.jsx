@@ -60,6 +60,7 @@ const ADMIN_LOCKED = ["/settings", "/staff"];
 const NAV_STAFF = [
   { to: "/staff-portal", label: "My Dashboard", icon: LayoutDashboard, testid: "nav-staff-portal" },
   { to: "/appointments", label: "Appointments", icon: Calendar, testid: "nav-appointments" },
+  { to: "/pos", label: "POS / Billing", icon: ShoppingCart, testid: "nav-pos" },
   { to: "/cash", label: "Cash Register", icon: Wallet, testid: "nav-cash" },
   { to: "/bank-details", label: "Bank Details", icon: Landmark, testid: "nav-bank-details" },
   { to: "/build-resume", label: "Build Your Resume", icon: FileText, testid: "nav-build-resume" },
@@ -127,7 +128,7 @@ export default function AppLayout() {
   // notification when a customer self-books via the public link.
   const isAdmin = user?.role === "admin";
   const isOwner = user?.role === "admin" || user?.role === "super_admin";
-  const canNotify = isAdmin || user?.role === "manager";
+  const canNotify = isAdmin || user?.role === "manager" || user?.role === "staff";
   const notifier = useNewBookingNotifier({ enabled: canNotify });
 
   // Poll unread customer-chat count for the Messages nav badge

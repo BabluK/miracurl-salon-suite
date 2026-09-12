@@ -313,9 +313,22 @@ export default function POS() {
       if (cust) selectGuest(cust);
       else if (data.customer_id) { setCustomerId(data.customer_id); setGuestQuery(data.customer_name || ""); }
       if (data.staff_id) setStaffId(data.staff_id);
-      const items = (data.service_ids || [])
-        .map(sid => services.find(s => s.id === sid)).filter(Boolean)
-        .map(s => ({ type: "service", ref_id: s.id, name: s.name, qty: 1, price: s.price, disc_pct: 0, staff_id: data.staff_id || "", staff_name: data.staff_name || "" }));
+      const line = (s) => ({ type: "service", ref_id: s.id, name: s.name, qty: 1, price: s.price, disc_pct: 0, staff_id: data.staff_id || "", staff_name: data.staff_name || "" });
+      const items = (data.service_ids || []).map(sid => services.find(s => s.id === sid)).filter(Boolean).map(line);
+      const cp = data.color_pick;
+      if (cp) {
+        // Colour try-on booking: bill the shade at the salon's quoted price (linked service or a "<Shade> Colour" line)
+        const quoted = cp.quoted_price != null ? Number(cp.quoted_price) : null;
+        const label = `${cp.color_name} Colour`;
+        const linked = items.find(i => i.ref_id === cp.service_id) || items.find(i => /colou?r/i.test(i.name));
+        if (linked) {
+          linked.name = `${linked.name} — ${cp.color_name}`;
+          if (quoted != null) linked.price = quoted;
+        } else {
+          items.push({ ...line({ id: `colour-${cp.code}`, name: label, price: quoted ?? 0 }) });
+          if (quoted == null) toast.warning(`${label} has no price yet — set it on the bill line`, { duration: 8000 });
+        }
+      }
       setCart(items);
       window.history.replaceState({}, "", "/pos");
       toast.success(`New bill tab ✦ ${data.customer_name || "Guest"} — ready to charge`, { duration: 6000 });

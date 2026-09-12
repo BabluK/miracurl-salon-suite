@@ -108,7 +108,7 @@ async def resync_customer_stats(customer_id: Optional[str] = None, user=Depends(
 
 
 @router.get("/customers")
-async def list_customers(q: Optional[str] = None, user=Depends(require_admin)):
+async def list_customers(q: Optional[str] = None, user=Depends(get_current_user)):
     # CRM shows only customers who completed a service (or were added manually) —
     # public bookings stay "pending" until their appointment is marked completed.
     flt = {"crm_status": {"$ne": "pending"}}

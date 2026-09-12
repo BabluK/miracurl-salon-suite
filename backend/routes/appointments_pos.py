@@ -62,7 +62,7 @@ async def new_bookings(since: str, user=Depends(get_current_user), t=Depends(cur
     """Lightweight polling endpoint — returns bookings created after `since`
     (ISO 8601 datetime). Used by the admin/manager UI to play a chime + list
     notifications when a customer self-books via the public link."""
-    if user.get("role") not in ("admin", "super_admin", "manager"):
+    if user.get("role") not in ("admin", "super_admin", "manager", "staff"):
         raise HTTPException(403, "Not allowed")
     try:
         datetime.fromisoformat(since.replace("Z", "+00:00"))

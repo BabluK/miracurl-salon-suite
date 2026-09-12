@@ -209,7 +209,7 @@ _LOW_STOCK_Q = {"$expr": {"$lte": ["$stock", {"$ifNull": ["$low_stock_threshold"
 
 async def _build_greeting_text(user: dict, t: dict, ist: datetime, today_str: str, lang: str = "en") -> tuple:
     low_count = await db.products.count_documents(_LOW_STOCK_Q)
-    appts = await db.appointments.count_documents({"date": today_str})
+    appts = await db.appointments.count_documents({"scheduled_at": {"$regex": f"^{today_str}"}, "status": {"$ne": "cancelled"}})
     has_vendor = await db.vendors.count_documents({}) > 0
     staff_st = await _staff_today_status(today_str)
     notif = await _briefing_notifications(today_str)
@@ -393,7 +393,7 @@ async def morning_briefing(user=Depends(get_current_user), t=Depends(current_ten
         _LOW_STOCK_Q, {"_id": 0, "id": 1, "name": 1, "brand": 1, "stock": 1, "sku": 1, "low_stock_threshold": 1},
     ).sort("stock", 1).to_list(100)
     vendors = await db.vendors.find({}, {"_id": 0}).sort("name", 1).to_list(100)
-    today_appts = await db.appointments.count_documents({"date": ist.strftime("%Y-%m-%d")})
+    today_appts = await db.appointments.count_documents({"scheduled_at": {"$regex": f"^{ist.strftime('%Y-%m-%d')}"}, "status": {"$ne": "cancelled"}})
     yesterday_revenue = await _revenue_for_day((ist - timedelta(days=1)).strftime("%Y-%m-%d"))
     today_str = ist.strftime("%Y-%m-%d")
     staff_today = await _staff_today_status(today_str)

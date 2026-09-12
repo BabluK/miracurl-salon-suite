@@ -108,7 +108,7 @@ from routes.blog import router as blog_router  # noqa: E402
 
 from seeds import backfill_tenant_ids, seed_super_admin, seed_default_tenant, seed_admin, seed_data  # noqa: E402
 from schedulers import (  # noqa: E402
-    _colour_price_reminder_scheduler, _monthly_report_scheduler, _weekly_report_scheduler, _birthday_scheduler,
+    _colour_price_reminder_scheduler, _banner_schedule_scheduler, _monthly_report_scheduler, _weekly_report_scheduler, _birthday_scheduler,
     _cctv_poll_scheduler, _renewal_reminder_scheduler, _review_request_scheduler, _weekly_register_scheduler,
     _demo_followup_scheduler, _late_alert_scheduler, _weekly_package_scheduler,
     _lead_followup_scheduler, _staff_exit_scheduler, _sms_reminder_scheduler,
@@ -171,6 +171,7 @@ async def on_startup():
             asyncio.get_event_loop().create_task(_sched())
     # HQ-internal + data-maintenance loops run everywhere
     asyncio.get_event_loop().create_task(_weekly_register_scheduler())
+    asyncio.get_event_loop().create_task(_banner_schedule_scheduler())  # data-only (no outbound) → runs everywhere
     asyncio.get_event_loop().create_task(_city_watch_scheduler())
     asyncio.get_event_loop().create_task(_earnings_anomaly_scheduler())
 

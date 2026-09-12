@@ -1297,3 +1297,90 @@ async def table_qr_posters(tables: int = 8, table: int = 0, origin: str = "", us
     fname = f"table-{table}-qr.pdf" if table else f'table-qr-posters-{t.get("slug") or "tables"}.pdf'
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+# ── Seasonal banner schedules: repaint category banners in a mood for a date range, then revert ──────────────
+class BannerScheduleIn(BaseModel):
+    mood: str = Field(..., pattern=r"^(festive|monsoon|bridal|summer|christmas|valentine)$")
+    start: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+    end: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+    categories: list[str] = Field(default_factory=list)  # empty = every category
+    label: str = Field("", max_length=60)
+
+
+def _ist_today() -> str:
+    return (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d")
+
+
+@router.get("/services/banner-schedules")
+async def list_banner_schedules(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    rows = await _raw_db.banner_schedules.find({"tenant_id": t["id"]}, {"_id": 0}).sort("start", 1).to_list(50)
+    return {"today": _ist_today(), "schedules": rows}
+
+
+@router.post("/services/banner-schedules")
+async def create_banner_schedule(body: BannerScheduleIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    if body.end < body.start:
+        raise HTTPException(400, "End date must be on or after the start date")
+    if body.end < _ist_today():
+        raise HTTPException(400, "That date range is already over")
+    doc = {"id": str(uuid.uuid4()), "tenant_id": t["id"], "mood": body.mood, "start": body.start, "end": body.end,
+           "categories": [c.strip() for c in body.categories if c.strip()], "label": body.label.strip(),
+           "status": "scheduled", "painted": {}, "created_at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.banner_schedules.insert_one({**doc})
+    asyncio.get_event_loop().create_task(run_banner_schedules(t["id"]))  # starts today? paint right away
+    return doc
+
+
+@router.delete("/services/banner-schedules/{sid}")
+async def delete_banner_schedule(sid: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    sch = await _raw_db.banner_schedules.find_one({"id": sid, "tenant_id": t["id"]}, {"_id": 0})
+    if not sch:
+        raise HTTPException(404, "Schedule not found")
+    if sch.get("status") == "active":
+        await _revert_schedule(sch)  # put the classic banners back immediately
+    await _raw_db.banner_schedules.delete_one({"id": sid})
+    return {"ok": True}
+
+
+async def _revert_schedule(sch: dict) -> None:
+    for cat, p in (sch.get("painted") or {}).items():
+        await _raw_db.service_categories.update_one({"tenant_id": sch["tenant_id"], "name": cat},
+                                                    {"$set": {"image_url": p.get("original_url")}})
+    await _raw_db.banner_schedules.update_one({"id": sch["id"]}, {"$set": {"status": "reverted", "reverted_at": datetime.now(timezone.utc).isoformat()}})
+
+
+async def _activate_schedule(sch: dict) -> None:
+    tid = sch["tenant_id"]
+    resto = await _tenant_is_restaurant(tid)
+    cats = sch.get("categories") or [c["name"] for c in await _raw_db.service_categories.find({"tenant_id": tid}, {"_id": 0, "name": 1}).to_list(60)]
+    if not cats:
+        cats = sorted({s["category"] for s in await _raw_db.services.find({"tenant_id": tid, "active": {"$ne": False}}, {"_id": 0, "category": 1}).to_list(500) if s.get("category")})
+    await _raw_db.banner_schedules.update_one({"id": sch["id"]}, {"$set": {"status": "painting"}})
+    painted = dict(sch.get("painted") or {})
+    for cat in cats:
+        if cat in painted:
+            continue
+        try:
+            cur = await _raw_db.service_categories.find_one({"tenant_id": tid, "name": cat}, {"_id": 0, "image_url": 1}) or {}
+            img = await _generate_category_banner_bytes(cat, resto, sch["mood"])
+            url = await _store_service_image(tid, img, f"banner-{sch['mood']}-{cat[:20]}")
+            await _raw_db.service_categories.update_one({"tenant_id": tid, "name": cat},
+                                                        {"$set": {"tenant_id": tid, "name": cat, "image_url": url}}, upsert=True)
+            painted[cat] = {"original_url": cur.get("image_url"), "seasonal_url": url}
+            await _raw_db.banner_schedules.update_one({"id": sch["id"]}, {"$set": {"painted": painted}})
+        except Exception as e:
+            logging.getLogger("banners").warning("seasonal banner %s/%s failed: %s", tid, cat, e)
+    await _raw_db.banner_schedules.update_one({"id": sch["id"]}, {"$set": {"status": "active", "activated_at": datetime.now(timezone.utc).isoformat()}})
+
+
+async def run_banner_schedules(tenant_id: str | None = None) -> dict:
+    """Activate schedules whose window includes today; revert active ones whose window has ended."""
+    today = _ist_today()
+    flt = {"tenant_id": tenant_id} if tenant_id else {}
+    out = {"activated": 0, "reverted": 0}
+    async for sch in _raw_db.banner_schedules.find({**flt, "status": "active", "end": {"$lt": today}}, {"_id": 0}):
+        await _revert_schedule(sch); out["reverted"] += 1
+    async for sch in _raw_db.banner_schedules.find({**flt, "status": "scheduled", "start": {"$lte": today}, "end": {"$gte": today}}, {"_id": 0}):
+        await _activate_schedule(sch); out["activated"] += 1
+    return out

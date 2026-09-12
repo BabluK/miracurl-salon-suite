@@ -461,7 +461,7 @@ async def _create_public_appointment(cust: dict, staff: dict, services: list, bo
                 svc = await _raw_db.services.find_one({"tenant_id": tid, "id": link["service_id"]}, {"_id": 0})
                 if svc:
                     appt["service_ids"].append(svc["id"]); appt["service_names"].append(svc["name"])
-                    appt["duration_min"] = (appt.get("duration_min") or 0) + (svc.get("duration_min") or 0)
+                    appt["duration_min"] = ((appt.get("duration_min") or 0) if services else 0) + (svc.get("duration_min") or 90)
                     appt["total"] = round((appt.get("total") or 0) + (link.get("price") if link.get("price") is not None else svc.get("price") or 0), 2)
                     total = appt["total"]
             elif link and link.get("price_override") is not None and link.get("service_price") is not None:
@@ -470,6 +470,7 @@ async def _create_public_appointment(cust: dict, staff: dict, services: list, bo
                 total = appt["total"]
             if link:
                 appt["color_pick"]["quoted_price"] = link.get("price")
+                appt["color_pick"]["service_id"] = link["service_id"]
             elif not link:
                 label = f"{appt['color_pick']['color_name']} Colour"
                 if label not in appt["service_names"]:
@@ -538,7 +539,7 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
             "customer_referral_code": cust.get("referral_code"),
             "referral_credit": cust.get("referral_credit", 0) if is_new_customer else None,
             "staff_name": staff["name"],
-            "service_names": [s["name"] for s in services],
+            "service_names": appt.get("service_names") or [s["name"] for s in services],
             "total": total,
             "coupon_code": coupon["code"] if coupon else None,
             "coupon_discount": coupon_discount,

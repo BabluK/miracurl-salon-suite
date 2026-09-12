@@ -20,7 +20,6 @@ from database import _raw_db
 from security import require_tenant_admin, require_admin, current_tenant, require_super_admin, public_rate_limit, global_daily_cap
 from schemas import resolve_tenant_from_slug
 from models import Customer
-from services.tenant_notices import notify_tenant
 
 log = logging.getLogger("hair_colors")
 router = APIRouter()
@@ -393,11 +392,6 @@ async def public_color_pick(slug: str, body: ColorPickIn, request: Request):
            "customer_id": await _crm_customer_for_pick(t["id"], body),
            "by_staff": body.by_staff, "status": "picked", "created_at": datetime.now(timezone.utc).isoformat()}
     await _raw_db.color_picks.insert_one(doc)
-    who = body.name.strip() or "A guest"
-    await notify_tenant(t["id"], "color_pick", f"🎨 {who} picked {c['name']}",
-                        f"Colour try-on code {code}" + (f" · {body.phone.strip()}" if body.phone.strip() else "") +
-                        f" · {body.undertone or 'undertone n/a'} undertone",
-                        link="/pos", dedupe_key=f"color_pick:{doc['id']}")
     img = await _raw_db.hair_color_images.find_one({"id": c["id"]}, {"_id": 0, "image_url": 1})
     return {"ok": True, "code": code, "color": {**c, "image_url": c.get("image_url") or (img or {}).get("image_url")}}
 
