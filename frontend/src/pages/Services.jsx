@@ -348,7 +348,7 @@ export default function Services() {
           >
             <Sparkles className="w-4 h-4" /> {isResto ? "Import Starters Menu 🍗" : "Import Makeup & Nails menu"}
           </button>
-          {weight?.heavy > 0 && !imgBatch && (
+          {isResto && weight?.heavy > 0 && !imgBatch && (
             <button data-testid="shrink-images-btn" onClick={async () => {
                 try {
                   const { data } = await api.post("/services/shrink-images");
@@ -366,13 +366,13 @@ export default function Services() {
           {imgBatch?.kind === "shrink" && (
             <span data-testid="shrink-progress" className="text-xs text-amber-700 inline-flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Shrinking {imgBatch.done}/{imgBatch.total}…</span>
           )}
-          <select data-testid="paint-category-select" value={paintCat || (activeCat !== "All" ? activeCat : "")} onChange={e => setPaintCat(e.target.value)}
+          {isResto && <select data-testid="paint-category-select" value={paintCat || (activeCat !== "All" ? activeCat : "")} onChange={e => setPaintCat(e.target.value)}
             title="Choose one category to paint — much faster than the whole menu"
             className="btn-slate !px-3 text-sm max-w-[200px] disabled:opacity-60" disabled={!!imgBatch}>
             <option value="">🎨 Paint: all categories</option>
             {allCats.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <button
+          </select>}
+          {isResto && <button
             data-testid="generate-missing-images-btn"
             disabled={!!imgBatch}
             onClick={async () => {
@@ -390,7 +390,7 @@ export default function Services() {
           >
             {imgBatch?.kind !== "banners" && imgBatch ? <Loader2 className="w-4 h-4 animate-spin text-amber-500" /> : <Sparkles className="w-4 h-4 text-amber-500" />}
             {imgBatch && imgBatch.kind !== "banners" ? `Painting ${imgBatch.done}/${imgBatch.total}${imgBatch.failed ? ` · ${imgBatch.failed} failed` : ""} · ${imgBatch.done === 0 ? "first photo in ~20 s" : `≈${Math.max(1, Math.ceil((imgBatch.total - imgBatch.done - (imgBatch.failed || 0)) / 8) * 0.5)} min left`}` : "Mira Photos"}
-          </button>
+          </button>}
           <button
             data-testid="generate-all-banners-btn"
             disabled={!!imgBatch}
@@ -553,8 +553,10 @@ export default function Services() {
                     </span>
                   </button>
                 ) : (
-                  <img src={thumbUrl(s.image_url, 160) || FALLBACK_IMG} alt=""
-                    className="w-11 h-11 rounded-xl object-cover shrink-0 border border-slate-100" loading="lazy" />
+                  <span aria-hidden data-testid={`service-monogram-${s.id}`}
+                    className="w-11 h-11 rounded-xl shrink-0 border border-amber-200 bg-gradient-to-br from-amber-50 to-white flex items-center justify-center text-amber-700 font-semibold text-sm tracking-wide">
+                    {(s.name || "?").trim().slice(0, 2).toUpperCase()}
+                  </span>
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
@@ -754,7 +756,7 @@ export default function Services() {
                 </div>
               </div>
               )}
-              <div>
+              {isResto && <div>
                 <label className="label-light block mb-1">Service image</label>
                 <ImageUploader
                   kind="service"
@@ -800,7 +802,7 @@ export default function Services() {
                     {genImg ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Mira is painting… (~30s)</> : <>✨ Let Mira paint this (based on category)</>}
                   </button>
                 ) : null}
-              </div>
+              </div>}
               <div><label className="label-light block mb-1">Description</label><textarea rows="2" className="input-light" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.trending} onChange={e => setForm({ ...form, trending: e.target.checked })} />

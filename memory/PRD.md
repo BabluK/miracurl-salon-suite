@@ -3102,3 +3102,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Booking page: salon service rows show monogram (no per-service thumbnails; only category banners) → fewer image requests; restaurants keep dish thumbs. uploads.py applies EXIF transpose on resize + watermark paths (portrait uploads no longer rotate).
 - Hardening from audit #3 (PASS): OT review requires owner PIN (frontend uses pinApi); per-tenant pick cap 300/day; ColorPickIn name/phone patterns (422 on markup).
 - Deployment check: CORS list kept (cookie auth needs explicit origins) + `allow_origin_regex` for *.emergent.host / *.emergentagent.com. All dashboard APIs 60–80 ms. Regression iteration_152: 25/25 backend + FE flows pass.
+
+## 2026-09-12 (o) — Services page polish (salons)
+- Salon service rows show a 2-letter monogram instead of per-service thumbnails; "Paint: category" select, "Mira Photos" and "Shrink heavy photos" hidden for salons (kept for restaurants where dish photos are guest-facing). "Service image" uploader + "Let Mira paint this" hidden in the salon add/edit modal. Category "Mira Banners" remains — the only imagery guests see on /book.
