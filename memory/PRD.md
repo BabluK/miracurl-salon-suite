@@ -3068,3 +3068,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - BUG: `/book/{slug}?color=men-*` only searched women's `colors` → no banner / "Pick stylist & time" dead for men's shades. Now searches `colors + men_colors`, pre-fills name/phone/gender from URL (`&name=&phone=&gender=`), auto-scrolls to services.
 - "Choose this colour" (pick bar + preview modal) now requires a name: closes preview, highlights the name field with a hint, focuses it. Phone placeholder "Mobile number". Done screen passes name/phone/gender to the booking URL.
 - Settings ColorTryOnCard: added "FOR HIM · 16 shades" strip so men's shades can be linked to a colour service (pre-selects service + price on booking).
+
+## 2026-09-12 (i) — Auto colour services
+- `POST /api/hair-colors/auto-services {women_price, men_price, women_duration=120, men_duration=45, overwrite}`: creates/reuses "Women's Global Colour" (Women Hair, female) + "Men's Global Colour" (Men Hair, male), links all 40 women's + custom shades → women's, 16 men's → men's (`tenant_shade_services`). Idempotent; existing links kept unless overwrite.
+- `components/settings/AutoColourServices.jsx` panel in ColorTryOnCard (prices/durations, overwrite toggle, result line, linked-count badge). Miracurl Marathahalli: 57/57 linked (₹2499 / ₹799).

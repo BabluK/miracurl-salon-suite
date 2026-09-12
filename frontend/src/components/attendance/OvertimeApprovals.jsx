@@ -27,7 +27,7 @@ export function OvertimeApprovals({ onChanged }) {
       toast.success(action === "approve" ? `Overtime approved${hours !== undefined ? ` at ${hours}h` : ""} for ${rec.staff_name}` : action === "reject" ? "Overtime rejected" : "Sent back to pending");
       setEdit(e => { const n = { ...e }; delete n[rec.id]; return n; });
       await load(); onChanged?.();
-    } catch (e) { toast.error(formatApiError(e)); }
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
     finally { setBusy(null); }
   };
 

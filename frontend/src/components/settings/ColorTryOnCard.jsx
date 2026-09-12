@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Palette, Download, ExternalLink, Sparkles, Loader2, Plus, Trash2, Wand2 } from "lucide-react";
+import { AutoColourServices } from "@/components/settings/AutoColourServices";
 
 const EMPTY_SHADE = { name: "", tag: "", swatch: ["#4a3728", "#8b6f56", "#c9ad8f"], suits: ["warm", "cool", "neutral"], depth: ["light", "medium", "deep"] };
 
@@ -130,6 +131,7 @@ export const ColorTryOnCard = () => {
             </div>
           )}
           <p className="text-[11px] text-slate-400 mt-1.5">Tap a shade to link it to a colour service — the booking then pre-selects that service and quotes its price.</p>
+          <AutoColourServices onDone={loadColors} linkedCount={[...colors, ...menColors].filter(c => c.service_id).length} total={colors.length + menColors.length} />
           <button onClick={() => setShowBuilder(v => !v)} data-testid="color-builder-toggle"
             className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
             <Plus className="w-3.5 h-3.5" /> {showBuilder ? "Close shade builder" : "Add your own shade — Mira paints it"}

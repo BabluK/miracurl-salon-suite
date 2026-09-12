@@ -634,6 +634,46 @@ async def link_shade_service(color_id: str, body: ShadeServiceIn, admin=Depends(
     return {"ok": True, "link": {"service_id": body.service_id, "service_name": svc["name"], "price": svc.get("price")}}
 
 
+class AutoServicesIn(BaseModel):
+    women_price: float = Field(..., ge=0, le=100000)
+    men_price: float = Field(..., ge=0, le=100000)
+    women_duration: int = Field(120, ge=15, le=600)
+    men_duration: int = Field(45, ge=15, le=600)
+    overwrite: bool = False  # relink shades that already point at another service
+
+
+async def _ensure_service(tenant_id: str, name: str, category: str, price: float, duration: int, gender: str) -> dict:
+    """Reuse the salon's service of this name (revive + reprice) or create it."""
+    svc = await _raw_db.services.find_one({"tenant_id": tenant_id, "name": name}, {"_id": 0})
+    if svc:
+        await _raw_db.services.update_one({"id": svc["id"]}, {"$set": {"price": price, "duration_min": duration, "active": True, "bookable_online": True}})
+        return {**svc, "price": price, "duration_min": duration}
+    doc = {"id": str(uuid.uuid4()), "tenant_id": tenant_id, "name": name, "category": category, "price": price, "duration_min": duration,
+           "description": "Full-head professional colour — pick your shade in our Hair Colour Try-On.", "image_url": None, "trending": False,
+           "active": True, "bookable_online": True, "gender": gender, "created_at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.services.insert_one({**doc})
+    return doc
+
+
+@router.post("/hair-colors/auto-services")
+async def auto_colour_services(body: AutoServicesIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """One tap: create 'Women's Global Colour' + 'Men's Global Colour' services and link every shade so bookings always carry a price."""
+    women = await _ensure_service(t["id"], "Women's Global Colour", "Women Hair", body.women_price, body.women_duration, "female")
+    men = await _ensure_service(t["id"], "Men's Global Colour", "Men Hair", body.men_price, body.men_duration, "male")
+    customs = await _raw_db.tenant_hair_colors.find({"tenant_id": t["id"], "active": {"$ne": False}}, {"_id": 0, "id": 1}).to_list(60)
+    existing = {l["color_id"] for l in await _raw_db.tenant_shade_services.find({"tenant_id": t["id"]}, {"_id": 0, "color_id": 1}).to_list(500)}
+    linked = {"women": 0, "men": 0, "skipped": 0}
+    for cid, svc, key in [(c["id"], women, "women") for c in CATALOG + customs] + [(c["id"], men, "men") for c in MEN_CATALOG]:
+        if cid in existing and not body.overwrite:
+            linked["skipped"] += 1
+            continue
+        await _raw_db.tenant_shade_services.update_one({"tenant_id": t["id"], "color_id": cid},
+                                                       {"$set": {"tenant_id": t["id"], "color_id": cid, "service_id": svc["id"]}}, upsert=True)
+        linked[key] += 1
+    return {"ok": True, "women_service": {"id": women["id"], "name": women["name"], "price": women["price"]},
+            "men_service": {"id": men["id"], "name": men["name"], "price": men["price"]}, "linked": linked}
+
+
 # ── Colour history for CRM ─────────────────────────────────────────────────────
 
 @router.get("/customers/{customer_id}/color-history")
