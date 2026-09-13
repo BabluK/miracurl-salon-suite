@@ -3155,3 +3155,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - PromoVideoStudio (slideshow promo + OpenAI TTS via EMERGENT_LLM_KEY) kept — no Google cost.
 - Google dependency map: GEMINI_API_KEY (AI Studio) was used ONLY by Veo → now unused, safe to delete the key. GOOGLE_MAPS_API_KEY (Places API, Google Cloud billing) is REQUIRED by Mira lead generation (lead_gen.py _places_search → returns [] "no_key" without it). GOOGLE_OAUTH_* (login) and GOOGLE_WALLET_* (passes) are free APIs but live in a Cloud project. Lead gen + emails + Mira all run on EMERGENT_LLM_KEY / Resend — no Google AI dependency.
 - Open: HQ Mira reports Twilio 401 "Unable to create record: Authenticate" on outbound lead calls → TWILIO_ACCOUNT_SID/AUTH_TOKEN invalid or suspended (not addressed).
+
+## 2026-09-13 (c) — Onboarding "Welcome & Congratulations" poster polished (HQ → Onboarding Image)
+- New `components/superadmin/onboardingCanvas.js` (painter) + rewritten `OnboardingStudio.jsx`. Formats: Story 9:16, Insta feed 4:5, Square 1:1. Layouts: Classic Centre, Royal Frame, Modern Bold, Golden Badge.
+- Curated background library (free, instant): frontend/public/assets/onboarding/{luxury-gold, festive-confetti, royal-burgundy, emerald-marble, floral-blush, midnight-aurora, salon-interior, restaurant-candle}.jpg (~80–175 KB each) + upload-your-own + optional AI background (existing /super-admin/onboarding-image, costs credits).
+- Design: gold-gradient "Welcome" with glow, "✦ Congratulations ✦" kicker, logo in glowing gold ring, auto-fit name, 📍 location, tenant Instagram handle (from tenant.instagram_url) printed in gold, restaurant/salon-aware kicker+features, gold sparkles toggle, footer with MS emblem + "MIRACURL SUITE · miracurl-suite.com · @miracurl.suite", thin gold frame.
+- "Copy Insta caption" → ready caption with the business's handle, @miracurl.suite and hashtags. Verified visually across 4 layout/format/background combos.
