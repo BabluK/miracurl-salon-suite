@@ -32,7 +32,6 @@ import { VerifiedStaffPanel } from "@/components/superadmin/VerifiedStaffPanel";
 import { MiracurlTeamPanel } from "@/components/superadmin/MiracurlTeamPanel";
 import { DeploymentHistoryPanel } from "@/components/superadmin/DeploymentHistoryPanel";
 import { DemoCalendar } from "@/components/superadmin/DemoCalendar";
-import { VeoAdStudio } from "@/components/superadmin/VeoAdStudio";
 import { MiraStudioPanel } from "@/components/superadmin/MiraStudioPanel";
 import { MiraLeadAgent } from "@/components/superadmin/MiraLeadAgent";
 import { ReferralsPanel } from "@/components/superadmin/ReferralsPanel";
@@ -527,7 +526,7 @@ export default function SuperAdmin() {
             hiring: <HiringPanel onNewCount={setHiringNew} />,
             engineer: <EngineerPanel />,
             onboarding: <OnboardingStudio tenants={tenants} />,
-            promo: <div className="space-y-6"><VeoAdStudio /><PromoVideoStudio /></div>,
+            promo: <div className="space-y-6"><PromoVideoStudio /></div>,
             brandkit: <BrandKitPanel />,
             posters: <PromoImageStudio />,
             "verify-staff": <VerifiedStaffPanel />,
