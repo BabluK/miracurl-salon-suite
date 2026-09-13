@@ -15,6 +15,7 @@ export function DemoCampaign() {
   const [manual, setManual] = useState("");
   const [note, setNote] = useState("");
   const [currency, setCurrency] = useState("auto");
+  const [manualCountry, setManualCountry] = useState("");
   const [vertical, setVertical] = useState("salon");
   const [template, setTemplate] = useState("demo");
   const [sending, setSending] = useState(false);
@@ -42,8 +43,8 @@ export function DemoCampaign() {
   const addManual = () => {
     const em = manual.trim().toLowerCase();
     if (!EMAIL_RE.test(em)) return toast.error("Enter a valid email address");
-    setSelected(s => ({ ...s, [em]: { email: em, name: "", salon_name: "" } }));
-    setManual("");
+    setSelected(s => ({ ...s, [em]: { email: em, name: "", salon_name: "", country: manualCountry.trim() } }));
+    setManual(""); setManualCountry("");
   };
   const list = useMemo(() => Object.values(selected), [selected]);
 
@@ -127,7 +128,7 @@ export function DemoCampaign() {
     try {
       const first = list[0] || {};
       const r = await api.get("/super-admin/demo-campaign/preview", {
-        params: { template, vertical, note, name: first.name || "Priya", salon_name: first.salon_name || "Glow Studio" },
+        params: { template, vertical, note, name: first.name || "Priya", salon_name: first.salon_name || "Glow Studio", currency: currency === "USD" ? "USD" : "INR" },
         responseType: "text",
       });
       const w = window.open("", "_blank");
@@ -188,6 +189,9 @@ export function DemoCampaign() {
         <input value={manual} onChange={e => setManual(e.target.value)} onKeyDown={e => e.key === "Enter" && addManual()}
           placeholder="Add prospect email manually…" data-testid="demo-manual-email-input"
           className="flex-1 border border-white/10 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4af37]/50 !bg-white/5 !text-slate-200 placeholder:text-slate-500" />
+        <input value={manualCountry} onChange={e => setManualCountry(e.target.value)} onKeyDown={e => e.key === "Enter" && addManual()}
+          placeholder="Country / city (₹ or $)" title="Decides the pricing shown: India → ₹, anywhere else → $" data-testid="demo-manual-country-input"
+          className="w-36 border border-white/10 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4af37]/50 !bg-white/5 !text-slate-200 placeholder:text-slate-500" />
         <button onClick={addManual} data-testid="demo-manual-email-add" className="px-3 py-2 rounded-lg bg-white/10 text-slate-300 text-xs font-semibold flex items-center gap-1 hover:bg-[#d4af37]/20 hover:text-[#d4af37] transition-colors"><Plus className="w-3.5 h-3.5" /> Add</button>
       </div>
 
@@ -195,7 +199,7 @@ export function DemoCampaign() {
         <div className="flex flex-wrap gap-1.5" data-testid="demo-selected-chips">
           {list.map(r => (
             <span key={r.email} className="inline-flex items-center gap-1 bg-[#d4af37]/10 border border-[#d4af37]/40 text-[#d4af37] rounded-full px-2.5 py-1 text-[11px]">
-              {r.email}
+              {r.email}{r.country ? <span className="text-slate-400">· {r.country}</span> : null}
               <button onClick={() => toggle(r)} className="hover:text-rose-500"><X className="w-3 h-3" /></button>
             </span>
           ))}
@@ -218,7 +222,7 @@ export function DemoCampaign() {
             <span className="text-slate-500 mr-1">Pricing shown:</span>
             {[["auto", "🌐 Auto"], ["INR", "🇮🇳 ₹"], ["USD", "🌍 $"]].map(([k, l]) => (
               <button key={k} onClick={() => setCurrency(k)} data-testid={`demo-currency-${k}`}
-                title={k === "auto" ? "Detects from email domain (.uk/.ae/.us… → USD)" : ""}
+                title={k === "auto" ? "Country/city → phone code → email domain. Outside India always sees $ — never ₹" : ""}
                 className={`px-2.5 py-1 rounded-full border font-semibold transition-colors ${currency === k ? "bg-[#d4af37] text-[#15151b] border-[#d4af37]" : "bg-white/5 text-slate-400 border-white/10 hover:border-[#d4af37]/50"}`}>
                 {l}
               </button>

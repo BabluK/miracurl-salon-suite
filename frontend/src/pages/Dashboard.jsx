@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { BrandSplash } from "@/components/BrandSplash";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare, Send, Bell, Check, Clock, ArrowRight } from "lucide-react";
@@ -84,13 +85,7 @@ export default function Dashboard() {
     return () => window.removeEventListener("branch-changed", fetchDash);
   }, [isOwner]);
 
-  if (!data) return (
-    <div className="p-4 space-y-4 animate-pulse" data-testid="dashboard-skeleton" aria-busy="true">
-      <div className="h-24 rounded-2xl bg-slate-200/60" />
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{[0, 1, 2, 3].map(i => <div key={i} className="h-28 rounded-2xl bg-slate-200/60" />)}</div>
-      <div className="grid lg:grid-cols-3 gap-4">{[0, 1, 2].map(i => <div key={i} className="h-56 rounded-2xl bg-slate-200/50" />)}</div>
-    </div>
-  );
+  if (!data) return <BrandSplash fullscreen />;
 
   const inr = (n) => `₹${(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
   const slug = tenant?.slug || "miracurl-marathahalli";

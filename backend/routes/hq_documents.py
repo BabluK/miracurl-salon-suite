@@ -15,7 +15,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 
 from database import _raw_db
-from email_service import _send_email
+from email_service import _send_email, platform_brand_mark
 from security import public_base_url, public_rate_limit, require_super_admin
 
 router = APIRouter()
@@ -202,6 +202,26 @@ _INTL_TLDS = {"uk", "ae", "us", "ca", "au", "nz", "sg", "ie", "de", "fr", "eu", 
 def _is_intl_email(email: str) -> bool:
     tld = (email or "").rsplit(".", 1)[-1].lower().strip()
     return tld in _INTL_TLDS
+
+
+_INDIA_WORDS = {"india", "in", "ind", "bharat", "bengaluru", "bangalore", "mumbai", "delhi", "new delhi", "hyderabad", "chennai",
+                "kolkata", "pune", "ahmedabad", "jaipur", "kochi", "surat", "lucknow", "noida", "gurgaon", "gurugram", "chandigarh",
+                "indore", "bhopal", "nagpur", "patna", "goa", "mysuru", "mysore", "coimbatore", "vizag", "visakhapatnam", "thane", "kerala",
+                "karnataka", "maharashtra", "tamil nadu", "telangana", "gujarat", "rajasthan", "punjab", "haryana", "up", "mp", "bihar", "odisha", "assam"}
+
+
+def _recipient_is_intl(email: str, country: str = "", phone: str = "") -> bool:
+    """Never show ₹ pricing outside India. Priority: explicit country/city → phone code → email TLD."""
+    loc = (country or "").strip().lower()
+    if loc:
+        last = re.split(r"[,/|-]", loc)[-1].strip()
+        return not (loc in _INDIA_WORDS or last in _INDIA_WORDS or any(w in _INDIA_WORDS for w in loc.replace(",", " ").split()))
+    digits = re.sub(r"\D", "", phone or "")
+    if (phone or "").strip().startswith("+") and digits:
+        return not digits.startswith("91")
+    if len(digits) > 10:
+        return not digits.startswith("91")
+    return _is_intl_email(email)
 
 
 _INTL_TIER_FEATURES = {
@@ -393,7 +413,7 @@ def _demo_email_html(recipient_name: str, salon_name: str, note: str, hq_email: 
 <tr><td align="center">
 <table role="presentation" width="620" cellpadding="0" cellspacing="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:18px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,.08)">
   <tr><td style="background:#15151b;padding:34px 36px 30px">
-    <div style="font-family:Georgia,serif;font-size:26px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+    {platform_brand_mark(26)}
     <div style="color:#b9b2a3;font-size:12px;letter-spacing:2.5px;margin-top:5px">{sub_brand}</div>
     <div style="height:2px;width:64px;background:#d4af37;margin-top:16px"></div>
     <div style="font-family:Georgia,serif;color:#f4f1e8;font-size:21px;margin-top:18px;line-height:1.4">
@@ -432,6 +452,8 @@ class DemoRecipient(BaseModel):
     email: str = Field(..., max_length=120)
     name: str = Field(default="", max_length=80)
     salon_name: str = Field(default="", max_length=100)
+    country: str = Field(default="", max_length=80)  # country / city hint → decides ₹ vs $ pricing when currency=auto
+    phone: str = Field(default="", max_length=24)
 
 
 class DemoCampaignIn(BaseModel):
@@ -514,9 +536,9 @@ def _founder_signature_block() -> str:
   </td></tr>"""
 
 
-_FOUNDER_LETTERHEAD = """  <tr><td style="background:#15151b;padding:26px 40px 22px">
+_FOUNDER_LETTERHEAD = f"""  <tr><td style="background:#15151b;padding:26px 40px 22px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td><div style="font-family:Georgia,serif;font-size:22px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+      <td>{platform_brand_mark(22)}
           <div style="color:#b9b2a3;font-size:11px;letter-spacing:2.5px;margin-top:4px">A NOTE FROM THE FOUNDER</div></td>
       <td align="right" valign="middle"><div style="display:inline-block;border:1px solid #d4af37;color:#d4af37;font-size:10.5px;letter-spacing:1.5px;padding:6px 12px;border-radius:999px">PERSONAL INVITATION</div></td>
     </tr></table>
@@ -586,10 +608,11 @@ async def demo_campaign_recipients(user=Depends(require_super_admin)):
     tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
     leads = await _raw_db.tenant_inquiries.find(
         {"email": {"$exists": True, "$ne": ""}},
-        {"_id": 0, "name": 1, "email": 1, "salon_name": 1, "status": 1}).sort("created_at", -1).to_list(500)
+        {"_id": 0, "name": 1, "email": 1, "salon_name": 1, "status": 1, "city": 1, "country": 1, "phone": 1}).sort("created_at", -1).to_list(500)
     return {
         "leads": [{"name": ld.get("name", ""), "email": ld["email"],
-                   "salon_name": ld.get("salon_name", ""), "status": ld.get("status", "")}
+                   "salon_name": ld.get("salon_name", ""), "status": ld.get("status", ""),
+                   "country": ld.get("country") or ld.get("city") or "", "phone": ld.get("phone") or ""}
                   for ld in leads if ld["email"].lower() not in tenant_emails],
     }
 
@@ -602,7 +625,7 @@ def _dedupe_recipients(recipients: list) -> list:
             raise HTTPException(400, f"Invalid email address: {r.email}")
         if em not in seen:
             seen.add(em)
-            targets.append((em, r.name.strip(), r.salon_name.strip()))
+            targets.append((em, r.name.strip(), r.salon_name.strip(), (r.country or "").strip(), (r.phone or "").strip()))
     return targets
 
 
@@ -617,7 +640,7 @@ class _DemoSendCtx:
     trial_days: int = 30
 
 
-async def _send_demo_invite(em: str, name: str, salon: str, ctx: _DemoSendCtx) -> dict:
+async def _send_demo_invite(em: str, name: str, salon: str, ctx: _DemoSendCtx, country: str = "", phone: str = "") -> dict:
     existing = await _raw_db.demo_invites.find_one({"email": em}, {"_id": 0, "id": 1})
     iid = existing["id"] if existing else str(uuid.uuid4())
     template = getattr(ctx.body, "template", "demo")
@@ -627,7 +650,7 @@ async def _send_demo_invite(em: str, name: str, salon: str, ctx: _DemoSendCtx) -
                                    from_name=f"{FOUNDER['name']} · Miracurl")
     else:
         mode = getattr(ctx.body, "currency", "auto") or "auto"
-        currency = mode if mode in ("INR", "USD") else ("USD" if _is_intl_email(em) else "INR")
+        currency = mode if mode in ("INR", "USD") else ("USD" if _recipient_is_intl(em, country, phone) else "INR")
         html = _demo_email_html(name, salon, ctx.body.note, ctx.hq_email,
                                 DemoEmailOpts(plans=ctx.plans, tracking=(ctx.track_base, iid), currency=currency,
                                               vertical=getattr(ctx.body, "vertical", "salon"),
@@ -637,7 +660,7 @@ async def _send_demo_invite(em: str, name: str, salon: str, ctx: _DemoSendCtx) -
         now_iso = datetime.now(timezone.utc).isoformat()
         await _raw_db.demo_invites.update_one(
             {"email": em},
-            {"$set": {"id": iid, "name": name, "salon_name": salon, "first_sent_at": now_iso,
+            {"$set": {"id": iid, "name": name, "salon_name": salon, "country": country, "phone": phone, "first_sent_at": now_iso,
                       "vertical": getattr(ctx.body, "vertical", "salon"), "template": template,
                       "reminder_sent_at": None, "responded": False, "track_base": ctx.track_base,
                       "opened_at": None, "demo_requested_at": None,
@@ -668,11 +691,11 @@ async def demo_campaign_send(body: DemoCampaignIn, request: Request, user=Depend
                        plans=plans, track_base=track_base, trial_days=trial_days)
 
     results = []
-    for em, name, salon in targets:
+    for em, name, salon, country, phone in targets:
         if em in tenant_emails:
             results.append({"email": em, "sent": False, "error": "Already a Miracurl partner — skipped"})
             continue
-        results.append(await _send_demo_invite(em, name, salon, ctx))
+        results.append(await _send_demo_invite(em, name, salon, ctx, country, phone))
 
     sent_count = sum(1 for r in results if r["sent"])
     await _raw_db.demo_campaigns.insert_one({
@@ -692,7 +715,8 @@ async def demo_campaign_history(user=Depends(require_super_admin)):
 
 @router.get("/super-admin/demo-campaign/preview", response_class=HTMLResponse)
 async def demo_campaign_preview(template: str = "demo", vertical: str = "salon", name: str = "Priya",
-                                salon_name: str = "Glow Studio", note: str = "", user=Depends(require_super_admin)):
+                                salon_name: str = "Glow Studio", note: str = "", currency: str = "INR",
+                                user=Depends(require_super_admin)):
     """Render the exact email HTML the campaign would send — for the HQ preview pane."""
     if template == "founder":
         return _founder_email_html(name, salon_name, note)
@@ -707,7 +731,8 @@ async def demo_campaign_preview(template: str = "demo", vertical: str = "salon",
     from routes.subscriptions import get_trial_days
     vert = "restaurant" if vertical == "restaurant" else "salon"
     return _demo_email_html(name, salon_name, note, os.environ.get("HQ_EMAIL", "admin@miracurl.com"),
-                            DemoEmailOpts(plans=await _live_plans(), vertical=vert, trial_days=await get_trial_days()))
+                            DemoEmailOpts(plans=await _live_plans(), vertical=vert, trial_days=await get_trial_days(),
+                                          currency="USD" if currency == "USD" else "INR"))
 
 
 def _reminder_email_html(recipient_name: str, salon_name: str, hq_email: str,
@@ -727,7 +752,7 @@ def _reminder_email_html(recipient_name: str, salon_name: str, hq_email: str,
 <tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:18px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,.08)">
   <tr><td style="background:#15151b;padding:28px 36px 24px">
-    <div style="font-family:Georgia,serif;font-size:24px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+    {platform_brand_mark(24)}
     <div style="height:2px;width:56px;background:#d4af37;margin-top:12px"></div>
     <div style="font-family:Georgia,serif;color:#f4f1e8;font-size:19px;margin-top:14px;line-height:1.45">
       Just a gentle note — your demo seat is still open ✦</div>
@@ -778,7 +803,7 @@ def _founder_followup_html(recipient_name: str, salon_name: str, tracking: tuple
 <tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fffdf9;border-radius:20px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 6px 30px rgba(20,18,12,.10)">
   <tr><td style="background:#15151b;padding:22px 40px 20px">
-    <div style="font-family:Georgia,serif;font-size:20px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+    {platform_brand_mark(20)}
     <div style="color:#b9b2a3;font-size:11px;letter-spacing:2.5px;margin-top:4px">A QUICK FOLLOW-UP FROM THE FOUNDER</div>
   </td></tr>
   <tr><td style="padding:32px 40px 6px">
@@ -1013,7 +1038,7 @@ def _founder_nudge_html(owner_name: str, salon_name: str, slug: str, email: str)
 <tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fffdf9;border-radius:20px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 6px 30px rgba(20,18,12,.10)">
   <tr><td style="background:#15151b;padding:22px 40px 20px">
-    <div style="font-family:Georgia,serif;font-size:20px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+    {platform_brand_mark(20)}
     <div style="color:#b9b2a3;font-size:11px;letter-spacing:2.5px;margin-top:4px">YOUR 6 MONTHS ARE READY · A NOTE FROM BABLU</div>
   </td></tr>
   <tr><td style="padding:32px 40px 6px">
@@ -1104,7 +1129,7 @@ def _founder_feedback_html(owner_name: str, salon_name: str, base: str, token: s
 <tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fffdf9;border-radius:20px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 6px 30px rgba(20,18,12,.10)">
   <tr><td style="background:#15151b;padding:22px 40px 20px">
-    <div style="font-family:Georgia,serif;font-size:20px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+    {platform_brand_mark(20)}
     <div style="color:#b9b2a3;font-size:11px;letter-spacing:2.5px;margin-top:4px">ONE MONTH IN · A NOTE FROM BABLU</div>
   </td></tr>
   <tr><td style="padding:32px 40px 6px">
@@ -1224,7 +1249,7 @@ def _founder_expiry_html(owner_name: str, salon_name: str, end_date: str, credit
 <tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fffdf9;border-radius:20px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 6px 30px rgba(20,18,12,.10)">
   <tr><td style="background:#15151b;padding:22px 40px 20px">
-    <div style="font-family:Georgia,serif;font-size:20px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+    {platform_brand_mark(20)}
     <div style="color:#b9b2a3;font-size:11px;letter-spacing:2.5px;margin-top:4px">FOUNDING MEMBER · A NOTE FROM BABLU</div>
   </td></tr>
   <tr><td style="padding:32px 40px 6px">
@@ -1308,7 +1333,7 @@ def _feedback_page(title: str, body: str, form: str = "") -> str:
     return f"""<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title}</title></head>
 <body style="margin:0;background:#efece5;font-family:Georgia,serif;color:#1d1d24">
 <div style="max-width:520px;margin:48px auto;background:#fffdf9;border-radius:20px;padding:36px 32px;box-shadow:0 6px 30px rgba(20,18,12,.10);text-align:center">
-  <div style="font-size:18px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+  {platform_brand_mark(18)}
   <h2 style="margin:18px 0 8px;font-weight:normal">{title}</h2>
   <p style="font-size:15px;line-height:1.7;color:#3a3a42">{body}</p>{form}
   <p style="font-size:12px;color:#9a948a;margin-top:22px">— {FOUNDER["name"]}, {FOUNDER["title"]}</p>
@@ -1441,7 +1466,7 @@ async def _send_invite_email(inv: dict, track_base: str, hq_email: str) -> dict:
     attachments = await asyncio.to_thread(_all_doc_attachments, inv_vert)
     html = _demo_email_html(inv.get("name", ""), inv.get("salon_name", ""), "", hq_email,
                             DemoEmailOpts(plans=plans, tracking=(track_base, inv["id"]),
-                                          currency="USD" if _is_intl_email(inv["email"]) else "INR",
+                                          currency="USD" if _recipient_is_intl(inv["email"], inv.get("country") or "", inv.get("phone") or "") else "INR",
                                           vertical=inv_vert, trial_days=trial_days))
     return await _send_email([inv["email"]], _demo_subject(inv_vert == "restaurant", trial_days),
                              html, attachments=attachments, reply_to=hq_email)
@@ -1535,7 +1560,7 @@ def _slot_confirm_email_html(name: str, date_str: str, time_str: str, gcal: str,
 <tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:18px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,.08)">
   <tr><td style="background:#15151b;padding:30px 36px 26px">
-    <div style="font-family:Georgia,serif;font-size:24px;letter-spacing:4px;color:#d4af37">MIRACURL</div>
+    {platform_brand_mark(24)}
     <div style="height:2px;width:56px;background:#d4af37;margin-top:12px"></div>
     <div style="font-family:Georgia,serif;color:#f4f1e8;font-size:20px;margin-top:14px;line-height:1.45">
       Your demo is booked — we can't wait to meet you ✦</div>

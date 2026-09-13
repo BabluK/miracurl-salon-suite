@@ -283,7 +283,7 @@ def salon_welcome_email_html(salon_name: str, owner_name: str, owner_email: str,
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
       {_welcome_poster_row(poster_url)}
       <div style="background:#1c1c22;padding:26px 30px">
-        <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Salon Suite</div>
+        {platform_brand_mark(22, "Miracurl ✦ Salon Suite")}
         <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Welcome aboard — your salon is live</div>
       </div>
       <div style="padding:28px 30px;color:#333">
@@ -322,7 +322,7 @@ def restaurant_welcome_email_html(restaurant_name: str, owner_name: str, owner_e
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
       {_welcome_poster_row(poster_url)}
       <div style="background:#1c1c22;padding:26px 30px">
-        <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Restaurant Suite</div>
+        {platform_brand_mark(22, "Miracurl ✦ Restaurant Suite")}
         <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Welcome aboard — your restaurant is live</div>
       </div>
       <div style="padding:28px 30px;color:#333">
@@ -358,7 +358,7 @@ def _credentials_email_html(salon_name: str, owner_email: str, temp_pw: str) -> 
     return f"""
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
       <div style="background:#1c1c22;padding:26px 30px">
-        <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Salon Suite</div>
+        {platform_brand_mark(22, "Miracurl ✦ Salon Suite")}
         <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Updated login credentials</div>
       </div>
       <div style="padding:28px 30px;color:#333">
@@ -386,7 +386,7 @@ def staff_welcome_email_html(staff_name: str, salon_name: str, login_email: str,
     return f"""
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
       <div style="background:#1c1c22;padding:26px 30px">
-        <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Salon Suite</div>
+        {platform_brand_mark(22, "Miracurl ✦ Salon Suite")}
         <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Your {html_lib.escape(role_label)} login is ready</div>
       </div>
       <div style="padding:28px 30px;color:#333">
@@ -416,7 +416,7 @@ def renewal_reminder_email_html(salon_name: str, days_left: int, end_date: str,
     return f"""
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
       <div style="background:#1c1c22;padding:26px 30px">
-        <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Salon Suite</div>
+        {platform_brand_mark(22, "Miracurl ✦ Salon Suite")}
         <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Subscription renewal reminder</div>
       </div>
       <div style="padding:28px 30px;color:#333">
@@ -437,6 +437,20 @@ def renewal_reminder_email_html(salon_name: str, days_left: int, end_date: str,
           Facing an issue or need more time? Just reply to this email or write to {hq_email} — we're happy to help.</p>
       </div>
     </div>"""
+
+
+def platform_logo_url() -> str:
+    return f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/assets/brand/ms-ring-160.png"
+
+
+def platform_brand_mark(font_px: int = 22, text: str = "MIRACURL", img_px: int | None = None, align: str = "left") -> str:
+    """Email-safe gold MS emblem + wordmark lockup for every HQ / platform email header (dark background)."""
+    img_px = img_px or int(font_px * 2.1)
+    return (f'<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:0{" auto" if align == "center" else ""}">'
+            f'<tr><td valign="middle" style="padding-right:{max(8, font_px // 2)}px">'
+            f'<img src="{platform_logo_url()}" width="{img_px}" height="{img_px}" alt="Miracurl Suite" '
+            f'style="display:block;width:{img_px}px;height:{img_px}px;border:0" /></td>'
+            f'<td valign="middle"><div style="font-family:Georgia,serif;font-size:{font_px}px;letter-spacing:4px;color:#d4af37;line-height:1.1">{text}</div></td></tr></table>')
 
 
 def _brand_logo_img(t: dict, size: int = 72) -> str:
@@ -607,7 +621,7 @@ def renewal_reminder_email_intl_html(salon_name: str, days_left: int, end_date: 
     return f"""
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
       <div style="background:#1c1c22;padding:26px 30px">
-        <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Salon Suite</div>
+        {platform_brand_mark(22, "Miracurl ✦ Salon Suite")}
         <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Subscription renewal reminder</div>
       </div>
       <div style="padding:28px 30px;color:#333">
@@ -645,7 +659,7 @@ def restaurant_trial_reminder_email_html(restaurant_name: str, days_left: int, e
     return f"""
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
       <div style="background:#1c1c22;padding:26px 30px">
-        <div style="color:#d4af37;font-size:22px;font-weight:bold">Miracurl ✦ Restaurant Suite</div>
+        {platform_brand_mark(22, "Miracurl ✦ Restaurant Suite")}
         <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">{"Your free month is ending soon" if source == "trial" else "Subscription renewal reminder"}</div>
       </div>
       <div style="padding:28px 30px;color:#333">

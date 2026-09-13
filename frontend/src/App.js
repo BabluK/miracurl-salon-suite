@@ -1,11 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useEffect, lazy, Suspense } from "react";
 
-const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-[#fbf8f3]" data-testid="page-loader">
-    <div className="w-9 h-9 rounded-full border-2 border-[#d4af37]/30 border-t-[#d4af37] animate-spin" />
-  </div>
-);
+import { BrandSplash } from "@/components/BrandSplash";
+const PageLoader = () => <BrandSplash />;
 
 let _lastGaPath = null;
 function ScrollToTop() {
@@ -143,7 +140,6 @@ const DemoSlot = lazy(() => import("@/pages/DemoSlot"));
 const PublicDemo = lazy(() => import("@/pages/PublicDemo"));
 import { PlayerProvider } from "@/context/PlayerContext";
 const Entertainment = lazy(() => import("@/pages/Entertainment"));
-import { BrandSplash } from "@/components/BrandSplash";
 
 function Protected({ children }) {
   const { user, loading, refresh } = useAuth();

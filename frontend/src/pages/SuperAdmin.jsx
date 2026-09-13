@@ -374,13 +374,14 @@ export default function SuperAdmin() {
       <header className="border-b border-indigo-900/40 bg-gradient-to-r from-slate-950 via-indigo-950 to-violet-950 sticky top-0 z-40 shadow-lg shadow-indigo-950/20">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="relative w-9 h-9 sm:w-11 sm:h-11 shrink-0 rounded-full bg-[#1c1c22] flex items-center justify-center shadow-lg shadow-amber-500/30 ring-2 ring-amber-400/60">
-              <img src={platformLogo || "/assets/brand/ms-ring.png"} alt="Miracurl" className={`w-7 h-7 sm:w-8 sm:h-8 ${platformLogo ? "rounded-full object-cover" : "object-contain"}`} draggable="false" data-testid="hq-logo" />
+            <div className="relative w-11 h-11 sm:w-14 sm:h-14 shrink-0 rounded-full bg-[#0f0f14] flex items-center justify-center ring-1 ring-amber-300/70 shadow-[0_0_0_4px_rgba(212,175,55,0.12),0_10px_28px_-6px_rgba(212,175,55,0.55)]" data-testid="hq-logo-wrap">
+              <span className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_25%,rgba(240,217,165,0.35),transparent_60%)]" />
+              <img src={platformLogo || "/assets/brand/ms-ring-160.png"} alt="Miracurl Suite" className={`relative w-9 h-9 sm:w-11 sm:h-11 drop-shadow-[0_2px_8px_rgba(212,175,55,0.6)] ${platformLogo ? "rounded-full object-cover" : "object-contain"}`} draggable="false" data-testid="hq-logo" />
               <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-slate-950 animate-pulse" title="Systems online" />
             </div>
             <div className="min-w-0">
-              <div className="font-playfair text-base sm:text-xl text-white flex items-center gap-2 whitespace-nowrap">
-                Miracurl HQ
+              <div className="font-playfair text-base sm:text-xl flex items-center gap-2 whitespace-nowrap">
+                <span className="gold-shine-text tracking-[0.12em] font-semibold">MIRACURL</span><span className="text-amber-100/80 tracking-[0.3em] text-xs sm:text-sm">HQ</span>
                 <span data-testid="super-admin-badge" className="super-badge hidden sm:inline-flex items-center gap-1 text-[9px] font-bold tracking-[0.18em] uppercase px-2.5 py-1 rounded-full text-slate-900 whitespace-nowrap">
                   <Sparkles className="w-3 h-3" /> Super Admin
                 </span>
