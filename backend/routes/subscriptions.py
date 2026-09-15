@@ -384,10 +384,25 @@ class SmsPackVerifyIn(BaseModel):
 @router.get("/sms-packs")
 async def sms_packs(channel: str = "sms", user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     ch = _channel(channel)
+    since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    auto_replies = await _raw_db.sms_credit_log.count_documents(
+        {"tenant_id": t["id"], "source": "mira_auto_reply", "at": {"$gte": since}})
     return {"enabled": bool(RAZORPAY_KEY_ID), "test_mode": RAZORPAY_KEY_ID.startswith("rzp_test_"), "channel": ch["key"],
             "packs": [{"key": k, **v} for k, v in ch["packs"].items()],
             "balance": int(t.get(ch["field"]) or 0),
-            "balances": {"sms": int(t.get("sms_points") or 0), "whatsapp": int(t.get("wa_points") or 0)}}
+            "balances": {"sms": int(t.get("sms_points") or 0), "whatsapp": int(t.get("wa_points") or 0)},
+            "usage_30d": {"whatsapp_auto_replies": auto_replies}, "wa_auto_reply": t.get("wa_auto_reply") is not False}
+
+
+class WaAutoReplyIn(BaseModel):
+    enabled: bool
+
+
+@router.put("/sms-packs/wa-auto-reply")
+async def set_wa_auto_reply(body: WaAutoReplyIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Owner toggle: let Mira answer inbound WhatsApp messages (1 credit per reply)."""
+    await db.tenants.update_one({"id": t["id"]}, {"$set": {"wa_auto_reply": bool(body.enabled)}})
+    return {"ok": True, "wa_auto_reply": bool(body.enabled)}
 
 
 @router.post("/sms-packs/order")

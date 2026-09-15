@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { MessageSquare, Loader2, Zap } from "lucide-react";
+import { MessageSquare, Loader2, Zap, Bot } from "lucide-react";
 
 function loadRazorpayScript() {
   return new Promise(resolve => {
@@ -25,6 +25,15 @@ export function SmsPacksCard() {
   useEffect(() => { refresh(); }, [channel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!cfg) return null;
+
+  async function toggleAuto() {
+    setBusy("auto");
+    try {
+      const r = await api.put("/sms-packs/wa-auto-reply", { enabled: !cfg.wa_auto_reply });
+      setCfg(c => ({ ...c, wa_auto_reply: r.data.wa_auto_reply }));
+      toast.success(r.data.wa_auto_reply ? "Mira will now answer WhatsApp messages" : "WhatsApp auto-replies paused");
+    } catch { toast.error("Could not update"); } finally { setBusy(""); }
+  }
 
   async function buy(pack) {
     setBusy(pack.key);
@@ -85,6 +94,20 @@ export function SmsPacksCard() {
           </button>
         ))}
       </div>
+
+      {isWA && (
+        <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 flex items-center gap-3 flex-wrap" data-testid="wa-auto-reply-row">
+          <Bot className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className="flex-1 min-w-[180px]">
+            <div className="text-sm font-semibold text-slate-800">Mira answers WhatsApp for you</div>
+            <div className="text-[11px] text-slate-500">1 credit per reply · <span data-testid="wa-auto-replies-30d">{cfg.usage_30d?.whatsapp_auto_replies ?? 0}</span> replies in the last 30 days</div>
+          </div>
+          <button data-testid="wa-auto-reply-toggle" onClick={toggleAuto} disabled={busy === "auto"}
+            className={`relative w-11 h-6 rounded-full transition-colors ${cfg.wa_auto_reply ? "bg-emerald-500" : "bg-slate-300"}`} aria-pressed={cfg.wa_auto_reply}>
+            <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${cfg.wa_auto_reply ? "translate-x-5" : "translate-x-0.5"}`} />
+          </button>
+        </div>
+      )}
 
       {cfg.enabled ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">

@@ -3206,3 +3206,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - public_chat booking guard: if Mira claims "booked" without `[[BOOK]]` JSON after a confirm, re-asks the model for the line once (fixes hallucinated confirmations).
 - `/salon/:slug` landing rebuilt (components/salon/LandingSections.jsx, LandingPromos.jsx): hero, USPs, info strip, CTAs, category tiles, trust strip, Gift Card + Premium Membership image cards (public/assets/salon/*.jpg), trending shades, gallery, reviews, transformation CTA, footer. All Book CTAs → `/book/:slug#choose-services` (BookPublic scrolls straight to services).
 - `/api/public/salon-page/{slug}` now returns hero_image, hours, open/close, maps_url, socials, branches, customers_count, membership, gift_cards_enabled, shades.
+
+## 2026-09-15 — WhatsApp credit metering — VERIFIED (manual script /tmp-style + UI screenshot)
+- `services/whatsapp_mira.py`: `_reserve_credit` atomically `$inc wa_points -1` (only if ≥1) before Mira replies; ledger row in `sms_credit_log` (source `mira_auto_reply`, points -1); refund on send failure. Zero balance → message `status: no_credits`, owner bell notice (`tenant_notices`, kind `wa_credits`, deduped daily) + owner email (once/day via `wa_credits_alert_at`).
+- `GET /sms-packs` now returns `usage_30d.whatsapp_auto_replies` and `wa_auto_reply`; `PUT /sms-packs/wa-auto-reply {enabled}` owner toggle. Settings → Message credits → WhatsApp tab shows "Mira answers WhatsApp for you" toggle + 30-day usage.
