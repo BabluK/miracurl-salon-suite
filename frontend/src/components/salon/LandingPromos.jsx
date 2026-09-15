@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Gift, Crown, ArrowRight, Calendar, Sparkles, ShieldCheck, Users, Star, Palette } from "lucide-react";
+import { ArrowRight, Calendar, Sparkles, ShieldCheck, Users, Star, Palette } from "lucide-react";
 import { GOLD_BTN } from "./LandingSections";
 
 export function PromoCards({ s, slug }) {
@@ -9,25 +9,29 @@ export function PromoCards({ s, slug }) {
   return (
     <section className={`max-w-6xl mx-auto px-5 sm:px-8 py-8 grid gap-4 ${gift && mem ? "md:grid-cols-2" : ""}`} data-testid="salon-promo-cards">
       {gift && (
-        <div className="relative overflow-hidden rounded-2xl border border-pink-400/20 bg-[radial-gradient(circle_at_20%_30%,rgba(236,72,153,.35),transparent_55%),linear-gradient(135deg,#1a0a14,#0b0b0f)] p-6 flex items-center gap-5">
-          <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#1b1b1f] to-black border border-gold/40 flex items-center justify-center shadow-[0_20px_40px_-20px_rgba(232,197,106,.6)] shrink-0"><Gift className="w-12 h-12 text-gold" strokeWidth={1.2} /></div>
-          <div>
-            <h3 className="font-playfair text-2xl text-white">Gift Card</h3>
-            <p className="text-sm text-white/60 mt-1">The perfect gift for your loved ones — birthday, anniversary &amp; more.</p>
-            <Link to={`/gift/${slug}`} data-testid="salon-gift-card-btn" className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-pink-500 text-white text-xs font-bold hover:bg-pink-400">Buy Gift Card <ArrowRight className="w-3.5 h-3.5" /></Link>
+        <Link to={`/gift/${slug}`} data-testid="salon-gift-card-btn" className="group relative overflow-hidden rounded-2xl border border-pink-400/25 min-h-[190px] flex items-center shadow-[0_30px_60px_-30px_rgba(236,72,153,.6)]">
+          <img src="/assets/salon/gift-card.jpg" alt="" className="absolute inset-0 w-full h-full object-cover object-left group-hover:scale-[1.03] transition-transform duration-700" />
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#1a0a14]/40 to-[#1a0a14]/90" />
+          <div className="relative ml-auto w-[58%] sm:w-1/2 pr-6 py-6">
+            <h3 className="font-playfair text-2xl sm:text-3xl text-white">Gift Card</h3>
+            <p className="text-sm text-white/75 mt-1">The perfect gift for your loved ones</p>
+            <span className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white text-sm font-bold shadow-[0_10px_24px_-10px_rgba(236,72,153,.9)] group-hover:brightness-110">Buy Gift Card <ArrowRight className="w-4 h-4" /></span>
           </div>
-        </div>
+        </Link>
       )}
       {mem && (
-        <div className="relative overflow-hidden rounded-2xl border border-gold/25 bg-[radial-gradient(circle_at_80%_20%,rgba(232,197,106,.28),transparent_55%),linear-gradient(135deg,#17120a,#0b0b0f)] p-6 flex items-center gap-5">
-          <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#1b1b1f] to-black border border-gold/40 flex items-center justify-center shrink-0"><Crown className="w-12 h-12 text-gold" strokeWidth={1.2} /></div>
-          <div className="flex-1">
-            <h3 className="font-playfair text-2xl text-white">Premium Membership</h3>
-            <p className="text-sm text-white/60 mt-1">Exclusive benefits, priority booking &amp; more with {mem.name}.</p>
-            <Link to={`/membership/${slug}`} data-testid="salon-membership-btn" className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-xs font-bold hover:brightness-110">View Plans <ArrowRight className="w-3.5 h-3.5" /></Link>
+        <Link to={`/membership/${slug}`} data-testid="salon-membership-btn" className="group relative overflow-hidden rounded-2xl border border-gold/30 min-h-[190px] flex items-center shadow-[0_30px_60px_-30px_rgba(232,197,106,.5)]">
+          <img src="/assets/salon/premium-membership.jpg" alt="" className="absolute inset-0 w-full h-full object-cover object-left group-hover:scale-[1.03] transition-transform duration-700" />
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#17120a]/40 to-[#17120a]/90" />
+          <div className="relative ml-auto w-[58%] sm:w-1/2 pr-6 py-6">
+            <h3 className="font-playfair text-2xl sm:text-3xl text-white">Premium Membership</h3>
+            <p className="text-sm text-white/75 mt-1">Exclusive benefits, priority booking &amp; more</p>
+            <div className="mt-4 flex items-center gap-3 flex-wrap">
+              <span className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm font-bold shadow-[0_10px_24px_-10px_rgba(232,197,106,.9)] group-hover:brightness-110">View Plans <ArrowRight className="w-4 h-4" /></span>
+              {(mem.cashback_pct || mem.discount_pct) ? <span className="px-2.5 py-1.5 rounded-lg bg-gold text-[#1a1408] text-[10px] font-bold text-center leading-tight whitespace-pre-line">{mem.cashback_pct ? `${mem.cashback_pct}%\nCashback` : `${mem.discount_pct}%\nOff`}</span> : null}
+            </div>
           </div>
-          {(mem.cashback_pct || mem.discount_pct) ? <div className="absolute right-4 bottom-4 w-14 h-14 rounded-full bg-gold text-[#1a1408] text-[10px] font-bold flex items-center justify-center text-center leading-tight">{mem.cashback_pct ? `${mem.cashback_pct}% Cashback` : `${mem.discount_pct}% Off`}</div> : null}
-        </div>
+        </Link>
       )}
     </section>
   );

@@ -1,0 +1,29 @@
+{
+  "summary": "Verified the redesigned tenant public landing (/salon/miracurl-marathahalli), booking deep-link from every Book CTA, extended backend payload, Settings two-column responsive layout, and Settings #subscription hash-scroll fix. All checks pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "verifications": {
+    "backend": {
+      "GET /api/public/salon-page/miracurl-marathahalli": "200; keys present: hero_image, open_time (10:00), close_time (21:00), maps_url, instagram_url, branches (list len 1), customers_count (122, int>0), membership (dict), gift_cards_enabled (true), shades (list with id/name/image_url). hero_image was falsy but key exists as spec asks 'includes keys'.",
+      "GET /api/public/salon-page/does-not-exist": "404 as expected"
+    },
+    "frontend_landing_desktop_1920": "All 17 data-testids found (salon-hero, salon-name, salon-info-strip, salon-book-now-btn, salon-talk-to-mira-btn, salon-signature-services, salon-cat-more + 7 cat tiles, salon-trust-strip, salon-promo-cards, salon-gift-card-btn, salon-membership-btn, salon-trending-shades (6 imgs), salon-reviews, salon-transform-cta, salon-footer-book-btn, salon-footer, salon-header-book-btn). salon-name text: 'Where EleganceMeets Every Strand'. Mira widget opens on salon-talk-to-mira-btn click. No non-401/404 console errors.",
+    "book_deep_link": "From salon-book-now-btn: scrollY=1390, hash cleared. From salon-footer-book-btn: scrollY=1112, hash cleared. From salon-cat-*: scrollY=1131, hash cleared. All > 500 within 3.5s.",
+    "booking_regression": "After adding a service and clicking Continue, page advances to 'Choose your stylist' step (Stylist = step 2 highlighted).",
+    "mobile_390": "document.documentElement.scrollWidth = 390 (no horizontal overflow). Hero text readable, buttons stack.",
+    "settings_layout": "Desktop 1920: settings-col-left and settings-col-right side-by-side (leftLeft=288, rightLeft=1100, same top). Mobile 390: settings-col-right.top >= settings-col-left.bottom (stacked single column).",
+    "settings_subscription_hash_scroll": "After PIN 4321 unlock at /settings#subscription, #subscription element scrolls IN VIEW within ~2s (top=96, scrollY=4149). Well within 20s window."
+  },
+  "critical_code_review_comments": [
+    "hero_image is currently empty for the seeded tenant; the public landing renders without a hero background image. Not a bug (fallback works) but consider seeding a default hero_image for demo polish.",
+    "The public /api/public/salon-page endpoint has a large flat payload; consider ETag/Cache-Control on it since it is public and mostly static."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL, Owner PIN 4321, tenant miracurl-marathahalli",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "iteration_156: SalonPublic landing + book deep-link + Settings responsive/#subscription scroll fix + extended public payload all verified end-to-end on preview. No regressions detected in booking flow (Continue advances to Stylist step)."
+}
