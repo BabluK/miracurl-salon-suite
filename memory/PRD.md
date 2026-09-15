@@ -3214,3 +3214,12 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-15 — Low WhatsApp credit warning — VERIFIED (script + screenshot)
 - Dashboard `components/dashboard/WaCreditsBanner.jsx` (owner only): amber banner when `wa_points < 20`, red when 0 ("Mira has gone silent"); "Top up WhatsApp" opens SmsPacksCard on the WhatsApp tab (`defaultChannel` prop); dismiss hides for the day (localStorage).
 - Backend: `_reserve_credit` pushes a bell notice `wa_credits_low` (deduped per day) when the balance drops under `LOW_CREDIT_THRESHOLD = 20`.
+
+## 2026-09-15 — HQ tenant features, campaign onboarding gate, HQ support-access guardrails — VERIFIED iteration_157
+- `services/tenant_features.py` + `routes/tenant_features.py`: per-tenant `features.{sms,whatsapp}` (default OFF; HQ enables), `GET/PUT /super-admin/tenants/{tid}/features` (also campaign on/auto/off → invite flow: doc-pack email + bell `campaign_invite` + popup reset), onboarding `PUT /super-admin/rewards-campaign/onboarding/{tid}` actions schedule / call_done / go_live / pause / resend_invite, `GET …/onboarding` list, owner `PUT /settings/support-access`.
+- Gate: `campaign_live_ok` = signed agreement AND HQ go-live → QR poster, public casting page, joins. Startup `backfill_onboarding()` marks pre-existing signed salons live + purges stale `color_pick` bell notices.
+- Agreement: consents `agree_share` + `agree_visibility` mandatory; clause 5.5 (HQ business visibility) added; consents on signed PDF acceptance page; HQ email on acceptance (`HQ_NOTIFY_EMAIL` / `SUPPORT_REPLY_TO`).
+- Guardrails in `security._hq_workspace_guard`: `support_access=False` → 403 for HQ in tenant workspace; every HQ write → `audit_log` action `hq_edit` actor "Miracurl Support"; owner bell `hq_access` once/day.
+- Sending gates: `send_tenant_sms` → `sms_disabled`; `send_text(tenant_id)` raises when WhatsApp OFF; Mira auto-reply skips. `/tenants/current` + `/sms-packs` expose `features`/`support_access`.
+- UI: Super Admin row "Features" → `TenantFeaturesModal`; owner Settings `SupportAccessCard`, CampaignAgreementCard steps (Invited→Signed→Call→Done→Live) + 2 consent ticks; popup "Read documents & approve"; SMS/WA tabs & dashboard widgets hidden when OFF.
+- Test tenant miracurl-marathahalli: sms/whatsapp ON, live=true.
