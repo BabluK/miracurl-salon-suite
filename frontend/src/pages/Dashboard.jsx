@@ -4,7 +4,7 @@ import api from "@/lib/api";
 import pinApi from "@/lib/ownerPin";
 import { useAuth } from "@/context/AuthContext";
 import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare, Send, Bell, Check, Clock, ArrowRight, Lock, Unlock } from "lucide-react";
-import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, CartesianGrid } from "recharts";
+import { ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, ReferenceDot } from "recharts";
 import { toast } from "sonner";
 import ReviewBlastModal from "./ReviewBlastModal";
 import DailyReportBanner from "@/components/DailyReportBanner";
@@ -240,44 +240,8 @@ export default function Dashboard() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <div className="text-xs uppercase tracking-[0.18em] text-slate-500 font-medium">Revenue · Last 7 Days</div>
-              <div className="text-xl font-semibold text-slate-800 mt-1">Trend Line</div>
-            </div>
-          </div>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%" minHeight={200}>
-              <LineChart data={data.revenue_trend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} tickFormatter={d => d.slice(5)} />
-                <YAxis stroke="#94a3b8" fontSize={11} />
-                <Tooltip contentStyle={CHART_TOOLTIP_STYLE} labelStyle={CHART_TOOLTIP_LABEL_STYLE} />
-                <Line type="monotone" dataKey="revenue" stroke="#0ea5e9" strokeWidth={2.5} dot={LINE_DOT} activeDot={LINE_ACTIVE_DOT} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <div className="text-xs uppercase tracking-[0.18em] text-slate-500 font-medium">Top Services</div>
-          <div className="text-xl font-semibold text-slate-800 mt-1 mb-4">Most Booked</div>
-          {data.top_services.length === 0 ? (
-            <div className="text-slate-400 text-sm py-8 text-center">No bookings yet</div>
-          ) : (
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%" minHeight={200}>
-                <BarChart data={data.top_services} layout="vertical">
-                  <XAxis type="number" stroke="#94a3b8" fontSize={11} />
-                  <YAxis type="category" dataKey="name" stroke="#94a3b8" fontSize={11} width={90} />
-                  <Tooltip contentStyle={CHART_TOOLTIP_STYLE_BARE} />
-                  <Bar dataKey="count" fill="#0ea5e9" radius={BAR_RADIUS} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
+        <RevenueTrendCard trend={data.revenue_trend} inr={inr} />
+        <TopServicesCard services={data.top_services} />
       </div>
 
       {/* Staff performance */}
@@ -517,10 +481,18 @@ function RenewalBanner({ sub }) {
 
 const PERF_TABS = [
   { k: "today", label: "Today" },
+  { k: "yesterday", label: "Yesterday" },
   { k: "week", label: "This Week" },
   { k: "month", label: "This Month" },
   { k: "last_month", label: "Last Month" },
 ];
+
+const PERF_MEDALS = [
+  { ring: "from-[#F3D27A] to-[#C89B52] text-[#5b4300] shadow-[0_6px_14px_-4px_rgba(200,155,82,.7)]", bar: "from-[#C89B52] via-[#E8C96A] to-[#F0D9A5]", tag: "Top Performer", sub: "Keep it up!", icon: "👑" },
+  { ring: "from-slate-200 to-slate-400 text-slate-700", bar: "from-sky-400 to-sky-300", tag: "On Track", sub: "Great progress!", icon: "2" },
+  { ring: "from-orange-200 to-orange-400 text-orange-900", bar: "from-orange-400 to-amber-300", tag: "Rising", sub: "Push a little more" , icon: "3" },
+];
+const PERF_AVATAR = ["bg-rose-100 text-rose-600", "bg-sky-100 text-sky-600", "bg-emerald-100 text-emerald-600", "bg-violet-100 text-violet-600", "bg-amber-100 text-amber-700"];
 
 function StaffPerformance({ inr }) {
   const [perf, setPerf] = useState(null);
@@ -537,25 +509,30 @@ function StaffPerformance({ inr }) {
   const rangeLabel = range ? (range.start === range.end ? fmtD(range.start) : `${fmtD(range.start)} – ${fmtD(range.end)}`) : "";
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm" data-testid="staff-performance-card">
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-        <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-slate-500 font-medium">Staff Performance</div>
-          <div className="text-xl font-semibold text-slate-800 mt-1">Business by Stylist</div>
-          {rangeLabel && (
-            <div className="text-[11px] text-slate-400 mt-0.5" data-testid="perf-range-label">
-              {rangeLabel}
-              {tab === "week" && perf?.ranges?.week?.start?.slice(0, 7) !== perf?.ranges?.month?.start?.slice(0, 7) && (
-                <span className="text-amber-500 font-medium"> · includes end of last month</span>
-              )}
-            </div>
-          )}
+    <div className="relative overflow-hidden rounded-3xl border border-[#eadfcb] p-5 sm:p-6 shadow-sm bg-[radial-gradient(120%_100%_at_0%_0%,#fff8ec_0%,#f7efe2_55%,#f3e9d8_100%)]" data-testid="staff-performance-card">
+      <div className="pointer-events-none absolute -top-10 -right-10 w-40 h-40 rounded-full bg-[#d4af37]/10 blur-2xl" />
+      <div className="flex items-start justify-between flex-wrap gap-4 mb-5">
+        <div className="flex items-start gap-4">
+          <div className="hidden sm:flex w-12 h-12 rounded-2xl bg-white/70 border border-[#eadfcb] items-center justify-center text-2xl shadow-sm">✂️</div>
+          <div className="sm:border-l sm:border-[#e3d5bd] sm:pl-4">
+            <div className="text-[11px] uppercase tracking-[0.26em] text-[#8a7350] font-semibold">Staff Performance</div>
+            <div className="font-playfair text-2xl sm:text-3xl text-slate-900 leading-tight">Business by Stylist</div>
+            {rangeLabel && (
+              <div className="text-xs text-slate-500 mt-1 flex items-center gap-1.5" data-testid="perf-range-label">
+                <Calendar className="w-3.5 h-3.5 text-[#b08d3f]" /> {rangeLabel}
+                {tab === "week" && perf?.ranges?.week?.start?.slice(0, 7) !== perf?.ranges?.month?.start?.slice(0, 7) && (
+                  <span className="text-amber-600 font-medium">· includes end of last month</span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex items-center gap-1 p-1 rounded-full bg-white/80 border border-[#eadfcb] shadow-sm flex-wrap" data-testid="perf-tabs">
+          <span className="hidden sm:inline-flex w-8 h-8 items-center justify-center text-[#b08d3f]"><Calendar className="w-4 h-4" /></span>
           {PERF_TABS.map(t => (
             <button key={t.k} data-testid={`perf-tab-${t.k}`} onClick={() => setTab(t.k)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                tab === t.k ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-[background-color,color,transform] active:scale-95 ${
+                tab === t.k ? "bg-gradient-to-r from-[#b8893a] to-[#d4af37] text-white shadow" : "text-slate-600 hover:bg-[#f3e9d8]"}`}>
               {t.label}
             </button>
           ))}
@@ -564,33 +541,143 @@ function StaffPerformance({ inr }) {
       {!perf ? (
         <div className="text-slate-400 text-sm py-6 text-center">Loading…</div>
       ) : rows.length === 0 ? (
-        <div className="text-slate-400 text-sm py-6 text-center">No billing recorded for this period yet.</div>
+        <div className="text-slate-500 text-sm py-8 text-center bg-white/60 rounded-2xl border border-dashed border-[#e3d5bd]">No billing recorded for this period yet.</div>
       ) : (
-        <ul className="space-y-2" data-testid="perf-rows">
-          {rows.map((r, i) => (
-            <li key={r.staff_id} data-testid={`perf-row-${r.staff_id}`} className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 hover:border-slate-200 transition">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                i === 0 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>
-                {i === 0 ? "🏆" : `#${i + 1}`}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-slate-800 text-sm truncate">{r.name}</span>
-                  <span className="font-bold text-slate-900 text-sm">{inr(r.revenue)}</span>
+        <ul className="space-y-3" data-testid="perf-rows">
+          {rows.map((r, i) => {
+            const m = PERF_MEDALS[i] || { ring: "from-slate-100 to-slate-200 text-slate-500", bar: "from-slate-300 to-slate-200", tag: "In the game", sub: "Every bill counts", icon: `${i + 1}` };
+            const pct = Math.max(4, (r.revenue / maxRev) * 100);
+            return (
+              <li key={r.staff_id} data-testid={`perf-row-${r.staff_id}`} style={{ animationDelay: `${i * 70}ms` }}
+                className="animate-fade-up flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl bg-white/85 border border-white shadow-[0_8px_24px_-14px_rgba(80,60,20,.35)]">
+                <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${m.ring} flex items-center justify-center text-base font-bold flex-shrink-0 ring-2 ring-white`}>{m.icon}</div>
+                <div className={`hidden sm:flex w-11 h-11 rounded-full items-center justify-center font-playfair text-lg font-semibold flex-shrink-0 ${PERF_AVATAR[i % PERF_AVATAR.length]}`}>{(r.name || "?").trim().charAt(0).toUpperCase()}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-playfair text-lg text-slate-900 truncate leading-tight">{r.name}</div>
+                      <div className="text-[11px] text-slate-500">{r.bills} bill{r.bills !== 1 ? "s" : ""} · {r.services} service{r.services !== 1 ? "s" : ""}</div>
+                    </div>
+                    <div className="font-playfair text-xl text-slate-900 whitespace-nowrap">{inr(r.revenue)}</div>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-slate-200/70 mt-2 overflow-hidden">
+                    <div className={`h-full rounded-full bg-gradient-to-r ${m.bar} transition-[width] duration-700`} style={{ width: `${pct}%` }} />
+                  </div>
                 </div>
-                <div className="flex items-center justify-between gap-2 mt-1">
-                  <span className="text-[11px] text-slate-400">{r.bills} bill{r.bills !== 1 ? "s" : ""} · {r.services} service{r.services !== 1 ? "s" : ""}</span>
+                <div className="hidden lg:flex items-center gap-2.5 pl-4 border-l border-slate-200 min-w-[170px]">
+                  <div className="w-9 h-9 rounded-xl bg-[#f7efe2] flex items-center justify-center text-base">{i === 0 ? "📈" : i === 1 ? "🎯" : "✨"}</div>
+                  <div><div className="text-sm font-semibold text-slate-800">{m.tag}</div><div className="text-[11px] text-slate-500">{m.sub}</div></div>
                 </div>
-                <div className="h-1.5 rounded-full bg-slate-100 mt-1.5 overflow-hidden">
-                  <div className={`h-full rounded-full ${i === 0 ? "bg-amber-400" : "bg-sky-400"}`}
-                    style={{ width: `${Math.max(4, (r.revenue / maxRev) * 100)}%` }} />
-                </div>
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
+      <div className="mt-5 pt-4 border-t border-[#e3d5bd] flex items-center justify-between gap-3 text-[10px] sm:text-[11px] uppercase tracking-[0.22em] text-[#8a7350]">
+        <span>Beauty people. Stronger together.</span>
+        <span className="font-playfair normal-case tracking-[0.3em] text-sm text-slate-800">MIRACURL</span>
+      </div>
     </div>
   );
 }
 
+
+const GOLD_CARD = "relative overflow-hidden rounded-3xl border border-[#eadfcb] p-5 sm:p-6 shadow-sm bg-[radial-gradient(120%_100%_at_0%_0%,#fff8ec_0%,#f7efe2_55%,#f3e9d8_100%)]";
+const fmtDay = (iso) => new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+const fmtDow = (iso) => new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short" });
+
+function GoldStat({ icon, value, label }) {
+  return (
+    <div className="flex items-center gap-2.5 min-w-0">
+      <div className="w-9 h-9 rounded-full bg-white/80 border border-[#eadfcb] flex items-center justify-center text-base shadow-sm flex-shrink-0">{icon}</div>
+      <div className="min-w-0"><div className="font-playfair text-lg text-slate-900 leading-tight truncate">{value}</div><div className="text-[11px] text-slate-500 truncate">{label}</div></div>
+    </div>
+  );
+}
+
+function RevenueTrendCard({ trend = [], inr }) {
+  const total = trend.reduce((a, d) => a + (d.revenue || 0), 0);
+  const peak = trend.reduce((m, d) => (d.revenue > (m?.revenue ?? -1) ? d : m), null);
+  const tracked = trend.filter(d => d.revenue > 0).length;
+  const first = trend[0]?.date, last = trend[trend.length - 1]?.date;
+  const XTick = ({ x, y, payload }) => (
+    <g transform={`translate(${x},${y})`}><text textAnchor="middle" fill="#6b5a3e" fontSize={11} dy={12}>{fmtDay(payload.value)}</text><text textAnchor="middle" fill="#a08a66" fontSize={10} dy={26}>{fmtDow(payload.value)}</text></g>
+  );
+  return (
+    <div className={`${GOLD_CARD} lg:col-span-2`} data-testid="revenue-trend-card">
+      <div className="flex items-start justify-between flex-wrap gap-3 mb-3">
+        <div className="flex items-start gap-3">
+          <div className="hidden sm:flex w-12 h-12 rounded-2xl bg-white/70 border border-[#eadfcb] items-center justify-center text-2xl shadow-sm">📈</div>
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.26em] text-[#8a7350] font-semibold">Revenue · Last 7 Days</div>
+            <div className="font-playfair text-2xl sm:text-3xl text-slate-900 leading-tight">Revenue Trend</div>
+            <div className="text-xs text-slate-500 mt-0.5">Track your daily revenue and see your business growth</div>
+          </div>
+        </div>
+        {first && <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-white/80 border border-[#eadfcb] text-xs font-medium text-slate-700 shadow-sm" data-testid="revenue-trend-range"><Calendar className="w-3.5 h-3.5 text-[#b08d3f]" /> {fmtDay(first)} – {fmtDay(last)} {last?.slice(0, 4)}</div>}
+      </div>
+      <div className="h-64 -ml-2">
+        <ResponsiveContainer width="100%" height="100%" minHeight={200}>
+          <AreaChart data={trend} margin={{ top: 28, right: 12, left: 0, bottom: 16 }}>
+            <defs>
+              <linearGradient id="goldArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#c89b52" stopOpacity={0.45} /><stop offset="100%" stopColor="#c89b52" stopOpacity={0.02} /></linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e8dcc6" vertical={false} />
+            <XAxis dataKey="date" stroke="#d6c7ab" tickLine={false} tick={<XTick />} height={40} interval={0} />
+            <YAxis stroke="#d6c7ab" tickLine={false} axisLine={false} fontSize={11} tick={{ fill: "#8a7350" }} tickFormatter={v => `₹${v >= 1000 ? `${(v / 1000).toFixed(v % 1000 ? 1 : 0)}k` : v}`} width={52} />
+            <Tooltip cursor={{ stroke: "#c89b52", strokeDasharray: "3 3" }} contentStyle={{ background: "#fffaf0", border: "1px solid #eadfcb", borderRadius: 12, color: "#1e293b" }} labelStyle={{ color: "#8a7350" }} formatter={(v) => [inr(v), "Revenue"]} labelFormatter={(l) => `${fmtDay(l)} · ${fmtDow(l)}`} />
+            <Area type="monotone" dataKey="revenue" stroke="#b08d3f" strokeWidth={2.5} fill="url(#goldArea)" dot={{ fill: "#b08d3f", stroke: "#fff8ec", strokeWidth: 2, r: 4 }} activeDot={{ r: 6, fill: "#d4af37" }} />
+            {peak?.revenue > 0 && <ReferenceDot x={peak.date} y={peak.revenue} r={0} shape={(p) => <g><rect x={p.cx - 58} y={p.cy - 40} width={116} height={24} rx={8} fill="#8a6d1f" /><text x={p.cx} y={p.cy - 24} textAnchor="middle" fill="#fff" fontSize={11} fontWeight="600">{`${inr(peak.revenue)} · ${fmtDay(peak.date)}`}</text></g>} />}
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="mt-4 pt-4 border-t border-[#e3d5bd] grid grid-cols-2 sm:grid-cols-4 gap-3" data-testid="revenue-trend-stats">
+        <GoldStat icon="🏦" value={inr(total)} label="Total Revenue" />
+        <GoldStat icon="↗" value={inr(trend.length ? Math.round(total / trend.length) : 0)} label="Daily Average" />
+        <GoldStat icon="⭐" value={inr(peak?.revenue || 0)} label={peak ? `Highest Day (${fmtDay(peak.date)})` : "Highest Day"} />
+        <GoldStat icon="📅" value={tracked} label="Days with billing" />
+      </div>
+    </div>
+  );
+}
+
+const SERVICE_ICON = [["colour", "🎨"], ["color", "🎨"], ["beard", "🧔"], ["men", "💇‍♂️"], ["women", "💇‍♀️"], ["facial", "🧖"], ["wash", "🚿"], ["spa", "🧖"], ["nail", "💅"], ["wax", "🪒"], ["threading", "🪡"], ["makeup", "💄"], ["massage", "💆"], ["keratin", "✨"], ["smooth", "✨"]];
+const svcIcon = (n = "") => (SERVICE_ICON.find(([k]) => n.toLowerCase().includes(k)) || [null, "✂️"])[1];
+const ROSE_BARS = ["from-[#8f4a5e] to-[#a85c73]", "from-[#b5657e] to-[#c9788f]", "from-[#d68ea2] to-[#e3a5b5]", "from-[#e3a5b5] to-[#eebcc8]", "from-[#eebcc8] to-[#f4d2da]"];
+
+function TopServicesCard({ services = [] }) {
+  const max = services[0]?.count || 1;
+  return (
+    <div className={GOLD_CARD} data-testid="top-services-card">
+      <div className="pointer-events-none absolute -top-8 -right-8 w-32 h-32 rounded-full bg-[#d4af37]/10 blur-2xl" />
+      <div className="flex items-start gap-3 mb-4">
+        <div className="hidden sm:flex w-12 h-12 rounded-2xl bg-white/70 border border-[#eadfcb] items-center justify-center text-2xl shadow-sm">✂️</div>
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.26em] text-[#8a7350] font-semibold">Top Services</div>
+          <div className="font-playfair text-2xl sm:text-3xl text-slate-900 leading-tight">Most Booked</div>
+          <div className="text-xs text-slate-500 mt-0.5">Your most loved services this month</div>
+        </div>
+      </div>
+      {services.length === 0 ? (
+        <div className="text-slate-500 text-sm py-8 text-center bg-white/60 rounded-2xl border border-dashed border-[#e3d5bd]">No bookings yet</div>
+      ) : (
+        <ul className="space-y-3" data-testid="top-services-rows">
+          {services.slice(0, 6).map((sv, i) => (
+            <li key={sv.name} className="flex items-center gap-3 animate-fade-up" style={{ animationDelay: `${i * 60}ms` }} data-testid={`top-service-${i}`}>
+              <div className="w-10 h-10 rounded-full bg-white/80 border border-[#eadfcb] flex items-center justify-center text-lg shadow-sm flex-shrink-0">{svcIcon(sv.name)}</div>
+              <div className="w-24 sm:w-28 text-sm font-medium text-slate-800 leading-tight truncate" title={sv.name}>{sv.name}</div>
+              <div className="flex-1 h-5 rounded-full bg-white/70 border border-[#eadfcb] overflow-hidden relative">
+                <div className={`h-full rounded-full bg-gradient-to-r ${ROSE_BARS[i] || ROSE_BARS[4]} transition-[width] duration-700`} style={{ width: `${Math.max(10, (sv.count / max) * 100)}%` }} />
+                {sv.count / max < 0.6 && <span className="absolute inset-y-0 flex items-center text-[11px] font-semibold text-slate-700" style={{ left: `calc(${Math.max(10, (sv.count / max) * 100)}% + 8px)` }}>{sv.count}</span>}
+              </div>
+              <div className="w-6 text-right text-sm font-semibold text-slate-800">{sv.count}</div>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-5 pt-4 border-t border-[#e3d5bd] flex items-center justify-center gap-3 text-[10px] uppercase tracking-[0.22em] text-[#8a7350]">
+        <span className="text-base">🪷</span><span className="h-px w-8 bg-[#d6c7ab]" /><span>Beauty brings out confidence</span><span className="h-px w-8 bg-[#d6c7ab]" /><span className="text-base">🍃</span>
+      </div>
+    </div>
+  );
+}

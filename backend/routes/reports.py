@@ -104,8 +104,10 @@ async def staff_performance(user=Depends(get_current_user)):
     week_start = today_start - timedelta(days=today_start.weekday())
     month_start = today_start.replace(day=1)
     last_month_start = (month_start - timedelta(days=1)).replace(day=1)
+    yesterday_start = today_start - timedelta(days=1)
     periods = {
         "today": (today_start, None),
+        "yesterday": (yesterday_start, today_start),
         "week": (week_start, None),
         "month": (month_start, None),
         "last_month": (last_month_start, month_start),
@@ -137,6 +139,7 @@ async def staff_performance(user=Depends(get_current_user)):
     last_month_end = month_start - timedelta(days=1)
     result["ranges"] = {
         "today": {"start": today_start.date().isoformat(), "end": now.date().isoformat()},
+        "yesterday": {"start": yesterday_start.date().isoformat(), "end": yesterday_start.date().isoformat()},
         "week": {"start": week_start.date().isoformat(), "end": now.date().isoformat()},
         "month": {"start": month_start.date().isoformat(), "end": now.date().isoformat()},
         "last_month": {"start": last_month_start.date().isoformat(), "end": last_month_end.date().isoformat()},
