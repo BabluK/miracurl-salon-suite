@@ -41,23 +41,25 @@ export function UnbilledPanel({ sym = "₹", isOwner = false }) {
   const pendingTotal = bills.reduce((s, b) => s + Number(b.total || 0), 0);
 
   return (
-    <div className="card-light p-0 overflow-hidden" data-testid="report-unbilled-panel">
-      <div className="p-4 flex items-center gap-2 border-b border-slate-100 flex-wrap">
-        <ClipboardList className="w-4 h-4 text-amber-600" />
-        <h3 className="font-playfair text-xl">Unbilled / Not Paid</h3>
+    <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden" data-testid="report-unbilled-panel">
+      <div className="p-5 flex items-center gap-4 flex-wrap">
+        <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0"><ClipboardList className="w-5 h-5" /></div>
+        <div>
+          <h3 className="font-playfair text-2xl text-slate-900 leading-tight">Unbilled / Not Paid</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Owners get an end-of-day email if bills are left open</p>
+        </div>
         {bills.length > 0 ? (
-          <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1" data-testid="unbilled-count">
+          <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5" data-testid="unbilled-count">
             {bills.length} open · {sym}{pendingTotal.toLocaleString("en-IN")} pending
           </span>
         ) : (
-          <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1" data-testid="unbilled-clear">
+          <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5" data-testid="unbilled-clear">
             ✓ All bills paid
           </span>
         )}
-        <span className="ml-auto text-[11px] text-slate-400">Owners get an end-of-day email if bills are left open</span>
       </div>
       {bills.length > 0 && (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto border-t border-slate-100">
           <table className="luxe-table-light">
             <thead><tr><th>Invoice</th><th>Created</th><th>Customer</th><th className="text-right">Total</th><th>Collect via</th><th className="text-right">Actions</th></tr></thead>
             <tbody>

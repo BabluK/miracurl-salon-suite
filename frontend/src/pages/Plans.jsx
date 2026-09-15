@@ -12,7 +12,7 @@ const TABS = [
 ];
 
 export default function Plans() {
-  const [tab, setTab] = useState("packages");
+  const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get("tab") || "packages");
   const [packages, setPackages] = useState([]);
   const [memberships, setMemberships] = useState([]);
   const [coupons, setCoupons] = useState([]);

@@ -1,4 +1,17 @@
+import { useState } from "react";
 import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from "lucide-react";
+
+export const PAGE_SIZE = 20;
+
+export function usePager(rows, noun = "rows", defaultPerPage = PAGE_SIZE) {
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(defaultPerPage);
+  const last = Math.max(1, Math.ceil(rows.length / perPage));
+  const cur = Math.min(page, last);
+  const paged = rows.slice((cur - 1) * perPage, cur * perPage);
+  const pager = <CrmPager total={rows.length} page={cur} perPage={perPage} setPage={setPage} setPerPage={setPerPage} noun={noun} />;
+  return { paged, pager, resetPage: () => setPage(1) };
+}
 
 const TONES = {
   rose: "bg-rose-50 text-rose-500", amber: "bg-amber-50 text-amber-500", emerald: "bg-emerald-50 text-emerald-600", pink: "bg-pink-50 text-pink-500",
@@ -56,7 +69,7 @@ export function CrmPager({ total, page, perPage, setPage, setPerPage, noun = "ro
       </div>
       <div className="flex items-center gap-2">Show
         <select value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }} data-testid="pager-per-page" className="border border-slate-200 rounded-lg px-2 py-1 text-sm !bg-white !text-slate-800 appearance-auto">
-          {[8, 10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+          {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
         </select> per page</div>
     </div>
   );

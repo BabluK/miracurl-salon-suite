@@ -7,6 +7,7 @@ import { WeekGrid } from "@/components/appointments/WeekGrid";
 import { NewAppointmentModal } from "@/components/appointments/NewAppointmentModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ColorPickCard } from "@/components/appointments/ColorPickCard";
+import { usePager } from "@/components/crm/CrmBits";
 
 const STATUS_COLOR = {
   scheduled: "bg-blue-500/10 text-blue-400 border-blue-500/20",
@@ -113,6 +114,8 @@ export default function Appointments() {
     const rest = list.filter(a => a.status !== "scheduled");
     return [...pending, ...rest];
   }, [list]);
+  const { paged: apptPage, pager: apptPager, resetPage: resetApptPage } = usePager(displayList, "bookings");
+  useEffect(() => { resetApptPage(); }, [date, view]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function setStatus(id, status) {
     try {
@@ -262,7 +265,7 @@ export default function Appointments() {
           <table className="luxe-table-light min-w-[760px]">
             <thead><tr><th>Time</th><th>Customer</th><th>Services</th><th>Stylist</th><th>Total</th><th>Status</th><th></th></tr></thead>
             <tbody>
-              {displayList.map(a => (
+              {apptPage.map(a => (
                 <tr key={a.id} data-testid={`appt-row-${a.id}`} className={a.status === "scheduled" ? "appt-attention" : ""}>
                   <td>
                     {view === "upcoming" && <div className="text-xs font-medium text-slate-600">{new Date(a.scheduled_at).toLocaleDateString([], { day: "numeric", month: "short" })}</div>}
@@ -323,6 +326,7 @@ export default function Appointments() {
               )}
             </tbody>
           </table>
+          {list.length > 0 && apptPager}
         </div>
       )}
 

@@ -303,7 +303,12 @@ async def list_invoices(status: Optional[str] = None, q: Optional[str] = None, d
             if cust:
                 ors.append({"customer_id": {"$in": [c["id"] for c in cust]}})
         flt["$or"] = ors
-    return await db.invoices.find(flt, {"_id": 0}).sort("created_at", -1).to_list(min(max(limit, 1), 500))
+    rows = await db.invoices.find(flt, {"_id": 0}).sort("created_at", -1).to_list(min(max(limit, 1), 500))
+    cids = list({r.get("customer_id") for r in rows if r.get("customer_id")})
+    phones = {c["id"]: c.get("phone") async for c in db.customers.find({"id": {"$in": cids}}, {"_id": 0, "id": 1, "phone": 1})} if cids else {}
+    for r in rows:
+        r.setdefault("customer_phone", phones.get(r.get("customer_id")) or "")
+    return rows
 
 
 class LoyaltySettingsIn(BaseModel):

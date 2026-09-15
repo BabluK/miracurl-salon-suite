@@ -2,9 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import pinApi from "@/lib/ownerPin";
 import { toast } from "sonner";
-import { IndianRupee, DollarSign, FileText, Users, Percent, MapPin, Star, Lock, Unlock, Trash2, Pencil, Heart } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
-import { EditInvoiceModal } from "@/components/EditInvoiceModal";
+import { IndianRupee, DollarSign, BarChart3, Store, Calendar, Loader2 } from "lucide-react";
 import { BillLookup } from "@/components/BillLookup";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { UnbilledPanel } from "@/components/reports/UnbilledPanel";
@@ -14,9 +12,12 @@ import { mainSalonLabel } from "@/lib/branch";
 import { curSym } from "@/lib/currency";
 import { TipsReportCard } from "@/components/reports/TipsReportCard";
 import { LoyaltyGiftsReportCard } from "@/components/reports/LoyaltyGiftsReportCard";
+import { TopKpis, TrendKpis } from "@/components/reports/ReportKpis";
+import { BranchPerformance, PeriodBreakdowns, StaffBusiness } from "@/components/reports/ReportBreakdowns";
+import { CommissionCard } from "@/components/reports/CommissionCard";
+import { TipsPayoutTable } from "@/components/reports/TipsPayoutTable";
 
-const COLORS = ["#0ea5e9", "#3b82f6", "#8b5cf6", "#f59e0b", "#10b981"];
-const PIE_TOOLTIP_STYLE = { background: "#fff", border: "1px solid #e2e8f0", color: "#0f172a" };
+const FIELD = "w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm !bg-white !text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#9b3a4e]/30";
 
 export default function Reports() {
   const { tenant, user } = useAuth();
@@ -25,6 +26,7 @@ export default function Reports() {
   const [start, setStart] = useState(monthAgo);
   const [end, setEnd] = useState(today);
   const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [commission, setCommission] = useState(null);
   const [tips, setTips] = useState(null);
   const [pct, setPct] = useState(0);
@@ -32,8 +34,8 @@ export default function Reports() {
   const [rateUnlocked, setRateUnlocked] = useState(() => sessionStorage.getItem("commission_rate_unlock") === "1");
   const [commissionUnlocked, setCommissionUnlocked] = useState(() => sessionStorage.getItem("commission_report_unlock") === "1");
   const [erasing, setErasing] = useState(false);
-  const [editing, setEditing] = useState(null);
   const [dlg, setDlg] = useState(null);
+  const isRestaurant = tenant?.business_type === "restaurant";
 
   const unlockRate = async () => {
     try {
@@ -77,14 +79,14 @@ export default function Reports() {
   };
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const a = await api.get(`/reports/sales?start=${start}&end=${end}&branch=${encodeURIComponent(repBranch)}`);
       setData(a.data);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Couldn't load sales report");
     }
-    // Commission figures are Owner-PIN protected — fetch ONLY after explicit unlock,
-    // so staff/managers can open Reports without being nagged for the PIN.
+    // Commission figures are Owner-PIN protected — fetch ONLY after explicit unlock.
     if (commissionUnlocked) {
       try {
         const b = await pinApi.get(`/reports/staff-commission?start=${start}&end=${end}&pct=${pct}`);
@@ -97,6 +99,7 @@ export default function Reports() {
       const c = await api.get(`/reports/staff-tips?start=${start}&end=${end}`);
       setTips(c.data);
     } catch { /* tips report optional */ }
+    setLoading(false);
   }, [start, end, pct, repBranch, commissionUnlocked]);
   useEffect(() => { load(); }, [load]);
 
@@ -116,391 +119,71 @@ export default function Reports() {
 
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="font-playfair text-3xl">Sales Reports</h1>
-          <p className="text-slate-500 text-sm mt-1">Insights into {tenant?.business_type === "restaurant" ? "restaurant" : "salon"} performance and revenue.</p>
+      <div className="flex items-end justify-between flex-wrap gap-4" data-testid="report-header">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-rose-50 text-[#9b3a4e] flex items-center justify-center shadow-sm"><BarChart3 className="w-6 h-6" /></div>
+          <div>
+            <h1 className="font-playfair text-3xl sm:text-4xl text-slate-900">Sales Reports</h1>
+            <p className="text-slate-500 text-sm mt-1">Insights into {isRestaurant ? "restaurant" : "salon"} performance and revenue.</p>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-end gap-3 flex-wrap">
           <div>
-            <label className="label-light block mb-1">From</label>
-            <input data-testid="report-start" type="date" className="input-light" value={start} onChange={e => setStart(e.target.value)} />
+            <label className="block text-xs text-slate-500 mb-1.5">From</label>
+            <div className="relative"><Calendar className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9b3a4e]/70 pointer-events-none" />
+              <input data-testid="report-start" type="date" className={FIELD} value={start} onChange={e => setStart(e.target.value)} /></div>
           </div>
           <div>
-            <label className="label-light block mb-1">To</label>
-            <input data-testid="report-end" type="date" className="input-light" value={end} onChange={e => setEnd(e.target.value)} />
+            <label className="block text-xs text-slate-500 mb-1.5">To</label>
+            <div className="relative"><Calendar className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9b3a4e]/70 pointer-events-none" />
+              <input data-testid="report-end" type="date" className={FIELD} value={end} onChange={e => setEnd(e.target.value)} /></div>
           </div>
-          <div>
-            <label className="label-light block mb-1">{tenant?.business_type === "restaurant" ? "Restaurant / Branch" : "Salon / Branch"}</label>
-            {user?.role === "manager" ? (
-              <div className="input-light text-slate-600 bg-slate-50 cursor-not-allowed" data-testid="report-branch-locked">
-                🔒 {user?.branch === "__main__" ? mainSalonLabel(tenant) : (user?.branch || (tenant?.business_type === "restaurant" ? "Your restaurant" : "Your salon"))}
-              </div>
-            ) : (
-              <select data-testid="report-branch-filter" className="input-light text-slate-800" value={repBranch} onChange={e => setRepBranch(e.target.value)}>
-                <option value="">{tenant?.business_type === "restaurant" ? "🌐 All restaurants" : "🌐 All salons"}</option>
-                <option value="__main__">🏠 {mainSalonLabel(tenant)} (Main)</option>
-                {(tenant?.branches || []).map(b => <option key={b.id || b.name} value={b.name}>{b.name}</option>)}
-              </select>
-            )}
+          <div className="min-w-[220px]">
+            <label className="block text-xs text-slate-500 mb-1.5">{isRestaurant ? "Restaurant / Branch" : "Salon / Branch"}</label>
+            <div className="relative"><Store className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9b3a4e]/70 pointer-events-none" />
+              {user?.role === "manager" ? (
+                <div className={`${FIELD} text-slate-600 !bg-slate-50 cursor-not-allowed`} data-testid="report-branch-locked">
+                  🔒 {user?.branch === "__main__" ? mainSalonLabel(tenant) : (user?.branch || (isRestaurant ? "Your restaurant" : "Your salon"))}
+                </div>
+              ) : (
+                <select data-testid="report-branch-filter" className={`${FIELD} appearance-auto`} value={repBranch} onChange={e => setRepBranch(e.target.value)}>
+                  <option value="">{isRestaurant ? "All restaurants" : "All salons"}</option>
+                  <option value="__main__">{mainSalonLabel(tenant)} (Main)</option>
+                  {(tenant?.branches || []).map(b => <option key={b.id || b.name} value={b.name}>{b.name}</option>)}
+                </select>
+              )}
+            </div>
           </div>
+          <button data-testid="report-generate-btn" onClick={load} disabled={loading}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#7f2d3f] to-[#a83d54] text-white text-sm font-semibold shadow-[0_10px_24px_-10px_rgba(155,58,78,.7)] hover:brightness-110 disabled:opacity-60">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <BarChart3 className="w-4 h-4" />} Generate Report
+          </button>
         </div>
       </div>
 
+      {data && <TopKpis data={data} inr={inr} CurIcon={CurIcon} />}
+
       <BillLookup />
 
-      <TipsReportCard restaurant={tenant?.business_type === "restaurant"} />
-      <LoyaltyGiftsReportCard />
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <TipsReportCard restaurant={isRestaurant} />
+        <LoyaltyGiftsReportCard />
+      </div>
 
-      {!data ? <div className="text-slate-500">Loading...</div> : (
+      {!data ? <div className="text-slate-500 text-sm">Loading report…</div> : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            <div className="card-light" data-testid="report-total-revenue">
-              <div className="label-light">Period Revenue</div>
-              <div className="font-playfair text-4xl mt-2 text-sky-600 flex items-center"><CurIcon className="w-7 h-7" />{data.total_revenue.toLocaleString("en-IN")}</div>
-              <div className="text-xs text-slate-500 mt-2">from {start} to {end}</div>
-            </div>
-            <div className="card-light" data-testid="report-total-invoices">
-              <div className="label-light">Total Invoices</div>
-              <div className="font-playfair text-4xl mt-2">{data.total_invoices}</div>
-              <div className="text-xs text-slate-500 mt-2">avg {inr(data.total_invoices ? data.total_revenue / data.total_invoices : 0)} per bill</div>
-            </div>
-            <div className="card-light" data-testid="report-avg-rating">
-              <div className="label-light">Avg Rating</div>
-              <div className="font-playfair text-4xl mt-2 text-amber-500 flex items-center gap-2">
-                {data.avg_rating != null ? <>{data.avg_rating}<Star className="w-7 h-7 fill-amber-400 text-amber-400" /></> : "—"}
-              </div>
-              <div className="text-xs text-slate-500 mt-2">{data.review_count || 0} review{data.review_count === 1 ? "" : "s"} in period</div>
-            </div>
-            <div className="card-light">
-              <div className="label-light">Payment Mix</div>
-              <div className="font-playfair text-4xl mt-2">{data.by_payment_mode.length}</div>
-              <div className="text-xs text-slate-500 mt-2">payment modes used</div>
-            </div>
-          </div>
-
+          <TrendKpis data={data} inr={inr} start={start} end={end} />
           <MembershipReportCard />
-
-          {/* Branch performance — shown once bills are branch-tagged */}
-          {(data.by_branch || []).length > 0 && (data.by_branch.length > 1 || data.by_branch[0].branch !== "Main") && (
-            <div className="card-light" data-testid="branch-performance-card">
-              <div className="flex items-center gap-2 mb-1">
-                <MapPin className="w-5 h-5 text-sky-500" />
-                <h3 className="font-playfair text-xl">Branch Performance</h3>
-              </div>
-              <p className="text-xs text-slate-500 mb-4">Compare your locations side by side · bills without a branch selected at the POS appear under “Main”.</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {data.by_branch.map(b => {
-                  const share = data.total_revenue ? (b.revenue / data.total_revenue) * 100 : 0;
-                  return (
-                    <div key={b.branch} className="rounded-xl border border-slate-200 bg-slate-50 p-4" data-testid={`branch-perf-${b.branch}`}>
-                      <div className="text-sm font-semibold text-slate-700 truncate" title={b.branch}>{b.branch}</div>
-                      <div className="font-playfair text-2xl text-sky-600 mt-1.5">{inr(b.revenue)}</div>
-                      <div className="text-xs text-slate-500 mt-1">
-                        {b.invoices} bill{b.invoices === 1 ? "" : "s"} · avg {inr(b.invoices ? b.revenue / b.invoices : 0)}
-                      </div>
-                      <div className="mt-3 h-1.5 rounded-full bg-slate-200 overflow-hidden">
-                        <div className="h-full rounded-full bg-gradient-to-r from-sky-400 to-blue-500" style={{ width: `${share}%` }} />
-                      </div>
-                      <div className="text-[10px] text-slate-400 mt-1">{share.toFixed(0)}% of period revenue</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {(data.by_month || []).length > 0 && (
-            <div className="card-light" data-testid="monthly-revenue-card">
-              <div className="label-light">Month by Month</div>
-              <h3 className="font-playfair text-xl mt-1 mb-3">Monthly Revenue</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                      <th className="py-2">Month</th><th className="py-2 text-right">Bills</th><th className="py-2 text-right">Revenue</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.by_month.map(m => (
-                      <tr key={m.month} className="border-b border-slate-50" data-testid={`month-row-${m.month}`}>
-                        <td className="py-2 font-semibold text-slate-700">
-                          {new Date(m.month + "-01T00:00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
-                        </td>
-                        <td className="py-2 text-right text-slate-500">{m.invoices}</td>
-                        <td className="py-2 text-right font-bold text-slate-800">{sym}{Number(m.revenue).toLocaleString("en-IN")}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {(data.by_week || []).length > 0 && (
-            <div className="card-light" data-testid="weekly-revenue-card">
-              <div className="label-light">Week by Week</div>
-              <h3 className="font-playfair text-xl mt-1 mb-3">Weekly Revenue</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                      <th className="py-2">Week (Mon–Sun)</th><th className="py-2 text-right">Bills</th><th className="py-2 text-right">Revenue</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.by_week.map(w => {
-                      const start = new Date(w.week_start + "T00:00:00");
-                      const end = new Date(start); end.setDate(end.getDate() + 6);
-                      const f = (d) => d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-                      return (
-                        <tr key={w.week_start} className="border-b border-slate-50" data-testid={`week-row-${w.week_start}`}>
-                          <td className="py-2 font-semibold text-slate-700">{f(start)} – {f(end)}</td>
-                          <td className="py-2 text-right text-slate-500">{w.invoices}</td>
-                          <td className="py-2 text-right font-bold text-slate-800">{sym}{Number(w.revenue).toLocaleString("en-IN")}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {(data.by_staff || []).length > 0 && (
-            <div className="card-light" data-testid="staff-business-card">
-              <div className="label-light">Team Performance</div>
-              <h3 className="font-playfair text-xl mt-1 mb-3">Staff Business — this period</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                      <th className="py-2">Staff</th><th className="py-2 text-right">Services/Items</th><th className="py-2 text-right">Business</th><th className="py-2 text-right">Share</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.by_staff.map((s, i) => {
-                      const totalStaff = data.by_staff.reduce((a, x) => a + x.revenue, 0);
-                      const share = totalStaff ? (s.revenue / totalStaff) * 100 : 0;
-                      return (
-                        <tr key={s.staff_id} className="border-b border-slate-50" data-testid={`staff-biz-row-${s.staff_id}`}>
-                          <td className="py-2 font-semibold text-slate-700">{i === 0 ? "🏆 " : ""}{s.name}<span className="text-xs text-slate-400 font-normal">{s.role ? ` · ${s.role}` : ""}</span></td>
-                          <td className="py-2 text-right text-slate-500">{s.items}</td>
-                          <td className="py-2 text-right font-bold text-slate-800">{sym}{Number(s.revenue).toLocaleString("en-IN")}</td>
-                          <td className="py-2 text-right text-slate-500">{share.toFixed(0)}%</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            <div className="card-light">
-              <div className="label-light">Revenue by Payment Mode</div>
-              <div className="font-playfair text-xl mt-1 mb-3">Breakdown</div>
-              {data.by_payment_mode.length === 0 ? <div className="text-slate-500 text-sm py-8 text-center">No data</div> : (
-                <div className="h-56">
-                  <ResponsiveContainer width="100%" height="100%" minHeight={200}>
-                    <PieChart>
-                      <Pie data={data.by_payment_mode} dataKey="amount" nameKey="mode" innerRadius={45} outerRadius={75} paddingAngle={2}>
-                        {data.by_payment_mode.map((entry, i) => <Cell key={entry.mode} fill={COLORS[i % COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip contentStyle={PIE_TOOLTIP_STYLE} formatter={(v) => inr(v)} />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </div>
-
-            <div className="card-light lg:col-span-2 p-0 overflow-hidden">
-              <div className="p-4 flex items-center gap-2 border-b border-slate-100">
-                <FileText className="w-4 h-4 text-sky-600" />
-                <h3 className="font-playfair text-xl">Recent Invoices</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="luxe-table-light">
-                  <thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Mode</th><th className="text-right">Total</th><th></th></tr></thead>
-                  <tbody>
-                    {data.invoices.slice(0, 20).map(i => (
-                      <tr key={i.id}>
-                        <td className="font-mono text-xs">{i.invoice_no}{i.edit_count > 0 && <span className="ml-1 text-[9px] text-amber-500" title={`Edited by ${i.last_edited_by}`}>✎</span>}</td>
-                        <td className="text-xs text-slate-500">{new Date(i.created_at).toLocaleDateString()}</td>
-                        <td>{i.customer_name}</td>
-                        <td><span className="text-[10px] uppercase tracking-wider text-sky-600">{i.payment_mode}</span></td>
-                        <td className="text-right text-sky-600">{inr(i.total)}</td>
-                        <td>
-                          <button onClick={() => setEditing(i)} data-testid={`edit-invoice-btn-${i.id}`} title="Edit this bill"
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"><Pencil className="w-3.5 h-3.5" /></button>
-                        </td>
-                      </tr>
-                    ))}
-                    {data.invoices.length === 0 && <tr><td colSpan="6" className="text-center py-8 text-slate-500">No invoices in range</td></tr>}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
+          <BranchPerformance data={data} inr={inr} />
+          <PeriodBreakdowns data={data} sym={sym} />
+          <StaffBusiness data={data} sym={sym} />
           <UnbilledPanel sym={sym} isOwner={user?.role === "admin"} />
-
-          {/* Per-staff commission */}
-          <div className="card-light p-0 overflow-hidden" data-testid="commission-card">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-sky-600" />
-                <h3 className="font-playfair text-xl">Per-Stylist Commission</h3>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <label className="text-xs text-slate-500 uppercase tracking-wider">Rate</label>
-                <div className="relative">
-                  <input
-                    data-testid="commission-pct"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    value={pct}
-                    disabled={!rateUnlocked}
-                    onChange={e => setPct(Math.max(0, Math.min(100, Number(e.target.value || 0))))}
-                    className="text-slate-800 w-20 pl-2 pr-7 py-1.5 rounded-md bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-60 disabled:cursor-not-allowed"
-                  />
-                  <Percent className="w-3 h-3 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2" />
-                </div>
-                {!rateUnlocked && (
-                  <button onClick={unlockRate} data-testid="commission-rate-unlock-btn" title="Changing the rate needs the Admin PIN"
-                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100">
-                    <Lock className="w-3 h-3" /> Unlock rate
-                  </button>
-                )}
-                {rateUnlocked && <Unlock className="w-3.5 h-3.5 text-emerald-500" title="Rate unlocked for this session" />}
-                <span className="w-px h-5 bg-slate-200 mx-1" />
-                <button onClick={() => eraseBilling("last_month")} disabled={erasing} data-testid="erase-last-month-btn"
-                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 disabled:opacity-50">
-                  <Trash2 className="w-3 h-3" /> Erase last month
-                </button>
-                <button onClick={() => eraseBilling("all")} disabled={erasing} data-testid="erase-all-btn"
-                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-rose-300 bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50">
-                  <Trash2 className="w-3 h-3" /> Erase all data
-                </button>
-              </div>
-            </div>
-
-            {!commissionUnlocked && !commission && (
-              <div className="p-8 text-center" data-testid="commission-locked-state">
-                <Lock className="w-6 h-6 text-amber-500 mx-auto mb-2" />
-                <p className="text-sm text-slate-600 font-medium">Commission figures are PIN-protected</p>
-                <p className="text-xs text-slate-400 mt-1 mb-4">Staff earnings stay private — unlock with the Owner PIN to view.</p>
-                <button onClick={unlockCommission} data-testid="commission-unlock-btn"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-slate-900 text-white text-xs font-semibold hover:bg-slate-700">
-                  <Lock className="w-3 h-3" /> Unlock with Owner PIN
-                </button>
-              </div>
-            )}
-            {commission && (
-              <>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 bg-slate-50 border-b border-slate-100">
-                  <Mini label="Total gross" value={inr(commission.total_gross)} />
-                  <Mini label="Total commission" value={inr(commission.total_commission)} accent="text-sky-600" />
-                  <Mini label="Stylists earning" value={commission.rows.length} />
-                  <Mini label="Unassigned gross" value={inr(commission.unassigned.gross_revenue)} hint={commission.unassigned.gross_revenue > 0 ? "lines without staff_id" : ""} />
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="luxe-table-light">
-                    <thead>
-                      <tr>
-                        <th>Stylist</th>
-                        <th>Role</th>
-                        <th className="text-right">Items</th>
-                        <th className="text-right">Gross Revenue</th>
-                        <th className="text-right">Commission ({pct}%)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {commission.rows.length === 0 ? (
-                        <tr><td colSpan="5" className="text-center py-8 text-slate-500">No staff-attributed sales in this range yet. Tip: assign a Stylist on each POS cart line and the data lights up here.</td></tr>
-                      ) : commission.rows.map(r => (
-                        <tr key={r.staff_id} data-testid={`commission-row-${r.staff_id}`}>
-                          <td className="text-slate-800 font-medium">{r.staff_name}</td>
-                          <td className="text-xs text-slate-500">{r.role || "—"}</td>
-                          <td className="text-right text-slate-700">{r.item_count} <span className="text-[10px] text-slate-400">({r.service_count}s · {r.product_count}p)</span></td>
-                          <td className="text-right text-slate-800 font-medium">{inr(r.gross_revenue)}</td>
-                          <td className="text-right text-sky-600 font-semibold">{inr(r.commission_amount)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Per-stylist tips */}
-          <div className="card-light p-0 overflow-hidden" data-testid="tips-card">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-2">
-                <Heart className="w-4 h-4 text-rose-500" />
-                <h3 className="font-playfair text-xl">Tips by Stylist</h3>
-              </div>
-              <span className="text-xs text-slate-400">Tips captured at billing — 100% belongs to your team</span>
-            </div>
-            {tips && (
-              <>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-4 py-3 bg-rose-50/40 border-b border-slate-100">
-                  <Mini label="Total tips" value={inr(tips.total_tips)} accent="text-rose-600" />
-                  <Mini label="Pending handover" value={inr(tips.total_pending)} accent="text-amber-600" hint={tips.total_pending > 0 ? "mark paid when you hand cash over" : ""} />
-                  <Mini label="Stylists tipped" value={tips.rows.length} />
-                  <Mini label="Unassigned tips" value={inr(tips.unassigned_total)} hint={tips.unassigned_total > 0 ? "no stylist picked at POS" : ""} />
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="luxe-table-light">
-                    <thead>
-                      <tr><th>Stylist</th><th className="text-right">Tipped Bills</th><th className="text-right">Total Tips</th><th className="text-right">Paid Out</th><th className="text-right">Pending</th><th></th></tr>
-                    </thead>
-                    <tbody>
-                      {tips.rows.length === 0 ? (
-                        <tr><td colSpan="6" className="text-center py-8 text-slate-500">No tips in this range yet. Tip presets appear on the POS billing screen — tips go 100% to your team, separate from salary.</td></tr>
-                      ) : tips.rows.map(r => (
-                        <tr key={r.staff_id} data-testid={`tips-row-${r.staff_id}`}>
-                          <td className="text-slate-800 font-medium">{r.staff_name}</td>
-                          <td className="text-right text-slate-700">{r.tip_count}</td>
-                          <td className="text-right text-rose-600 font-semibold">{inr(r.tips_total)}</td>
-                          <td className="text-right text-emerald-600">{inr(r.paid_total)}</td>
-                          <td className="text-right text-amber-600 font-semibold">{inr(r.pending_total)}</td>
-                          <td className="text-right">
-                            {r.pending_total > 0 && (
-                              <button onClick={() => markTipsPaid(r)} data-testid={`tips-mark-paid-${r.staff_id}`}
-                                title="Hand the cash to this stylist (EOD / weekly / monthly — your call), then mark it paid here"
-                                className="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">
-                                ✓ Mark {inr(r.pending_total)} paid
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </div>
+          <CommissionCard commission={commission} unlocked={commissionUnlocked} pct={pct} setPct={setPct} rateUnlocked={rateUnlocked}
+            unlockRate={unlockRate} unlockCommission={unlockCommission} eraseBilling={eraseBilling} erasing={erasing} inr={inr} />
+          <TipsPayoutTable tips={tips} inr={inr} markTipsPaid={markTipsPaid} />
         </>
       )}
-      {editing && <EditInvoiceModal invoice={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
       {dlg && <ConfirmDialog open {...dlg} busy={erasing} onConfirm={() => dlg.action()} onClose={() => setDlg(null)} />}
-    </div>
-  );
-}
-
-function Mini({ label, value, accent = "text-slate-800", hint }) {
-  return (
-    <div>
-      <div className="label-light text-[10px]">{label}</div>
-      <div className={`text-lg font-semibold mt-0.5 ${accent}`}>{value}</div>
-      {hint && <div className="text-[10px] text-slate-400 mt-0.5">{hint}</div>}
     </div>
   );
 }

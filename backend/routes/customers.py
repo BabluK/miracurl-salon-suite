@@ -108,6 +108,8 @@ async def list_customers(q: Optional[str] = None, user=Depends(get_current_user)
         seen = {d["id"] for d in docs}
         extra = await db.customers.find({"crm_status": {"$ne": "pending"}}, proj).to_list(10000)
         docs += [c for c in extra if c["id"] not in seen and digits in re.sub(r"\D", "", c.get("phone") or "")]
+    for d in docs:
+        d.pop("_id", None)
     return docs
 
 async def _find_by_phone(digits: str, exclude_id: str | None = None):
@@ -350,6 +352,7 @@ async def get_customer(cid: str, user=Depends(get_current_user)):
     c = await db.customers.find_one({"id": cid}, _customer_projection(user))
     if not c:
         raise HTTPException(404, "Not found")
+    c.pop("_id", None)
     return c
 
 @router.put("/customers/{cid}")

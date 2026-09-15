@@ -24,7 +24,7 @@ export default function Customers() {
   const [dateFilter, setDateFilter] = useState("all"); // all | today | yesterday | week
   const [sort, setSort] = useState({ key: "created_at", dir: "desc" });
   const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(10);
+  const [perPage, setPerPage] = useState(20);
   const [form, setForm] = useState({ name: "", phone: "", country_code: "+91", email: "", gender: "Female", dob: "", anniversary: "", address: "", notes: "", instagram: "", facebook: "", telegram: "" });
 
   const load = useCallback(async () => {

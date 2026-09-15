@@ -4,6 +4,7 @@ import { Plus, X, Edit3, Trash2, AlertTriangle, Package, Download, Upload, Minus
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import ImageUploader from "@/components/ImageUploader";
+import { usePager } from "@/components/crm/CrmBits";
 
 export default function Inventory() {
   const [list, setList] = useState([]);
@@ -71,6 +72,7 @@ export default function Inventory() {
 
   const lowStock = list.filter(p => p.stock <= p.low_stock_threshold);
   const shown = list.filter(p => tab === "all" ? true : (p.product_type || "retail") === tab);
+  const { paged: shownPage, pager, resetPage } = usePager(shown, "products");
 
   async function recordUse(e) {
     e.preventDefault();
@@ -112,7 +114,7 @@ export default function Inventory() {
 
       <div className="flex items-center gap-2">
         {[["all", "All"], ["retail", "Retail · For Sale"], ["in_house", "In-house · Service Use"]].map(([k, l]) => (
-          <button key={k} data-testid={`inv-tab-${k}`} onClick={() => setTab(k)}
+          <button key={k} data-testid={`inv-tab-${k}`} onClick={() => { setTab(k); resetPage(); }}
                   className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors ${tab === k ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"}`}>
             {l}
           </button>
@@ -128,7 +130,7 @@ export default function Inventory() {
             </tr>
           </thead>
           <tbody>
-            {shown.map(p => {
+            {shownPage.map(p => {
               const low = p.stock <= p.low_stock_threshold;
               const inHouse = (p.product_type || "retail") === "in_house";
               return (
@@ -178,6 +180,7 @@ export default function Inventory() {
             {shown.length === 0 && <tr><td colSpan="9" className="text-center text-slate-500 py-12">No products {tab !== "all" ? "in this category" : "yet"}</td></tr>}
           </tbody>
         </table>
+        {pager}
       </div>
 
       {open && (

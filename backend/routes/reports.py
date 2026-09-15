@@ -402,9 +402,25 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None,
     staff_docs = await db.staff.find(
         {"id": {"$in": list(by_staff.keys())}}, {"_id": 0, "id": 1, "name": 1, "role": 1}).to_list(300) if by_staff else []
     smap = {s["id"]: s for s in staff_docs}
+    uniq = lambda rows: len({r.get("customer_id") or r.get("customer_name") or r["id"] for r in rows})  # noqa: E731
+    prev = None
+    if start and end:
+        try:
+            s_dt, e_dt = datetime.strptime(start, "%Y-%m-%d"), datetime.strptime(end, "%Y-%m-%d")
+            span = (e_dt - s_dt).days + 1
+            p_start, p_end = (s_dt - timedelta(days=span)).strftime("%Y-%m-%d"), (s_dt - timedelta(days=1)).strftime("%Y-%m-%d")
+            p_invs = await db.invoices.find({**flt, "created_at": {"$gte": p_start, "$lte": p_end + "T23:59:59Z"}},
+                                            {"_id": 0, "id": 1, "total": 1, "customer_id": 1, "customer_name": 1}).to_list(2000)
+            prev = {"start": p_start, "end": p_end, "total_invoices": len(p_invs),
+                    "total_revenue": round(sum(float(i.get("total") or 0) for i in p_invs), 2),
+                    "unique_customers": uniq(p_invs)}
+        except ValueError:
+            prev = None
     return {
         "total_invoices": len(invs),
         "total_revenue": round(total_revenue, 2),
+        "unique_customers": uniq(invs),
+        "prev": prev,
         "avg_rating": avg_rating,
         "review_count": len(reviews),
         "by_payment_mode": [{"mode": k, "amount": round(v, 2)} for k, v in by_mode.items()],

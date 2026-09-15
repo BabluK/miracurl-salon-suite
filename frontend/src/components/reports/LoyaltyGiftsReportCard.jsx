@@ -1,12 +1,17 @@
 import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
-import { Gift } from "lucide-react";
+import { Gift, Sparkles, Scissors, Ticket, Gem } from "lucide-react";
+import { RangeChips } from "./RangeChips";
+import { SectionCard } from "./SectionCard";
 
 const RANGES = [
   { k: "week", label: "Last 7 days", days: 6 },
   { k: "month", label: "Last 30 days", days: 29 },
   { k: "quarter", label: "Last 90 days", days: 89 },
 ];
+const ICONS = [[/spa|treat|mask/i, Sparkles, "text-amber-600 bg-amber-50"], [/cut|trim|hair/i, Scissors, "text-[#9b3a4e] bg-rose-50"],
+  [/voucher|discount|off|coupon/i, Ticket, "text-sky-600 bg-sky-50"], [/premium|upgrade|gold|vip/i, Gem, "text-violet-600 bg-violet-50"]];
+const iconFor = (name) => ICONS.find(([rx]) => rx.test(name || "")) || [null, Gift, "text-emerald-600 bg-emerald-50"];
 
 export function LoyaltyGiftsReportCard() {
   const [range, setRange] = useState("month");
@@ -21,45 +26,46 @@ export function LoyaltyGiftsReportCard() {
       setData(d);
     } catch { setData(null); }
   }, []);
-
   useEffect(() => { load(range); }, [range, load]);
 
   if (!data) return null;
+  const groups = Object.entries(data.rows.reduce((a, r) => { a[r.gift] = (a[r.gift] || 0) + 1; return a; }, {})).sort((x, y) => y[1] - x[1]);
+
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-6 mt-6" data-testid="loyalty-gifts-report-card">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-            <Gift className="w-5 h-5 text-amber-500" /> Loyalty gifts given
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">Every surprise gift handed out on a full stamp card — {data.total} in this period</p>
-        </div>
-        <div className="flex gap-1">
-          {RANGES.map(r => (
-            <button key={r.k} onClick={() => setRange(r.k)} data-testid={`gifts-range-${r.k}`}
-              className={`text-[11px] px-2.5 py-1 rounded-full border ${range === r.k ? "bg-amber-500 text-white border-amber-500" : "border-slate-200 text-slate-500 hover:border-amber-400"}`}>
-              {r.label}
-            </button>
-          ))}
-        </div>
-      </div>
+    <SectionCard icon={Gift} tone="amber" title="Loyalty gifts given" subtitle="Delight your customers, build lasting relationships." testid="loyalty-gifts-report-card"
+      right={<RangeChips ranges={RANGES} value={range} onChange={setRange} testPrefix="gifts-range" tone="amber" />}>
       {data.rows.length === 0 ? (
-        <p className="text-sm text-slate-400 mt-4">No gifts redeemed in this period yet.</p>
+        <p className="text-sm text-slate-400 mt-5">No gifts redeemed in this period yet.</p>
       ) : (
-        <div className="mt-4 divide-y divide-slate-100">
-          {data.rows.map(r => (
-            <div key={r.id} className="py-2.5 flex items-center justify-between gap-3 flex-wrap" data-testid="gift-log-row">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-800">🎁 {r.gift}</p>
-                <p className="text-[11px] text-slate-500">{r.customer_name || "Guest"} · {r.phone} · by {r.redeemed_by}</p>
-              </div>
-              <span className="text-[11px] text-slate-400 shrink-0">
-                {new Date(r.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} · {new Date(r.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
-              </span>
+        <div className="flex items-start gap-5 mt-5 flex-wrap">
+          <div className="min-w-[120px]">
+            <div className="font-playfair text-4xl sm:text-5xl text-slate-900" data-testid="gifts-total">{data.total}</div>
+            <div className="text-sm text-slate-500 mt-1">Gifts given</div>
+          </div>
+          <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {groups.slice(0, 8).map(([gift, n]) => {
+              const [, Icon, cls] = iconFor(gift);
+              return (
+                <div key={gift} className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4" data-testid="gift-group-tile">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${cls}`}><Icon className="w-5 h-5" /></div>
+                  <div className="font-playfair text-2xl text-slate-900 mt-3">{n}</div>
+                  <div className="text-xs text-slate-500 truncate" title={gift}>{gift}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {data.rows.length > 0 && (
+        <div className="mt-4 divide-y divide-slate-100 border-t border-slate-100">
+          {data.rows.slice(0, 5).map(r => (
+            <div key={r.id} className="py-2.5 flex items-center justify-between gap-3 flex-wrap text-sm" data-testid="gift-log-row">
+              <span className="text-slate-700"><span className="font-semibold text-slate-800">{r.gift}</span> · {r.customer_name || "Guest"} · {r.phone} <span className="text-slate-400">by {r.redeemed_by}</span></span>
+              <span className="text-[11px] text-slate-400 shrink-0">{new Date(r.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
             </div>
           ))}
         </div>
       )}
-    </div>
+    </SectionCard>
   );
 }
