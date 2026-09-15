@@ -103,6 +103,7 @@ from routes.rewards_campaign import router as rewards_campaign_router  # noqa: E
 from routes.growth_advisory import router as growth_advisory_router  # noqa: E402
 from routes.wallet_pass import router as wallet_pass_router  # noqa: E402
 from routes.site_info import router as site_info_router  # noqa: E402
+from routes.whatsapp_webhook import router as whatsapp_webhook_router  # noqa: E402
 from routes.blog import router as blog_router  # noqa: E402
 
 from seeds import backfill_tenant_ids, seed_super_admin, seed_default_tenant, seed_admin, seed_data  # noqa: E402
@@ -135,7 +136,7 @@ for _r in (
     cctv_router, hiring_router, hq_notifications_router, winback_router, payments_intl_router,
     employee_portal_router, hq_documents_router, mira_builder_router, manager_access_router,
     setup_wizard_router, lead_gen_router, tenant_mira_router, feedback_router, salon_digest_router,
-    pay_links_router,
+    pay_links_router, whatsapp_webhook_router,
     passkeys_router, eod_digests_router, wallet_pass_router, site_info_router,
     blog_router, cash_register_router, rewards_campaign_router, growth_advisory_router,
     subscription_invoices_router, rewards_settlements_router, campaign_agreement_router,
@@ -226,6 +227,9 @@ async def on_startup():
         except Exception as e:
             logging.warning(f"Could not drop legacy index: {e}")
         await _raw_db.customers.create_index([("tenant_id", 1), ("phone", 1)])
+        await _raw_db.whatsapp_events.create_index("event_key", unique=True)
+        await _raw_db.whatsapp_messages.create_index([("message_id", 1)])
+        await _raw_db.whatsapp_messages.create_index([("tenant_id", 1), ("created_at", -1)])
         await _raw_db.services.create_index([("tenant_id", 1), ("category", 1)])
         await _raw_db.products.create_index([("tenant_id", 1), ("sku", 1)], unique=True)
         await _raw_db.appointments.create_index([("tenant_id", 1), ("scheduled_at", 1)])
