@@ -339,23 +339,55 @@ SMS_PACKS = {
     "pack_499": {"price": 499, "points": 700, "label": "Growth"},
     "pack_999": {"price": 999, "points": 1500, "label": "Pro"},
 }
+WA_PACKS = {
+    "wa_299": {"price": 299, "points": 250, "label": "Starter"},
+    "wa_749": {"price": 749, "points": 700, "label": "Growth"},
+    "wa_1499": {"price": 1499, "points": 1500, "label": "Pro"},
+}
+CHANNELS = {"sms": {"packs": SMS_PACKS, "field": "sms_points", "label": "SMS"},
+            "whatsapp": {"packs": WA_PACKS, "field": "wa_points", "label": "WhatsApp"}}
+
+
+def _channel(name: str | None) -> dict:
+    ch = CHANNELS.get((name or "sms").lower())
+    if not ch:
+        raise HTTPException(400, "channel must be 'sms' or 'whatsapp'")
+    return {"key": (name or "sms").lower(), **ch}
+
+
+async def _notify_hq_pack_paid(t: dict, ch: dict, pending: dict) -> None:
+    """HQ gets a mail for every tenant top-up so it can keep the MSG91 / Meta pool topped up."""
+    try:
+        from email_service import _send_email
+        hq = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+        await _send_email([hq], f"💳 {t.get('name')} bought {pending['points']} {ch['label']} credits (₹{pending['amount']})",
+                          f"<p><b>{t.get('name')}</b> ({t.get('slug')}) paid <b>₹{pending['amount']}</b> via Razorpay for "
+                          f"<b>{pending['points']} {ch['label']} messages</b>.<br/>Payment: {pending.get('razorpay_payment_id')}<br/>"
+                          f"Credits were added to the tenant automatically — make sure the {ch['label']} pool "
+                          f"({'MSG91' if ch['key'] == 'sms' else 'Meta WhatsApp'}) has enough balance.</p>")
+    except Exception as e:  # noqa: BLE001
+        logging.warning(f"HQ pack-paid mail failed: {e}")
 
 
 class SmsPackOrderIn(BaseModel):
     pack: str
+    channel: str = "sms"
 
 
 class SmsPackVerifyIn(BaseModel):
     razorpay_order_id: str
     razorpay_payment_id: str
     razorpay_signature: str
+    channel: str = "sms"
 
 
 @router.get("/sms-packs")
-async def sms_packs(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    return {"enabled": bool(RAZORPAY_KEY_ID), "test_mode": RAZORPAY_KEY_ID.startswith("rzp_test_"),
-            "packs": [{"key": k, **v} for k, v in SMS_PACKS.items()],
-            "balance": int(t.get("sms_points") or 0)}
+async def sms_packs(channel: str = "sms", user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    ch = _channel(channel)
+    return {"enabled": bool(RAZORPAY_KEY_ID), "test_mode": RAZORPAY_KEY_ID.startswith("rzp_test_"), "channel": ch["key"],
+            "packs": [{"key": k, **v} for k, v in ch["packs"].items()],
+            "balance": int(t.get(ch["field"]) or 0),
+            "balances": {"sms": int(t.get("sms_points") or 0), "whatsapp": int(t.get("wa_points") or 0)}}
 
 
 @router.post("/sms-packs/order")
@@ -363,20 +395,21 @@ async def sms_pack_order(body: SmsPackOrderIn, user=Depends(require_tenant_admin
     rzp = _rzp_client()
     if not rzp:
         raise HTTPException(503, "Razorpay is not configured. Ask HQ to credit SMS points manually.")
-    pack = SMS_PACKS.get(body.pack)
+    ch = _channel(body.channel)
+    pack = ch["packs"].get(body.pack)
     if not pack:
         raise HTTPException(400, "Unknown pack")
-    receipt = f"sms_{t['slug'][:18]}_{int(datetime.now(timezone.utc).timestamp())}"[:40]
+    receipt = f"{ch['key'][:3]}_{t['slug'][:18]}_{int(datetime.now(timezone.utc).timestamp())}"[:40]
     order = rzp.order.create({
         "amount": int(pack["price"]) * 100, "currency": "INR", "receipt": receipt,
-        "notes": {"kind": "sms_pack", "tenant_id": t["id"], "pack": body.pack}})
+        "notes": {"kind": "sms_pack", "channel": ch["key"], "tenant_id": t["id"], "pack": body.pack}})
     await db.sms_pack_payments.insert_one({
-        "id": str(uuid.uuid4()), "kind": "sms_pack_pending", "razorpay_order_id": order["id"],
+        "id": str(uuid.uuid4()), "kind": "sms_pack_pending", "razorpay_order_id": order["id"], "channel": ch["key"],
         "tenant_id": t["id"], "pack": body.pack, "points": pack["points"], "amount": pack["price"],
         "status": "created", "created_at": datetime.now(timezone.utc).isoformat()})
     return {"order_id": order["id"], "amount": order["amount"], "currency": order["currency"],
-            "key_id": RAZORPAY_KEY_ID, "pack_label": f"{pack['points']} SMS points",
-            "points": pack["points"]}
+            "key_id": RAZORPAY_KEY_ID, "pack_label": f"{pack['points']} {ch['label']} messages",
+            "points": pack["points"], "channel": ch["key"]}
 
 
 @router.post("/sms-packs/verify")
@@ -396,14 +429,17 @@ async def sms_pack_verify(body: SmsPackVerifyIn, user=Depends(require_tenant_adm
     if not pending:
         raise HTTPException(400, "Unknown, already-consumed, or foreign order — please retry.")
     pts = int(pending["points"])
-    await db.tenants.update_one({"id": t["id"]}, {"$inc": {"sms_points": pts}})
+    ch = _channel(pending.get("channel") or body.channel)
+    await db.tenants.update_one({"id": t["id"]}, {"$inc": {ch["field"]: pts}})
     await _raw_db.sms_credit_log.insert_one({
-        "id": str(uuid.uuid4()), "tenant_id": t["id"], "points": pts, "source": "razorpay",
+        "id": str(uuid.uuid4()), "tenant_id": t["id"], "points": pts, "source": "razorpay", "channel": ch["key"],
         "payment_ref": body.razorpay_payment_id, "amount": pending["amount"],
         "credited_by": user.get("email"), "at": now.isoformat()})
-    fresh = await db.tenants.find_one({"id": t["id"]}, {"_id": 0, "sms_points": 1})
-    return {"ok": True, "points_added": pts,
-            "sms_points": int((fresh or {}).get("sms_points") or 0)}
+    await _notify_hq_pack_paid(t, ch, {**pending, "razorpay_payment_id": body.razorpay_payment_id})
+    fresh = await db.tenants.find_one({"id": t["id"]}, {"_id": 0, "sms_points": 1, "wa_points": 1})
+    return {"ok": True, "points_added": pts, "channel": ch["key"],
+            "sms_points": int((fresh or {}).get("sms_points") or 0), "wa_points": int((fresh or {}).get("wa_points") or 0),
+            "balance": int((fresh or {}).get(ch["field"]) or 0)}
 
 
 async def _grant_referral_free_month(referrer_tid: str) -> str:
@@ -1390,17 +1426,58 @@ async def sms_delivery_log(tenant_id: str = "", user=Depends(require_super_admin
 
 
 @router.post("/super-admin/tenants/{tid}/sms-points")
-async def credit_sms_points(tid: str, body: SmsPointsIn, user=Depends(require_super_admin)):
-    """Super-admin credits SMS points to a tenant (1 point = 1 customer SMS)."""
+async def credit_sms_points(tid: str, body: SmsPointsIn, channel: str = "sms", user=Depends(require_super_admin)):
+    """Super-admin distributes SMS / WhatsApp credits to a tenant from the platform pool (1 point = 1 message)."""
+    ch = _channel(channel)
     t = await db.tenants.find_one({"id": tid}, {"_id": 0, "id": 1})
     if not t:
         raise HTTPException(404, "Tenant not found")
-    await db.tenants.update_one({"id": tid}, {"$inc": {"sms_points": int(body.points)}})
+    await db.tenants.update_one({"id": tid}, {"$inc": {ch["field"]: int(body.points)}})
     await _raw_db.sms_credit_log.insert_one({
-        "id": str(uuid.uuid4()), "tenant_id": tid, "points": int(body.points), "source": "manual",
+        "id": str(uuid.uuid4()), "tenant_id": tid, "points": int(body.points), "source": "manual", "channel": ch["key"],
         "credited_by": user.get("email"), "at": datetime.now(timezone.utc).isoformat()})
-    fresh = await db.tenants.find_one({"id": tid}, {"_id": 0, "sms_points": 1})
-    return {"ok": True, "sms_points": int((fresh or {}).get("sms_points") or 0)}
+    fresh = await db.tenants.find_one({"id": tid}, {"_id": 0, "sms_points": 1, "wa_points": 1})
+    return {"ok": True, "channel": ch["key"], "sms_points": int((fresh or {}).get("sms_points") or 0),
+            "wa_points": int((fresh or {}).get("wa_points") or 0), "balance": int((fresh or {}).get(ch["field"]) or 0)}
+
+
+class MessagePoolIn(BaseModel):
+    sms_total: int = Field(0, ge=0, le=100_000_000)
+    wa_total: int = Field(0, ge=0, le=100_000_000)
+    note: str = Field("", max_length=300)
+
+
+@router.get("/super-admin/message-pool")
+async def message_pool(user=Depends(require_super_admin)):
+    """Platform pool (what HQ bought from MSG91 / Meta) vs what has been handed to tenants."""
+    pool = await _raw_db.platform_settings.find_one({"id": "message_pool"}, {"_id": 0}) or {"sms_total": 0, "wa_total": 0}
+    agg = await _raw_db.sms_credit_log.aggregate([
+        {"$match": {"source": "manual"}},
+        {"$group": {"_id": {"$ifNull": ["$channel", "sms"]}, "points": {"$sum": "$points"}}}]).to_list(5)
+    distributed = {r["_id"]: int(r["points"]) for r in agg}
+    bal = await db.tenants.aggregate([{"$group": {"_id": None, "sms": {"$sum": {"$ifNull": ["$sms_points", 0]}},
+                                                   "wa": {"$sum": {"$ifNull": ["$wa_points", 0]}}}}]).to_list(1)
+    held = (bal or [{}])[0]
+    sold = await _raw_db.sms_credit_log.aggregate([
+        {"$match": {"source": "razorpay"}},
+        {"$group": {"_id": {"$ifNull": ["$channel", "sms"]}, "points": {"$sum": "$points"}, "amount": {"$sum": {"$ifNull": ["$amount", 0]}}}}]).to_list(5)
+    sold_m = {r["_id"]: r for r in sold}
+    out = {}
+    for key, tot in (("sms", int(pool.get("sms_total") or 0)), ("whatsapp", int(pool.get("wa_total") or 0))):
+        d = distributed.get(key, 0)
+        out[key] = {"pool_total": tot, "distributed": d, "remaining": tot - d,
+                    "tenants_hold": int(held.get("sms" if key == "sms" else "wa") or 0),
+                    "sold_points": int((sold_m.get(key) or {}).get("points") or 0),
+                    "sold_amount": float((sold_m.get(key) or {}).get("amount") or 0)}
+    return {"pool": out, "note": pool.get("note", ""), "updated_at": pool.get("updated_at")}
+
+
+@router.put("/super-admin/message-pool")
+async def set_message_pool(body: MessagePoolIn, user=Depends(require_super_admin)):
+    doc = {"id": "message_pool", "sms_total": body.sms_total, "wa_total": body.wa_total, "note": body.note,
+           "updated_by": user.get("email"), "updated_at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.platform_settings.update_one({"id": "message_pool"}, {"$set": doc}, upsert=True)
+    return await message_pool(user)
 
 
 @router.get("/super-admin/sms-credits")

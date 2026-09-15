@@ -12,6 +12,7 @@ const W = (s) => (__resto && typeof s === "string" ? RESTO_WORDS.reduce((acc, [a
 
 const API = process.env.REACT_APP_BACKEND_URL;
 const PUBLIC = axios.create({ baseURL: `${API}/api/public` });
+const daysLeft = (iso) => { if (!iso) return null; const diff = Math.ceil((new Date(`${iso}T23:59:59`) - Date.now()) / 86400000); return diff < 0 ? null : diff; };
 const fmtDate = (d) => new Date(`${d}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
 const STEPS = [
@@ -361,6 +362,7 @@ export default function RewardsCampaign() {
             <div className="mt-5 flex items-center gap-4 flex-wrap text-xs text-white/55" data-testid="rewards-period">
               <span>{fmtDate(c.start_date)} → {fmtDate(c.end_date)}</span><span className="w-1 h-1 rounded-full bg-[#d4af37]" /><span>{d.participants} applicant{d.participants === 1 ? "" : "s"} so far</span><span className="w-1 h-1 rounded-full bg-[#d4af37]" /><span>{d.winners.length} of {c.winner_count}{W(" Brand Models chosen")}</span>
             </div>
+            {d.eligible && <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#d4af37]/15 border border-[#d4af37]/50 px-4 py-2 text-xs text-[#F0D9A5]" data-testid="rewards-hurry"><CalendarDays className="w-3.5 h-3.5" /><b>Hurry up — nominate yourself before {fmtDate(c.end_date)}!</b>{daysLeft(c.end_date) !== null && <span className="text-white/70">· {daysLeft(c.end_date) === 0 ? "last day today" : `${daysLeft(c.end_date)} day${daysLeft(c.end_date) === 1 ? "" : "s"} left`}</span>}</div>}
             {!d.eligible && <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-amber-500/15 border border-amber-400/40 px-4 py-2 text-xs text-amber-200" data-testid="rewards-not-live"><CalendarDays className="w-3.5 h-3.5" />{!d.salon_on ? W("This salon isn't part of the casting yet.") : d.agreement_pending ? W("This salon is completing its campaign onboarding — applications open here soon.") : d.status === "upcoming" ? `Casting opens ${fmtDate(c.start_date)} — applications go live that day.` : d.status === "ended" ? `Casting closed on ${fmtDate(c.end_date)}. Watch this page for the Brand Model reveal.` : "Casting isn't open right now — check back soon."}</div>}
             <div className="mt-7 flex gap-3 flex-wrap">
               <a href="#apply" className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] font-bold text-sm shadow-[0_10px_30px_-10px_rgba(212,175,55,.8)]" data-testid="rewards-hero-apply">Apply now <Sparkles className="w-4 h-4" /></a>

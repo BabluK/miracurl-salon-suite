@@ -21,6 +21,7 @@ import { SuperProfileCard, HealthBadge, AiInsightsPanel, RenewalNudge, HqInbox }
 import EngineerPanel from "@/components/EngineerPanel";
 import { LeaderboardPanel, RevenuePanel, HiringEarningsReview } from "@/components/superadmin/LeaderboardRevenue";
 import { OnboardingStudio } from "@/components/superadmin/OnboardingStudio";
+import { MessageCreditsCard } from "@/components/superadmin/MessageCreditsCard";
 import { PromoVideoStudio } from "@/components/superadmin/PromoVideoStudio";
 import { SuperNotifBell, StatusActionButton } from "@/components/superadmin/SuperNotifBell";
 import { InquiriesPanel } from "@/components/superadmin/InquiriesPanel";
@@ -500,7 +501,7 @@ export default function SuperAdmin() {
             pipeline: <FollowUpPipeline onGoTab={setTab} />,
             notifications: <NotificationsPanel feed={notifFeed} onGoTab={setTab} onRefresh={() => api.get("/super-admin/notifications").then(r => setNotifFeed(r.data)).catch(() => {})} />,
             "platform-map": <div className="space-y-6"><PlatformOverview onGoTab={setTab} /><PlatformOrbitMap onGoTab={setTab} /></div>,
-            billing: <div className="space-y-6"><StripePaymentsPanel /><BillingPanel tenants={tenants} /></div>,
+            billing: <div className="space-y-6"><MessageCreditsCard tenants={tenants} /><StripePaymentsPanel /><BillingPanel tenants={tenants} /></div>,
             partners: <PartnersPanel />,
             leaderboard: <LeaderboardPanel />,
             "growth-advisory": <GrowthAdvisoryPanel />,

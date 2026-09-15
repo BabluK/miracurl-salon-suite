@@ -17,9 +17,12 @@ function loadRazorpayScript() {
 export function SmsPacksCard() {
   const [cfg, setCfg] = useState(null);
   const [busy, setBusy] = useState("");
+  const [channel, setChannel] = useState("sms");
+  const isWA = channel === "whatsapp";
+  const unit = isWA ? "WhatsApp msg" : "SMS";
 
-  const refresh = () => api.get("/sms-packs").then(r => setCfg(r.data)).catch(() => setCfg({ enabled: false, packs: [], balance: 0 }));
-  useEffect(() => { refresh(); }, []);
+  const refresh = () => api.get(`/sms-packs?channel=${channel}`).then(r => setCfg(r.data)).catch(() => setCfg({ enabled: false, packs: [], balance: 0, balances: {} }));
+  useEffect(() => { refresh(); }, [channel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!cfg) return null;
 
@@ -28,12 +31,12 @@ export function SmsPacksCard() {
     try {
       const ok = await loadRazorpayScript();
       if (!ok) { toast.error("Couldn't load Razorpay — check your internet"); return; }
-      const { data: order } = await api.post("/sms-packs/order", { pack: pack.key });
+      const { data: order } = await api.post("/sms-packs/order", { pack: pack.key, channel });
       const options = {
         key: order.key_id,
         amount: order.amount,
         currency: order.currency,
-        name: "Miracurl ✦ SMS Points",
+        name: `Miracurl ✦ ${isWA ? "WhatsApp" : "SMS"} Credits`,
         description: order.pack_label,
         order_id: order.order_id,
         theme: { color: "#10b981" },
@@ -42,9 +45,9 @@ export function SmsPacksCard() {
             const { data } = await api.post("/sms-packs/verify", {
               razorpay_order_id: rzp.razorpay_order_id,
               razorpay_payment_id: rzp.razorpay_payment_id,
-              razorpay_signature: rzp.razorpay_signature,
+              razorpay_signature: rzp.razorpay_signature, channel,
             });
-            toast.success(`✅ +${data.points_added} SMS points added — balance ${data.sms_points}`);
+            toast.success(`✅ +${data.points_added} ${unit} credits added — balance ${data.balance}`);
             refresh();
           } catch (e) {
             toast.error(e.response?.data?.detail || "Verification failed. Contact support.");
@@ -65,14 +68,22 @@ export function SmsPacksCard() {
           <MessageSquare className="w-5 h-5" />
         </div>
         <div className="flex-1">
-          <h2 className="text-lg font-semibold text-slate-800">SMS receipt points</h2>
+          <h2 className="text-lg font-semibold text-slate-800">Message credits</h2>
           <p className="text-xs text-slate-500 mt-1">
-            Every billing SMS to a guest uses 1 point. Buy a pack below, or ask HQ to credit points for you.
+            Every guest message (booking confirmation, receipt, reminder) uses 1 credit. Buy a pack below — HQ is notified and can also credit you manually.
           </p>
         </div>
         <span className="text-xs px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold" data-testid="sms-balance-chip">
-          {cfg.balance} points left
+          {cfg.balance} {unit} left
         </span>
+      </div>
+      <div className="flex gap-1.5 mt-4" data-testid="message-channel-tabs">
+        {[["sms", "SMS", cfg.balances?.sms], ["whatsapp", "WhatsApp", cfg.balances?.whatsapp]].map(([k, l, b]) => (
+          <button key={k} data-testid={`channel-tab-${k}`} onClick={() => setChannel(k)}
+            className={`text-xs px-3 py-1.5 rounded-full border font-medium transition ${channel === k ? "bg-slate-900 text-emerald-300 border-slate-900" : "border-slate-300 text-slate-600 hover:border-slate-500"}`}>
+            {l} · {b ?? 0}
+          </button>
+        ))}
       </div>
 
       {cfg.enabled ? (
@@ -83,10 +94,10 @@ export function SmsPacksCard() {
               <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">{p.label}</div>
               <div className="text-2xl font-bold text-slate-800 mt-1">₹{p.price}</div>
               <div className="text-xs text-emerald-600 font-semibold mt-1 flex items-center gap-1">
-                <Zap className="w-3 h-3" /> {p.points} SMS
+                <Zap className="w-3 h-3" /> {p.points} {isWA ? "WhatsApp" : "SMS"}
                 {busy === p.key && <Loader2 className="w-3 h-3 animate-spin ml-1" />}
               </div>
-              <div className="text-[10px] text-slate-400 mt-1">≈ ₹{(p.price / p.points).toFixed(2)} / SMS</div>
+              <div className="text-[10px] text-slate-400 mt-1">≈ ₹{(p.price / p.points).toFixed(2)} / {unit}</div>
             </button>
           ))}
         </div>

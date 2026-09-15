@@ -258,6 +258,14 @@ export function SettlementTracker({ campaign = "main" }) {
           ? <span className="text-[10px] text-emerald-300 inline-flex items-center gap-1 ml-auto" data-testid="settlement-rzp-on"><CheckCircle2 className="w-3 h-3" /> Razorpay connected ({data.rzp_key}…) — links auto-generated</span>
           : <span className="text-[10px] text-amber-300 inline-flex items-center gap-1 ml-auto" data-testid="settlement-no-link"><AlertTriangle className="w-3 h-3" /> {data.payment_link ? "using the fallback payment link" : "add Razorpay keys (or a fallback link above) so nudges include a pay link"}</span>}
       </div>
+      {data.campaign?.state && data.campaign.state !== "live" && (
+        <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200 inline-flex items-center gap-2" data-testid="settlement-campaign-state">
+          <AlertTriangle className="w-3.5 h-3.5" />
+          {data.campaign.state === "off" && <>Campaign is <b>OFF</b> — earnings are not being tracked. Turn it on (with start & end dates) to start counting.</>}
+          {data.campaign.state === "upcoming" && <>Campaign starts <b>{data.campaign.start_date}</b> — earnings count from that day until {data.campaign.end_date}.</>}
+          {data.campaign.state === "ended" && <>Campaign ended <b>{data.campaign.end_date}</b> — totals are frozen at the final window; bills after this date don't count.</>}
+        </div>
+      )}
       <div className="flex gap-2 flex-wrap">
         <Chip label="Campaign earnings (all salons)" value={inr(s.campaign_revenue)} tone="text-slate-100" testId="settlement-sum-revenue" />
         <Chip label={`Miracurl share ${data.salon_share_pct ?? 10}%`} value={inr(s.suggested_total)} testId="settlement-sum-share" />

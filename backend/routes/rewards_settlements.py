@@ -54,9 +54,22 @@ async def _real_email(t: dict) -> str:
     return ""
 
 
+def campaign_state(c: dict) -> str:
+    """off | upcoming | live | ended — earnings are only tracked while the campaign is ON and inside its dates."""
+    if not c.get("enabled"):
+        return "off"
+    today = date.today().isoformat()
+    if today < c["start_date"]:
+        return "upcoming"
+    return "live" if today <= c["end_date"] else "ended"
+
+
 async def _campaign_revenue(c: dict, baselines: dict | None = None) -> dict:
     """Per-tenant POS earnings during the campaign window (paid invoices; total + eligible-bill count).
+    Nothing is counted while the campaign is OFF or hasn't started; bills outside start→end never count.
     `baselines` = {tenant_id: iso} — HQ 'cleared test earnings' marks; bills before the mark are ignored for that tenant."""
+    if campaign_state(c) in ("off", "upcoming"):
+        return {}
     start, end = f"{c['start_date']}T00:00:00", f"{c['end_date']}T23:59:59.999999+00:00"
     match = {"created_at": {"$gte": start, "$lte": end}, "paid": {"$ne": False}, "status": {"$nin": ["open", "void", "cancelled"]}}
     if baselines:
@@ -223,7 +236,8 @@ async def sa_settlements(campaign: str = "main", user=Depends(require_super_admi
     return {"rows": rows, "summary": _summary(rows), "payment_link": c.get("payment_link") or "",
             "rzp_enabled": _rzp_enabled(), "rzp_key": (os.environ.get("RAZORPAY_KEY_ID") or "")[:12],
             "salon_share_pct": c.get("salon_share_pct"), "agreement_version": ver,
-            "campaign": {"name": c["name"], "end_date": c["end_date"]}}
+            "campaign": {"name": c["name"], "start_date": c["start_date"], "end_date": c["end_date"],
+                         "enabled": bool(c.get("enabled")), "state": campaign_state(c)}}
 
 
 @router.get("/super-admin/rewards-campaign/settlements/{tenant_id}/earnings")
