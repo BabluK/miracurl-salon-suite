@@ -171,6 +171,8 @@ async def _booking_catalog(t) -> str:
             f"RETAIL PRODUCTS (guests can buy these at the salon — recommend when relevant to their concern):\n{prod_lines}")
 
 _PHONE_IN_TEXT_RE = re.compile(r"\+?\d[\d\s\-]{5,13}\d")
+_CONFIRM_RE = re.compile(r"^\s*(yes|yeah|yep|ok(ay)?|sure|confirm(ed)?|book( it)?|go ahead|done|haan|ha|ji|theek|sari|ಹೌದು|हाँ|हां)\b", re.I)
+_CLAIMS_BOOKED_RE = re.compile(r"\b(booked|recorded your booking|booking is confirmed|appointment is confirmed|reserved)\b", re.I)
 
 _FAQ_PATTERNS = {
     "menu": ("price list", "pricelist", "rate card", "service list", "services list", "list of services",
@@ -573,6 +575,18 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
     except Exception as e:
         logging.getLogger("public_ai").error(f"public ai chat error: {e}")
         raise HTTPException(400, "Mira is unavailable right now — please try again in a moment.")
+    if _BOOK_MARKER not in reply and hist and _CONFIRM_RE.search(message or "") and _CLAIMS_BOOKED_RE.search(reply):
+        # Guard: model said "booked" without emitting the machine-read line → ask for the line explicitly.
+        try:
+            fix = await chat.send_message(UserMessage(text=(
+                "The customer has just CONFIRMED the booking summarised in the conversation. Reply with ONLY the single machine line "
+                f"{_BOOK_MARKER}{{...}} (valid JSON, fields customer_name, customer_phone, gender, service_ids from the menu ids, staff_id or null, "
+                "date YYYY-MM-DD, time HH:MM 24h) — no other words. If any required detail is genuinely missing, reply with the single word MISSING.")))
+            fix = fix if isinstance(fix, str) else str(fix)
+            if _BOOK_MARKER in fix:
+                reply = reply.strip() + "\n" + fix[fix.index(_BOOK_MARKER):].strip()
+        except Exception as e:  # noqa: BLE001 — guard is best-effort
+            logging.getLogger("public_ai").warning(f"booking guard failed: {e}")
 
     booking, booking_error, handoff = None, None, None
     if "[HANDOFF]" in reply:

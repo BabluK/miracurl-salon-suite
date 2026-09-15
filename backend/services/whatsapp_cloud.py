@@ -93,7 +93,11 @@ async def handle_inbound_message(msg: dict, value: dict) -> None:
     }
     await _raw_db.whatsapp_messages.insert_one(doc)
     log.info("whatsapp inbound %s from %s (%s): %.80s", msg.get("type"), msg.get("from"), (tenant or {}).get("slug") or "platform", doc["text"])
-    # TODO(mira): route doc to Mira AI / appointment intents — e.g. await mira_whatsapp_reply(doc, tenant)
+    try:
+        from services.whatsapp_mira import mira_whatsapp_reply
+        await mira_whatsapp_reply(doc, tenant)
+    except Exception:  # noqa: BLE001 — a failed AI reply must never fail the webhook
+        log.exception("mira whatsapp reply failed for %s", msg.get("id"))
 
 
 async def handle_status_update(st: dict, value: dict) -> None:

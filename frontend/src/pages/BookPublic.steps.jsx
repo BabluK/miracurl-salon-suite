@@ -8,6 +8,7 @@ import { shareText as shareTextLib } from "@/lib/share";
 import { catImage } from "@/lib/categoryImages";
 import { DishPhotoLightbox } from "@/components/DishPhotoLightbox";
 import { thumbUrl } from "@/lib/api";
+import { ServiceGlyph } from "@/lib/serviceIcon";
 
 const CATEGORY_ORDER = ["Skin", "Manicure", "Pedicure", "Men Hair", "Women Hair", "Makeup", "Nails"];
 
@@ -190,8 +191,8 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, cat
                         <img src={thumbUrl(s.image_url, 160)} alt={s.name} loading="lazy" className="w-14 h-14 rounded-xl object-cover ring-1 ring-white/15" />
                       </span>
                     ) : (
-                      <span aria-hidden className={`shrink-0 w-11 h-11 rounded-full flex items-center justify-center font-playfair text-base transition-colors ${on ? "bg-gold text-bg-base" : "bg-gradient-to-br from-gold/25 to-gold/5 text-gold border border-gold/40"}`}>
-                        {on ? <Check className="w-5 h-5" /> : (s.name || "?").trim().slice(0, 1).toUpperCase()}
+                      <span aria-hidden data-testid={`book-service-glyph-${s.id}`} className={`shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-base transition-colors ${on ? "bg-gold text-bg-base" : "bg-gradient-to-br from-gold/25 to-gold/5 text-gold border border-gold/40 shadow-[inset_0_0_12px_rgba(212,175,55,0.15)]"}`}>
+                        {on ? <Check className="w-5 h-5" /> : <ServiceGlyph service={s} className="w-[22px] h-[22px]" />}
                       </span>
                     )}
                     <div className="flex-1 min-w-0">

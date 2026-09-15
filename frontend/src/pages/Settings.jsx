@@ -38,6 +38,7 @@ import { CampaignAgreementCard } from "@/components/settings/CampaignAgreementCa
 import { NotifyEmailCard } from "@/components/NotifyEmailCard";
 import { GrowthAdvisoryCard } from "@/components/settings/GrowthAdvisoryCard";
 import { ReferEarnCard } from "@/components/settings/ReferEarnCard";
+import { Lazy } from "@/components/Lazy";
 
 export default function Settings() {
   const { tenant } = useAuth();
@@ -51,95 +52,66 @@ export default function Settings() {
     }, 300);
     return () => clearInterval(iv);
   }, []);
+  const eager = !!window.location.hash;
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)]" data-testid="settings-page">
-      <div className="max-w-3xl">
-        <h1 className="text-2xl font-semibold text-slate-800">{resto ? "Restaurant Settings" : "Salon Settings"}</h1>
+      <div className="max-w-[1600px]">
+        <h1 className="font-playfair text-3xl sm:text-4xl text-slate-900">{resto ? "Restaurant Settings" : "Salon Settings"}</h1>
         <p className="text-sm text-slate-500 mt-1">Configure how billing, tax and your business identity behave on invoices.</p>
 
-        <ProfileCompletenessCard />
-
-        <QrPosterCard />
-        <VisitingCardCard />
-
-        <TableQrPostersCard />
-
-        <div className="mt-6">
-          <BranchesSection />
-        </div>
-
-        <ChangePasswordSection />
-
-        <DevicesCard />
-
-        <ContactHQSection />
-
-        <BrandingCard />
-
-        <GalleryCard />
-
-        <TaxCard />
-
-        <AttendanceFinesCard />
-
-        <InternationalCard />
-
-        <PreviousStaffCard />
-
-        <SecurityPinCard />
-
-        <AuditLogCard />
-
-        <UpdatedBillsCard />
-
-        <SocialConnectionsCard />
-
-        <ReferEarnCard />
-
-        <NotifyEmailCard />
-        <LoyaltyStampsCard />
-        <CampaignAgreementCard />
-        <RewardsQrCard />
-        <GrowthAdvisoryCard />
-        <MiracurlProductsCard />
-
-        <SmsPacksCard />
-
-        <RateMiracurlCard />
-
-        <div className="mt-6">
-          <VendorsCard />
-        </div>
-
-        <LoyaltyCard />
-
-        <div className="mt-6">
-          <BirthdayCard />
-        </div>
-
-        <AffiliateCard />
-
-        <ColorTryOnCard />
-
-        <StripeSubscriptionCard />
-
-        <RazorpayCard />
-
-        <InvoicesCard />
-        <AccountProfileCard tenant={tenant} />
-
-        <GiftCardsCard />
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-slate-800">Data isolation</h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Your salon&apos;s customers, invoices and staff are isolated by tenant ID and never visible to other salons on Miracurl.
-              </p>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-6 items-start" data-testid="settings-columns">
+          <div className="min-w-0" data-testid="settings-col-left">
+            <ProfileCompletenessCard />
+            <QrPosterCard />
+            <Lazy eager={eager}><VisitingCardCard /></Lazy>
+            <Lazy eager={eager}><TableQrPostersCard /></Lazy>
+            <Lazy eager={eager}><div className="mt-6"><BranchesSection /></div></Lazy>
+            <Lazy eager={eager}><DevicesCard /></Lazy>
+            <Lazy eager={eager}><BrandingCard /></Lazy>
+            <Lazy eager={eager}><GalleryCard /></Lazy>
+            <Lazy eager={eager}><TaxCard /></Lazy>
+            <Lazy eager={eager}><InternationalCard /></Lazy>
+            <Lazy eager={eager}><SecurityPinCard /></Lazy>
+            <Lazy eager={eager}><AuditLogCard /></Lazy>
+            <Lazy eager={eager}><UpdatedBillsCard /></Lazy>
+            <Lazy eager={eager}><LoyaltyStampsCard /></Lazy>
+            <Lazy eager={eager}><CampaignAgreementCard /></Lazy>
+            <Lazy eager={eager}><RewardsQrCard /></Lazy>
+            <Lazy eager={eager}><SmsPacksCard /></Lazy>
+            <Lazy eager={eager}><div className="mt-6"><VendorsCard /></div></Lazy>
+            <Lazy eager={eager}><LoyaltyCard /></Lazy>
+            <Lazy eager={eager}><ColorTryOnCard /></Lazy>
+            <Lazy eager={eager}><InvoicesCard /></Lazy>
+            <Lazy eager={eager}><GiftCardsCard /></Lazy>
+          </div>
+          <div className="min-w-0" data-testid="settings-col-right">
+            <ChangePasswordSection />
+            <Lazy eager={eager}><ContactHQSection /></Lazy>
+            <Lazy eager={eager}><AttendanceFinesCard /></Lazy>
+            <Lazy eager={eager}><PreviousStaffCard /></Lazy>
+            <Lazy eager={eager}><SocialConnectionsCard /></Lazy>
+            <Lazy eager={eager}><ReferEarnCard /></Lazy>
+            <Lazy eager={eager}><NotifyEmailCard /></Lazy>
+            <Lazy eager={eager}><GrowthAdvisoryCard /></Lazy>
+            <Lazy eager={eager}><MiracurlProductsCard /></Lazy>
+            <Lazy eager={eager}><RateMiracurlCard /></Lazy>
+            <Lazy eager={eager}><div className="mt-6"><BirthdayCard /></div></Lazy>
+            <Lazy eager={eager}><AffiliateCard /></Lazy>
+            <Lazy eager={eager}><StripeSubscriptionCard /></Lazy>
+            <Lazy eager={eager}><RazorpayCard /></Lazy>
+            <Lazy eager={eager}><AccountProfileCard tenant={tenant} /></Lazy>
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-800">Data isolation</h2>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Your salon&apos;s customers, invoices and staff are isolated by tenant ID and never visible to other salons on Miracurl.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
