@@ -74,3 +74,29 @@ async def whatsapp_receive(request: Request, background: BackgroundTasks):
     # Return 200 immediately; persistence + Mira hooks run after the response is sent.
     background.add_task(process_webhook_payload, payload.model_dump())
     return {"received": True}
+
+
+# ---- HQ helpers (super-admin only): inspect the inbox and send a test reply ----
+from fastapi import Depends, HTTPException  # noqa: E402
+from security import require_super_admin  # noqa: E402
+from database import _raw_db  # noqa: E402
+from services.whatsapp_cloud import send_text  # noqa: E402
+
+
+class SendTextIn(BaseModel):
+    to: str = Field(min_length=8, max_length=20, pattern=r"^\+?\d+$")
+    body: str = Field(min_length=1, max_length=4096)
+
+
+@router.get("/super-admin/whatsapp/messages")
+async def whatsapp_messages(limit: int = Query(50, ge=1, le=200), user=Depends(require_super_admin)):
+    rows = await _raw_db.whatsapp_messages.find({}, {"_id": 0, "raw": 0}).sort("created_at", -1).to_list(limit)
+    return {"messages": rows, "events": await _raw_db.whatsapp_events.count_documents({})}
+
+
+@router.post("/super-admin/whatsapp/send")
+async def whatsapp_send(body: SendTextIn, user=Depends(require_super_admin)):
+    try:
+        return await send_text(body.to.lstrip("+"), body.body)
+    except RuntimeError as e:
+        raise HTTPException(502, str(e))
