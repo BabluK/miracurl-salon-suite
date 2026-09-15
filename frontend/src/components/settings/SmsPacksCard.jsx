@@ -24,7 +24,14 @@ export function SmsPacksCard({ defaultChannel = "sms" }) {
   const refresh = () => api.get(`/sms-packs?channel=${channel}`).then(r => setCfg(r.data)).catch(() => setCfg({ enabled: false, packs: [], balance: 0, balances: {} }));
   useEffect(() => { refresh(); }, [channel]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    const f = cfg?.features;
+    if (f && !f[channel] && (f.sms || f.whatsapp)) setChannel(f.sms ? "sms" : "whatsapp");
+  }, [cfg, channel]);
+
   if (!cfg) return null;
+  const feats = cfg.features || {};
+  const anyOn = feats.sms || feats.whatsapp;
 
   async function toggleAuto() {
     setBusy("auto");
@@ -87,7 +94,7 @@ export function SmsPacksCard({ defaultChannel = "sms" }) {
         </span>
       </div>
       <div className="flex gap-1.5 mt-4" data-testid="message-channel-tabs">
-        {[["sms", "SMS", cfg.balances?.sms], ["whatsapp", "WhatsApp", cfg.balances?.whatsapp]].map(([k, l, b]) => (
+        {[["sms", "SMS", cfg.balances?.sms], ["whatsapp", "WhatsApp", cfg.balances?.whatsapp]].filter(([k]) => !cfg.features || feats[k]).map(([k, l, b]) => (
           <button key={k} data-testid={`channel-tab-${k}`} onClick={() => setChannel(k)}
             className={`text-xs px-3 py-1.5 rounded-full border font-medium transition ${channel === k ? "bg-slate-900 text-emerald-300 border-slate-900" : "border-slate-300 text-slate-600 hover:border-slate-500"}`}>
             {l} · {b ?? 0}
@@ -109,7 +116,11 @@ export function SmsPacksCard({ defaultChannel = "sms" }) {
         </div>
       )}
 
-      {cfg.enabled ? (
+      {cfg.features && !anyOn ? (
+        <p className="mt-4 text-sm text-slate-500 rounded-xl border border-dashed border-slate-200 p-4" data-testid="messaging-not-enabled">
+          SMS &amp; WhatsApp messaging aren't switched on for your salon yet. Ask Miracurl HQ (Contact HQ above) to enable the channels you need.
+        </p>
+      ) : cfg.enabled ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
           {cfg.packs.map(p => (
             <button key={p.key} data-testid={`buy-${p.key}`} onClick={() => buy(p)} disabled={!!busy}

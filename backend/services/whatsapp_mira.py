@@ -39,7 +39,8 @@ async def mira_whatsapp_reply(doc: dict, tenant: dict | None) -> str | None:
     if doc.get("type") not in _TEXT_TYPES or not (doc.get("text") or "").strip():
         return None
     t = await resolve_reply_tenant(tenant, doc.get("phone_number_id") or "")
-    if not t or t.get("status") == "suspended" or t.get("wa_auto_reply") is False:
+    from services.tenant_features import features_of
+    if not t or t.get("status") == "suspended" or t.get("wa_auto_reply") is False or not features_of(t)["whatsapp"]:
         return None
     if not await _reserve_credit(t, doc):
         return None

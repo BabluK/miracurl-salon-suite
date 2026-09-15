@@ -318,9 +318,10 @@ async def _apply_tenant_context(request: Request, user: dict) -> None:
                 _current_tenant_id.set(user["tenant_id"])
                 return
             raise HTTPException(403, "Cross-tenant access denied")
-        if (user.get("role") == "super_admin" and request.method == "DELETE"
-                and not request.url.path.startswith("/api/super-admin")):
-            raise HTTPException(403, "Super-admin can view, correct and update salon data — but deleting is reserved for the salon owner. Ask the owner, or note it via Contact HQ.")
+        if user.get("role") == "super_admin" and not request.url.path.startswith("/api/super-admin"):
+            if request.method == "DELETE":
+                raise HTTPException(403, "Super-admin can view, correct and update salon data — but deleting is reserved for the salon owner. Ask the owner, or note it via Contact HQ.")
+            await _hq_workspace_guard(request, user, t)
         _current_tenant_id.set(t["id"])
         return
     if user.get("role") != "super_admin" and user.get("tenant_id"):
@@ -329,6 +330,24 @@ async def _apply_tenant_context(request: Request, user: dict) -> None:
         # Super-admin without a slug picks up the global-access override so
         # TenantCollection knows this is intentional.
         _super_admin_ok.set(True)
+
+
+async def _hq_workspace_guard(request: Request, user: dict, t: dict) -> None:
+    """HQ inside a salon's workspace: needs owner consent, every write is audited, owner is told once a day."""
+    if t.get("support_access") is False:
+        raise HTTPException(403, "This salon has switched off Miracurl support access. Ask the owner to enable it in Settings → Miracurl support access.")
+    today = datetime.now(timezone.utc).date().isoformat()
+    if (t.get("hq_access_notified_on") or "") != today:
+        await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"hq_access_notified_on": today}})
+        try:
+            from services.tenant_notices import notify_tenant
+            await notify_tenant(t["id"], "hq_access", "Miracurl support is in your workspace",
+                                "HQ opened your salon to help with setup / a fix. Every change is listed in Settings → Audit log.",
+                                "/settings#audit-log", f"hq_access:{today}")
+        except Exception:  # noqa: BLE001
+            pass
+    if request.method in ("POST", "PUT", "PATCH"):
+        await log_audit(t["id"], {**user, "name": "Miracurl Support"}, "hq_edit", f"{request.method} {request.url.path}")
 
 
 async def revoke_token_jtis(request: Request):

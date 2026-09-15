@@ -366,9 +366,9 @@ async def _rewards_poster_jpeg(t: dict, c: dict, origin: str) -> bytes:
 async def rewards_qr_poster(origin: str = "", user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     from fastapi import Response
     c = await get_campaign_for(t)
-    from routes.campaign_agreement import agreement_ok
-    if not await agreement_ok(t["id"], c):
-        raise HTTPException(403, "Accept the Participation Agreement first (Settings → Brand Model Campaign) to unlock the QR poster")
+    from routes.tenant_features import campaign_live_ok
+    if not await campaign_live_ok(t["id"], c):
+        raise HTTPException(403, "The QR poster unlocks once you've accepted the Participation Agreement and Miracurl HQ marks your campaign live (Settings → Brand Model Campaign)")
     img = await _rewards_poster_jpeg(t, c, origin)
     return Response(content=img, media_type="image/jpeg",
                     headers={"Content-Disposition": 'attachment; filename="rewards-campaign-qr.jpg"'})
@@ -383,7 +383,8 @@ async def public_campaign(slug: str):
     if not t:
         raise HTTPException(404, "Salon not found")
     from routes.campaign_agreement import agreement_ok
-    agreed = await agreement_ok(t["id"], c)
+    from routes.tenant_features import campaign_live_ok
+    agreed = await campaign_live_ok(t["id"], c)
     eligible = _tenant_eligible(c, t) and _is_live(c) and agreed
     winners = await _raw_db.rewards_participants.find(
         {"winner_tier": {"$nin": [None, ""]}, "consent": True, **_pfilter(c)},
@@ -440,8 +441,8 @@ async def public_join(slug: str, body: JoinIn, request: Request):
     t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "plan": 1, "status": 1, "business_type": 1})
     if not t:
         raise HTTPException(404, "Salon not found")
-    from routes.campaign_agreement import agreement_ok
-    if not await agreement_ok(t["id"], c):
+    from routes.tenant_features import campaign_live_ok
+    if not await campaign_live_ok(t["id"], c):
         raise HTTPException(403, "This salon hasn't completed campaign onboarding yet — please check back soon")
     if not (_tenant_eligible(c, t) and _is_live(c)):
         raise HTTPException(400, "This salon is not part of the campaign right now")

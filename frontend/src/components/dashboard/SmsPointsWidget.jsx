@@ -12,7 +12,7 @@ export function SmsPointsWidget() {
     api.get("/sms-packs").then(r => setCfg(r.data)).catch(() => setCfg(null));
   }, [open]);
 
-  if (!cfg) return null;
+  if (!cfg || (cfg.features && !cfg.features.sms)) return null;
   const low = cfg.balance < 50;
 
   return (

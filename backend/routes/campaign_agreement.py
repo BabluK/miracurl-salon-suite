@@ -36,7 +36,9 @@ async def agreement_ok(tenant_id: str, c: dict) -> bool:
 async def agreement_state(tenant: dict, c: dict) -> dict:
     acc = await get_acceptance(tenant["id"], c["id"])
     ver = agreement_version(c)
+    from routes.tenant_features import get_onboarding
     return {"version": ver, "share_pct": float(c.get("salon_share_pct") or 10), "campaign": c["name"],
+            "onboarding": await get_onboarding(tenant["id"], c["id"]),
             "accepted": acc is not None and acc.get("version") == ver,
             "needs_reaccept": acc is not None and acc.get("version") != ver,
             "acceptance": {k: acc.get(k) for k in ("id", "full_name", "designation", "accepted_at", "user_email", "version")} if acc else None}
@@ -84,6 +86,8 @@ class AcceptIn(BaseModel):
     full_name: str = Field(..., min_length=3, max_length=80)
     designation: str = Field("Owner", min_length=2, max_length=60)
     agree: bool
+    agree_share: bool = False        # 10% of all campaign earnings
+    agree_visibility: bool = False   # HQ may view the business during the campaign (Cl. 5.5)
 
 
 async def _open_campaign_or_400(t: dict) -> tuple[dict, str]:
@@ -101,6 +105,7 @@ def _acceptance_doc(body: AcceptIn, request: Request, user: dict, t: dict, c: di
         "id": str(uuid.uuid4()), "tenant_id": t["id"], "tenant_name": t.get("name"), "campaign_id": c["id"], "version": ver,
         "share_pct": float(c.get("salon_share_pct") or 10), "campaign_snapshot": {k: c.get(k) for k in ("name", "start_date", "end_date", "min_transaction")},
         "full_name": body.full_name.strip(), "designation": body.designation.strip(),
+        "consents": {"share": True, "visibility": True},
         "user_id": user.get("id"), "user_email": user.get("email"), "ip": _client_ip(request),
         "user_agent": request.headers.get("user-agent", "")[:200], "accepted_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -121,11 +126,31 @@ async def _email_acceptance_pack(c: dict, t: dict, acc: dict) -> bool:
 async def accept_agreement(body: AcceptIn, request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     if not body.agree:
         raise HTTPException(400, "Tick 'I agree' to accept the agreement")
+    if not (body.agree_share and body.agree_visibility):
+        raise HTTPException(400, "Please tick both consents: the settlement share and HQ business visibility during the campaign")
     c, ver = await _open_campaign_or_400(t)
     acc = _acceptance_doc(body, request, user, t, c, ver)
     await _raw_db.rewards_agreements.insert_one(dict(acc))
+    from routes.tenant_features import set_onboarding
+    await set_onboarding(t["id"], c["id"], {"status": "agreed", "agreed_at": acc["accepted_at"], "live": False})
+    await _notify_hq_agreed(t, c, acc)
     return {"ok": True, "acceptance": {k: acc[k] for k in ("id", "full_name", "designation", "accepted_at", "version")},
             "emailed": await _email_acceptance_pack(c, t, acc)}
+
+
+async def _notify_hq_agreed(t: dict, c: dict, acc: dict) -> None:
+    """HQ: salon approved → set up (via Open workspace) or schedule the call, then Go live."""
+    try:
+        import os
+        from email_service import _send_email
+        hq = os.environ.get("HQ_NOTIFY_EMAIL") or os.environ.get("SUPPORT_REPLY_TO") or ""
+        if hq:
+            await _send_email([hq], f"✅ {t.get('name')} approved {c['name']} — set up & go live",
+                              f"<p><b>{t.get('name')}</b> ({t.get('slug')}) accepted the Participation Agreement v{acc['version']} — signed by {acc['full_name']} ({acc.get('designation')}).</p>"
+                              f"<p>Consents: {acc['share_pct']:g}% settlement share ✔ · HQ business visibility ✔</p>"
+                              f"<p>Next: open their workspace to set up the poster/QR, or schedule the setup call, then mark <b>Go live</b> in Super Admin → Tenant features.</p>")
+    except Exception:  # noqa: BLE001
+        pass
 
 
 # ---------------- HQ ----------------

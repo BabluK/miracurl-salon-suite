@@ -30,7 +30,7 @@ export function AuditLogCard() {
     } catch { toast.error("Couldn't clear the audit log"); }
   }
   return (
-    <div className="mt-6 bg-white border border-slate-200 rounded-2xl p-5" data-testid="audit-log-card">
+    <div id="audit-log" className="mt-6 bg-white border border-slate-200 rounded-2xl p-5" data-testid="audit-log-card">
       <div className="flex items-center gap-2 mb-1">
         <ShieldCheck className="w-4 h-4 text-emerald-600" />
         <h3 className="font-semibold text-slate-800">Audit Log</h3>

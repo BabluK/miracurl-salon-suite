@@ -128,6 +128,7 @@ def agreement_doc(c: dict, tenant: dict, biller: dict) -> dict:
                 "5.2 Miracurl may review POS data, entries and votes for irregularities and may disqualify entries or the Salon for breach of Clause 3.",
                 "5.3 The Salon expressly authorises Miracurl, as its software service provider, to access and use aggregated billing data from the Miracurl POS (invoice dates, numbers, amounts and counts) for the sole purpose of computing, verifying and invoicing the Settlement Share. Customer personal data (names, mobile numbers) is not disclosed to Miracurl HQ for this purpose and is processed only under the Privacy Policy.",
                 "5.4 Bills recorded outside the Miracurl POS during the Campaign Period, if discovered, are included in Campaign Earnings; deliberate under-recording is a material breach.",
+                "5.5 Business visibility consent: for the Campaign Period and until settlement, the Salon consents that Miracurl HQ may view the Salon's Miracurl workspace (bookings, billing totals, campaign entries and settings) to set up, support and verify the Campaign. HQ access is logged in the Salon's Audit Log and never includes deleting Salon data.",
             ]),
             ("6. Trusted badge and publicity", [
                 "6.1 Upon full settlement Miracurl grants the Salon a non-exclusive, revocable licence to display the 'Trusted by Miracurl' badge on the Platform pages (Miracurl home page and the Salon's booking page).",
@@ -189,6 +190,8 @@ def _acceptance_page(c, W, H, mm, acc: dict | None, tenant: dict, biller: dict, 
         ("IP address / device", f"{acc.get('ip') or '—'}  ·  {(acc.get('user_agent') or '')[:60]}" if acc else "________________________________"),
         ("Agreement version", agreement_version(camp)),
         ("Settlement Share", f"{_pct(camp):g}% of Campaign Earnings"),
+        ("Consents", (f"Settlement Share {_pct(camp):g}% — {'AGREED' if (acc.get('consents') or {}).get('share', True) else '—'}  ·  "
+                      f"HQ business visibility (Cl. 5.5) — {'AGREED' if (acc.get('consents') or {}).get('visibility') else '—'}") if acc else "☐ Settlement Share   ☐ HQ business visibility (Cl. 5.5)"),
         ("Acceptance ID", acc.get("id", "")[:8].upper() if acc else "—"),
     ]
     c.setFillColorRGB(*LIGHT)

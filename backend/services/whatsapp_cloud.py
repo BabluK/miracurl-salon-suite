@@ -142,6 +142,10 @@ async def send_text(to: str, body: str, tenant_id: str | None = None) -> dict[st
     cfg = wa_config()
     if not cfg["access_token"] or not cfg["phone_number_id"]:
         raise RuntimeError("WhatsApp Cloud API not configured (WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID)")
+    if tenant_id:
+        from services.tenant_features import feature_on
+        if not await feature_on(tenant_id, "whatsapp"):
+            raise RuntimeError("WhatsApp is not enabled for this tenant — Miracurl HQ switches it on per salon")
     url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{cfg['phone_number_id']}/messages"
     payload = {"messaging_product": "whatsapp", "recipient_type": "individual", "to": to,
                "type": "text", "text": {"preview_url": False, "body": body[:4096]}}

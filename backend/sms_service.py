@@ -113,6 +113,11 @@ async def send_tenant_sms(tenant_id: str, to_phone: str, body: str, kind: str = 
         res = {"sent": False, "error": "not_configured"}
         await _log(res)
         return res
+    from services.tenant_features import feature_on
+    if not await feature_on(tenant_id, "sms"):
+        res = {"sent": False, "error": "sms_disabled"}
+        await _log(res)
+        return res
     r = await _raw_db.tenants.update_one(
         {"id": tenant_id, "sms_points": {"$gte": 1}}, {"$inc": {"sms_points": -1}})
     if r.modified_count == 0:

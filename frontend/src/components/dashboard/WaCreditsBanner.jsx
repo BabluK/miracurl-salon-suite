@@ -16,7 +16,7 @@ export function WaCreditsBanner() {
     api.get("/sms-packs?channel=whatsapp").then(r => setCfg(r.data)).catch(() => setCfg(null));
   }, [open]);
 
-  if (!cfg || hidden || cfg.balance >= WA_LOW_THRESHOLD) return null;
+  if (!cfg || hidden || (cfg.features && !cfg.features.whatsapp) || cfg.balance >= WA_LOW_THRESHOLD) return null;
   const empty = cfg.balance <= 0;
   const tone = empty ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200";
 

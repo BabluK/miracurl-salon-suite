@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from pymongo import ReturnDocument
 
 from database import db, _raw_db
+from services.tenant_features import features_of
 from security import require_super_admin, require_tenant_admin, current_tenant
 from services.subscription_invoice import issue_subscription_kit
 from services.billing import RAZORPAY_WEBHOOK_SECRET
@@ -391,7 +392,8 @@ async def sms_packs(channel: str = "sms", user=Depends(require_tenant_admin), t=
             "packs": [{"key": k, **v} for k, v in ch["packs"].items()],
             "balance": int(t.get(ch["field"]) or 0),
             "balances": {"sms": int(t.get("sms_points") or 0), "whatsapp": int(t.get("wa_points") or 0)},
-            "usage_30d": {"whatsapp_auto_replies": auto_replies}, "wa_auto_reply": t.get("wa_auto_reply") is not False}
+            "usage_30d": {"whatsapp_auto_replies": auto_replies}, "wa_auto_reply": t.get("wa_auto_reply") is not False,
+            "features": features_of(t)}
 
 
 class WaAutoReplyIn(BaseModel):

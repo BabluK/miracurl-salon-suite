@@ -16,7 +16,8 @@ function Popup({ d, onClose }) {
         <button onClick={onClose} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center" data-testid="miracurl-update-popup-close"><X className="w-4 h-4" /></button>
         <div className="relative p-7">
           <div className="text-[10px] tracking-[0.35em] uppercase text-[#d4af37]">Miracurl Update</div>
-          <h2 className="font-playfair text-2xl text-[#F0D9A5] mt-1">{d.status === "ended" && c.payment_link ? "Campaign closed — settlement ready" : `${c.name} is ${d.status === "live" ? "LIVE" : "coming"} for your salon`}</h2>
+          <h2 className="font-playfair text-2xl text-[#F0D9A5] mt-1">{d.status === "ended" && c.payment_link ? "Campaign closed — settlement ready" : !d.agreement?.accepted ? `Miracurl invites you to ${c.name}` : `${c.name} is ${d.status === "live" ? "LIVE" : "coming"} for your salon`}</h2>
+          {!d.agreement?.accepted && d.status !== "ended" && <p className="text-xs text-[#d4af37]/90 mt-1" data-testid="miracurl-update-popup-approve-hint">Please read the Campaign Guide, Participation Agreement &amp; T&amp;C (also emailed to you), then approve in Settings to start.</p>}
           <p className="text-sm text-white/70 mt-2">{d.status === "ended" && c.payment_link ? (c.payment_note || "Thank you for running the Brand Model casting. Please complete the settlement using the payment link.") : `Customers who spend ₹${Number(c.min_transaction).toLocaleString("en-IN")}+ can apply to become your Brand Model and win ${c.rewards.map(r => r.tier).join(" · ")} memberships. ${fmt(c.start_date)} → ${fmt(c.end_date)}.`}</p>
           <div className="mt-4 rounded-2xl bg-white/5 border border-white/10 p-3 max-h-40 overflow-y-auto">
             <div className="text-[10px] uppercase tracking-wide text-slate-400 flex items-center gap-1"><FileText className="w-3 h-3" /> Terms & conditions for salons</div>
@@ -24,7 +25,9 @@ function Popup({ d, onClose }) {
           </div>
           <div className="mt-5 flex gap-2 flex-wrap">
             {d.status === "ended" && c.payment_link ? <a href={c.payment_link} target="_blank" rel="noreferrer" className="px-5 py-2.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-sm font-bold inline-flex items-center gap-2" data-testid="miracurl-update-popup-pay"><CreditCard className="w-4 h-4" /> Pay now</a>
-              : <Link to="/settings" onClick={onClose} className="px-5 py-2.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-sm font-bold inline-flex items-center gap-2" data-testid="miracurl-update-popup-poster"><QrCode className="w-4 h-4" /> Get my QR poster</Link>}
+              : d.agreement?.accepted
+                ? <Link to="/settings#campaign-agreement" onClick={onClose} className="px-5 py-2.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-sm font-bold inline-flex items-center gap-2" data-testid="miracurl-update-popup-poster"><QrCode className="w-4 h-4" /> {d.agreement?.onboarding?.live ? "Get my QR poster" : "View campaign status"}</Link>
+                : <Link to="/settings#campaign-agreement" onClick={onClose} className="px-5 py-2.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-sm font-bold inline-flex items-center gap-2" data-testid="miracurl-update-popup-approve"><FileText className="w-4 h-4" /> Read documents &amp; approve</Link>}
             <button onClick={onClose} className="px-5 py-2.5 rounded-full border border-white/20 text-white/80 text-sm hover:bg-white/10" data-testid="miracurl-update-popup-ack">I've read the terms</button>
           </div>
         </div>

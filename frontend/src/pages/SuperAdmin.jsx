@@ -15,7 +15,8 @@ import { DummyCleanupModal } from "@/components/superadmin/DummyCleanupModal";
 import { PartnersPanel } from "@/components/superadmin/PartnersPanel";
 import { SecurityCard } from "@/components/superadmin/SecurityCard";
 import { EditTenantModal } from "@/components/superadmin/EditTenantModal";
-import { Handshake, ShieldAlert } from "lucide-react";
+import { Handshake, ShieldAlert, ToggleRight } from "lucide-react";
+import { TenantFeaturesModal } from "@/components/superadmin/TenantFeaturesModal";
 import { setActAsSalon } from "@/lib/api";
 import { SuperProfileCard, HealthBadge, AiInsightsPanel, RenewalNudge, HqInbox } from "@/components/SuperAdminExtras";
 import EngineerPanel from "@/components/EngineerPanel";
@@ -174,6 +175,7 @@ export default function SuperAdmin() {
   const [importFor, setImportFor] = useState(null); // tenant being imported into
   const [payLinkFor, setPayLinkFor] = useState(null); // tenant getting a payment link
   const [smsLogFor, setSmsLogFor] = useState(null); // tenant whose SMS log is open
+  const [featuresFor, setFeaturesFor] = useState(null); // tenant whose feature switches are open
   const [cleanFor, setCleanFor] = useState(null); // tenant being cleaned of dummy data
   const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get("tab") || "mira-home");
   const [navOpen, setNavOpen] = useState(false);
@@ -751,6 +753,7 @@ export default function SuperAdmin() {
                   <div className="flex items-center gap-0.5 border border-slate-200 bg-slate-50/60 rounded-xl px-1.5 py-1" data-testid={`tenant-actions-${t.id}`}>
                     <ActionBtn testid={`open-salon-${t.id}`} onClick={() => { setActAsSalon(t.slug, t.name); nav("/dashboard"); }} title="Open this tenant's workspace (edit & correct — no deletes)" tone="text-violet-600 hover:bg-violet-50" icon={Eye} label="Open" />
                     <ActionBtn testid={`edit-tenant-${t.id}`} onClick={() => setEditFor(t)} title="Edit details, credentials & branch links" tone="text-emerald-600 hover:bg-emerald-50" icon={Pencil} label="Edit" />
+                    <ActionBtn testid={`features-tenant-${t.id}`} onClick={() => setFeaturesFor(t)} title="Switch SMS / WhatsApp / Campaign on or off for this tenant" tone="text-[#9b3a4e] hover:bg-rose-50" icon={ToggleRight} label="Features" />
                     <ActionBtn testid={`tenant-profile-pdf-${t.id}`} onClick={() => profilePdf(t)} title="Account Profile PDF — HQ + tenant logo, owner & business details, trial and plan dates" tone="text-amber-600 hover:bg-amber-50" icon={IdCard} label="Profile" />
                     <ActionBtn testid={`pay-link-${t.id}`} onClick={() => setPayLinkFor(t)} title="Generate a subscription pay link — tenant pays, plan activates" tone="text-amber-600 hover:bg-amber-50" icon={CreditCard} label="Pay link" />
                     <ActionBtn testid={`import-customers-${t.id}`} onClick={() => setImportFor(t)} title="Import customers from CSV" tone="text-sky-600 hover:bg-sky-50" icon={Upload} label="Import" />
@@ -803,6 +806,7 @@ export default function SuperAdmin() {
       {payLinkFor && <PayLinkModal tenant={payLinkFor} onClose={() => setPayLinkFor(null)} />}
 
       {smsLogFor && <SmsLogModal tenant={smsLogFor} onClose={() => setSmsLogFor(null)} />}
+      {featuresFor && <TenantFeaturesModal tenant={featuresFor} onClose={() => setFeaturesFor(null)} />}
 
       <TenantQuickView tenant={quickFor} onClose={() => setQuickFor(null)} onProfilePdf={profilePdf} />
       {editFor && (

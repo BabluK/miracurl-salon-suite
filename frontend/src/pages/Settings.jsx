@@ -39,15 +39,17 @@ import { NotifyEmailCard } from "@/components/NotifyEmailCard";
 import { GrowthAdvisoryCard } from "@/components/settings/GrowthAdvisoryCard";
 import { ReferEarnCard } from "@/components/settings/ReferEarnCard";
 import { Lazy } from "@/components/Lazy";
+import { SupportAccessCard } from "@/components/settings/SupportAccessCard";
 
 export default function Settings() {
   const { tenant } = useAuth();
   const resto = tenant?.business_type === "restaurant";
   useEffect(() => {
-    if (window.location.hash !== "#subscription") return;
+    const target = { "#subscription": ["subscription", "subscription-intl"], "#campaign-agreement": ["campaign-agreement"], "#audit-log": ["audit-log"] }[window.location.hash];
+    if (!target) return;
     let tries = 0, hits = 0;
     const iv = setInterval(() => {
-      const el = document.getElementById("subscription") || document.getElementById("subscription-intl");
+      const el = target.map(id => document.getElementById(id)).find(Boolean);
       if (el) { el.scrollIntoView({ behavior: hits ? "auto" : "smooth", block: "start" }); hits += 1; }
       if (hits >= 3 || ++tries > 50) clearInterval(iv);
     }, 400);
@@ -88,6 +90,7 @@ export default function Settings() {
           <div className="min-w-0" data-testid="settings-col-right">
             <ChangePasswordSection />
             <Lazy eager={eager}><ContactHQSection /></Lazy>
+            <Lazy eager={eager}><SupportAccessCard /></Lazy>
             <Lazy eager={eager}><AttendanceFinesCard /></Lazy>
             <Lazy eager={eager}><PreviousStaffCard /></Lazy>
             <Lazy eager={eager}><SocialConnectionsCard /></Lazy>
