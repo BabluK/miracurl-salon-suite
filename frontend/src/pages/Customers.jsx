@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { ImportCustomersModal } from "@/components/customers/ImportCustomersModal";
 import api from "@/lib/api";
 import { Plus, X, Search, Edit3, Trash2, Phone, Mail, Award, Download, Upload, Wallet, History, GitMerge, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -18,6 +19,7 @@ export default function Customers() {
   const [walletFor, setWalletFor] = useState(null);
   const [historyFor, setHistoryFor] = useState(null);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState("all"); // all | today | yesterday | week
   const [form, setForm] = useState({ name: "", phone: "", country_code: "+91", email: "", gender: "Female", dob: "", anniversary: "", address: "", notes: "", instagram: "", facebook: "", telegram: "" });
 
@@ -26,8 +28,7 @@ export default function Customers() {
     setList(data);
   }, [q]);
   useEffect(() => { load(); }, [load]);
-  const csvRef = useRef(null);
-
+  
   const istDay = (iso, offsetDays = 0) => {
     const d = iso ? new Date(iso) : new Date();
     d.setDate(d.getDate() + offsetDays);
@@ -79,19 +80,6 @@ export default function Customers() {
     } catch { toast.error("Export failed"); }
   }
 
-  async function handleImportCsv(e) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    const fd = new FormData();
-    fd.append("file", f);
-    try {
-      const { data } = await api.post("/customers/import", fd, { headers: { "Content-Type": "multipart/form-data" } });
-      toast.success(`Imported: ${data.added} added · ${data.updated} updated${data.skipped ? ` · ${data.skipped} skipped` : ""}`);
-      load();
-    } catch (err) { toast.error(err.response?.data?.detail || "Import failed"); }
-    finally { e.target.value = ""; }
-  }
-
   function startNew() { setEditing(null); setForm({ name: "", phone: "", country_code: "+91", email: "", gender: "Female", dob: "", anniversary: "", address: "", notes: "", instagram: "", facebook: "", telegram: "" }); setOpen(true); }
   function startEdit(c) { setEditing(c); setForm({ name: c.name, phone: c.phone, country_code: c.country_code || "+91", email: c.email || "", gender: c.gender || "Other", dob: c.dob || "", anniversary: c.anniversary || "", address: c.address || "", notes: c.notes || "", instagram: c.instagram || "", facebook: c.facebook || "", telegram: c.telegram || "" }); setOpen(true); }
 
@@ -134,18 +122,17 @@ export default function Customers() {
           <p className="text-slate-500 text-sm mt-1">Manage your salon&apos;s clientele and loyalty.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <input ref={csvRef} type="file" accept=".csv" className="hidden" onChange={handleImportCsv} data-testid="import-customers-csv-input" />
-          <button data-testid="import-customers-csv-btn" onClick={() => csvRef.current?.click()} className="btn-slate flex items-center gap-2" title="Bulk add/update customers from CSV (great for migrating old data)">
-            <Upload className="w-4 h-4" /> Import CSV
-          </button>
           <button data-testid="merge-duplicates-btn" onClick={() => setMergeOpen(true)} className="btn-slate flex items-center gap-2" title="Find & merge guests saved twice with the same number">
             <GitMerge className="w-4 h-4" /> Merge duplicates
           </button>
           <button data-testid="resync-stats-btn" onClick={resyncStats} className="btn-slate flex items-center gap-2" title="Recalculate every guest's Spent & Visits from actual bills — fixes any mismatch with Reports">
             <RefreshCw className="w-4 h-4" /> Recalculate spend
           </button>
-          <button data-testid="export-customers-csv-btn" onClick={exportCsv} className="btn-slate flex items-center gap-2" title="Download all customers as CSV">
+          <button data-testid="export-customers-csv-btn" onClick={exportCsv} className="btn-slate flex items-center gap-2" title="Download all customers as CSV (Name, Number, Email, Gender…)">
             <Download className="w-4 h-4" /> Export CSV
+          </button>
+          <button data-testid="import-customers-btn" onClick={() => setImportOpen(true)} className="btn-slate flex items-center gap-2" title="Bring guests in from a CSV / Excel export">
+            <Upload className="w-4 h-4" /> Import CSV
           </button>
           <button data-testid="add-customer-btn" onClick={startNew} className="btn-blue flex items-center gap-2">
             <Plus className="w-4 h-4" /> Add Customer
@@ -230,6 +217,7 @@ export default function Customers() {
       {walletFor && <WalletDialog customer={walletFor} onClose={() => setWalletFor(null)} onChanged={load} />}
       {historyFor && <CustomerHistoryModal customer={historyFor} onClose={() => setHistoryFor(null)} />}
       {mergeOpen && <MergeDuplicatesModal onClose={() => setMergeOpen(false)} onMerged={load} />}
+      {importOpen && <ImportCustomersModal onClose={() => setImportOpen(false)} onDone={load} />}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setOpen(false)}>

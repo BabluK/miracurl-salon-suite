@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { BrandSplash } from "@/components/BrandSplash";
 import api from "@/lib/api";
+import pinApi from "@/lib/ownerPin";
 import { useAuth } from "@/context/AuthContext";
-import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare, Send, Bell, Check, Clock, ArrowRight } from "lucide-react";
+import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare, Send, Bell, Check, Clock, ArrowRight, Lock, Unlock } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, CartesianGrid } from "recharts";
 import { toast } from "sonner";
 import ReviewBlastModal from "./ReviewBlastModal";
@@ -43,13 +44,13 @@ const STAT_ACCENTS = {
   emerald: { tile: "bg-emerald-100", icon: "text-emerald-600" },
 };
 
-function Stat({ icon: Icon, label, value, hint, testid, color = "sky" }) {
+function Stat({ icon: Icon, label, value, hint, testid, color = "sky", action }) {
   const accent = STAT_ACCENTS[color] || STAT_ACCENTS.sky;
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-shadow" data-testid={testid}>
       <div className="flex items-start justify-between">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-slate-500 font-medium">{label}</div>
+          <div className="text-xs uppercase tracking-[0.18em] text-slate-500 font-medium flex items-center gap-2">{label}{action}</div>
           <div className="text-3xl font-semibold text-slate-800 mt-2">{value}</div>
           {hint && <div className="text-xs text-slate-500 mt-1">{hint}</div>}
         </div>
@@ -85,6 +86,15 @@ export default function Dashboard() {
     return () => window.removeEventListener("branch-changed", fetchDash);
   }, [isOwner]);
 
+  const isAdmin = user?.role === "admin" || user?.role === "super_admin";
+  async function toggleRevenueLock() {
+    const hide = !data.month_revenue_hidden_for_staff;
+    try {
+      await pinApi.put("/settings/revenue-lock", { hide });
+      setData(d => ({ ...d, month_revenue_hidden_for_staff: hide }));
+      toast.success(hide ? "Month revenue is now hidden from managers & staff" : "Month revenue is visible to your team again");
+    } catch (e) { if (e?.response) toast.error(e.response?.data?.detail || "Couldn't update"); }
+  }
   if (!data) return <BrandSplash fullscreen />;
 
   const inr = (n) => `₹${(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
@@ -177,7 +187,16 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat icon={IndianRupee} label="Today Revenue" value={inr(data.today_revenue)} hint={`${data.today_invoices} invoices`} testid="kpi-revenue-today" color="emerald" />
         <Stat icon={Calendar} label="Today Bookings" value={data.today_bookings} hint="appointments scheduled" testid="kpi-bookings-today" color="sky" />
-        <Stat icon={TrendingUp} label="This Month" value={inr(data.month_revenue)} hint="month-to-date revenue" testid="kpi-revenue-month" color="amber" />
+        <Stat icon={TrendingUp} label="This Month" color="amber" testid="kpi-revenue-month"
+          value={data.month_revenue_locked ? <span className="tracking-widest text-slate-400" data-testid="month-revenue-masked">••••••</span> : inr(data.month_revenue)}
+          hint={data.month_revenue_locked ? "Locked by owner" : (isAdmin && data.month_revenue_hidden_for_staff ? "hidden from staff · you see it as owner" : "month-to-date revenue")}
+          action={isAdmin && (
+            <button onClick={toggleRevenueLock} data-testid="month-revenue-lock-btn"
+              title={data.month_revenue_hidden_for_staff ? "Hidden from managers/staff — tap to show them (owner PIN)" : "Visible to managers/staff — tap to hide (owner PIN)"}
+              className={`inline-flex items-center justify-center w-6 h-6 rounded-full border transition ${data.month_revenue_hidden_for_staff ? "border-amber-300 bg-amber-50 text-amber-600" : "border-slate-200 text-slate-400 hover:text-slate-700"}`}>
+              {data.month_revenue_hidden_for_staff ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+            </button>
+          )} />
         <Stat icon={Users} label="Total Customers" value={data.total_customers} hint={`${data.active_staff} active staff`} testid="kpi-customers" color="rose" />
       </div>
 

@@ -164,6 +164,8 @@ def _branch_query(branch, tenant=None):
 @router.get("/reports/dashboard")
 async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t=Depends(current_tenant)):
     branch = branch_lock(user, branch)
+    # Owner can hide month-to-date revenue from managers/staff (PIN-guarded toggle below)
+    locked = bool(t.get("hide_month_revenue")) and user.get("role") not in ("admin", "super_admin")
     # Anchored to the business's OWN timezone (tenant.timezone, default India) —
     # UTC dates put early-morning bills on "yesterday" (user-reported wrong records)
     tz = _tenant_tz(t)
@@ -204,7 +206,9 @@ async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t
         "today_revenue": round(sum(float(inv.get("total") or 0) for inv in invoices_today), 2),
         "today_bookings": len(appts_today),
         "today_invoices": len(invoices_today),
-        "month_revenue": round(sum(float(inv.get("total") or 0) for inv in invoices_month), 2),
+        "month_revenue": (None if locked else round(sum(float(inv.get("total") or 0) for inv in invoices_month), 2)),
+        "month_revenue_locked": locked,
+        "month_revenue_hidden_for_staff": bool(t.get("hide_month_revenue")),
         "total_customers": total_customers,
         "active_staff": active_staff,
         "low_stock_count": len(low_stock),
@@ -690,3 +694,17 @@ async def erase_billing_data(body: EraseBillingIn, user=Depends(require_tenant_a
     t_id = user.get("tenant_id")
     await log_audit(t_id, user, "erase", f"Erased billing data ({body.scope}) — {res.deleted_count} invoice(s) deleted")
     return {"ok": True, "scope": body.scope, "invoices_deleted": res.deleted_count}
+
+
+class RevenueLockIn(BaseModel):
+    hide: bool
+
+
+@router.put("/settings/revenue-lock")
+async def set_revenue_lock(body: RevenueLockIn, user=Depends(require_admin), t=Depends(current_tenant),
+                           _pin=Depends(require_owner_pin)):
+    """Owner-only, PIN-guarded: hide the dashboard's month revenue from managers/staff."""
+    if user.get("role") not in ("admin", "super_admin"):
+        raise HTTPException(403, "Only the owner can change this")
+    await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"hide_month_revenue": body.hide}})
+    return {"ok": True, "hide_month_revenue": body.hide}

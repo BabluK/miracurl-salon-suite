@@ -368,3 +368,67 @@ async def delete_customer(cid: str, user=Depends(require_admin)):
     return {"ok": True}
 
 # ---------------- Uploads (staff / service / product images) ----------------
+
+
+# ---------------- CRM import (CSV parsed client-side → JSON rows) ----------------
+class ImportRow(BaseModel):
+    name: str = Field("", max_length=120)
+    phone: str = Field("", max_length=24)
+    email: Optional[str] = Field(None, max_length=120)
+    gender: Optional[str] = Field(None, max_length=20)
+
+
+class ImportIn(BaseModel):
+    rows: List[ImportRow] = Field(..., max_length=5000)
+    update_existing: bool = True
+
+
+def _norm_gender(g: Optional[str]) -> str:
+    v = (g or "").strip().lower()
+    if v in ("m", "male", "man", "men", "gent", "gents"):
+        return "Male"
+    if v in ("f", "female", "woman", "women", "lady", "ladies"):
+        return "Female"
+    return "Other"
+
+
+@router.post("/customers/import-rows")
+async def import_customers(body: ImportIn, user=Depends(require_admin)):
+    """Bulk add/update guests by phone. Existing guests only get blank fields filled (never overwrite spend/points)."""
+    out = {"added": 0, "updated": 0, "skipped": 0, "errors": []}
+    seen: set = set()
+    for i, r in enumerate(body.rows):
+        digits = re.sub(r"\D", "", r.phone or "")
+        if len(digits) > 10 and digits.startswith("91"):
+            digits = digits[-10:]
+        name = re.sub(r"\s+", " ", (r.name or "")).strip()[:120]
+        if len(digits) != 10 or not name:
+            out["skipped"] += 1
+            if len(out["errors"]) < 20:
+                out["errors"].append({"row": i + 1, "reason": "needs a name and a 10-digit number"})
+            continue
+        if digits in seen:
+            out["skipped"] += 1
+            continue
+        seen.add(digits)
+        email = (r.email or "").strip().lower() or None
+        if email and not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+            email = None
+        existing = await _find_by_phone(digits)
+        if existing:
+            if body.update_existing:
+                patch = {k: v for k, v in (("email", email), ("gender", _norm_gender(r.gender) if r.gender else None)) if v and not existing.get(k)}
+                if not existing.get("name") and name:
+                    patch["name"] = name
+                if patch:
+                    await db.customers.update_one({"id": existing["id"]}, {"$set": patch})
+                    out["updated"] += 1
+                    continue
+            out["skipped"] += 1
+            continue
+        c = Customer(name=name, phone=digits, email=email, gender=_norm_gender(r.gender)).model_dump()
+        c["source"] = "import"
+        c["crm_status"] = "active"
+        await db.customers.insert_one(c)
+        out["added"] += 1
+    return out
