@@ -38,24 +38,42 @@ const BAR_RADIUS = [0, 6, 6, 0];
 const STAR_COUNT = [1, 2, 3, 4, 5];
 
 const STAT_ACCENTS = {
-  sky: { tile: "bg-sky-100", icon: "text-sky-600" },
-  rose: { tile: "bg-rose-100", icon: "text-rose-600" },
-  amber: { tile: "bg-amber-100", icon: "text-amber-600" },
-  emerald: { tile: "bg-emerald-100", icon: "text-emerald-600" },
+  sky: { tile: "bg-sky-50 ring-sky-100", icon: "text-sky-500", pill: "bg-sky-50 text-sky-700", line: "#38bdf8" },
+  rose: { tile: "bg-rose-50 ring-rose-100", icon: "text-rose-500", pill: "bg-rose-50 text-rose-700", line: "#f472b6" },
+  amber: { tile: "bg-amber-50 ring-amber-100", icon: "text-amber-600", pill: "bg-amber-50 text-amber-700", line: "#c89b52" },
+  emerald: { tile: "bg-emerald-50 ring-emerald-100", icon: "text-emerald-600", pill: "bg-emerald-50 text-emerald-700", line: "#34d399" },
 };
+const SPARK_D = "M0,30 C10,28 14,18 22,20 S34,30 42,22 S54,8 62,12 S74,26 82,16 S94,2 100,4";
 
-function Stat({ icon: Icon, label, value, hint, testid, color = "sky", action }) {
+function DeltaPill({ now, prev, vs, cls }) {
+  if (prev == null) return null;
+  const pct = prev > 0 ? Math.round(((now - prev) / prev) * 100) : (now > 0 ? 100 : 0);
+  const up = pct >= 0;
+  return (
+    <div className={`text-right px-2.5 py-1.5 rounded-xl ${cls}`} data-testid="kpi-delta">
+      <div className={`text-xs font-bold leading-none ${up ? "" : "text-rose-600"}`}>{up ? "↗" : "↘"} {Math.abs(pct)}%</div>
+      <div className="text-[10px] text-slate-500 mt-0.5">{vs}</div>
+    </div>
+  );
+}
+
+function Stat({ icon: Icon, label, value, hint, testid, color = "sky", action, now, prev, vs }) {
   const accent = STAT_ACCENTS[color] || STAT_ACCENTS.sky;
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-shadow" data-testid={testid}>
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-slate-500 font-medium flex items-center gap-2">{label}{action}</div>
-          <div className="text-3xl font-semibold text-slate-800 mt-2">{value}</div>
-          {hint && <div className="text-xs text-slate-500 mt-1">{hint}</div>}
-        </div>
-        <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${accent.tile}`}>
-          <Icon className={`w-5 h-5 ${accent.icon}`} />
+    <div className="relative overflow-hidden rounded-3xl border border-[#eadfcb] p-5 shadow-sm hover:shadow-md transition-shadow bg-[linear-gradient(135deg,#fffdf8_0%,#fbf6ec_100%)]" data-testid={testid}>
+      <svg viewBox="0 0 100 32" preserveAspectRatio="none" className="pointer-events-none absolute right-0 bottom-0 w-[55%] h-14 opacity-70" aria-hidden="true">
+        <defs><linearGradient id={`sp-${color}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={accent.line} stopOpacity="0.35" /><stop offset="100%" stopColor={accent.line} stopOpacity="0" /></linearGradient></defs>
+        <path d={`${SPARK_D} L100,32 L0,32 Z`} fill={`url(#sp-${color})`} /><path d={SPARK_D} fill="none" stroke={accent.line} strokeWidth="1.6" />
+      </svg>
+      <div className="relative flex items-start gap-4">
+        <div className={`w-14 h-14 rounded-full ring-1 flex items-center justify-center flex-shrink-0 ${accent.tile}`}><Icon className={`w-6 h-6 ${accent.icon}`} /></div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="text-[11px] uppercase tracking-[0.24em] text-[#6b5a3e] font-semibold flex items-center gap-2 pt-1">{label}{action}</div>
+            <DeltaPill now={now} prev={prev} vs={vs} cls={accent.pill} />
+          </div>
+          <div className="font-playfair text-3xl sm:text-[34px] text-slate-900 mt-1 leading-tight">{value}</div>
+          {hint && <div className="text-sm text-slate-500 mt-1">{hint}</div>}
         </div>
       </div>
     </div>
@@ -185,9 +203,9 @@ export default function Dashboard() {
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Stat icon={IndianRupee} label="Today Revenue" value={inr(data.today_revenue)} hint={`${data.today_invoices} invoices`} testid="kpi-revenue-today" color="emerald" />
-        <Stat icon={Calendar} label="Today Bookings" value={data.today_bookings} hint="appointments scheduled" testid="kpi-bookings-today" color="sky" />
-        <Stat icon={TrendingUp} label="This Month" color="amber" testid="kpi-revenue-month"
+        <Stat icon={IndianRupee} label="Today Revenue" value={inr(data.today_revenue)} hint={`${data.today_invoices} invoices`} testid="kpi-revenue-today" color="emerald" now={data.today_revenue} prev={data.compare?.yesterday_revenue} vs="vs yesterday" />
+        <Stat icon={Calendar} label="Today Bookings" value={data.today_bookings} hint="appointments scheduled" testid="kpi-bookings-today" color="sky" now={data.today_bookings} prev={data.compare?.yesterday_bookings} vs="vs yesterday" />
+        <Stat icon={TrendingUp} label="This Month" color="amber" testid="kpi-revenue-month" now={data.month_revenue_locked ? null : data.month_revenue} prev={data.month_revenue_locked ? null : data.compare?.last_month_revenue} vs="vs last month"
           value={data.month_revenue_locked ? <span className="tracking-widest text-slate-400" data-testid="month-revenue-masked">••••••</span> : inr(data.month_revenue)}
           hint={data.month_revenue_locked ? "Locked by owner" : (isAdmin && data.month_revenue_hidden_for_staff ? "hidden from staff · you see it as owner" : "month-to-date revenue")}
           action={isAdmin && (
@@ -197,42 +215,71 @@ export default function Dashboard() {
               {data.month_revenue_hidden_for_staff ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
             </button>
           )} />
-        <Stat icon={Users} label="Total Customers" value={data.total_customers} hint={`${data.active_staff} active staff`} testid="kpi-customers" color="rose" />
+        <Stat icon={Users} label="Total Customers" value={data.total_customers} hint={`${data.active_staff} active staff`} testid="kpi-customers" color="rose" now={data.total_customers} prev={data.compare?.customers_last_month} vs="vs last month" />
       </div>
 
       {/* Rating + Pending review widgets */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm" data-testid="rating-widget">
-          <div className="text-xs uppercase tracking-[0.18em] text-slate-500 font-medium">Customer Rating</div>
-          <div className="flex items-end gap-4 mt-3">
-            <span className="text-5xl font-semibold text-amber-500" data-testid="dash-avg-rating">{(data.avg_rating || 0).toFixed(1)}</span>
-            <div className="pb-2">
-              <div className="flex items-center gap-0.5">
-                {STAR_COUNT.map(n => (
-                  <Star key={n} className={`w-4 h-4 ${n <= Math.round(data.avg_rating || 0) ? "fill-amber-400 text-amber-400" : "text-slate-200"}`} />
-                ))}
+        <div className={GOLD_CARD} data-testid="rating-widget">
+          <div className="pointer-events-none absolute -bottom-10 -left-6 w-56 h-56 rounded-full bg-[#d4af37]/10 blur-3xl" />
+          <div className="relative flex items-start gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-white/70 border border-[#eadfcb] flex items-center justify-center shadow-sm"><Star className="w-5 h-5 fill-[#d4af37] text-[#b08d3f]" /></div>
+            <div><div className="text-[11px] uppercase tracking-[0.26em] text-[#6b5a3e] font-semibold">Customer Rating</div><div className="text-sm text-slate-600">Your clients love us!</div></div>
+          </div>
+          <div className="relative mt-4 grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] items-center gap-5">
+            <div>
+              <div className="flex items-center gap-4 flex-wrap">
+                <span className="font-playfair text-6xl sm:text-7xl leading-none bg-gradient-to-b from-[#8a6a1f] to-[#4a3608] bg-clip-text text-transparent" data-testid="dash-avg-rating">{(data.avg_rating || 0).toFixed(1)}</span>
+                <div>
+                  <div className="flex items-center gap-1">{STAR_COUNT.map(n => <Star key={n} className={`w-6 h-6 ${n <= Math.round(data.avg_rating || 0) ? "fill-[#e5b93c] text-[#d4a12f]" : "fill-slate-200 text-slate-200"}`} />)}</div>
+                  <div className="text-sm text-slate-500 mt-1.5 ml-1">{data.review_count || 0} reviews</div>
+                </div>
               </div>
-              <div className="text-xs text-slate-500 mt-1">{data.review_count || 0} reviews</div>
+              <div className="mt-5 pt-4 border-t border-[#e3d5bd]" data-testid="rating-quote">
+                <div className="flex gap-3"><span className="font-playfair text-4xl text-[#d6c7ab] leading-none">“</span>
+                  <div><div className="font-playfair italic text-slate-800 text-base sm:text-lg">{data.latest_review?.text || "Great service, amazing experience!"}”</div>
+                    <div className="text-xs text-slate-500 mt-1">– {data.latest_review?.name || "Happy Customer"}</div></div></div>
+              </div>
+            </div>
+            <div className="hidden sm:block w-px h-40 bg-[#e3d5bd]" />
+            <div className="hidden sm:flex items-center justify-center relative w-52 h-48">
+              <svg viewBox="0 0 200 190" className="absolute inset-0 w-full h-full text-[#c89b52]" aria-hidden="true">
+                <g fill="currentColor" opacity="0.85">
+                  {Array.from({ length: 9 }).map((_, i) => { const a = (125 + i * 14) * Math.PI / 180; const r = 80; const cx = 100 + r * Math.cos(a), cy = 100 + r * Math.sin(a); const rot = (a * 180 / Math.PI) + 90; return (
+                    <g key={`l${i}`}><ellipse cx={cx} cy={cy} rx="5" ry="12" transform={`rotate(${rot - 25} ${cx} ${cy})`} /><ellipse cx={cx} cy={cy} rx="5" ry="12" transform={`rotate(${rot + 25} ${cx} ${cy})`} opacity="0.7" /></g>); })}
+                  {Array.from({ length: 9 }).map((_, i) => { const a = (55 - i * 14) * Math.PI / 180; const r = 80; const cx = 100 + r * Math.cos(a), cy = 100 + r * Math.sin(a); const rot = (a * 180 / Math.PI) + 90; return (
+                    <g key={`r${i}`}><ellipse cx={cx} cy={cy} rx="5" ry="12" transform={`rotate(${rot + 25} ${cx} ${cy})`} /><ellipse cx={cx} cy={cy} rx="5" ry="12" transform={`rotate(${rot - 25} ${cx} ${cy})`} opacity="0.7" /></g>); })}
+                </g>
+                <path d="M100 178 c-3-6-14-10-14-19 a7 7 0 0 1 14-3 a7 7 0 0 1 14 3 c0 9-11 13-14 19z" fill="#b08d3f" />
+              </svg>
+              <div className="relative text-[11px] uppercase tracking-[0.22em] text-[#5e4a2a] font-semibold leading-[1.9] text-center -translate-y-2">Client<br />Happiness<br />Our Priority</div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm" data-testid="pending-reviews-widget">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-sky-100 flex items-center justify-center">
-              <MessageSquare className="w-5 h-5 text-sky-600" />
+        <div className={GOLD_CARD} data-testid="pending-reviews-widget">
+          <div className="relative grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-start">
+            <div>
+              <div className="flex items-start gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center shadow-sm"><MessageSquare className="w-5 h-5 text-rose-500" /></div>
+                <div><div className="text-[11px] uppercase tracking-[0.26em] text-[#6b5a3e] font-semibold">Pending Review Requests</div><div className="text-sm text-slate-600">Turn happy customers into great reviews</div></div>
+              </div>
+              <div className="font-playfair text-6xl text-slate-900 mt-4 leading-none" data-testid="pending-reviews-count">{data.pending_reviews || 0}</div>
+              <p className="text-sm text-slate-600 mt-2">Completed visits that haven&apos;t received a review yet.</p>
+              <button data-testid="open-review-blast-btn" onClick={() => setBlastOpen(true)}
+                className="mt-5 inline-flex items-center gap-3 pl-5 pr-6 py-3 rounded-2xl bg-gradient-to-r from-[#7f2d3f] via-[#9b3a4e] to-[#b34a5f] text-white font-playfair text-lg shadow-[0_12px_28px_-10px_rgba(155,58,78,.7)] hover:brightness-110 active:scale-[.98] transition-[filter,transform]">
+                <Send className="w-4 h-4" /> Send review-request blast <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
-            <div className="text-xs uppercase tracking-[0.18em] text-slate-500 font-medium">Pending Review Requests</div>
+            <div className="hidden md:flex flex-col items-center justify-center pt-2 pr-2 w-44">
+              <div className="relative w-36 h-28 rounded-3xl bg-gradient-to-br from-[#fde7ea] to-[#f9d5db] shadow-[0_18px_30px_-16px_rgba(155,58,78,.6)] rotate-[-4deg] flex flex-col items-center justify-center gap-2">
+                <div className="flex gap-1">{STAR_COUNT.map(n => <Star key={n} className="w-5 h-5 fill-[#e5b93c] text-[#d4a12f] drop-shadow" />)}</div>
+                <div className="w-20 h-1.5 rounded-full bg-rose-200" /><div className="w-14 h-1.5 rounded-full bg-rose-200" />
+                <div className="absolute -bottom-3 left-8 w-6 h-6 bg-[#f9d5db] rotate-45 rounded-sm" />
+              </div>
+              <div className="mt-6 font-playfair italic text-[#9b3a4e] text-xl text-center leading-tight rotate-[-8deg]">More Reviews<br />More Smiles ♡</div>
+            </div>
           </div>
-          <div className="text-4xl font-semibold text-slate-800 mt-2">{data.pending_reviews || 0}</div>
-          <p className="text-xs text-slate-500 mt-2">Completed visits that haven&apos;t received a review yet.</p>
-          <button
-            data-testid="open-review-blast-btn"
-            onClick={() => setBlastOpen(true)}
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-sky-500 to-blue-500 text-white text-sm font-semibold hover:from-sky-600 hover:to-blue-600 shadow-sm transition"
-          >
-            <Send className="w-3.5 h-3.5" /> Send review-request blast
-          </button>
         </div>
       </div>
 

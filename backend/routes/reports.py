@@ -57,7 +57,10 @@ async def _dashboard_review_stats() -> dict:
     # Pending = the same list the "review blast" sends to: recent completed visits with a
     # real, still-existing customer — not an all-time count that ghosts can inflate.
     pending = len(await _blast_targets())
-    return {"avg_rating": avg, "review_count": count, "pending_reviews": pending}
+    latest = await db.reviews.find({"rating": {"$gte": 4}, "comment": {"$nin": [None, ""]}}, {"_id": 0, "comment": 1, "customer_name": 1, "rating": 1}) \
+        .sort("created_at", -1).limit(1).to_list(1)
+    quote = ({"text": latest[0]["comment"][:140], "name": latest[0].get("customer_name") or "Happy Customer"} if latest else None)
+    return {"avg_rating": avg, "review_count": count, "pending_reviews": pending, "latest_review": quote}
 
 
 async def _dashboard_revenue_trend(days: int = 7, tz=None) -> list:
@@ -178,6 +181,10 @@ async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t
     month_start_utc = datetime(now_local.year, now_local.month, 1, tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None).isoformat() + "Z"
     branch_flt = {**_branch_query(branch, t), "status": {"$nin": ["voided", "open"]}}
     _, trend_start, _ = _local_day_window(tz, (now_local - timedelta(days=6)).date().isoformat())
+    yesterday = (now_local - timedelta(days=1)).date().isoformat()
+    _, y_start, y_end = _local_day_window(tz, yesterday)
+    first_prev = (now_local.replace(day=1) - timedelta(days=1)).replace(day=1)
+    prev_month_start_utc = datetime(first_prev.year, first_prev.month, 1, tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None).isoformat() + "Z"
     # all independent queries fired in PARALLEL (was ~15 sequential round trips — slow on prod)
     (invoices_today, invoices_month, appts_today, low_stock, review_stats,
      top_services, trend_rows, total_customers, active_staff) = await asyncio.gather(
@@ -192,6 +199,18 @@ async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t
         db.customers.count_documents({"crm_status": {"$ne": "pending"}}),
         db.staff.count_documents({"active": True}),
     )
+    invoices_yday, appts_yday, invoices_prev_month, customers_before_month = await asyncio.gather(
+        db.invoices.find({"created_at": {"$gte": y_start, "$lte": y_end}, **branch_flt}, {"_id": 0, "total": 1}).to_list(500),
+        db.appointments.count_documents({"scheduled_at": {"$regex": f"^{yesterday}"}}),
+        db.invoices.find({"created_at": {"$gte": prev_month_start_utc, "$lt": month_start_utc}, **branch_flt}, {"_id": 0, "total": 1}).to_list(3000),
+        db.customers.count_documents({"crm_status": {"$ne": "pending"}, "created_at": {"$lt": month_start_utc}}),
+    )
+    compare = {
+        "yesterday_revenue": round(sum(float(i.get("total") or 0) for i in invoices_yday), 2),
+        "yesterday_bookings": appts_yday,
+        "last_month_revenue": round(sum(float(i.get("total") or 0) for i in invoices_prev_month), 2),
+        "customers_last_month": customers_before_month,
+    }
     by_day: dict = {}
     for r in trend_rows:
         try:
@@ -206,6 +225,7 @@ async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t
               "revenue": round(by_day.get((now_local - timedelta(days=o)).date().isoformat(), 0.0), 2)}
              for o in range(6, -1, -1)]
     return {
+        "compare": compare,
         "today_revenue": round(sum(float(inv.get("total") or 0) for inv in invoices_today), 2),
         "today_bookings": len(appts_today),
         "today_invoices": len(invoices_today),
