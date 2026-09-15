@@ -210,15 +210,35 @@ def _rating_summary(reviews: list) -> tuple[float | None, int]:
     return (round(sum(ratings) / len(ratings), 1) if ratings else None), len(ratings)
 
 
-def _public_page_payload(t: dict, slug: str, services: list, reviews: list) -> dict:
+def _public_page_payload(t: dict, s: str, services: list, reviews: list, extra: dict | None = None) -> dict:
     avg, count = _rating_summary(reviews)
     return {
-        "name": t.get("name"), "slug": slug, "location": t.get("location") or "",
+        "name": t.get("name"), "slug": s, "location": t.get("location") or "",
         "business_type": t.get("business_type") or "salon", "phone": t.get("phone") or "", "about": t.get("about") or "",
         "gallery": [p["url"] for p in (t.get("gallery") or [])][:6], "logo_url": t.get("logo_url") or "",
         "avg_rating": avg, "reviews_count": count, "services": services,
-        "reviews": [r for r in reviews if (r.get("comment") or "").strip()][:6], "book_url": f"/book/{slug}",
+        "reviews": [r for r in reviews if (r.get("comment") or "").strip()][:6], "book_url": f"/book/{s}",
+        "hero_image": t.get("hero_image") or t.get("book_bg") or "", "hours": t.get("hours") or "",
+        "open_time": t.get("open_time") or "10:00", "close_time": t.get("close_time") or "21:00",
+        "maps_url": t.get("maps_url") or "", "instagram_url": t.get("instagram_url") or "",
+        "facebook_url": t.get("facebook_url") or "", "youtube_url": t.get("youtube_url") or "",
+        "whatsapp_number": t.get("whatsapp_number") or "",
+        "branches": [b.get("name") for b in (t.get("branches") or []) if b.get("name")],
+        **(extra or {}),
     }
+
+
+async def _public_page_extras(t: dict) -> dict:
+    """Social proof + upsell flags for the landing page (all tenant-scoped via explicit tenant_id)."""
+    tid = t["id"]
+    from routes.hair_colors import _catalog_with_images
+    customers = await _raw_db.customers.count_documents({"tenant_id": tid})
+    mem = await _raw_db.memberships.find_one({"tenant_id": tid, "active": True}, {"_id": 0, "name": 1, "cashback_pct": 1, "discount_pct": 1, "price": 1},
+                                             sort=[("price", -1)])
+    gift = (t.get("gift_card_settings") or {}).get("enabled", True)
+    shades = [c for c in await _catalog_with_images(tid) if c.get("image_url")][:6] if t.get("business_type") != "restaurant" else []
+    return {"customers_count": customers, "membership": mem, "gift_cards_enabled": bool(gift),
+            "shades": [{"id": c["id"], "name": c["name"], "image_url": c["image_url"], "swatch": c.get("swatch")} for c in shades]}
 
 
 @router.get("/public/salon-page/{slug}")
@@ -227,7 +247,11 @@ async def public_salon_page(slug: str):
     if not t:
         raise HTTPException(404, "Salon not found")
     services, reviews = await _public_catalog_and_reviews(t["id"])
-    return _public_page_payload(t, slug, services, reviews)
+    try:
+        extra = await _public_page_extras(t)
+    except Exception:  # noqa: BLE001 — extras are decorative
+        extra = {}
+    return _public_page_payload(t, slug, services, reviews, extra)
 
 
 @router.get("/public/sitemap-salons.xml")

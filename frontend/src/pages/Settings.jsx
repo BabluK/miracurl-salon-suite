@@ -45,11 +45,12 @@ export default function Settings() {
   const resto = tenant?.business_type === "restaurant";
   useEffect(() => {
     if (window.location.hash !== "#subscription") return;
-    let tries = 0;
+    let tries = 0, hits = 0;
     const iv = setInterval(() => {
       const el = document.getElementById("subscription") || document.getElementById("subscription-intl");
-      if (el || ++tries > 20) { clearInterval(iv); el?.scrollIntoView({ behavior: "smooth", block: "start" }); }
-    }, 300);
+      if (el) { el.scrollIntoView({ behavior: hits ? "auto" : "smooth", block: "start" }); hits += 1; }
+      if (hits >= 3 || ++tries > 50) clearInterval(iv);
+    }, 400);
     return () => clearInterval(iv);
   }, []);
   const eager = !!window.location.hash;

@@ -1,0 +1,27 @@
+{
+  "summary": "Tested new features: (1) public booking page glyphs, (2) Settings 2-column responsive grid + Lazy cards, (3) public AI chat greeting/FAQ, (4) WhatsApp inbound -> Mira auto-reply via manual test. Backend all pass (100%). Frontend mostly pass — one issue: /settings#subscription does NOT scroll to the Subscription card after Owner-PIN unlock (eager loading of Lazy cards works, but page ends up near top, scrollY=70 while #subscription is at page y=1268). Public booking glyphs: 41 cards, all render <svg> (0 letter fallback shown), click toggles to check, Continue bar shows ₹ totals. Settings columns side-by-side at 1920 (left x=288 rightEdge=1076, right x=1100), collapse to single column at 1279 (right below left y=9824). Lazy cards Branches/Tax/Vendors/Gift Cards/Data isolation all appear after scroll. Public AI chat: 'Hi' -> asks name, 'price list' -> instant menu with ₹ prices. WhatsApp manual test: two fake inbounds produce two Mira replies via mocked send_text, whatsapp_messages doc stored with status='replied' and mira_reply. Webhook GET verify with wrong token returns 403.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Settings hash-scroll", "issue": "After hitting /settings#subscription and unlocking Owner PIN, page does not scroll to the Subscription card. Lazy cards do render eagerly (0 placeholders) so #subscription element exists (page y≈1268) but scrollY stays at ~70. Likely the SettingsHome mount happens after PIN unlock and the one-shot useEffect+setInterval in Settings.jsx L46-54 either runs before element paint or is defeated by a scroll-reset in the PIN gate/AppLayout. Direct navigation (without PIN gate) was not testable because PIN gate always shows on fresh page load.", "selector": "#subscription", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/manual_wa_mira.py"],
+  "action_items": [
+    "Fix /settings#subscription scroll behaviour after Owner PIN unlock. Suggestion: move the hash-scroll effect into SettingsHome (the component rendered post-unlock) rather than the outer Settings page, OR run it after PIN unlock state changes, OR use requestAnimationFrame + longer retry window."
+  ],
+  "critical_code_review_comments": [
+    "Settings.jsx is 122 lines but references 30+ card imports; consider splitting into logical section files.",
+    "Lazy uses IntersectionObserver with rootMargin 700px which is fine; consider preserving scroll position when eager toggles between hash and non-hash navigations."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "90%"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL, Owner PIN 4321, tenant slug miracurl-marathahalli",
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Public booking glyphs verified (41 svg glyphs render). Settings columns responsive (xl=1280 breakpoint per code). WhatsApp Mira manual test script at /app/backend/tests/manual_wa_mira.py works end-to-end. Remaining bug: hash-scroll to #subscription after PIN unlock.",
+  "rca of the issue": "Settings.jsx uses `useEffect(() => { ... }, [])` with `setInterval` polling for #subscription element. When user hits /settings#subscription, the OwnerPinGate shows first and SettingsHome (which contains the useEffect + subscription card) mounts only AFTER PIN unlock. The useEffect does then run and eager=true is respected (0 lazy placeholders), but observed scrollY=70 while #subscription is at page y=1268 — indicates either the smooth scroll is being cancelled or a subsequent scrollTo(0,0) fires (e.g., AppLayout main content). Repro: open /settings#subscription in a new tab, login/dismiss modal not required if already authed via cookie, enter PIN 4321, click Unlock. Expected: viewport auto-scrolls to Subscription card. Actual: near top of page."
+}

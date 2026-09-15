@@ -30,6 +30,7 @@ const RULES = [
   [/tan|sun|bronze/, Sun],
   [/herbal|ayur|organic|natural|green/, Leaf],
   [/magic|wand|transform|makeover/, Wand2],
+  [/hair|salon|men|women|unisex/, Scissors],
 ];
 
 export function serviceIcon(service) {

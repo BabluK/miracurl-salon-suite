@@ -216,7 +216,18 @@ export default function BookPublic() {
   const PUBLIC = useMemo(() => axios.create({ baseURL: `${BACKEND_URL}/api/public` }), []);
 
   const [step, setStep] = useState(0);
-  useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [step]);
+  useEffect(() => {
+    if (step === 0 && window.location.hash === "#choose-services") {
+      let tries = 0;
+      const iv = setInterval(() => {
+        const el = document.getElementById("choose-services");
+        if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); clearInterval(iv); window.history.replaceState(null, "", window.location.pathname + window.location.search); }
+        else if (++tries > 30) clearInterval(iv);
+      }, 200);
+      return () => clearInterval(iv);
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [step]);
   const [salon, setSalon] = useState(null);
   const [logoWide, setLogoWide] = useState(false);
   const onLogoLoad = useCallback((e) => setLogoWide(e.target.naturalWidth > e.target.naturalHeight * 1.35), []);
