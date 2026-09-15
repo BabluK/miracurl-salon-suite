@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { ImportCustomersModal } from "@/components/customers/ImportCustomersModal";
 import api from "@/lib/api";
-import { Plus, X, Search, Edit3, Trash2, Phone, Mail, Award, Download, Upload, Wallet, History, GitMerge, RefreshCw } from "lucide-react";
+import { Plus, X, Search, Edit3, Trash2, Mail, Award, Download, Upload, Wallet, History, GitMerge, RefreshCw, Users, Star, IndianRupee, Heart, MessageCircle, CalendarDays, Clock3, ArrowUpDown, Crown } from "lucide-react";
+import { CrmStat, CrmPager, sortCustomers } from "@/components/crm/CrmBits";
 import { toast } from "sonner";
 import { askConfirm } from "@/components/ConfirmDialog";
 import { WalletDialog } from "@/components/WalletDialog";
@@ -21,6 +22,9 @@ export default function Customers() {
   const [mergeOpen, setMergeOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState("all"); // all | today | yesterday | week
+  const [sort, setSort] = useState({ key: "created_at", dir: "desc" });
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
   const [form, setForm] = useState({ name: "", phone: "", country_code: "+91", email: "", gender: "Female", dob: "", anniversary: "", address: "", notes: "", instagram: "", facebook: "", telegram: "" });
 
   const load = useCallback(async () => {
@@ -114,102 +118,130 @@ export default function Customers() {
     });
   }
 
+  const sorted = sortCustomers(visible, sort);
+  const paged = sorted.slice((page - 1) * perPage, page * perPage);
+  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+  const stats = {
+    total: list.length,
+    loyal: list.filter(c => (c.visits || 0) > 3).length,
+    revenue: Math.round(list.reduce((a, c) => a + (c.total_spent || 0), 0)),
+    avg: list.length ? Math.round(list.reduce((a, c) => a + (c.total_spent || 0), 0) / list.length) : 0,
+    newMonth: list.filter(c => new Date(c.created_at) >= monthStart).length,
+  };
+
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-playfair text-3xl">Customer Relationships</h1>
-          <p className="text-slate-500 text-sm mt-1">Manage your salon&apos;s clientele and loyalty.</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-start gap-5">
+          <div>
+            <h1 className="font-playfair text-3xl sm:text-4xl text-slate-900">Customer Relationships</h1>
+            <p className="text-slate-500 text-sm mt-1">Manage your salon&apos;s clientele and loyalty.</p>
+          </div>
+          <div className="hidden md:block font-playfair italic text-[#9b3a4e] text-lg leading-tight rotate-[-6deg] mt-1 select-none">Happy Clients<br /><span className="ml-6">Beautiful Journeys ♡</span></div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button data-testid="merge-duplicates-btn" onClick={() => setMergeOpen(true)} className="btn-slate flex items-center gap-2" title="Find & merge guests saved twice with the same number">
-            <GitMerge className="w-4 h-4" /> Merge duplicates
-          </button>
-          <button data-testid="resync-stats-btn" onClick={resyncStats} className="btn-slate flex items-center gap-2" title="Recalculate every guest's Spent & Visits from actual bills — fixes any mismatch with Reports">
-            <RefreshCw className="w-4 h-4" /> Recalculate spend
-          </button>
-          <button data-testid="export-customers-csv-btn" onClick={exportCsv} className="btn-slate flex items-center gap-2" title="Download all customers as CSV (Name, Number, Email, Gender…)">
-            <Download className="w-4 h-4" /> Export CSV
-          </button>
-          <button data-testid="import-customers-btn" onClick={() => setImportOpen(true)} className="btn-slate flex items-center gap-2" title="Bring guests in from a CSV / Excel export">
-            <Upload className="w-4 h-4" /> Import CSV
-          </button>
-          <button data-testid="add-customer-btn" onClick={startNew} className="btn-blue flex items-center gap-2">
-            <Plus className="w-4 h-4" /> Add Customer
+          {[["import-customers-btn", () => setImportOpen(true), Upload, "Import CSV", "Bring guests in from a CSV / Excel export"],
+            ["merge-duplicates-btn", () => setMergeOpen(true), GitMerge, "Merge duplicates", "Find & merge guests saved twice with the same number"],
+            ["resync-stats-btn", resyncStats, RefreshCw, "Recalculate spend", "Recalculate every guest's Spent & Visits from actual bills"],
+            ["export-customers-csv-btn", exportCsv, Download, "Export CSV", "Download all customers as CSV (Name, Number, Email, Gender…)"]].map(([id, fn, Icon, label, title]) => (
+            <button key={id} data-testid={id} onClick={fn} title={title} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm text-slate-700 hover:border-[#9b3a4e]/40 hover:text-[#7f2d3f] shadow-sm transition-colors">
+              <Icon className="w-4 h-4" /> {label}
+            </button>
+          ))}
+          <button data-testid="add-customer-btn" onClick={startNew} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#7f2d3f] to-[#a83d54] text-white text-sm font-semibold shadow-[0_10px_24px_-10px_rgba(155,58,78,.7)] hover:brightness-110 transition-[filter]">
+            <Users className="w-4 h-4" /> Add Customer
           </button>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative max-w-md flex-1 min-w-[220px]">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" data-testid="crm-stats">
+        <CrmStat icon={Users} tone="rose" label="Total Customers" value={stats.total} delta={stats.newMonth ? `+${stats.newMonth}` : null} sub="new this month" />
+        <CrmStat icon={Star} tone="amber" label="Loyal Customers" value={stats.loyal} delta={stats.total ? `${Math.round((stats.loyal / stats.total) * 100)}%` : null} sub="> 3 visits" />
+        <CrmStat icon={IndianRupee} tone="emerald" label="Lifetime Revenue" value={`₹${stats.revenue.toLocaleString("en-IN")}`} sub="across all guests" />
+        <CrmStat icon={Heart} tone="pink" label="Avg. Spend per Customer" value={`₹${stats.avg.toLocaleString("en-IN")}`} sub="per guest" />
+      </div>
+
+      <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-3 flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[240px] max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input data-testid="customer-search" className="input-light pl-10" placeholder="Search by name or phone..." value={q} onChange={e => setQ(e.target.value)} />
+          <input data-testid="customer-search" className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm !bg-white !text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#9b3a4e]/30" placeholder="Search by name, phone or email…" value={q} onChange={e => { setQ(e.target.value); setPage(1); }} />
         </div>
-        <div className="flex gap-2" data-testid="crm-date-filters">
-          {[["all", "✨ All"], ["today", `📅 Today (${counts.today})`], ["yesterday", `Yesterday (${counts.yesterday})`], ["week", `Last 7 days (${counts.week})`]].map(([k, l]) => (
-            <button key={k} data-testid={`crm-filter-${k}`} onClick={() => setDateFilter(k)}
-              className={`px-3.5 py-2 rounded-full text-xs font-semibold border transition ${dateFilter === k
-                ? "bg-slate-900 text-amber-200 border-slate-900 shadow"
-                : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
-              {l}
+        <div className="flex gap-2 flex-wrap" data-testid="crm-date-filters">
+          {[["all", "All", Plus], ["today", `Today (${counts.today})`, CalendarDays], ["yesterday", `Yesterday (${counts.yesterday})`, CalendarDays], ["week", `Last 7 days (${counts.week})`, Clock3]].map(([k, l, Icon]) => (
+            <button key={k} data-testid={`crm-filter-${k}`} onClick={() => { setDateFilter(k); setPage(1); }}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors ${dateFilter === k
+                ? "bg-gradient-to-r from-[#7f2d3f] to-[#a83d54] text-white border-transparent shadow"
+                : "bg-white text-slate-600 border-slate-200 hover:border-[#9b3a4e]/40"}`}>
+              <Icon className={`w-3.5 h-3.5 ${dateFilter === k ? "text-white" : "text-[#9b3a4e]"}`} /> {l}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="card-light p-0 overflow-x-auto">
-        <table className="luxe-table-light min-w-[820px]">
+      <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-x-auto">
+        <table className="w-full min-w-[900px] text-sm">
           <thead>
-            <tr>
-              <th>Customer</th><th>Contact</th><th>Added</th><th>Gender</th><th>Visits</th><th>Spent</th><th>Loyalty</th><th>Wallet</th><th></th>
+            <tr className="text-[10px] uppercase tracking-[0.2em] text-slate-500 border-b border-slate-100">
+              {[["name", "Customer"], ["phone", "Contact"], ["created_at", "Added"], ["gender", "Gender"], ["visits", "Visits"], ["total_spent", "Spent"], ["loyalty_points", "Loyalty"], ["wallet_balance", "Wallet"]].map(([k, l]) => (
+                <th key={k} className="text-left font-semibold px-4 py-3.5 whitespace-nowrap">
+                  <button onClick={() => setSort(sv => ({ key: k, dir: sv.key === k && sv.dir === "asc" ? "desc" : "asc" }))} data-testid={`crm-sort-${k}`} className={`inline-flex items-center gap-1 hover:text-[#7f2d3f] ${sort.key === k ? "text-[#7f2d3f]" : ""}`}>
+                    {l} <ArrowUpDown className="w-3 h-3 opacity-60" />
+                  </button>
+                </th>
+              ))}
+              <th className="text-right font-semibold px-4 py-3.5">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {visible.map(c => (
-              <tr key={c.id} data-testid={`customer-row-${c.id}`}>
-                <td>
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-sky-500 to-blue-500 flex items-center justify-center text-white font-semibold">{c.name.charAt(0)}</div>
-                    <div>
-                      <div className="font-medium">{c.name}</div>
-                      {c.notes && <div className="text-xs text-slate-400 line-clamp-1">{c.notes}</div>}
+            {paged.map(c => {
+              const isNew = Date.now() - new Date(c.created_at).getTime() < 7 * 86400000;
+              const isVip = (c.total_spent || 0) >= 5000 || (c.visits || 0) >= 8;
+              const pd = phoneDisplay(c);
+              return (
+                <tr key={c.id} data-testid={`customer-row-${c.id}`} className="border-b border-slate-50 hover:bg-[#fdf6f7] transition-colors">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-[#eef2ff] text-[#4f5fd8] flex items-center justify-center font-semibold">{(c.name || "?").charAt(0).toUpperCase()}</div>
+                      <div className="min-w-0">
+                        <div className="font-medium text-slate-800 flex items-center gap-2">{c.name}
+                          {isVip && <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"><Crown className="w-3 h-3" /> VIP</span>}
+                          {!isVip && isNew && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">New</span>}
+                        </div>
+                        {c.notes && <div className="text-xs text-slate-400 line-clamp-1">{c.notes}</div>}
+                      </div>
                     </div>
-                  </div>
-                </td>
-                <td>
-                  <div className="flex items-center gap-2 text-sm"><Phone className="w-3 h-3 text-sky-600" /> {phoneDisplay(c).flag} {phoneDisplay(c).code} {phoneDisplay(c).number} <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-500">{phoneDisplay(c).iso}</span></div>
-                  {c.email && <div className="flex items-center gap-2 text-xs text-slate-500 mt-1"><Mail className="w-3 h-3" /> {c.email}</div>}
-                </td>
-                <td className="text-sm text-slate-600 whitespace-nowrap">{addedLabel(c.created_at)}</td>
-                <td className="text-sm">{c.gender}</td>
-                <td className="text-sm">{c.visits}</td>
-                <td className="text-sm">₹{(c.total_spent || 0).toLocaleString("en-IN")}</td>
-                <td>
-                  <span className="inline-flex items-center gap-1 text-xs bg-sky-50 text-sky-600 px-2 py-1 rounded">
-                    <Award className="w-3 h-3" /> {c.loyalty_points}
-                  </span>
-                </td>
-                <td>
-                  <button data-testid={`wallet-customer-${c.id}`} onClick={() => setWalletFor(c)}
-                    className="inline-flex items-center gap-1 text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg hover:bg-emerald-100">
-                    <Wallet className="w-3 h-3" /> ₹{(c.wallet_balance || 0).toLocaleString("en-IN")}
-                  </button>
-                </td>
-                <td>
-                  <div className="flex items-center gap-2 justify-end">
-                    <ReachOutMenu customer={c} onAddHandles={startEdit} />
-                    <button data-testid={`history-customer-${c.id}`} onClick={() => setHistoryFor(c)} title="Visit history" className="p-2 hover:bg-slate-50 rounded text-slate-500 hover:text-violet-600 transition"><History className="w-4 h-4" /></button>
-                    <button data-testid={`edit-customer-${c.id}`} onClick={() => startEdit(c)} className="p-2 hover:bg-slate-50 rounded text-slate-500 hover:text-sky-600 transition"><Edit3 className="w-4 h-4" /></button>
-                    <button data-testid={`delete-customer-${c.id}`} onClick={() => remove(c.id)} className="p-2 hover:bg-red-500/10 rounded text-slate-500 hover:text-red-400 transition"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {visible.length === 0 && (
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2 whitespace-nowrap"><MessageCircle className="w-4 h-4 text-emerald-500" /> {pd.code} {pd.number} <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-500">{pd.iso}</span></div>
+                    {c.email && <div className="flex items-center gap-2 text-xs text-slate-500 mt-1"><Mail className="w-3 h-3" /> {c.email}</div>}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{addedLabel(c.created_at)}</td>
+                  <td className="px-4 py-3 text-slate-700">{c.gender}</td>
+                  <td className="px-4 py-3 text-slate-700">{c.visits}</td>
+                  <td className="px-4 py-3 text-slate-800 font-medium">₹{(c.total_spent || 0).toLocaleString("en-IN")}</td>
+                  <td className="px-4 py-3"><span className="inline-flex items-center gap-1 text-xs bg-sky-50 text-sky-600 px-2 py-1 rounded-lg"><Award className="w-3 h-3" /> {c.loyalty_points}</span></td>
+                  <td className="px-4 py-3">
+                    <button data-testid={`wallet-customer-${c.id}`} onClick={() => setWalletFor(c)} className="inline-flex items-center gap-1 text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg hover:bg-emerald-100">
+                      <Wallet className="w-3 h-3" /> ₹{(c.wallet_balance || 0).toLocaleString("en-IN")}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1 justify-end">
+                      <ReachOutMenu customer={c} onAddHandles={startEdit} />
+                      <button data-testid={`history-customer-${c.id}`} onClick={() => setHistoryFor(c)} title="Visit history" className="p-2 hover:bg-slate-50 rounded text-slate-500 hover:text-violet-600 transition-colors"><History className="w-4 h-4" /></button>
+                      <button data-testid={`edit-customer-${c.id}`} onClick={() => startEdit(c)} className="p-2 hover:bg-slate-50 rounded text-slate-500 hover:text-[#7f2d3f] transition-colors"><Edit3 className="w-4 h-4" /></button>
+                      <button data-testid={`delete-customer-${c.id}`} onClick={() => remove(c.id)} className="p-2 hover:bg-red-500/10 rounded text-slate-500 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+            {paged.length === 0 && (
               <tr><td colSpan="9" className="text-center text-slate-500 py-12">{list.length ? "No customers in this date range." : "No customers yet. Add your first one!"}</td></tr>
             )}
           </tbody>
         </table>
+        <CrmPager total={visible.length} page={page} perPage={perPage} setPage={setPage} setPerPage={setPerPage} noun="customers" />
       </div>
 
       <RecentInvoices />
