@@ -14,10 +14,10 @@ function loadRazorpayScript() {
   });
 }
 
-export function SmsPacksCard() {
+export function SmsPacksCard({ defaultChannel = "sms" }) {
   const [cfg, setCfg] = useState(null);
   const [busy, setBusy] = useState("");
-  const [channel, setChannel] = useState("sms");
+  const [channel, setChannel] = useState(defaultChannel);
   const isWA = channel === "whatsapp";
   const unit = isWA ? "WhatsApp msg" : "SMS";
 

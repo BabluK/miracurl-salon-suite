@@ -25,6 +25,7 @@ import { WeeklyDigestCard } from "@/components/WeeklyDigestCard";
 import { MiraSocialNudge } from "@/components/MiraSocialNudge";
 import { SetupBanner } from "@/components/SetupBanner";
 import { SmsPointsWidget } from "@/components/dashboard/SmsPointsWidget";
+import { WaCreditsBanner } from "@/components/dashboard/WaCreditsBanner";
 import { WelcomeCongratsModal } from "@/components/WelcomeCongratsModal";
 import { TrialCountdownRing } from "@/components/dashboard/TrialCountdownRing";
 
@@ -145,6 +146,7 @@ export default function Dashboard() {
       {(isOwner || user?.role === "manager") && <MorningBriefing />}
       {isOwner && <MiracurlUpdates />}
       {isOwner && <SetupBanner />}
+      {isOwner && <WaCreditsBanner />}
       {isOwner && <SmsPointsWidget />}
       {isOwner && <MiraSocialNudge />}
       {isOwner && <MiraDayOffer />}

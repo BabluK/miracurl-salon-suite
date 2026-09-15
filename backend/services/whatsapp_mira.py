@@ -9,6 +9,7 @@ from database import _current_tenant_id, _raw_db
 
 log = logging.getLogger("whatsapp.mira")
 _TEXT_TYPES = {"text", "button", "interactive"}
+LOW_CREDIT_THRESHOLD = 20
 _MD = re.compile(r"\*\*(.+?)\*\*", re.DOTALL)
 
 
@@ -79,6 +80,12 @@ async def _reserve_credit(t: dict, doc: dict) -> bool:
         await _raw_db.sms_credit_log.insert_one({
             "id": str(uuid.uuid4()), "tenant_id": t["id"], "points": -1, "source": "mira_auto_reply", "channel": "whatsapp",
             "message_id": doc.get("message_id"), "wa_id": doc.get("wa_id"), "at": now.isoformat()})
+        left = int(t.get("wa_points") or 0) - 1
+        if left < LOW_CREDIT_THRESHOLD:
+            from services.tenant_notices import notify_tenant
+            await notify_tenant(t["id"], "wa_credits_low", f"Only {left} WhatsApp credits left",
+                                "Mira stops answering WhatsApp at 0 — top up to keep bookings flowing.", "/settings",
+                                f"wa_credits_low:{now.date().isoformat()}")
         return True
     await _raw_db.whatsapp_messages.update_one({"message_id": doc.get("message_id")}, {"$set": {"status": "no_credits"}})
     last = t.get("wa_credits_alert_at") or ""

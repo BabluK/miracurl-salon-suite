@@ -3210,3 +3210,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-15 — WhatsApp credit metering — VERIFIED (manual script /tmp-style + UI screenshot)
 - `services/whatsapp_mira.py`: `_reserve_credit` atomically `$inc wa_points -1` (only if ≥1) before Mira replies; ledger row in `sms_credit_log` (source `mira_auto_reply`, points -1); refund on send failure. Zero balance → message `status: no_credits`, owner bell notice (`tenant_notices`, kind `wa_credits`, deduped daily) + owner email (once/day via `wa_credits_alert_at`).
 - `GET /sms-packs` now returns `usage_30d.whatsapp_auto_replies` and `wa_auto_reply`; `PUT /sms-packs/wa-auto-reply {enabled}` owner toggle. Settings → Message credits → WhatsApp tab shows "Mira answers WhatsApp for you" toggle + 30-day usage.
+
+## 2026-09-15 — Low WhatsApp credit warning — VERIFIED (script + screenshot)
+- Dashboard `components/dashboard/WaCreditsBanner.jsx` (owner only): amber banner when `wa_points < 20`, red when 0 ("Mira has gone silent"); "Top up WhatsApp" opens SmsPacksCard on the WhatsApp tab (`defaultChannel` prop); dismiss hides for the day (localStorage).
+- Backend: `_reserve_credit` pushes a bell notice `wa_credits_low` (deduped per day) when the balance drops under `LOW_CREDIT_THRESHOLD = 20`.
