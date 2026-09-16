@@ -95,13 +95,7 @@ def render_luxe_id_card(d: dict) -> bytes:
 
     # top-left eyebrow + tiny emblem
     for i, line in enumerate(("PEOPLE", "BEHIND", "BEAUTIFUL", "STORIES")):
-        _tracked(c, 12, H - 28 - i * 6.6, line, 3.4, (1, 1, 1), spacing=1.4)
-    if d.get("logo_bytes"):
-        try:
-            lg = ImageReader(io.BytesIO(d["logo_bytes"])); iw, ih = lg.getSize(); sc = 16.0 / max(iw, ih)
-            c.drawImage(lg, 12, H - 22, width=iw * sc, height=ih * sc, mask="auto")
-        except Exception:  # noqa: BLE001
-            pass
+        _tracked(c, 12, H - 22 - i * 6.6, line, 3.4, (1, 1, 1), spacing=1.4)
     # right script tagline
     c.setFillColorRGB(*GOLD_LT); c.setFont(script, 10.5)
     for i, line in enumerate(("Beauty", "Empowers", "You ♡" if script != "Times-BoldItalic" else "You")):
