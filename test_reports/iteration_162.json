@@ -1,0 +1,35 @@
+{
+  "summary": "Iteration 162 — Group Dashboard multi-salon overview + campaign_onboarding refactor regression. Backend: 19/19 pytest passed on /api/auth/my-salons/overview across all period chips (today, yesterday, 4d, 7d, week, month, last_month, 3m, 6m, 2026-08) + custom range (2026-09-01 to 2026-09-10). Response shape validated: period, period_label, salons[] each with today/invoices_today/cash/upi/card/top_stylist/appointments_today/month/active, and totals total_today/total_month/total_cash/total_upi/total_card/total_bills/total_bookings/top_stylist. Invariants held: total_bills == sum(invoices_today), total_bookings == sum(appointments_today), cash+upi+card <= total_today. Custom bad-dates → 400 ✓; custom > 366 days → 400 ✓. Owner-PIN gating: current tenant has no security_pin set so header not enforced (endpoint returned 200 without X-Owner-Pin) — flagged as note; wrong-PIN not tested to avoid rate-limit lockout as instructed. Regression after services/campaign_onboarding.py refactor: /api/settings/rewards-campaign (owner) 200 with agreement; /api/settings/rewards-campaign/agreement 200; /api/super-admin/tenants/{tid}/features 200; /api/super-admin/rewards-campaign/onboarding 200. /api/whats-new build=='2026-09-16.264' and highlights contain 'Group Dashboard' ✓. Frontend: logged in as admin@miracurl.com → dismissed What's New → clicked group-dashboard-unlock-btn → PIN 4321 → group-dashboard-pin-confirm → my-salons-overview rendered. All KPI testids present (group-kpi-cash/upi/card/bookings/bills/top-stylist), my-salons-total-today='₹0', 2 per-branch cards (my-salon-card-miracurl-whitefield + miracurl-marathahalli) with cash/digital/bookings/bills/top-stylist sub-elements each. Period chips changed my-salons-period-label correctly ('Yesterday · 15 Sep 2026', 'Last 4 days · 13 Sep – 16 Sep', 'Last 7 days · 10 Sep – 16 Sep', 'This month · September 2026'). Custom range group-range-from/to+apply → 'combined collection · 01 Sep – 10 Sep 2026' ✓. group-period-custom-month → 'July 2026' ✓. group-dashboard-lock-btn re-locks (group-dashboard-locked appears) ✓. Mobile 390: scrollW==clientW, no horizontal overflow ✓.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/auth/my-salons/overview", "issue": "Current miracurl-marathahalli tenant has no security_pin_hash set, so the PIN header is not enforced (endpoint returned 200 without X-Owner-Pin). test_missing_owner_pin passes conditionally. If the review intent is 'PIN must always be required for group dashboard', consider requiring at least one branch to have PIN or a global gate."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter162_group_dashboard.py",
+    "/app/test_reports/pytest/iter162.xml"
+  ],
+  "action_items": [
+    "(Info only) Owner PIN header enforcement on /auth/my-salons/overview only kicks in when tenant.security_pin_hash is set; miracurl-marathahalli currently has no PIN persisted, so gating is a no-op. Consider seeding a PIN hash if PIN enforcement should always be tested end-to-end.",
+    "(Pre-existing, unrelated) MiraDayOffer.jsx <select><option><span> hydration warning still noisy — reported in iter 160 & 161 too."
+  ],
+  "critical_code_review_comments": [
+    "security_settings.py my_salons_overview: variable 't' from Depends(current_tenant) is shadowed in the loop 'for tid in ids: t = await _raw_db.tenants.find_one(...)'. After the loop, 't' points to the last iterated tenant, not the auth-current tenant — currently harmless since it isn't used again, but risky if future code accesses 't' post-loop for PIN or metrics context. Recommend renaming the loop var to 'tinfo'.",
+    "security_settings.py _branch_metrics: staff aggregation key uses `it.get('staff_id') or inv_staff` — if some items have staff_id and some don't, mixed attribution can inflate the 'top stylist' revenue for the invoice-level fallback staff. Acceptable but document.",
+    "security_settings.py is now ~380 lines mixing security-pin, branch-switch, salon-switch, group-dashboard, entertainment playlists — consider splitting group_dashboard.py into its own routes module (matches the campaign_onboarding.py service-extraction pattern used this iteration)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter162_group_dashboard.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (Owner PIN 4321, X-Tenant-Slug miracurl-marathahalli); super@miracurl.com / og9T@41Es#OQb6",
+  "seed_data_creation": "None (no invoices/appointments created).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Group Dashboard fully verified. Owner PIN header on /auth/my-salons/overview is only enforced when the current-tenant document has security_pin_hash set; miracurl-marathahalli has none. Skip wrong-PIN tests (rate-limited max 2 wrong attempts). Custom-month picker sends period=YYYY-MM (not 'custom'). Whats-new build is 2026-09-16.264 with 'Group Dashboard' highlight.",
+  "rca of the issue": "N/A — no failures."
+}
