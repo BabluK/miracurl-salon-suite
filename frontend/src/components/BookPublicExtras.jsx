@@ -171,7 +171,7 @@ export const ReferEarnBanner = ({ salonName, reward }) => {
 };
 
 /* ---- Our Locations (main + branches) ---- */
-export const LocationsSection = ({ salon }) => {
+export const LocationsSection = ({ salon, activeBranch = "", onBookHere }) => {
   const branches = salon?.branches || [];
   const main = {
     id: "main",
@@ -189,7 +189,7 @@ export const LocationsSection = ({ salon }) => {
         {all.map(b => {
           const mapsHref = b.maps_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${b.name} ${b.address}`)}`;
           return (
-            <div key={b.id} className="bg-white/[0.045] backdrop-blur border border-white/10 rounded-2xl p-5 hover:border-gold/40 transition-colors" data-testid={`location-card-${b.id}`}>
+            <div key={b.id} className={`bg-white/[0.045] backdrop-blur border rounded-2xl p-5 transition-colors ${activeBranch === b.id ? "border-gold/70 shadow-[0_0_0_1px_rgba(212,175,55,.4)]" : "border-white/10 hover:border-gold/40"}`} data-testid={`location-card-${b.id}`}>
               <div className="flex items-center gap-2">
                 <span className="w-8 h-8 rounded-full bg-gold/10 border border-gold/25 flex items-center justify-center shrink-0"><MapPin className="w-4 h-4 text-gold" /></span>
                 <div className="font-playfair text-base leading-snug">{b.name}</div>
@@ -206,6 +206,12 @@ export const LocationsSection = ({ salon }) => {
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gold/15 border border-gold/40 text-xs text-gold hover:bg-gold/25 transition-colors">
                   <Navigation className="w-3 h-3" /> Get Directions
                 </a>
+                {onBookHere && branches.length > 0 && (
+                  <button type="button" onClick={() => onBookHere(b.id)} data-testid={`location-book-here-${b.id}`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${activeBranch === b.id ? "bg-gold text-bg-base" : "bg-white/10 border border-white/15 text-white hover:border-gold/60"}`}>
+                    {activeBranch === b.id ? "✓ Booking here" : "Book here"}
+                  </button>
+                )}
               </div>
             </div>
           );

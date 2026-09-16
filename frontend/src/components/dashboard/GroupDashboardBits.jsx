@@ -43,12 +43,20 @@ export function PeriodPicker({ cur, range, busy, onPick, onRange }) {
   );
 }
 
-function Kpi({ icon: Icon, label, value, sub, testid }) {
+const TONE = {
+  gold: "from-[#3a2a0c] to-[#1c1508] border-[#e8c56a]/40 [--ic:#e8c56a]",
+  green: "from-[#0f2a1e] to-[#0b1a13] border-emerald-400/35 [--ic:#34d399]",
+  blue: "from-[#0f1f3a] to-[#0b1426] border-sky-400/35 [--ic:#60a5fa]",
+  violet: "from-[#241538] to-[#160d24] border-violet-400/35 [--ic:#a78bfa]",
+  rose: "from-[#3a1224] to-[#240b17] border-pink-400/35 [--ic:#f472b6]",
+  amber: "from-[#33200a] to-[#1f1406] border-amber-400/35 [--ic:#fbbf24]",
+};
+function Kpi({ icon: Icon, label, value, sub, testid, tone = "gold" }) {
   return (
-    <div className="rounded-2xl bg-white/[.06] backdrop-blur-md border border-white/10 px-4 py-3.5 flex items-start gap-3 min-w-0" data-testid={testid}>
-      <div className="w-10 h-10 rounded-xl bg-[#e8c56a]/15 text-[#e8c56a] flex items-center justify-center shrink-0"><Icon className="w-5 h-5" strokeWidth={1.7} /></div>
+    <div className={`rounded-2xl bg-gradient-to-br border px-4 py-3.5 flex items-start gap-3 min-w-0 shadow-[0_18px_40px_-24px_rgba(0,0,0,.9)] ${TONE[tone]}`} data-testid={testid}>
+      <div className="w-10 h-10 rounded-xl bg-white/[.08] flex items-center justify-center shrink-0" style={{ color: "var(--ic)" }}><Icon className="w-5 h-5" strokeWidth={1.7} /></div>
       <div className="min-w-0">
-        <div className="text-[11px] uppercase tracking-[.14em] text-white/50">{label}</div>
+        <div className="text-[10px] uppercase tracking-[.16em] text-white/55">{label}</div>
         <div className="font-playfair text-2xl leading-tight truncate mt-0.5">{value}</div>
         {sub && <div className="text-[11px] text-white/45 truncate">{sub}</div>}
       </div>
@@ -60,12 +68,12 @@ export function GroupKpis({ data, inr }) {
   const top = data.top_stylist;
   return (
     <div className="mt-5 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3" data-testid="group-kpis">
-      <Kpi icon={Wallet} label="Total Cash" value={inr(data.total_cash)} sub={`UPI ${inr(data.total_upi)} · Card ${inr(data.total_card)}`} testid="group-kpi-cash" />
-      <Kpi icon={Smartphone} label="UPI" value={inr(data.total_upi)} testid="group-kpi-upi" />
-      <Kpi icon={CreditCard} label="Card" value={inr(data.total_card)} testid="group-kpi-card" />
-      <Kpi icon={CalendarCheck} label="Total Bookings" value={data.total_bookings || 0} testid="group-kpi-bookings" />
-      <Kpi icon={Receipt} label="Total Bills" value={data.total_bills || 0} testid="group-kpi-bills" />
-      <Kpi icon={Crown} label="Top Stylist" value={top ? top.name.split(" ")[0] : "—"} sub={top ? `${inr(top.revenue)} · ${top.services} services` : "No services billed"} testid="group-kpi-top-stylist" />
+      <Kpi tone="gold" icon={Wallet} label="Total Cash" value={inr(data.total_cash)} sub={`UPI ${inr(data.total_upi)} · Card ${inr(data.total_card)}`} testid="group-kpi-cash" />
+      <Kpi tone="green" icon={Smartphone} label="UPI" value={inr(data.total_upi)} testid="group-kpi-upi" />
+      <Kpi tone="blue" icon={CreditCard} label="Card" value={inr(data.total_card)} testid="group-kpi-card" />
+      <Kpi tone="violet" icon={CalendarCheck} label="Total Bookings" value={data.total_bookings || 0} testid="group-kpi-bookings" />
+      <Kpi tone="amber" icon={Receipt} label="Total Bills" value={data.total_bills || 0} testid="group-kpi-bills" />
+      <Kpi tone="rose" icon={Crown} label="Top Stylist" value={top ? top.name.split(" ")[0] : "—"} sub={top ? `${inr(top.revenue)} · ${top.services} services` : "No services billed"} testid="group-kpi-top-stylist" />
     </div>
   );
 }
@@ -87,16 +95,21 @@ export function BranchCard({ s, rank, showAvg, inr }) {
           <Trophy className="w-3 h-3" /> Leading branch
         </span>
       )}
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="font-playfair text-lg leading-tight truncate">{s.name}</p>
-          <p className="text-[11px] text-white/50 truncate">{s.location || s.slug}</p>
+      <div className="flex items-start gap-3">
+        <div className="w-16 h-16 rounded-xl overflow-hidden border border-white/10 shrink-0 bg-[#1a1408]">
+          <img src={s.logo_url || "/assets/dashboard/hero-salon.jpg"} alt="" className={`w-full h-full ${s.logo_url ? "object-contain p-1" : "object-cover"}`} onError={e => { e.currentTarget.src = "/assets/dashboard/hero-salon.jpg"; e.currentTarget.className = "w-full h-full object-cover"; }} />
         </div>
-        {s.active && <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#e8c56a]/20 text-[#e8c56a] border border-[#e8c56a]/40 uppercase tracking-wider shrink-0">Active</span>}
-      </div>
-      <div className="mt-3 flex items-baseline gap-2">
-        <span className="font-playfair text-3xl" data-testid={`my-salon-today-${s.slug}`}>{inr(s.today)}</span>
-        {showAvg && s.invoices_today > 0 && <span className="text-[11px] text-white/45">avg {inr(Math.round(s.today / s.invoices_today))}/bill</span>}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-playfair text-lg leading-tight truncate">{s.name}</p>
+            {s.active && <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 uppercase tracking-wider shrink-0">Active</span>}
+          </div>
+          <p className="text-[11px] text-white/50 truncate">{s.location || s.slug}</p>
+          <div className="mt-1.5 flex items-baseline gap-2">
+            <span className="font-playfair text-3xl text-[#f3e5ab]" data-testid={`my-salon-today-${s.slug}`}>{inr(s.today)}</span>
+            {showAvg && s.invoices_today > 0 && <span className="text-[11px] text-white/45">avg {inr(Math.round(s.today / s.invoices_today))}/bill</span>}
+          </div>
+        </div>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Mini label="Total Cash" value={inr(s.cash)} testid={`my-salon-cash-${s.slug}`} />

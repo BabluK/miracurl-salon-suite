@@ -51,6 +51,7 @@ class PublicBookingIn(BaseModel):
     color_code: Optional[str] = Field(None, max_length=8)  # hair colour try-on pick code
     party_size: Optional[int] = Field(None, ge=1, le=30)
     seating: Optional[str] = Field(None, pattern="^(any|indoor|outdoor)$")
+    branch_id: Optional[str] = Field(None, max_length=64)  # which location the guest picked ("main" = head salon)
 
     @field_validator("customer_name")
     @classmethod
@@ -422,8 +423,12 @@ async def _create_public_appointment(cust: dict, staff: dict, services: list, bo
         scheduled_at=body.scheduled_at, duration_min=duration,
         notes=body.notes, total=total,
     ).model_dump()
-    t_doc = await _raw_db.tenants.find_one({"id": _current_tenant_id.get()}, {"_id": 0, "slug": 1, "name": 1})
+    t_doc = await _raw_db.tenants.find_one({"id": _current_tenant_id.get()}, {"_id": 0, "slug": 1, "name": 1, "branches": 1})
     appt["booked_via"] = f"/book/{(t_doc or {}).get('slug', '')}"  # trace: which salon URL/QR the guest used
+    if body.branch_id:
+        br = next((b for b in (t_doc or {}).get("branches") or [] if b.get("id") == body.branch_id), None)
+        appt["branch_id"] = br["id"] if br else None
+        appt["branch_name"] = br["name"] if br else "__main__"
     if body.party_size:
         appt["party_size"] = body.party_size
         appt["seating"] = body.seating or "any"

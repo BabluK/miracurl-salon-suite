@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Store, Lock, KeyRound, EyeOff, Loader2 } from "lucide-react";
+import { Store, Lock, KeyRound, EyeOff, Loader2, Coins } from "lucide-react";
 import { GroupKpis, BranchCard, PeriodPicker, PERIODS } from "@/components/dashboard/GroupDashboardBits";
 
 // Group Dashboard — multi-salon owners see combined collections across all branches.
@@ -98,8 +98,10 @@ export default function MySalonsOverview() {
 
   return (
     <section className="relative overflow-hidden rounded-3xl bg-[#14100c] text-white shadow-[0_30px_60px_-30px_rgba(0,0,0,.6)]" data-testid="my-salons-overview">
+      <img src="/assets/dashboard/hero-salon.jpg" alt="" className="absolute inset-0 w-full h-full object-cover object-right opacity-35 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#0b0a08] via-[#0b0a08]/92 to-[#0b0a08]/55 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0b0a08] via-transparent to-transparent pointer-events-none" />
       <div className="absolute -right-24 -top-24 w-80 h-80 rounded-full bg-[#e8c56a]/10 blur-3xl pointer-events-none" />
-      <div className="absolute -left-24 bottom-0 w-72 h-72 rounded-full bg-rose-400/10 blur-3xl pointer-events-none" />
       <div className="relative p-6 sm:p-7">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
           <div className="min-w-0">
@@ -112,8 +114,10 @@ export default function MySalonsOverview() {
             </div>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <div className="text-right text-xs text-white/55">
-              This month<br /><span className="text-white font-semibold text-base" data-testid="my-salons-total-month">{inr(data.total_month)}</span>
+            <span className="hidden xl:block font-playfair italic text-[#e8c56a] text-xl leading-tight text-right rotate-[-4deg] mr-2 select-none">More Beauty<br />More Confidence</span>
+            <div className="flex items-center gap-3 rounded-2xl border border-[#e8c56a]/35 bg-black/30 px-4 py-2.5" data-testid="my-salons-month-pill">
+              <span className="w-9 h-9 rounded-xl bg-[#e8c56a]/15 text-[#e8c56a] flex items-center justify-center"><Coins className="w-5 h-5" strokeWidth={1.7} /></span>
+              <span className="text-xs text-white/55 leading-tight">This month<br /><span className="font-playfair text-xl text-white" data-testid="my-salons-total-month">{inr(data.total_month)}</span></span>
             </div>
             <button data-testid="group-dashboard-lock-btn" onClick={() => { setData(null); setPinCache(""); }} title="Lock Group Dashboard"
               className="p-2.5 rounded-full bg-white/10 border border-white/15 text-white/70 hover:text-white hover:bg-white/20 transition-colors">

@@ -423,6 +423,7 @@ export default function BookPublic() {
         coupon_code: couponCheck?.valid ? form.coupon_code.trim().toUpperCase() : null,
         party_size: salon?.business_type === "restaurant" ? partySize : null,
         seating: salon?.business_type === "restaurant" ? seating : null,
+        branch_id: searchParams.get("branch") || null,
       });
       setConfirmation(data);
       trackBooking({ slug, business_type: salon?.business_type || "salon", value: total, services: pickedServices.map(s => s.name).join(", ").slice(0, 100), staff_picked: staffId });
@@ -930,7 +931,7 @@ export default function BookPublic() {
         )}
       </main>
 
-      <LocationsSection salon={salon} />
+      <LocationsSection salon={salon} activeBranch={searchParams.get("branch") || ""} onBookHere={(id) => { const u = new URL(window.location.href); u.searchParams.set("branch", id); window.history.replaceState(null, "", u.toString()); goToServices(); }} />
       {lp && step < 5 && <TransformCTA s={lp} onBook={goToServices} />}
 
       <footer className="border-t border-white/5 mt-10 py-8 text-center text-xs text-ink-muted">

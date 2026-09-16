@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import log from "@/lib/log";
 import api from "@/lib/api";
+import { getSelectedBranch } from "@/lib/branch";
 import { toast } from "sonner";
 import { Bell, CalendarPlus, Gift, Crown, X, CheckCheck } from "lucide-react";
 
@@ -140,7 +141,7 @@ export function useNewBookingNotifier({ enabled }) {
     if (document.visibilityState !== "visible" || _pollLock) return;
     _pollLock = true;
     try {
-      let { data } = await api.get("/notifications/new-bookings", { params: { since: lastSeenRef.current } });
+      let { data } = await api.get("/notifications/new-bookings", { params: { since: lastSeenRef.current, branch: getSelectedBranch() } });
       lastSeenRef.current = data.server_time || new Date().toISOString();
       writeLastSeen(lastSeenRef.current);
       const firstRun = firstRunRef.current;

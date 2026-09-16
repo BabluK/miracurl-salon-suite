@@ -58,7 +58,7 @@ async def dismiss_tenant_notice(nid: str, user=Depends(get_current_user), t=Depe
 
 
 @router.get("/notifications/new-bookings")
-async def new_bookings(since: str, user=Depends(get_current_user), t=Depends(current_tenant)):
+async def new_bookings(since: str, branch: str = "", user=Depends(get_current_user), t=Depends(current_tenant)):
     """Lightweight polling endpoint — returns bookings created after `since`
     (ISO 8601 datetime). Used by the admin/manager UI to play a chime + list
     notifications when a customer self-books via the public link."""
@@ -68,10 +68,15 @@ async def new_bookings(since: str, user=Depends(get_current_user), t=Depends(cur
         datetime.fromisoformat(since.replace("Z", "+00:00"))
     except Exception:
         raise HTTPException(400, "`since` must be an ISO datetime")
+    branch = branch_lock(user, branch)
+    q = {"created_at": {"$gt": since}}
+    if branch == "__main__":
+        q["$or"] = [{"branch_name": {"$exists": False}}, {"branch_name": None}, {"branch_name": "__main__"}]
+    elif branch:
+        q["branch_name"] = branch
     rows = await db.appointments.find(
-        {"created_at": {"$gt": since}},
-        {"_id": 0, "id": 1, "customer_name": 1, "staff_name": 1,
-         "service_names": 1, "scheduled_at": 1, "total": 1, "created_at": 1},
+        q, {"_id": 0, "id": 1, "customer_name": 1, "staff_name": 1, "branch_name": 1,
+            "service_names": 1, "scheduled_at": 1, "total": 1, "created_at": 1},
     ).sort("created_at", -1).limit(20).to_list(20)
     from database import _raw_db
     gcs = await _raw_db.gift_cards.find(
