@@ -52,6 +52,8 @@ function analyseSkin(video, canvas) {
 export default function ColorTryOn() {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const branchQ = new URLSearchParams(window.location.search).get("branch") || "";
+  const branchQs = branchQ ? `&branch=${encodeURIComponent(branchQ)}` : "";
   const [salon, setSalon] = useState(null);
   const [step, setStep] = useState("intro"); // intro | camera | results | done
   const [skin, setSkin] = useState(null);
@@ -141,7 +143,7 @@ export default function ColorTryOn() {
     try {
       const res = await axios.post(`${API}/api/public/color/${slug}/share-card`, { color_id: preview.color.id, front_b64: preview.front, back_b64: preview.back }, { responseType: "blob" });
       const file = new File([res.data], `my-new-look-${preview.color.id}.png`, { type: "image/png" });
-      const text = `My new look — ${preview.color.name} at ${salon?.name}. Book yours: ${window.location.origin}/book/${slug}?color=${preview.color.id}`;
+      const text = `My new look — ${preview.color.name} at ${salon?.name}. Book yours: ${window.location.origin}/book/${slug}?color=${preview.color.id}${branchQs}`;
       if (mode === "share" && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], text, title: "My new hair colour" });
       } else if (mode === "share") {
@@ -388,7 +390,7 @@ export default function ColorTryOn() {
             <p className="text-[11px] font-semibold tracking-widest">SHOW THIS TO YOUR STYLIST</p>
             <p className="text-3xl font-black tracking-widest" data-testid="color-pick-code">{done.code}</p>
           </div>
-          <button onClick={() => navigate(`/book/${slug}?color=${done.color.id}&code=${done.code}&name=${encodeURIComponent(form.name)}&phone=${encodeURIComponent(form.phone)}${gender ? `&gender=${gender}` : ""}`)} data-testid="color-book-btn"
+          <button onClick={() => navigate(`/book/${slug}?color=${done.color.id}&code=${done.code}&name=${encodeURIComponent(form.name)}&phone=${encodeURIComponent(form.phone)}${gender ? `&gender=${gender}` : ""}${branchQs}`)} data-testid="color-book-btn"
             className="mt-6 w-full py-4 rounded-2xl bg-white text-slate-900 font-bold inline-flex items-center justify-center gap-2">
             <CalendarCheck className="w-5 h-5" /> Book this colour — pick stylist & time
           </button>

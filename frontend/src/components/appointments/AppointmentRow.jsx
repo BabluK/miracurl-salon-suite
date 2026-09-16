@@ -1,4 +1,4 @@
-import { Check, XCircle, MessageSquare, BadgeCheck, Image as ImageIcon, Trash2 } from "lucide-react";
+import { Check, XCircle, MessageSquare, BadgeCheck, Image as ImageIcon, Trash2, MapPin } from "lucide-react";
 import { Avatar, StatusPill } from "@/components/shell/PageShell";
 import { ColorPickCard } from "@/components/appointments/ColorPickCard";
 
@@ -26,7 +26,14 @@ export function AppointmentRow({ a, view, phone, canDirectWA, selected, onSelect
             <div className="font-medium text-slate-900 truncate">{a.customer_name}
               {a.color_pick && <span className="ml-1.5 inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-[10px] font-semibold px-1.5 py-0.5" title={a.color_pick.color_name} data-testid={`color-badge-${a.id}`}>🎨 {a.color_pick.color_name}</span>}
             </div>
-            <div className="text-xs text-slate-400">{phone || (a.booked_via ? "Online booking" : "Walk-in")}</div>
+            <div className="text-xs text-slate-400 flex items-center gap-1.5 flex-wrap">
+              <span>{phone || (a.booked_via ? "Online booking" : "Walk-in")}</span>
+              {a.branch_name && a.branch_name !== "__main__" && (
+                <span data-testid={`appt-branch-tag-${a.id}`} title={a.branch_name} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#fbf3e0] border border-[#e6d3a3] text-[10px] text-[#8a6d1f] max-w-[140px] truncate">
+                  <MapPin className="w-2.5 h-2.5 shrink-0" /> {a.branch_name.replace(/^.*?-\s*/, "") || a.branch_name}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </td>

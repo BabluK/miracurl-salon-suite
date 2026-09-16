@@ -511,7 +511,7 @@ export default function BookPublic() {
               <Star className="w-3 h-3 text-[#b08d3f]" /> {salon.business_type === "restaurant" ? "Explore Miracurl" : "Find a salon"}
             </Link>
             {salon.business_type !== "restaurant" && !pickedColor ? (
-              <Link to={`/color/${slug}`} data-testid="book-header-cta"
+              <Link to={`/color/${slug}${searchParams.get("branch") ? `?branch=${encodeURIComponent(searchParams.get("branch"))}` : ""}`} data-testid="book-header-cta"
                 className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#d4af37] to-[#e6c66e] text-[#17141c] text-xs sm:text-sm font-bold shadow-[0_2px_12px_rgba(180,140,50,0.4)] hover:opacity-90 transition-opacity">
                 <Palette className="w-3.5 h-3.5" /> Discover Your Signature Look <Star className="w-3 h-3 fill-current" />
               </Link>
@@ -705,7 +705,7 @@ export default function BookPublic() {
           {salon.business_type !== "restaurant" && <PromoCards s={lp} slug={slug} />}
         </div>
       )}
-      {salon.business_type !== "restaurant" && !pickedColor && step === 0 && <ShadeTeaser slug={slug} />}
+      {salon.business_type !== "restaurant" && !pickedColor && step === 0 && <ShadeTeaser slug={slug} branch={searchParams.get("branch") || ""} />}
 
       <main id="booking-wizard" className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
         {step === 0 && dayOffer && (

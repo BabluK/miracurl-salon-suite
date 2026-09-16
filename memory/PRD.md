@@ -3272,3 +3272,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Group Dashboard: gradient KPI tiles (gold/green/blue/violet/amber/rose), branch cards w/ logo thumbnail, hero-salon background, "More Beauty More Confidence" script, This-month pill (my-salons-month-pill).
 - Preview host is https://hair-hub-system.preview.emergentagent.com (NOT miracurl-saas). Production confirmed on .264 at 05:50 UTC.
 - Test-data note: an old QA customer (phone 9000000123, "Iter152 QA") was deleted during branch-bell verification cleanup.
+
+## 2026-09-17 — Branch tag + filter on Appointments; colour try-on carries branch — build 2026-09-17.266 (self-tested via screenshot + curl)
+- Appointments.jsx: `branchF` state (init from getSelectedBranch() header choice), select `appt-branch-filter` (All Branches / Main salon `__main__` / tenant.branches names) shown only when tenant has branches; displayList filter uses branchOf(a). AppointmentRow shows `appt-branch-tag-<id>` (MapPin + short branch name) for non-main branches.
+- ColorTryOn.jsx: reads ?branch= and appends to share text + color-book-btn navigate; BookPublic header CTA + ShadeTeaser(to) forward ?branch= to /color/{slug}.
+- Verified: AECS public booking → tag "AECS" on row; filter Main → 0 tagged rows, AECS → 1 row. QA data cleaned.

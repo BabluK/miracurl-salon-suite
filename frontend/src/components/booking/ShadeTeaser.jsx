@@ -5,13 +5,13 @@ import { Palette, ArrowRight, Flame } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-export const ShadeTeaser = ({ slug }) => {
+export const ShadeTeaser = ({ slug, branch = "" }) => {
   const [data, setData] = useState(null);
   useEffect(() => {
     axios.get(`${API}/api/public/color/${slug}/trending`).then(r => setData(r.data)).catch(() => setData({ shades: [] }));
   }, [slug]);
   if (!data?.shades?.length) return null;
-  const to = `/color/${slug}`;
+  const to = `/color/${slug}${branch ? `?branch=${encodeURIComponent(branch)}` : ""}`;
   return (
     <section className="relative bg-[#0f0d13] border-y border-[#d4af37]/20 py-6 overflow-hidden" data-testid="shade-teaser">
       <div className="max-w-5xl mx-auto px-4 sm:px-6">

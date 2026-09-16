@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { Plus, Calendar as CalendarIcon, Clock, LayoutGrid, ChevronLeft, ChevronRight, CalendarDays, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import { getSelectedBranch } from "@/lib/branch";
 import { WeekGrid } from "@/components/appointments/WeekGrid";
 import { NewAppointmentModal } from "@/components/appointments/NewAppointmentModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -54,6 +55,9 @@ export default function Appointments() {
   const [showFilters, setShowFilters] = useState(false);
   const [statusF, setStatusF] = useState("all");
   const [staffF, setStaffF] = useState("all");
+  const [branchF, setBranchF] = useState(() => getSelectedBranch() || "all");
+  const branches = tenant?.branches || [];
+  const branchOf = (a) => a.branch_name === "__main__" || !a.branch_name ? "__main__" : a.branch_name;
   const [sort, setSort] = useState({ key: "scheduled_at", dir: "asc" });
   const [sel, setSel] = useState(new Set());
 
@@ -118,12 +122,12 @@ export default function Appointments() {
   const displayList = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const filtered = list.filter(a =>
-      (statusF === "all" || a.status === statusF) && (staffF === "all" || a.staff_id === staffF) &&
+      (statusF === "all" || a.status === statusF) && (staffF === "all" || a.staff_id === staffF) && (branchF === "all" || branchOf(a) === branchF) &&
       (!needle || `${a.customer_name} ${phoneOf(a)} ${(a.service_names || []).join(" ")} ${a.staff_name || ""}`.toLowerCase().includes(needle)));
     if (sort.key !== "scheduled_at" || sort.dir !== "asc") return sortCustomers(filtered, sort);
     const pending = filtered.filter(a => a.status === "scheduled").sort((x, y) => (y.created_at || "").localeCompare(x.created_at || ""));
     return [...pending, ...filtered.filter(a => a.status !== "scheduled")];
-  }, [list, q, statusF, staffF, sort, phoneOf]);
+  }, [list, q, statusF, staffF, branchF, sort, phoneOf]);
   const { paged: apptPage, pager: apptPager, resetPage: resetApptPage } = usePager(displayList, "bookings");
   useEffect(() => { resetApptPage(); setSel(new Set()); }, [date, view, q, statusF, staffF]); // eslint-disable-line react-hooks/exhaustive-deps
   const toggleSel = (id) => setSel(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -243,7 +247,7 @@ export default function Appointments() {
       <PageHeader title="Appointments" subtitle="Schedule, track and complete bookings with ease."
         right={<>
           <SearchBox value={q} onChange={setQ} placeholder="Search customer, phone or service…" testid="appt-search" className="w-[300px] max-w-full" />
-          <FilterBtn data-testid="appt-filters-btn" active={showFilters || statusF !== "all" || staffF !== "all"} onClick={() => setShowFilters(v => !v)}>Filters</FilterBtn>
+          <FilterBtn data-testid="appt-filters-btn" active={showFilters || statusF !== "all" || staffF !== "all" || branchF !== "all"} onClick={() => setShowFilters(v => !v)}>Filters</FilterBtn>
           <ExportBtn data-testid="appt-export-btn" onClick={exportCsv}>Export{sel.size ? ` (${sel.size})` : ""}</ExportBtn>
         </>}>
         <SegmentTabs testPrefix="appt-view" value={view} onChange={setView} items={[
@@ -261,6 +265,14 @@ export default function Appointments() {
           <option value="all">All Stylists</option>
           {staff.map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
         </select>
+        {branches.length > 0 && (
+          <select data-testid="appt-branch-filter" value={branchF} onChange={e => setBranchF(e.target.value)}
+            className="px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm text-slate-700 shadow-sm focus:outline-none focus:border-[#b8893a]/60">
+            <option value="all">All Branches</option>
+            <option value="__main__">Main salon</option>
+            {branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+          </select>
+        )}
         {user?.role === "admin" && (
           <button data-testid="wa-direct-toggle" onClick={toggleWaDirect}
             title="When ON, managers & staff can send WhatsApp confirmations directly. When OFF, they need your approval."

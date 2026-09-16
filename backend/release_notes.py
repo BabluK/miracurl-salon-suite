@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-16.265"
-BUILD_TIME = "16 Sep 2026, 11:50 PM IST"
+BUILD = "2026-09-17.266"
+BUILD_TIME = "17 Sep 2026, 02:00 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-17.266", "note": "Appointments: branch tag on rows + All Branches / Main salon / <branch> filter (defaults to header branch); colour try-on carries ?branch= into the booking (share text, Book button, /book header CTA, ShadeTeaser); Book-here label re-renders via setSearchParams"},
     {"build": "2026-09-16.265", "note": "Mira daily briefing redesigned (KPI tiles, Mira Suggests, voice card, low-stock & checked-in cards, Mira-asks bar); /salon landing gets full nav header + 4-column footer; /book gets Signature Services tiles, trust strip, Gift/Membership image cards, Transformation CTA, About-us link; salon page linked from Dashboard + Settings; branch-aware bookings (Book here per location → branch on appointment; bell filters by selected branch); retired color_pick bell notices hidden at read time + purge decoupled from rewards indexes; Group Dashboard gradient KPI tiles + branch thumbnails"},
     {"build": "2026-09-16.264", "note": "Group Dashboard re-polished (gold editorial): Yesterday / Last 4 / Last 7 days chips + custom From→To date range; per-branch Total Cash, UPI·Card, Total Bookings, Total Bills, Top Stylist; group KPI strip + Leading-branch ribbon. Circular import campaign_agreement↔tenant_features resolved via services/campaign_onboarding.py"},
     {"build": "2026-09-16.263", "note": "Rose/gold editorial redesign of every tenant tab (Dashboard hero, Appointments Day/Week/Month, POS, Inventory, Staff, Reports, CRM, Settings, public salon landing) + numbered 20/page pagination; Mira auto-replies on WhatsApp (1 credit/reply, refund on failure, low-credit banner + owner toggle); one-tap 30-day win-back blast; Pending approvals tile; HQ per-tenant SMS/WhatsApp/Campaign switches; campaign consent flow + go-live checklist + branded HQ emails; owner fix-request tickets with HQ 'Open workspace'; support-access switch + hq_edit audit; luxe double-sided HQ ID card; security audit fixes (CSV injection, phone oracle, webhook fail-closed)"},
@@ -73,7 +74,7 @@ RELEASES = [
             "☀️ Mira's daily briefing has a new look — Today's Appointments, Yesterday's Revenue, Low Stock and Pending Requests tiles, Mira Suggests with her avatar, a voice-greeting card, low-stock and checked-in cards, and the restock question with Send Email / Send WhatsApp",
             "🌐 Your public salon page (/salon/your-name) now has a full navigation header (Home · Services · Offers · Gallery · About · Contact · Book Now) and a proper footer with quick links, services, contact & hours — find it from the Dashboard booking widget (\"Salon page\" row) or Settings → Open my salon page",
             "📅 Booking page polish: Signature Services tiles (tap to jump to that category), trust strip, big Gift Card & Premium Membership cards, \"Ready for your transformation?\" CTA and an About us link",
-            "📍 Branch-aware bookings — guests tap \"Book here\" on a location and the appointment carries that branch; the bell shows only bookings for the branch you have selected in the header",
+            "📍 Branch-aware bookings — guests tap \"Book here\" on a location and the appointment carries that branch; the bell shows only bookings for the branch you have selected in the header. Appointments now show a small branch tag on each row and a Branch filter (All / Main salon / each branch); colour try-on picks made at a branch land on that branch too",
             "🔕 Old \"A guest picked …\" colour notices are gone from the bell for good",
             "🏬 Group Dashboard (multi-salon owners): pick Yesterday, Last 4 / 7 days or any From → To date range (e.g. 1–5 Sep) and see, per branch, Total Cash, UPI · Card, Total Bookings, Total Bills and the Top Stylist — plus group totals and a Leading-branch ribbon",
             "✨ A brand-new rose & gold look across your whole workspace — Dashboard hero with your salon photo and daily quote, Appointments (Day / Upcoming / Week / Month views with search, filters, sort, checkbox select & CSV export), POS, Inventory, Staff, Reports, CRM, Settings and your public salon landing page",
