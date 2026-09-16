@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Mail, RefreshCw, Search, Send } from "lucide-react";
+import { Mail, RefreshCw, Search, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 
@@ -43,6 +43,15 @@ export function EmailLogCard() {
     catch { /* card is informational */ } finally { setBusy(false); }
   };
   useEffect(() => { load(); }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
+  const clearAll = async () => {
+    if (!window.confirm("Clear the entire email delivery log? This cannot be undone.")) return;
+    setBusy(true);
+    try {
+      const { data } = await api.delete("/super-admin/email-log");
+      toast.success(`Cleared ${data.deleted} log entr${data.deleted === 1 ? "y" : "ies"}`);
+      await load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't clear the log"); setBusy(false); }
+  };
   if (!d) return null;
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5" data-testid="email-log-card">
@@ -69,6 +78,10 @@ export function EmailLogCard() {
           <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === "Enter" && load()} placeholder="Search recipient, subject or error…" data-testid="email-log-search" className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs w-64" />
         </div>
         <button onClick={load} disabled={busy} data-testid="email-log-refresh" className="w-8 h-8 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center"><RefreshCw className={`w-3.5 h-3.5 ${busy ? "animate-spin" : ""}`} /></button>
+        <button onClick={clearAll} disabled={busy || !d.rows.length} data-testid="email-log-clear" title="Delete the entire email delivery history"
+          className="h-8 px-2.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 text-[11px] font-semibold inline-flex items-center gap-1 disabled:opacity-40">
+          <Trash2 className="w-3.5 h-3.5" /> Clear log
+        </button>
       </div>
       <div className="mt-3 max-h-80 overflow-y-auto divide-y divide-slate-100" data-testid="email-log-rows">
         {d.rows.length === 0 && <div className="text-xs text-slate-400 py-4 text-center">No emails match.</div>}

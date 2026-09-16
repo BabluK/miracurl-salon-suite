@@ -1,7 +1,8 @@
-import { Edit3, Trash2, Phone, Mail, Percent, IndianRupee, KeyRound, Power, Clock, ShieldCheck, FileDown } from "lucide-react";
+import { Edit3, Trash2, Phone, Mail, Percent, IndianRupee, KeyRound, Power, Clock, ShieldCheck, FileDown, Hourglass } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import api, { API } from "@/lib/api";
+import { noticeCountdown } from "@/lib/noticeCountdown";
 
 export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, onToggleActive, onDelete, isManager = false, onPromote, onCancelTemp, mainLabel = "Main salon" }) {
   const [onTime, setOnTime] = useState(!!s.always_on_time);
@@ -68,11 +69,15 @@ export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, o
             🔜 Moves to {tt?.target_name} on {tt?.from_date}
           </div>
         )}
-        {s.serving_notice && (
-          <div className="inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-300 text-amber-700 font-medium" data-testid={`notice-badge-${s.id}`}>
-            Serving notice{s.last_working_day ? ` · last day ${s.last_working_day}` : ""}
-          </div>
-        )}
+        {s.serving_notice && (() => {
+          const cd = noticeCountdown(s.last_working_day);
+          const red = cd?.urgent;
+          return (
+            <div className={`inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full border font-semibold ${red ? "bg-rose-50 border-rose-300 text-rose-700" : "bg-amber-50 border-amber-300 text-amber-700"}`} data-testid={`notice-badge-${s.id}`}>
+              <Hourglass className="w-3 h-3" /> Serving notice{cd ? ` · ${cd.label}` : ""}{s.last_working_day ? ` (${s.last_working_day})` : ""}
+            </div>
+          );
+        })()}
         {s.aadhaar_last4 && (
           <div className="text-[10px] text-slate-400">Aadhaar · XXXX-XXXX-{s.aadhaar_last4}</div>
         )}

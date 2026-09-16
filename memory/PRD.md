@@ -3306,3 +3306,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Notice period: `_staff_write_payload` validates notice_start_date ≥ today (IST), auto last_working_day = start + notice_period_days, last ≥ start; GET /staff runs `auto_close_departed_staff()` so staff past last day vanish immediately (former → Settings Previous staff). StaffFormModal: Resignation date (min today) + Last working day (min = start).
 - ResumeBuilder.download: axios blob (+ tenant/CSRF headers) with new-tab fallback; verified real download `resume-riya.pdf` in headless Chromium.
 - YouTube buffering in mini-player = network/YouTube-side (embed loads 1080p by default; no reliable quality param). Nothing to fix app-side.
+
+## 2026-09-18 — Notice countdown ribbon + HQ email-log clear
+- `frontend/src/lib/noticeCountdown.js`: `noticeCountdown(last_working_day)` → {days, label ("X days left" / "Last day today" / "Notice period over"), urgent (≤7)}.
+- StaffCard.jsx notice badge now shows countdown (amber → rose when ≤7 days) with Hourglass icon; StaffPortal.jsx shows a `staff-notice-banner` at top (countdown + big days tile) when `profile.serving_notice`.
+- `DELETE /api/super-admin/email-log` (super_admin) wipes `email_log`; EmailLogCard "Clear log" button (`email-log-clear`, confirm dialog, disabled when empty). Verified via curl (65 rows → 0) + screenshots. BUILD 2026-09-18.272.

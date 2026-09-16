@@ -10,6 +10,7 @@ import {
 import { TargetNudge } from "@/components/staff/TargetNudge";
 import { QrScanCheckIn } from "@/components/QrScanCheckIn";
 import { playCheckinGreeting, playCheckoutGreeting } from "@/lib/checkinSound";
+import { noticeCountdown } from "@/lib/noticeCountdown";
 
 
 function monthOptions(count = 6) {
@@ -212,6 +213,29 @@ export default function StaffPortal() {
 
   return (
     <div className="space-y-6" data-testid="staff-portal">
+      {profile.serving_notice && (() => {
+        const cd = noticeCountdown(profile.last_working_day);
+        const red = cd?.urgent;
+        return (
+          <div className={`rounded-2xl border px-4 py-3 flex items-center gap-3 ${red ? "bg-rose-500/15 border-rose-400/40" : "bg-amber-500/10 border-amber-400/30"}`} data-testid="staff-notice-banner">
+            <span className="text-xl">⏳</span>
+            <div className="min-w-0">
+              <div className={`text-sm font-semibold ${red ? "text-rose-300" : "text-amber-300"}`} data-testid="staff-notice-countdown">
+                Serving notice period{cd ? ` · ${cd.label}` : ""}
+              </div>
+              <div className={`text-xs ${red ? "text-rose-200/70" : "text-amber-200/70"}`}>
+                {profile.last_working_day ? `Your last working day is ${new Date(`${profile.last_working_day}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}.` : "Last working day not set yet."} Thank you for everything you've given the team.
+              </div>
+            </div>
+            {cd && cd.days >= 0 && (
+              <div className={`ml-auto shrink-0 text-center px-3 py-1.5 rounded-xl border ${red ? "bg-rose-500/20 border-rose-400/40 text-rose-200" : "bg-amber-500/15 border-amber-400/30 text-amber-200"}`}>
+                <div className="text-2xl font-bold leading-none">{cd.days}</div>
+                <div className="text-[9px] uppercase tracking-widest">days</div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
       {lateInfo?.late && !checkedIn && !isWeekOffToday && (
         <div className="rounded-2xl bg-red-500/15 border border-red-400/40 px-4 py-3 flex items-center gap-3 animate-pulse" data-testid="staff-late-banner">
           <span className="text-xl">⏰</span>

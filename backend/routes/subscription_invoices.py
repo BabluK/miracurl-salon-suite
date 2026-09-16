@@ -1,5 +1,6 @@
 """Subscription invoices: tenant downloads, HQ list/resend/backfill, biller identity."""
 import asyncio
+import logging
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -290,6 +291,14 @@ async def hq_email_log(limit: int = 100, q: str = "", status: str = "all", user=
 
 class EmailResendIn(BaseModel):
     to: Optional[list[str]] = None  # corrected recipient(s); defaults to the original
+
+
+@router.delete("/super-admin/email-log")
+async def hq_clear_email_log(user=Depends(require_super_admin)):
+    """HQ: wipe the email delivery log history."""
+    res = await _raw_db.email_log.delete_many({})
+    logging.getLogger("email").info("email_log cleared by %s (%d rows)", user.get("email"), res.deleted_count)
+    return {"ok": True, "deleted": res.deleted_count}
 
 
 @router.post("/super-admin/email-log/{eid}/resend")
