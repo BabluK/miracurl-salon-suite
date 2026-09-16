@@ -45,8 +45,9 @@ export function GalleryCard() {
           <h2 className="font-semibold text-slate-800 flex items-center gap-2"><Images className="w-4 h-4 text-pink-500" /> Salon photo gallery</h2>
           <p className="text-xs text-slate-500 mt-1">Optional — show off your salon on your public page. Up to {max} photos; visual proof turns visitors into bookings.</p>
         </div>
-        <a href={`/salon/${tenant?.slug || ""}`} target="_blank" rel="noreferrer" className="text-xs text-slate-400 hover:text-slate-600 inline-flex items-center gap-1">
-          View public page <ExternalLink className="w-3 h-3" />
+        <a href={`/salon/${tenant?.slug || ""}`} target="_blank" rel="noreferrer" data-testid="settings-open-salon-page-btn"
+          className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-xs font-bold hover:brightness-110 shadow-sm">
+          Open my salon page <ExternalLink className="w-3.5 h-3.5" />
         </a>
       </div>
 

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { MiraAvatar } from "@/components/mira/MiraAvatar";
 import { WinbackBlastModal } from "@/components/dashboard/MiraBlast";
@@ -14,6 +15,8 @@ const QUOTES = [
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good Morning" : h < 17 ? "Good Afternoon" : "Good Evening"; };
 
 export function DashboardHero({ user, tenant, data, bookingUrl, onCopy, inr }) {
+  const salonUrl = `${window.location.origin}/salon/${tenant?.slug || ""}`;
+  const copySalon = () => navigator.clipboard?.writeText(salonUrl).then(() => toast.success("Salon page link copied ✦")).catch(() => toast.error("Couldn't copy — long-press the link"));
   const [q, by] = QUOTES[new Date().getDate() % QUOTES.length];
   const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const n = data.today_bookings || 0;
@@ -51,6 +54,12 @@ export function DashboardHero({ user, tenant, data, bookingUrl, onCopy, inr }) {
                 className="flex-1 min-w-0 bg-black/30 rounded-lg px-3 py-2 text-xs font-mono text-white/85 outline-none border border-white/10" />
               <button data-testid="copy-booking-link-btn" onClick={onCopy} className="px-3 py-2 rounded-lg bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-xs font-bold inline-flex items-center gap-1 hover:brightness-110"><Copy className="w-3.5 h-3.5" /> Copy</button>
               <a data-testid="open-booking-link-btn" href={bookingUrl} target="_blank" rel="noreferrer" className="px-3 py-2 rounded-lg bg-white/10 border border-white/15 text-white text-xs font-semibold inline-flex items-center gap-1 hover:bg-white/20"><ExternalLink className="w-3.5 h-3.5" /> Open</a>
+            </div>
+            <div className="mt-2.5 pt-2.5 border-t border-white/10 flex items-center gap-2" data-testid="salon-page-link-widget">
+              <span className="text-[10px] uppercase tracking-[.18em] text-white/55 shrink-0">Salon page</span>
+              <span className="flex-1 min-w-0 truncate text-[11px] font-mono text-white/70" data-testid="salon-page-url">{salonUrl}</span>
+              <button data-testid="copy-salon-page-btn" onClick={copySalon} className="p-1.5 rounded-md bg-white/10 border border-white/15 text-white hover:bg-white/20" title="Copy salon page link"><Copy className="w-3.5 h-3.5" /></button>
+              <a data-testid="open-salon-page-btn" href={salonUrl} target="_blank" rel="noreferrer" className="p-1.5 rounded-md bg-white/10 border border-white/15 text-white hover:bg-white/20" title="Open salon page"><ExternalLink className="w-3.5 h-3.5" /></a>
             </div>
           </div>
         </div>

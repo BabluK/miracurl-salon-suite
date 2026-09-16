@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import api from "@/lib/api";
-import { SalonHero, SignatureServices, TrustStrip, FooterStrip } from "@/components/salon/LandingSections";
+import { SalonHero, SignatureServices, TrustStrip } from "@/components/salon/LandingSections";
+import { SalonNavbar, SalonFooter } from "@/components/salon/LandingChrome";
 import { PromoCards, TrendingShades, TransformCTA, ReviewsGrid } from "@/components/salon/LandingPromos";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import BookingChatWidget from "@/components/BookingChatWidget";
@@ -49,29 +50,18 @@ export default function SalonPublic() {
   const resto = s.business_type === "restaurant";
   return (
     <div className="min-h-screen bg-[#080809] text-white overflow-x-hidden" data-testid="salon-public-page">
-      <header className="fixed top-0 inset-x-0 z-40 backdrop-blur-xl bg-black/60 border-b border-gold/10">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2.5 min-w-0" data-testid="salon-header-tenant-brand">
-            {s.logo_url && <img src={s.logo_url} alt={s.name} className="w-10 h-10 rounded-lg object-contain bg-[#14141a] border border-gold/30 flex-shrink-0" />}
-            <span className="font-playfair text-sm sm:text-base gold-shine-text truncate">{s.name}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {s.show_products !== false && !resto && <a href="/products" data-testid="salon-our-products-btn" className="hidden sm:inline-flex text-xs text-gold/90 hover:text-gold px-3 py-2">Our Products</a>}
-            <Link to={bookHref} data-testid="salon-header-book-btn" className="px-5 py-2 rounded-full bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-xs font-bold hover:brightness-110 flex-shrink-0">
-              {resto ? "Reserve a Table ✦" : "Book now ✦"}
-            </Link>
-          </div>
-        </div>
-      </header>
+      <SalonNavbar s={s} bookHref={bookHref} resto={resto} />
 
-      <SalonHero s={s} bookHref={bookHref} cats={cats} />
-      <SignatureServices s={s} cats={cats} bookHref={bookHref} />
+      <div id="home"><SalonHero s={s} bookHref={bookHref} cats={cats} /></div>
+      <div id="services" className="scroll-mt-16"><SignatureServices s={s} cats={cats} bookHref={bookHref} /></div>
       <TrustStrip s={s} />
-      <PromoCards s={s} slug={slug} />
-      <TrendingShades s={s} slug={slug} />
+      <div id="offers" className="scroll-mt-16">
+        <PromoCards s={s} slug={slug} />
+        <TrendingShades s={s} slug={slug} />
+      </div>
 
       {s.gallery?.length > 0 && (
-        <section className="max-w-6xl mx-auto px-5 sm:px-8 py-6" data-testid="salon-gallery-section">
+        <section id="gallery" className="max-w-6xl mx-auto px-5 sm:px-8 py-6 scroll-mt-16" data-testid="salon-gallery-section">
           <h2 className="font-playfair text-2xl sm:text-3xl text-white mb-4">Inside the {resto ? "Restaurant" : "Salon"}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {s.gallery.map((url, i) => (
@@ -83,10 +73,12 @@ export default function SalonPublic() {
         </section>
       )}
 
-      <ReviewsGrid reviews={s.reviews} />
-      <TransformCTA s={s} bookHref={bookHref} />
-      <FooterStrip s={s} />
-      <p className="text-center text-[10px] text-white/25 pb-24">Powered by <a href="/" className="underline hover:text-gold">Miracurl {resto ? "Restaurant" : "Salon"} Suite</a></p>
+      <div id="about" className="scroll-mt-16">
+        <ReviewsGrid reviews={s.reviews} />
+        <TransformCTA s={s} bookHref={bookHref} />
+      </div>
+      <SalonFooter s={s} slug={slug} bookHref={bookHref} resto={resto} />
+      <div className="h-20" />
 
       <InstallAppPrompt variant="customer" />
       <BookingChatWidget slug={slug} restaurant={s?.business_type === "restaurant"} />
