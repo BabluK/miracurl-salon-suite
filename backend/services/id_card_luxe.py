@@ -93,9 +93,17 @@ def render_luxe_id_card(d: dict) -> bytes:
     c.setFillColorRGB(1, 1, 1); c.roundRect(W / 2 - 14, H - 12, 28, 5, 2.5, fill=1, stroke=0)
     c.setFillColorRGB(0.85, 0.87, 0.92); c.roundRect(W / 2 - 13, H - 11.3, 26, 3.6, 1.8, fill=1, stroke=0)
 
-    # top-left eyebrow + tiny emblem
-    for i, line in enumerate(("PEOPLE", "BEHIND", "BEAUTIFUL", "STORIES")):
-        _tracked(c, 12, H - 22 - i * 6.6, line, 3.4, (1, 1, 1), spacing=1.4)
+    # top-left brand lockup: MS emblem disc + gold wordmark
+    if d.get("emblem_bytes"):
+        try:
+            em = ImageReader(io.BytesIO(d["emblem_bytes"]))
+            c.drawImage(em, 10, H - 40, width=26, height=26, mask="auto")
+        except Exception:  # noqa: BLE001
+            pass
+    c.setFillColorRGB(*GOLD_LT); c.setFont("Times-Bold", 9.2); c.drawString(39, H - 25, "MIRACURL")
+    _tracked(c, 40, H - 33, "SUITE", 5.2, GOLD_LT, font="Times-Roman", spacing=2.2)
+    c.setStrokeColorRGB(*GOLD); c.setLineWidth(0.4); c.line(62, H - 31.4, 86, H - 31.4)
+    _tracked(c, 39, H - 40, "MANAGE · AUTOMATE · GROW", 2.9, (0.85, 0.87, 0.92), spacing=0.9)
     # right script tagline
     c.setFillColorRGB(*GOLD_LT); c.setFont(script, 10.5)
     for i, line in enumerate(("Beauty", "Empowers", "You ♡" if script != "Times-BoldItalic" else "You")):
@@ -181,5 +189,56 @@ def render_luxe_id_card(d: dict) -> bytes:
             s -= 0.4
         c.setFillColorRGB(1, 1, 1); c.setFont("Helvetica-Bold", s); c.drawCentredString(22 + (W - 86) / 2, 24, site)
 
-    c.showPage(); c.save()
+    c.showPage()
+    _back_page(c, W, H, d, script)
+    c.save()
     return buf.getvalue()
+
+
+def _gold_disc_icon(c, kind, cx, cy, r=11):
+    c.setFillColorRGB(0.06, 0.06, 0.08); c.circle(cx, cy, r, fill=1, stroke=0)
+    c.setStrokeColorRGB(*GOLD_LT); c.setLineWidth(1.4); c.circle(cx, cy, r - 0.7, fill=0, stroke=1)
+    c.setStrokeColorRGB(*GOLD_LT); c.setLineWidth(1.1); c.setFillColorRGB(*GOLD_LT)
+    if kind == "mail":
+        c.rect(cx - 4.5, cy - 3, 9, 6, fill=0, stroke=1); c.line(cx - 4.5, cy + 3, cx, cy - 0.5); c.line(cx + 4.5, cy + 3, cx, cy - 0.5)
+    elif kind == "phone":
+        c.arc(cx - 4, cy - 4, cx + 4, cy + 4, 200, 250)
+        c.circle(cx - 2.6, cy + 2.4, 1.1, fill=1, stroke=0); c.circle(cx + 2.4, cy - 2.6, 1.1, fill=1, stroke=0)
+    elif kind == "insta":
+        c.roundRect(cx - 4.2, cy - 4.2, 8.4, 8.4, 2.2, fill=0, stroke=1); c.circle(cx, cy, 2, fill=0, stroke=1); c.circle(cx + 2.7, cy + 2.7, 0.5, fill=1, stroke=0)
+    elif kind == "web":
+        c.circle(cx, cy, 4.4, fill=0, stroke=1); c.ellipse(cx - 2, cy - 4.4, cx + 2, cy + 4.4, fill=0, stroke=1); c.line(cx - 4.4, cy, cx + 4.4, cy)
+
+
+def _back_page(c, W, H, d, script):
+    from reportlab.lib.utils import ImageReader
+    c.setFillColorRGB(1, 1, 1); c.rect(0, 0, W, H, fill=1, stroke=0)
+    _wave(c, W, 250, 262, 16, top=True)
+    _wave(c, W, 16, 8, 10, top=False)
+    c.setFillColorRGB(1, 1, 1); c.roundRect(W / 2 - 14, H - 12, 28, 5, 2.5, fill=1, stroke=0)
+    c.setFillColorRGB(0.85, 0.87, 0.92); c.roundRect(W / 2 - 13, H - 11.3, 26, 3.6, 1.8, fill=1, stroke=0)
+    if d.get("lockup_bytes"):
+        try:
+            lk = ImageReader(io.BytesIO(d["lockup_bytes"])); iw, ih = lk.getSize(); w = W - 30; h = w * ih / iw
+            c.drawImage(lk, 15, H - 52 - h, width=w, height=h, mask="auto")
+        except Exception:  # noqa: BLE001
+            pass
+    c.setFillColorRGB(*GOLD_LT); c.setFont(script, 10); c.drawCentredString(W / 2, H - 128, "Beauty Empowers You")
+    rows = [("mail", "EMAIL", d.get("hq_email")), ("phone", "CALL / WHATSAPP", d.get("hq_phone")),
+            ("insta", "INSTAGRAM", d.get("hq_instagram")), ("web", "WEBSITE", d.get("website"))]
+    rows = [r for r in rows if r[2]]
+    y = H - 150
+    for kind, label, val in rows:
+        _gold_disc_icon(c, kind, 24, y, r=9.5)
+        _tracked(c, 42, y + 2.5, label, 4.2, GOLD, spacing=1.1)
+        fs = 7.2
+        while c.stringWidth(str(val), "Helvetica-Bold", fs) > W - 56 and fs > 4.5:
+            fs -= 0.3
+        c.setFillColorRGB(*INK); c.setFont("Helvetica-Bold", fs); c.drawString(42, y - 6.5, str(val))
+        c.setStrokeColorRGB(0.9, 0.86, 0.72); c.setLineWidth(0.4); c.line(42, y - 12, W - 14, y - 12)
+        y -= 26
+    c.setStrokeColorRGB(*GOLD); c.setLineWidth(0.6); c.line(14, 38, 30, 38); c.line(W - 30, 38, W - 14, 38)
+    _tracked(c, W / 2, 36.5, "FOR SALONS THAT DREAM BIGGER", 4.2, (0.3, 0.32, 0.4), spacing=1.5, center=True)
+    if d.get("qr_url"):
+        c.setFillColorRGB(0.4, 0.42, 0.5); c.setFont("Helvetica", 4.4); c.drawCentredString(W / 2, 28, "This card is the property of Miracurl Suite. If found, please return or call the number above.")
+    c.showPage()

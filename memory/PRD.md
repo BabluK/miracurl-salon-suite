@@ -3241,3 +3241,4 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - `PendingApprovalsTile` (staff WhatsApp requests with avatars, approve/reject/approve-all) in dashboard actions row.
 - `components/mira/MiraAvatar.jsx` + CSS (`.mira-*` keyframes) — animated avatar `/assets/mira/mira.png`.
 - HQ team ID card → `services/id_card_luxe.py` (navy waves, gold trim, CEO photo REQUIRED — 400 without photo, MS emblem badge, QR "SCAN • CONNECT", barcode, website pill). Team panel: "Add photo → ID Card" prompt.
+- 2026-09-16: HQ ID card — front top-left MS emblem + gold "MIRACURL SUITE" wordmark; new BACK page (gold lockup, contact strip Email / Call-WhatsApp / Instagram / Website from env SUPPORT_REPLY_TO|HQ_EMAIL, HQ_PHONE, HQ_INSTAGRAM, APP_PUBLIC_URL host; "FOR SALONS THAT DREAM BIGGER").

@@ -17,6 +17,7 @@ from routes.registry import _safe_fetch_image_bytes
 router = APIRouter()
 
 _MIRACURL_LOGO = os.path.join(os.path.dirname(__file__), "..", "assets", "miracurl-logo.png")
+_GOLD_LOCKUP = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "assets", "brand", "gold-lockup-transparent.png")
 _MS_EMBLEM = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "assets", "brand", "emblem-black-disc.png")
 
 
@@ -210,6 +211,14 @@ async def team_id_card(tid: str, admin=Depends(require_super_admin)):
             data["emblem_bytes"] = f.read()
     except Exception:  # noqa: BLE001
         data["emblem_bytes"] = None
+    try:
+        with open(_GOLD_LOCKUP, "rb") as f:
+            data["lockup_bytes"] = f.read()
+    except Exception:  # noqa: BLE001
+        data["lockup_bytes"] = None
+    data["hq_email"] = os.environ.get("SUPPORT_REPLY_TO") or os.environ.get("HQ_EMAIL") or ""
+    data["hq_phone"] = os.environ.get("HQ_PHONE", "")
+    data["hq_instagram"] = os.environ.get("HQ_INSTAGRAM", "")
     from services.id_card_luxe import render_luxe_id_card
     pdf_bytes = await asyncio.to_thread(render_luxe_id_card, data)
     return _card_response(pdf_bytes, m["name"])
