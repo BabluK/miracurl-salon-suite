@@ -1,0 +1,40 @@
+{
+  "summary": "Iter-158: Verified (1) Owner 'Ask Miracurl to fix this' fix-request flow (create/list/bell notice/short-issue 422), (2) Super Admin HQ Inbox showing fix_request with 🛠 badge and 'Open workspace → /services' impersonation → navigation, PATCH note + PATCH status=resolved sending owner bell fix_done, (3) HQ go-live checklist gate on miracurl-marathahalli (pause→checklist all False→go_live 400 mentioning checklist→checklist action ticks all→go_live 200 live=true), and features endpoint exposing onboarding.checklist, checklist_items(3) and entries(int). Frontend verified end-to-end: fix-request-btn (admin only), fix-request-modal with current page title 'Services', fix-request-submit → success toast '#<n> sent' with modal close, /settings support-access-card + fix-requests-list showing #1 Fixed and #2 Open, manager DOES NOT see fix-request-btn. Super Admin HQ Inbox tab renders hq-fix-badge-<id> ('🛠 Fix #2 · Services') and hq-fix-open-<id> which impersonated the salon and landed on /services. TenantFeaturesModal for marathahalli renders golive-checklist with checklist-poster_printed / checklist-qr_placed / checklist-staff_briefed all checked (INPUT.checked=true), checklist-entries text '(1 so far · after go-live)', and onboarding-pause (since tenant already live) — onboarding-go-live correctly absent. Final tenant state left compliant: sms/whatsapp/support_access ON, onboarding.live=true, all 3 checklist items TRUE.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter158_fix_requests_checklist.py",
+    "/app/test_reports/pytest/iter158.xml"
+  ],
+  "verifications": {
+    "backend_pytest": "5 passed in 3.67s (test_iter158_fix_requests_checklist.py)",
+    "fix_request_create": "POST /api/support/fix-request with issue 'QA: haircut price wrong' page=/services → 200 ticket_no returned; GET /api/support/fix-requests lists status=open with page=/services; owner /api/notifications/new-bookings?since=-1h contains kind='fix_request'.",
+    "fix_request_validation": "issue 'hi' (<5 chars) → 422 as required.",
+    "hq_inbox_resolve": "GET /api/super-admin/hq-messages returns the item (kind=fix_request, tenant_slug=miracurl-marathahalli, page=/services). PATCH /note → 200. PATCH /status {resolved} → 200; owner listing then shows status=resolved and owner bell shows kind='fix_done'.",
+    "checklist_gate": "PUT onboarding pause → live=false; checklist(all False) → 200; go_live → 400 with 'checklist' in message; checklist(all True) → 200 checklist reflected; go_live → 200 live=true.",
+    "features_shape": "GET /api/super-admin/tenants/{tid}/features → onboarding.checklist present, checklist_items = [{poster_printed},{qr_placed},{staff_briefed}], entries is int, live=true.",
+    "ui_owner_fix_request": "fix-request-btn visible on /services; modal fix-request-page='Services'; submit succeeded with toast 'Ticket #2 sent — Miracurl will fix it in your workspace and notify you'; modal auto-closed.",
+    "ui_owner_settings": "support-access-card renders; fix-requests-list shows '#2 Open Services · QA UI: barber chair count …' and '#1 Fixed Services · QA: haircut price wrong'.",
+    "ui_manager_hidden": "Manager (manager@miracurl.com) dashboard: fix-request-btn count=0 — correctly hidden.",
+    "ui_super_admin_inbox": "HQ Inbox tab shows two hq-fix-badge-<id> entries. Clicked hq-fix-open-<id> → set act-as-salon banner and navigated to /services with salon's service list rendered.",
+    "ui_super_admin_features_modal": "tenant-features-modal for marathahalli: golive-checklist present; INPUT checkboxes checklist-poster_printed / checklist-qr_placed / checklist-staff_briefed all checked=true; checklist-entries text '(1 so far · after go-live)'; onboarding-pause shown (live) with onboarding-go-live absent (expected per iter-157 note).",
+    "final_tenant_state": "sms=on, whatsapp=on, support_access=on, onboarding.live=true, checklist={poster_printed:true, qr_placed:true, staff_briefed:true}."
+  },
+  "critical_code_review_comments": [
+    "FixRequestButton hardcodes English page-title map (TITLES) and falls back to raw pathname; consider i18n or backend-derived titles for locale support.",
+    "FixRequestButton mounts modal in-place via portal-less absolute div with z-[120]; on some layouts the underlying app onboarding 'What's New' modal (z-[80]) can intercept the button trigger — dismiss was needed in Playwright. Consider guarding the header buttons behind What's-New once-per-session close, or move fix-request into a Radix Dialog with proper focus trap.",
+    "SupportAccessCard fetches /support/fix-requests unconditionally in useEffect but does not re-poll after a new ticket is filed elsewhere in the app — a small event bus or SWR mutate would keep the 'My fix requests' list fresh.",
+    "support_tickets.create_fix_request uses public_rate_limit keyed by tenant only (10/hr) — for a shared salon it might block staff; consider keying by user_id or per-page.",
+    "OnboardingIn.checklist typed as Optional[dict]; a Pydantic model with the three booleans would validate keys and prevent typos silently ignored."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter158_fix_requests_checklist.py (new)",
+    "/app/test_reports/iteration_158.json (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "super@miracurl.com / og9T@41Es#OQb6; admin@miracurl.com / q6QY@tn3p#9DtL (X-Tenant-Slug miracurl-marathahalli, PIN 4321); manager@miracurl.com / Manager@1234.",
+  "seed_data_creation": "Created 2 fix-request tickets for tenant miracurl-marathahalli: #1 (backend '/services · QA: haircut price wrong' — resolved during HQ inbox test) and #2 (UI-created '/services · QA UI: barber chair count …' — left OPEN). Also cycled onboarding pause→checklist→go_live; ended at live=true.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter-158 fully green. Regression file /app/backend/tests/test_iter158_fix_requests_checklist.py covers fix-request CRUD, HQ inbox resolve → fix_done notice, and go-live checklist gate. Two fix-request tickets exist (#1 resolved, #2 open) — future runs can rely on them being present. Tenant state left compliant per iter-157/158 spec. To open TenantFeaturesModal for a specific tenant in playwright, fetch /api/super-admin/tenants via page.evaluate and click features-tenant-<tid> directly — text-based heuristic can pick the wrong card (parent innerText leaks sidebar text). onboarding-go-live is only rendered when NOT live; onboarding-pause replaces it when live."
+}

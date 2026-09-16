@@ -112,9 +112,8 @@ async def _alert_owner_no_credits(t: dict) -> None:
     try:
         owner = await _raw_db.users.find_one({"tenant_id": t["id"], "role": "admin"}, {"_id": 0, "email": 1})
         if owner and owner.get("email"):
-            await _send_email([owner["email"]], f"{t.get('name')}: WhatsApp credits exhausted — Mira has paused auto-replies",
-                              "<p>Hi,</p><p>A customer messaged you on WhatsApp but Mira could not reply because your WhatsApp credit "
-                              "balance is 0.</p><p>Top up from <b>Settings → SMS &amp; WhatsApp Packs</b> and Mira will resume "
-                              "answering and booking automatically.</p><p>— Miracurl</p>")
+            from services.hq_emails import wa_credits_exhausted_email
+            subj, html = wa_credits_exhausted_email(t)
+            await _send_email([owner["email"]], subj, html, book_url=f"{os.environ.get('APP_PUBLIC_URL', '').rstrip('/')}/settings", book_label="Top up now ✦")
     except Exception:
         log.exception("owner no-credit alert failed for %s", t.get("slug"))

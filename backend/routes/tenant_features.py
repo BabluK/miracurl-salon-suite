@@ -1,5 +1,6 @@
 """HQ per-tenant feature switches (SMS / WhatsApp / Campaign), owner support-access consent,
 and Brand Model campaign onboarding (invite → agreement → setup call → HQ go-live)."""
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -152,9 +153,9 @@ async def sa_onboarding(tid: str, body: OnboardingIn, user=Depends(require_super
         await notify_tenant(t["id"], "campaign_call", "Campaign setup call scheduled",
                             f"Miracurl will call you on {body.call_at}. Keep your poster spot & staff briefing ready.", "/settings#campaign-agreement", f"campaign_call:{body.call_at}")
         if em:
-            await _send_email([em], f"{c['name']}: your setup call is on {body.call_at}",
-                              f"<p>Namaste {t.get('name')},</p><p>Your Brand Model campaign setup call with Miracurl is scheduled for <b>{body.call_at}</b>.</p>"
-                              f"<p>We'll walk you through the QR poster, staff briefing and how entries are counted. — Miracurl HQ</p>")
+            from services.hq_emails import setup_call_email
+            subj, html = setup_call_email(t, c, body.call_at)
+            await _send_email([em], subj, html, book_url=f"{os.environ.get('APP_PUBLIC_URL', '').rstrip('/')}/settings#campaign-agreement", book_label="Open Miracurl ✦")
     elif body.action == "call_done":
         patch.update({"status": "call_done", "call_done_at": _now()})
     elif body.action == "checklist":
@@ -170,10 +171,11 @@ async def sa_onboarding(tid: str, body: OnboardingIn, user=Depends(require_super
         patch.update({"status": "live", "live": True, "live_at": _now(), "live_by": user.get("email")})
         await notify_tenant(t["id"], "campaign_live", f"{c['name']} is LIVE for your salon 🎉",
                             "Print your QR poster from Settings and start enrolling customers.", "/settings#campaign-agreement", f"campaign_live:{c['id']}")
-        if em:
-            await _send_email([em], f"🎉 {c['name']} is live for {t.get('name')}",
-                              f"<p>Namaste {t.get('name')},</p><p>Your campaign is now <b>live</b>. Download the QR poster from <b>Settings → Brand Model Campaign</b>, "
-                              f"place it at the billing counter and let customers apply.</p><p>— Miracurl HQ</p>")
+        if em and not (await get_onboarding(t["id"], c["id"])).get("live"):
+            # Congratulations mail only on the real OFF → LIVE transition (never on re-saves)
+            from services.hq_emails import campaign_live_email
+            subj, html = campaign_live_email(t, c)
+            await _send_email([em], subj, html, book_url=f"{os.environ.get('APP_PUBLIC_URL', '').rstrip('/')}/settings#campaign-agreement", book_label="Open my campaign ✦")
     elif body.action == "pause":
         patch.update({"status": "paused", "live": False, "paused_at": _now()})
     ob = await set_onboarding(t["id"], c["id"], patch)

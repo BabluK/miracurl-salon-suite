@@ -3223,3 +3223,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Sending gates: `send_tenant_sms` → `sms_disabled`; `send_text(tenant_id)` raises when WhatsApp OFF; Mira auto-reply skips. `/tenants/current` + `/sms-packs` expose `features`/`support_access`.
 - UI: Super Admin row "Features" → `TenantFeaturesModal`; owner Settings `SupportAccessCard`, CampaignAgreementCard steps (Invited→Signed→Call→Done→Live) + 2 consent ticks; popup "Read documents & approve"; SMS/WA tabs & dashboard widgets hidden when OFF.
 - Test tenant miracurl-marathahalli: sms/whatsapp ON, live=true.
+
+## 2026-09-16 — Fix-request tickets, go-live checklist, branded HQ emails — VERIFIED iteration_158 (+ email previews via screenshot)
+- `routes/support_tickets.py`: owner `POST /support/fix-request` (hq_messages kind `fix_request`, ticket_no, HQ email, bell), `GET /support/fix-requests`; HQ `PATCH /super-admin/hq-messages/{id}/note`; resolving a fix request bell-notifies the owner (`fix_done`). UI: header button `FixRequestButton` (admin only) → modal; Settings SupportAccessCard lists "My fix requests"; HQ Inbox 🛠 badge + "Open workspace → page" (impersonate + navigate).
+- Go-live checklist (`CHECKLIST` in tenant_features.py: poster_printed, qr_placed, staff_briefed) — `action: checklist`; `go_live` 400 until all ticked + agreement; onboarding payload has checklist/checklist_items/entries. HQ modal shows checklist; Go live disabled until complete.
+- `services/hq_emails.py`: luxe dark-gold owner notice template; `campaign_live_email` (hero `/assets/email/campaign-live.jpg`, congratulations, 4 steps) sent ONLY on the OFF→LIVE transition; `setup_call_email` (human date "Thursday, 15 Oct 2026 · 7:11 PM IST"); `wa_credits_exhausted_email`.
