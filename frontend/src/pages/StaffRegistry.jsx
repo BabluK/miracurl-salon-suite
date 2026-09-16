@@ -229,6 +229,7 @@ export default function StaffRegistry() {
                     <span className="text-xs font-mono bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">{p.staff_code}</span>
                     <BadgeChip badge={p.badge} rating={p.avg_rating} />
                     {p.hq_verified && <HqChip />}
+                    {p.registered_at_salon && <span data-testid={`registry-salon-tag-${p.staff_code}`} className="text-[10px] px-2 py-0.5 rounded-full bg-[#fbf3e0] border border-[#e6d3a3] text-[#8a6d1f] max-w-[220px] truncate" title={`Registered at ${p.registered_at_salon}`}>🏠 {p.registered_at_salon}</span>}
                   </div>
                   <div className="text-xs text-slate-500 mt-1">
                     +{p.phone} {p.email && `· ${p.email}`} · {p.aadhaar_masked} · <b>{p.total_years} yrs</b> total service {p.city && `· ${p.city}`}

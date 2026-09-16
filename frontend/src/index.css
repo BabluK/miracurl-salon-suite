@@ -296,7 +296,6 @@ select:-webkit-autofill {
     radial-gradient(700px 420px at 50% 55%, rgba(56, 189, 248, 0.07), transparent 65%),
     linear-gradient(135deg, #f8fafc 0%, #faf5ee 48%, #f1f5fa 100%);
   background-size: 160% 160%, 150% 150%, 140% 140%, 100% 100%;
-  animation: mesh-drift 26s ease-in-out infinite alternate;
 }
 
 /* Dark neon mesh for public booking experience — warm soft charcoal, easy on the eyes */
@@ -307,7 +306,6 @@ select:-webkit-autofill {
     radial-gradient(900px 550px at -10% 110%, rgba(190, 120, 60, 0.08), transparent 60%),
     radial-gradient(700px 500px at 55% 60%, rgba(120, 72, 35, 0.10), transparent 65%);
   background-size: 170% 170%, 160% 160%, 150% 150%;
-  animation: mesh-drift 30s ease-in-out infinite alternate;
 }
 
 /* Floating AI orb (Mira) — pure CSS, works on iOS & Android */
@@ -354,27 +352,24 @@ select:-webkit-autofill {
   min-width: 480px;
   min-height: 480px;
   border-radius: 9999px;
-  filter: blur(70px);
-  opacity: 0.55;
-  will-change: transform;
+  filter: blur(56px);
+  opacity: 0.5;
+  transform: translateZ(0);
 }
 .dash-aurora-gold {
   top: -25%;
   right: -12%;
   background: radial-gradient(circle at 40% 40%, rgba(212, 175, 55, 0.30), transparent 65%);
-  animation: dash-flow-a 22s ease-in-out infinite alternate;
 }
 .dash-aurora-rose {
   bottom: -30%;
   left: -15%;
   background: radial-gradient(circle at 55% 45%, rgba(236, 72, 153, 0.20), transparent 65%);
-  animation: dash-flow-b 28s ease-in-out infinite alternate;
 }
 .dash-aurora-sky {
   top: 30%;
   left: 30%;
   background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.18), transparent 65%);
-  animation: dash-flow-c 34s ease-in-out infinite alternate;
 }
 @keyframes dash-flow-a {
   0%   { transform: translate(0, 0) scale(1) rotate(0deg); }
@@ -764,10 +759,16 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 @keyframes mira-dot { 0%,100% { transform: translateY(0); opacity: .5; } 50% { transform: translateY(-3px); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .mira-body, .mira-body img, .mira-glow, .mira-ring, .mira-orbit, .mira-spark, .mira-badge { animation: none !important; } }
 
-/* Mobile scroll performance: backdrop blur, giant blurred blobs and infinite glow loops are GPU-heavy on phones */
-@media (max-width: 768px) {
+
+/* PERFORMANCE RULES (user-mandated, all devices): no infinite animations on full-page layers, no animated blur filters,
+   backdrop-blur only on small overlays. Tablet & phone additionally drop decorative blur/glow entirely. */
+@media (max-width: 1024px) {
+  .dash-aurora-ribbon, .dash-sparkle { display: none !important; }
   .backdrop-blur, .backdrop-blur-sm, .backdrop-blur-md, .backdrop-blur-lg, .backdrop-blur-xl, .backdrop-blur-2xl { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
   .blur-3xl.pointer-events-none, .blur-2xl.pointer-events-none { display: none !important; }
   .gold-shine-text, .gold-shine-img, .mira-body, .mira-body img, .mira-ring, .mira-orbit, .mira-spark, .brand-orb, .brand-orb-spark, .brand-pill, .brand-scissors, .brand-curl { animation: none !important; }
   .gold-shine-img { filter: none !important; }
+}
+@media (min-width: 1025px) {
+  .dash-sparkle:nth-child(n+12) { display: none; }
 }

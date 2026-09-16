@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { usePlayer } from "@/context/PlayerContext";
+import { moodChannels, playPayload } from "@/constants/musicChannels";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { MiraAvatar } from "@/components/mira/MiraAvatar";
 import { WinbackBlastModal } from "@/components/dashboard/MiraBlast";
-import { Quote, Copy, ExternalLink, Sparkles, CalendarClock, UserPlus, Tag, MessageCircle, Calendar, Footprints, Users, Receipt, Crown, ArrowRight, AlertTriangle, Lightbulb, Play } from "lucide-react";
+import { Quote, Copy, ExternalLink, Sparkles, CalendarClock, UserPlus, Tag, MessageCircle, Calendar, Footprints, Users, Receipt, Crown, ArrowRight, AlertTriangle, Lightbulb, Play, Pause } from "lucide-react";
 
 const QUOTES = [
   ["Beautiful salons create more than looks, they create confidence.", "Mira AI"],
@@ -115,7 +117,7 @@ export function MiraAssistantCard({ inactive }) {
 
 export function LowStockCard({ items = [], count = 0, sym = "₹" }) {
   return (
-    <section className="rounded-3xl bg-gradient-to-br from-rose-50 to-white border border-rose-100 p-5 shadow-sm" data-testid="low-stock-card">
+    <section className="rounded-3xl bg-gradient-to-br from-rose-50 to-white border border-rose-100 p-5 shadow-sm flex flex-col" data-testid="low-stock-card">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 font-playfair text-xl text-slate-900"><AlertTriangle className="w-5 h-5 text-rose-500" /> {count} Product{count === 1 ? "" : "s"} Running Low</div>
@@ -125,7 +127,7 @@ export function LowStockCard({ items = [], count = 0, sym = "₹" }) {
       </div>
       {items.length > 0 && (
         <div className="mt-4 space-y-2">
-          {items.slice(0, 3).map(p => (
+          {items.slice(0, 5).map(p => (
             <div key={p.id || p.name} className="flex items-center gap-3 rounded-xl bg-white border border-rose-100 px-3 py-2.5">
               <div className="w-9 h-9 rounded-lg bg-rose-50 overflow-hidden flex items-center justify-center shrink-0">{p.image_url ? <img src={p.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-rose-400 text-xs font-bold">{(p.name || "?")[0]}</span>}</div>
               <div className="flex-1 min-w-0 text-sm font-medium text-slate-800 truncate uppercase tracking-wide">{p.name}</div>
@@ -139,14 +141,43 @@ export function LowStockCard({ items = [], count = 0, sym = "₹" }) {
 }
 
 export function MiraSuggestsCard() {
+  const player = usePlayer();
+  const moods = moodChannels();
+  const [mood, setMood] = useState(moods[0]?.id);
+  const cur = moods.find(m => m.id === mood) || moods[0];
+  const playing = player.track && moods.some(m => m.id === player.track.id);
+  const start = (c) => { setMood(c.id); player.play(playPayload(c, "youtube")); player.setTimer(30); };
   return (
-    <section className="rounded-3xl bg-gradient-to-r from-amber-50 to-white border border-amber-100 p-5 flex items-center gap-4 shadow-sm" data-testid="mira-suggests-card">
-      <div className="w-11 h-11 rounded-full bg-amber-100 text-[#b8893a] flex items-center justify-center shrink-0"><Lightbulb className="w-5 h-5" /></div>
-      <div className="flex-1 min-w-0">
-        <div className="font-playfair text-lg text-slate-900">Mira Suggests</div>
-        <div className="text-sm text-slate-500">Start the day with 30 minutes of soothing salon music.</div>
+    <section className="relative overflow-hidden rounded-3xl bg-[radial-gradient(120%_140%_at_0%_0%,#fffdf7_0%,#fdf6e6_55%,#f8ecd2_100%)] border border-amber-100 p-5 shadow-sm" data-testid="mira-suggests-card">
+      <div className="flex items-start gap-3">
+        <span className="w-12 h-12 rounded-full bg-amber-100/80 text-[#c99a2e] flex items-center justify-center shrink-0 shadow-inner"><Lightbulb className="w-6 h-6" strokeWidth={1.6} /></span>
+        <div className="min-w-0 flex-1">
+          <div className="font-playfair text-2xl text-slate-900 leading-tight">Mira Suggests</div>
+          <p className="text-sm text-slate-500 mt-0.5">Start the day with 30 minutes of soothing salon music.</p>
+        </div>
+        <div className="relative shrink-0 w-24 h-24 -mt-2 -mr-2">
+          <img src="/assets/dashboard/mira-dj.png" alt="" loading="lazy" className="w-full h-full object-contain drop-shadow-[0_10px_18px_rgba(180,140,60,.35)]" />
+        </div>
       </div>
-      <Link to="/entertainment" data-testid="mira-suggests-play" className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm font-bold inline-flex items-center gap-2 hover:brightness-110"><Play className="w-4 h-4" /> Play Now</Link>
+      <div className="mt-3 flex flex-wrap gap-2" data-testid="mira-mood-chips">
+        {moods.map(c => {
+          const Icon = c.icon; const active = c.id === mood;
+          return (
+            <button key={c.id} type="button" data-testid={`mira-mood-${c.id}`} onClick={() => start(c)} title={c.desc}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs sm:text-sm font-medium transition-[background-color,border-color] ${active ? "bg-[#f7e7b8] border-[#e8c56a] text-[#6b4f12]" : "bg-white/70 border-amber-100 text-slate-700 hover:border-[#e8c56a]"}`}>
+              <Icon className="w-3.5 h-3.5 text-[#c99a2e]" /> {c.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <p className="font-playfair italic text-[#8a6d1f] text-xs sm:text-sm border-b-2 border-[#e8c56a] pb-0.5 min-w-0">“Great ambiance creates happier clients.”</p>
+        <button type="button" onClick={() => (playing ? player.stop() : start(cur))} data-testid="mira-suggests-play"
+          className="shrink-0 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm font-bold inline-flex items-center gap-2 shadow-[0_10px_24px_-12px_rgba(201,154,46,.9)] hover:brightness-110 active:scale-[.98] transition-[filter,transform]">
+          {playing ? <><Pause className="w-4 h-4" /> Stop</> : <><Play className="w-4 h-4 fill-current" /> Play Now <ArrowRight className="w-4 h-4" /></>}
+        </button>
+      </div>
+      <p className="mt-2 text-[11px] text-slate-400 flex items-center justify-between gap-2"><span>Plays instantly in the mini-player · 30-min timer</span><Link to="/entertainment" className="underline hover:text-[#8a6d1f] shrink-0" data-testid="mira-suggests-more">More channels</Link></p>
     </section>
   );
 }
@@ -177,11 +208,13 @@ export function MembershipPromoCard() {
     <section className="relative overflow-hidden rounded-3xl bg-[#0f0e0b] text-white p-6 border border-[#e8c56a]/25 shadow-[0_30px_60px_-30px_rgba(0,0,0,.7)]" data-testid="membership-promo-card">
       <img src="/assets/salon/premium-membership.jpg" alt="" className="absolute inset-0 w-full h-full object-cover object-right opacity-60" />
       <div className="absolute inset-0 bg-gradient-to-r from-[#0f0e0b] via-[#0f0e0b]/85 to-transparent" />
-      <div className="relative max-w-[62%]">
-        <div className="flex items-center gap-2 text-[#e8c56a]"><Crown className="w-5 h-5" /><span className="text-[10px] uppercase tracking-[.22em] font-semibold">Premium</span></div>
-        <h3 className="font-playfair text-2xl leading-tight mt-1">Grow Your Salon<br />with Memberships</h3>
-        <p className="text-sm text-white/70 mt-2">Turn first-time visitors into loyal customers.</p>
-        <Link to="/plans?tab=memberships" data-testid="membership-promo-btn" className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm font-bold hover:brightness-110">Create Membership Plan <ArrowRight className="w-4 h-4" /></Link>
+      <div className="relative flex flex-col md:flex-row md:items-center gap-4 md:gap-8">
+        <div className="min-w-0 md:max-w-[60%]">
+          <div className="flex items-center gap-2 text-[#e8c56a]"><Crown className="w-5 h-5" /><span className="text-[10px] uppercase tracking-[.22em] font-semibold">Premium</span></div>
+          <h3 className="font-playfair text-2xl leading-tight mt-1">Grow Your Salon with Memberships</h3>
+          <p className="text-sm text-white/70 mt-1">Turn first-time visitors into loyal customers — cashback wallets, tier perks and auto-renewals.</p>
+        </div>
+        <Link to="/plans?tab=memberships" data-testid="membership-promo-btn" className="md:ml-auto shrink-0 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm font-bold hover:brightness-110">Create Membership Plan <ArrowRight className="w-4 h-4" /></Link>
       </div>
     </section>
   );

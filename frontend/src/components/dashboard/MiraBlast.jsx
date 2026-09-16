@@ -125,7 +125,7 @@ export function PendingApprovalsTile() {
                 : <span className={`w-9 h-9 rounded-full text-xs font-bold flex items-center justify-center shrink-0 ${TONES[i % TONES.length]}`}>{initials(r.requested_by_name)}</span>}
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold text-slate-800 truncate">{r.requested_by_name} <span className="text-slate-400 font-normal">→</span> {r.client_name}</div>
-                <div className="text-xs text-slate-500 truncate flex items-center gap-1"><MessageCircle className="w-3 h-3" /> {r.kind?.replace(/_/g, " ")} · {r.message}</div>
+                <div className="text-xs text-slate-500 flex items-center gap-1 min-w-0"><MessageCircle className="w-3 h-3 shrink-0" /> <span className="truncate">{r.kind?.replace(/_/g, " ")} · {r.message}</span></div>
               </div>
               <button data-testid={`approval-approve-${r.id}`} onClick={() => act(r.id, "approve")} disabled={!!busy} className="w-8 h-8 rounded-full bg-emerald-500 text-white inline-flex items-center justify-center hover:brightness-110 disabled:opacity-50" title="Approve & send"><Check className="w-4 h-4" /></button>
               <button data-testid={`approval-reject-${r.id}`} onClick={() => act(r.id, "reject")} disabled={!!busy} className="w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-500 inline-flex items-center justify-center hover:text-rose-600 hover:border-rose-200 disabled:opacity-50" title="Decline"><XCircle className="w-4 h-4" /></button>

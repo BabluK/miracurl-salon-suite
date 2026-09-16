@@ -3291,3 +3291,10 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - tenant.month_revenue_peek_pin; `PUT /settings/revenue-peek-pin` (admin + owner PIN); `GET /settings/revenue-peek` (admin + owner PIN) returns month_revenue. /reports/dashboard: locked = hide && (non-owner || peek_pin) → owner payload has month_revenue None when peek_pin on; adds month_revenue_peek_pin.
 - ownerPin.js exports getWithFreshPin(url) (always prompts, no cache). Dashboard peekMonth(): prompts PIN when peek_pin on, stores peekValue, 15s auto-hide. SecurityPinCard: toggle row revenue-peek-pin-row / revenue-peek-pin-toggle (shown once PIN is set).
 - Preview settings restored to hide=false, peek_pin=false after testing.
+
+## 2026-09-17 (evening) — Perf overhaul + Mira Suggests redesign + layout compaction + 2 bugs — build 2026-09-17.269
+- PERF: see memory/PERFORMANCE_RULES.md (app-canvas/mesh-dark static; aurora static & hidden ≤1024px; blur/glow off ≤1024px). Measured 45 fps scrolling desktop headless.
+- Mira Suggests card (HeroBlocks.jsx) rebuilt: mood chips mira-mood-{relaxing,spa,positive} → PlayerContext.play + 30-min timer inline; Play/Stop button mira-suggests-play; robot mascot /assets/dashboard/mira-dj.png (generated). constants/musicChannels.js: 3 instrumental channels (yt hlWiI4xVXKY / 77ZozI0rw7w / 4oStw0r33so, `instrumental: true` → embed gets autoplay=1). NOTE: YouTube blocks embeds from datacenter IPs ("Video unavailable") — could not verify playback from preview; user must verify on device.
+- Dashboard layout: row A [Mira AI | LowStock (5 items, flex-col)] with minmax(0,…) tracks; row B [Mira Suggests 1.5fr | Pending Approvals | Quick Actions]; MembershipPromoCard now full-width horizontal banner.
+- BranchSwitcher bug: value "__main__" was treated as unknown → reset to "" + 2nd branch-changed (double dashboard fetch, selection bounced). Fixed.
+- Staff Registry: GET /registry/employees (no query) returns roster across admin.tenant_ids when current tenant is one of them; adds registered_at_salon; UI tag registry-salon-tag-<code>.

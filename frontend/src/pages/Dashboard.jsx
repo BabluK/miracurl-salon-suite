@@ -175,18 +175,16 @@ export default function Dashboard() {
         <Stat icon={Users} label="Total Customers" value={data.total_customers} hint={`${data.active_staff} active staff`} testid="kpi-customers" color="rose" now={data.total_customers} prev={data.compare?.customers_last_month} vs="vs last month" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1.35fr_1fr] gap-4" data-testid="dashboard-mira-row">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] gap-4" data-testid="dashboard-mira-row">
         <MiraAssistantCard inactive={data.inactive_customers_30d} />
-        <div className="space-y-4">
-          <LowStockCard items={data.low_stock_items || []} count={data.low_stock_count || 0} />
-          <MiraSuggestsCard />
-        </div>
+        <LowStockCard items={data.low_stock_items || []} count={data.low_stock_count || 0} />
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1.1fr] gap-4" data-testid="dashboard-actions-row">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)] gap-4" data-testid="dashboard-actions-row">
+        <MiraSuggestsCard />
         <PendingApprovalsTile />
         <QuickActionsCard />
-        <MembershipPromoCard />
       </div>
+      <MembershipPromoCard />
 
       {isOwner && <WelcomeCongratsModal />}
       <RenewalBanner sub={subStatus} />

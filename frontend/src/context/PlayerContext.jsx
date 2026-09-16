@@ -9,10 +9,12 @@ export function buildEmbedSrc(ch) {
   }
   // No autoplay: YouTube blocks autoplaying embeds of label music ("Video unavailable").
   // One tap on the mini-player starts playback reliably for every video.
+  // Instrumental/royalty-free channels opt in via ch.autoplay so the tap starts the music straight away.
+  const auto = ch.autoplay ? "&autoplay=1&playsinline=1" : "";
   if ((ch.media_type || "video") === "playlist") {
-    return `https://www.youtube.com/embed/videoseries?list=${ch.media_id}&rel=0`;
+    return `https://www.youtube.com/embed/videoseries?list=${ch.media_id}&rel=0${auto}`;
   }
-  return `https://www.youtube.com/embed/${ch.media_id}?rel=0`;
+  return `https://www.youtube.com/embed/${ch.media_id}?rel=0${auto}`;
 }
 
 // Global music state: the floating player keeps playing across every page.

@@ -17,7 +17,7 @@ export const BranchSwitcher = () => {
   const [pending, setPending] = useState(null); // branch value awaiting approval
 
   useEffect(() => {
-    if (value && branches.length && !branches.some(b => b.name === value)) {
+    if (value && value !== "__main__" && branches.length && !branches.some(b => b.name === value)) {
       setValue(""); setSelectedBranch("");
     }
   }, [branches, value]);

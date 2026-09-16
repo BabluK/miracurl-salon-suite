@@ -356,12 +356,25 @@ async def registry_list_employees(q: Optional[str] = None, admin=Depends(require
             ors.append({"phone": {"$regex": f"{digits}$"}})
         rows = await _raw_db.registry_employees.find({"$or": ors}, {"_id": 0, "aadhaar_hash": 0}).to_list(20)
         return [await _registry_profile(r, redact=redact) for r in rows]
-    # No query: this salon's own roster (created here or employed here) — unredacted.
-    emp_ids = await _raw_db.registry_employments.distinct("employee_id", {"tenant_id": t["id"]})
+    # No query: the owner's roster — this salon plus every other salon the same owner runs
+    # (multi-salon owners register staff once and see them from any branch/salon) — unredacted.
+    tids = {t["id"]}
+    owner_tids = admin.get("tenant_ids") or []
+    if t["id"] in owner_tids:
+        tids.update(owner_tids)
+    tids = list(tids)
+    emp_ids = await _raw_db.registry_employments.distinct("employee_id", {"tenant_id": {"$in": tids}})
     rows = await _raw_db.registry_employees.find(
-        {"$or": [{"created_by_tenant": t["id"]}, {"id": {"$in": emp_ids}}]},
-        {"_id": 0, "aadhaar_hash": 0}).sort("created_at", -1).to_list(100)
-    return [await _registry_profile(r) for r in rows]
+        {"$or": [{"created_by_tenant": {"$in": tids}}, {"id": {"$in": emp_ids}}]},
+        {"_id": 0, "aadhaar_hash": 0}).sort("created_at", -1).to_list(200)
+    names = {x["id"]: x.get("name") for x in await _raw_db.tenants.find({"id": {"$in": tids}}, {"_id": 0, "id": 1, "name": 1}).to_list(50)} if len(tids) > 1 else {}
+    out = []
+    for r in rows:
+        prof = await _registry_profile(r)
+        if names and r.get("created_by_tenant") and r.get("created_by_tenant") != t["id"]:
+            prof["registered_at_salon"] = names.get(r.get("created_by_tenant"))
+        out.append(prof)
+    return out
 
 @router.post("/registry/employees/{eid}/employments")
 async def registry_add_employment(eid: str, body: RegistryEmploymentIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
