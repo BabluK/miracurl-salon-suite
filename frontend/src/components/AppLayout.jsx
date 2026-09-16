@@ -21,6 +21,7 @@ import InstallAppPrompt from "./InstallAppPrompt";
 import TrialReminder from "./TrialReminder";
 import ActAsBanner from "./ActAsBanner";
 import { useNewBookingNotifier, NotifBell } from "./NewBookingNotifier";
+import { FixRequestButton } from "./FixRequestButton";
 import WhatsNewModal from "./WhatsNewModal";
 import { NoticePopup } from "./NoticePopup";
 import { NetSpeedIndicator } from "./NetSpeedIndicator";
@@ -253,6 +254,7 @@ export default function AppLayout() {
           <div className="flex items-center gap-1.5 sm:gap-4 min-w-0">
             <div className="hidden sm:block"><NetSpeedIndicator /></div>
             <div className="hidden md:flex items-center px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs text-white/60 tracking-wider">{today}</div>
+            {user?.role === "admin" ? <FixRequestButton /> : null}
             {isAdmin ? <SalonSwitcher /> : null}
             {(isAdmin || user?.role === "manager") ? <BranchSwitcher /> : null}
             {canNotify ? (

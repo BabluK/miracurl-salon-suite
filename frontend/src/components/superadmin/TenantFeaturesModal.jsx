@@ -32,17 +32,21 @@ export function TenantFeaturesModal({ tenant, onClose, onChanged }) {
       else toast.success("Saved");
     } catch (e) { toast.error(e.response?.data?.detail || "Update failed"); } finally { setBusy(""); }
   };
-  const onboard = async (action) => {
+  const onboard = async (action, extra = {}) => {
     setBusy(action);
     try {
-      const r = await api.put(`/super-admin/rewards-campaign/onboarding/${tenant.id}`, { action, call_at: callAt || undefined, notes });
+      const r = await api.put(`/super-admin/rewards-campaign/onboarding/${tenant.id}`, { action, call_at: callAt || undefined, notes, ...extra });
       setD(x => ({ ...x, onboarding: r.data.onboarding || x.onboarding }));
-      toast.success({ schedule: "Call scheduled & owner notified", call_done: "Marked setup done", go_live: "Campaign is LIVE for this salon 🎉", pause: "Campaign paused", resend_invite: "Invite re-sent" }[action]);
+      if (action !== "checklist") toast.success({ schedule: "Call scheduled & owner notified", call_done: "Marked setup done", go_live: "Campaign is LIVE for this salon 🎉", pause: "Campaign paused", resend_invite: "Invite re-sent" }[action]);
     } catch (e) { toast.error(e.response?.data?.detail || "Action failed"); } finally { setBusy(""); }
   };
 
   const ob = d?.onboarding || {};
   const cur = stepIdx(ob.status);
+  const cl = ob.checklist || {};
+  const items = ob.checklist_items || [];
+  const checklistDone = items.length > 0 && items.every(i => cl[i.key]);
+  const canGoLive = d?.agreement?.accepted && checklistDone;
   return (
     <div className="fixed inset-0 z-[120] flex items-start justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto" onClick={onClose} data-testid="tenant-features-modal">
       <div className="relative w-full max-w-2xl rounded-3xl bg-white shadow-2xl my-auto p-6 space-y-5" onClick={e => e.stopPropagation()}>
@@ -96,12 +100,23 @@ export function TenantFeaturesModal({ tenant, onClose, onChanged }) {
                     <input type="datetime-local" value={callAt} onChange={e => setCallAt(e.target.value)} data-testid="onboarding-call-at" className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-800" />
                     <button onClick={() => onboard("schedule")} disabled={!!busy || !callAt} className="h-10 px-4 rounded-full border border-slate-300 text-sm font-semibold text-slate-700 inline-flex items-center gap-1.5 hover:bg-white disabled:opacity-40" data-testid="onboarding-schedule"><Phone className="w-4 h-4" /> Schedule call</button>
                   </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-3" data-testid="golive-checklist">
+                    <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-2">Go-live checklist</div>
+                    <label className="flex items-center gap-2 text-sm py-1 text-slate-700"><input type="checkbox" checked={!!d.agreement.accepted} disabled className="accent-emerald-600" /> Participation agreement signed by owner <span className="text-[10px] text-slate-400">(auto)</span></label>
+                    {items.map(i => (
+                      <label key={i.key} className="flex items-center gap-2 text-sm py-1 text-slate-700 cursor-pointer">
+                        <input type="checkbox" data-testid={`checklist-${i.key}`} checked={!!cl[i.key]} disabled={busy === "checklist"} className="accent-emerald-600"
+                          onChange={e => onboard("checklist", { checklist: { [i.key]: e.target.checked } })} /> {i.label}
+                      </label>
+                    ))}
+                    <div className="flex items-center gap-2 text-sm py-1 text-slate-500"><span className={`w-3.5 h-3.5 rounded-sm border ${ob.entries > 0 ? "bg-emerald-500 border-emerald-500" : "border-slate-300"}`} /> First customer entry <span className="text-[10px] text-slate-400" data-testid="checklist-entries">({ob.entries || 0} so far · after go-live)</span></div>
+                  </div>
                   <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="HQ notes (poster placed, staff briefed, issues…)" data-testid="onboarding-notes" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-800" />
                   <div className="flex gap-2 flex-wrap justify-end">
                     <button onClick={() => onboard("call_done")} disabled={!!busy} className="h-9 px-4 rounded-full border border-slate-300 text-xs font-semibold text-slate-700 inline-flex items-center gap-1.5 hover:bg-white" data-testid="onboarding-call-done"><CheckCircle2 className="w-4 h-4" /> Setup / call done</button>
                     {ob.live
                       ? <button onClick={() => onboard("pause")} disabled={!!busy} className="h-9 px-4 rounded-full bg-red-50 border border-red-200 text-xs font-semibold text-red-600 inline-flex items-center gap-1.5" data-testid="onboarding-pause"><PauseCircle className="w-4 h-4" /> Pause campaign</button>
-                      : <button onClick={() => onboard("go_live")} disabled={!!busy || !d.agreement.accepted} title={!d.agreement.accepted ? "Owner must accept the agreement first" : ""} className="h-9 px-4 rounded-full bg-gradient-to-r from-[#7f2d3f] to-[#a83d54] text-white text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-40" data-testid="onboarding-go-live"><Rocket className="w-4 h-4" /> Go live</button>}
+                      : <button onClick={() => onboard("go_live")} disabled={!!busy || !canGoLive} title={!d.agreement.accepted ? "Owner must accept the agreement first" : !checklistDone ? "Finish the go-live checklist first" : ""} className="h-9 px-4 rounded-full bg-gradient-to-r from-[#7f2d3f] to-[#a83d54] text-white text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-40" data-testid="onboarding-go-live"><Rocket className="w-4 h-4" /> Go live</button>}
                   </div>
                 </div>
               )}

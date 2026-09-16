@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -7,6 +7,8 @@ import { LifeBuoy } from "lucide-react";
 export function SupportAccessCard() {
   const { tenant, refresh } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [tickets, setTickets] = useState([]);
+  useEffect(() => { api.get("/support/fix-requests").then(r => setTickets(r.data.items || [])).catch(() => {}); }, []);
   const on = tenant?.support_access !== false;
   const toggle = async () => {
     setBusy(true);
@@ -32,6 +34,19 @@ export function SupportAccessCard() {
             {on ? "Miracurl HQ can open your workspace to fix a setting or finish setup for you — no call or ticket needed. Every change they make is listed in your Audit log as “Miracurl Support”, you get a notification when they enter, and they can never delete your data or see Owner-PIN areas."
               : "Switched off: Miracurl HQ cannot open your workspace. Turn it on when you want hands-on help — it's the fastest way to get something fixed."}
           </p>
+          {tickets.length > 0 && (
+            <div className="mt-4 space-y-1.5" data-testid="fix-requests-list">
+              <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">My fix requests</div>
+              {tickets.slice(0, 5).map(tk => (
+                <div key={tk.id} className="flex items-center gap-2 text-xs rounded-lg border border-slate-100 px-3 py-2" data-testid={`fix-request-row-${tk.id}`}>
+                  <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${tk.status === "resolved" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{tk.status === "resolved" ? "Fixed" : "Open"}</span>
+                  <span className="font-semibold text-slate-700">#{tk.ticket_no}</span>
+                  <span className="text-slate-500 truncate flex-1">{tk.page_title || tk.page} · {tk.message}</span>
+                  <span className="text-slate-400 shrink-0">{new Date(tk.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

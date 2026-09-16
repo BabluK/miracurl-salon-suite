@@ -16,6 +16,7 @@ from services.tenant_notices import notify_tenant
 router = APIRouter()
 _now = lambda: datetime.now(timezone.utc).isoformat()  # noqa: E731
 ONBOARDING_STEPS = ("invited", "agreed", "call_scheduled", "call_done", "live")
+CHECKLIST = (("poster_printed", "QR poster printed"), ("qr_placed", "QR placed at billing counter"), ("staff_briefed", "Staff briefed on entries & rules"))
 
 
 async def _tenant(tid: str) -> dict:
@@ -27,7 +28,10 @@ async def _tenant(tid: str) -> dict:
 
 async def get_onboarding(tenant_id: str, campaign_id: str) -> dict:
     doc = await _raw_db.rewards_onboarding.find_one({"tenant_id": tenant_id, "campaign_id": campaign_id}, {"_id": 0})
-    return doc or {"tenant_id": tenant_id, "campaign_id": campaign_id, "status": "none", "call_at": None, "notes": "", "live": False}
+    doc = doc or {"tenant_id": tenant_id, "campaign_id": campaign_id, "status": "none", "call_at": None, "notes": "", "live": False}
+    doc["entries"] = await _raw_db.rewards_participants.count_documents({"tenant_id": tenant_id})
+    doc["checklist_items"] = [{"key": k, "label": lbl} for k, lbl in CHECKLIST]
+    return doc
 
 
 async def set_onboarding(tenant_id: str, campaign_id: str, patch: dict) -> dict:
@@ -124,9 +128,10 @@ async def sa_put_features(tid: str, body: FeaturesIn, user=Depends(require_super
 
 
 class OnboardingIn(BaseModel):
-    action: str = Field(..., pattern=r"^(schedule|call_done|go_live|pause|resend_invite)$")
+    action: str = Field(..., pattern=r"^(schedule|call_done|go_live|pause|resend_invite|checklist)$")
     call_at: Optional[str] = Field(None, max_length=40)
     notes: Optional[str] = Field(None, max_length=600)
+    checklist: Optional[dict] = None
 
 
 @router.put("/super-admin/rewards-campaign/onboarding/{tid}")
@@ -152,9 +157,16 @@ async def sa_onboarding(tid: str, body: OnboardingIn, user=Depends(require_super
                               f"<p>We'll walk you through the QR poster, staff briefing and how entries are counted. — Miracurl HQ</p>")
     elif body.action == "call_done":
         patch.update({"status": "call_done", "call_done_at": _now()})
+    elif body.action == "checklist":
+        cur = (await get_onboarding(t["id"], c["id"])).get("checklist") or {}
+        patch["checklist"] = {k: bool((body.checklist or {}).get(k, cur.get(k))) for k, _ in CHECKLIST}
     elif body.action == "go_live":
         if not agreed:
             raise HTTPException(400, "The salon must accept the Participation Agreement before going live")
+        cl = (await get_onboarding(t["id"], c["id"])).get("checklist") or {}
+        missing = [label for k, label in CHECKLIST if not cl.get(k)]
+        if missing:
+            raise HTTPException(400, "Finish the go-live checklist first: " + ", ".join(missing))
         patch.update({"status": "live", "live": True, "live_at": _now(), "live_by": user.get("email")})
         await notify_tenant(t["id"], "campaign_live", f"{c['name']} is LIVE for your salon 🎉",
                             "Print your QR poster from Settings and start enrolling customers.", "/settings#campaign-agreement", f"campaign_live:{c['id']}")

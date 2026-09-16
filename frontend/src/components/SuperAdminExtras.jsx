@@ -1,6 +1,7 @@
 // Super-Admin console extras: profile card, tenant health badge, AI Insights panel.
 import { useCallback, useEffect, useRef, useState } from "react";
-import api from "@/lib/api";
+import api, { setActAsSalon } from "@/lib/api";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { Sparkles, Pencil, X, Camera, Send, Loader2, Phone, Briefcase, HeartPulse, MessageCircle, MailOpen, Crown, Mail, ShieldCheck, Lock, UserCog, CalendarDays, Building2, IdCard, Globe2, BadgeCheck, PhoneCall } from "lucide-react";
@@ -50,6 +51,7 @@ export function RenewalNudge({ t }) {
 
 // ---------- HQ Inbox — messages/requests from salon owners (Contact HQ) ----------
 export function HqInbox({ onUnreadChange }) {
+  const nav = useNavigate();
   const [items, setItems] = useState(null);
   const load = useCallback(async () => {
     const { data } = await api.get("/super-admin/hq-messages");
@@ -102,7 +104,12 @@ export function HqInbox({ onUnreadChange }) {
                       🎫 #{m.ticket_no} · {m.inbox}@
                     </span>
                   )}
-                  {m.kind === "ticket" && (
+                  {m.kind === "fix_request" && (
+                    <span data-testid={`hq-fix-badge-${m.id}`} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                      🛠 Fix #{m.ticket_no} · {m.page_title || m.page}
+                    </span>
+                  )}
+                  {(m.kind === "ticket" || m.kind === "fix_request") && (
                     <span data-testid={`hq-ticket-status-${m.id}`} className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${m.status === "resolved"
                       ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
                       {m.status === "resolved" ? "✓ Resolved" : "● Open"}
@@ -122,8 +129,14 @@ export function HqInbox({ onUnreadChange }) {
               )}
             </div>
             <p className="text-sm text-slate-600 mt-2 whitespace-pre-wrap">{m.message}</p>
-            {m.kind === "ticket" && (
+            {(m.kind === "ticket" || m.kind === "fix_request") && (
               <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                {m.kind === "fix_request" && m.tenant_slug && (
+                  <button data-testid={`hq-fix-open-${m.id}`} onClick={() => { setActAsSalon(m.tenant_slug, m.tenant_name); nav(m.page || "/dashboard"); }}
+                    className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-violet-600 text-white hover:bg-violet-700 transition">
+                    👁 Open workspace → {m.page_title || m.page}
+                  </button>
+                )}
                 {m.status !== "resolved" ? (
                   <button data-testid={`hq-ticket-resolve-${m.id}`} onClick={() => setTicketStatus(m, "resolved")}
                     className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition">

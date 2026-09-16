@@ -104,6 +104,11 @@ async def hq_ticket_status(mid: str, body: TicketStatusIn, user=Depends(require_
     res = await _raw_db.hq_messages.update_one({"id": mid}, {"$set": sets})
     if not res.matched_count:
         raise HTTPException(404, "Message not found")
+    m = await _raw_db.hq_messages.find_one({"id": mid}, {"_id": 0, "kind": 1, "tenant_id": 1, "ticket_no": 1, "page": 1})
+    if m and m.get("kind") == "fix_request" and m.get("tenant_id") and body.status == "resolved":
+        from services.tenant_notices import notify_tenant
+        await notify_tenant(m["tenant_id"], "fix_done", f"✅ Fix request #{m.get('ticket_no')} resolved by Miracurl Support",
+                            "Have a look — changes are listed in Settings → Audit log.", m.get("page") or "/settings", f"fix_done:{mid}")
     return {"ok": True, "status": body.status}
 
 
