@@ -1,7 +1,6 @@
 """HQ per-tenant feature switches (SMS / WhatsApp / Campaign), owner support-access consent,
 and Brand Model campaign onboarding (invite → agreement → setup call → HQ go-live)."""
 import os
-import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -10,14 +9,13 @@ from pydantic import BaseModel, Field
 
 from database import _raw_db, db
 from security import current_tenant, log_audit, require_super_admin, require_tenant_admin
+from services.campaign_onboarding import CHECKLIST, ONBOARDING_STEPS, agreement_ok, agreement_state, get_onboarding, set_onboarding  # noqa: F401 — re-exported
 from services.rewards_core import _tenant_eligible, _plan_matches, campaign_id_for, get_campaign, get_campaign_for
 from services.tenant_features import FEATURE_KEYS, features_of, support_access_on
 from services.tenant_notices import notify_tenant
 
 router = APIRouter()
 _now = lambda: datetime.now(timezone.utc).isoformat()  # noqa: E731
-ONBOARDING_STEPS = ("invited", "agreed", "call_scheduled", "call_done", "live")
-CHECKLIST = (("poster_printed", "QR poster printed"), ("qr_placed", "QR placed at billing counter"), ("staff_briefed", "Staff briefed on entries & rules"))
 
 
 async def _tenant(tid: str) -> dict:
@@ -25,38 +23,6 @@ async def _tenant(tid: str) -> dict:
     if not t:
         raise HTTPException(404, "Tenant not found")
     return t
-
-
-async def get_onboarding(tenant_id: str, campaign_id: str) -> dict:
-    doc = await _raw_db.rewards_onboarding.find_one({"tenant_id": tenant_id, "campaign_id": campaign_id}, {"_id": 0})
-    doc = doc or {"tenant_id": tenant_id, "campaign_id": campaign_id, "status": "none", "call_at": None, "notes": "", "live": False}
-    doc["entries"] = await _raw_db.rewards_participants.count_documents({"tenant_id": tenant_id})
-    doc["checklist_items"] = [{"key": k, "label": lbl} for k, lbl in CHECKLIST]
-    return doc
-
-
-async def set_onboarding(tenant_id: str, campaign_id: str, patch: dict) -> dict:
-    await _raw_db.rewards_onboarding.update_one(
-        {"tenant_id": tenant_id, "campaign_id": campaign_id},
-        {"$set": {**patch, "updated_at": _now()}, "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": _now()}}, upsert=True)
-    return await get_onboarding(tenant_id, campaign_id)
-
-
-async def backfill_onboarding() -> None:
-    """One-time: salons that signed before the go-live gate existed stay live (no disruption)."""
-    # Stale "🎨 A guest picked …" bell notices (feature removed 12 Sep — they opened an empty POS): purge everywhere.
-    await _raw_db.tenant_notices.delete_many({"kind": "color_pick"})
-    async for a in _raw_db.rewards_agreements.find({}, {"_id": 0, "tenant_id": 1, "campaign_id": 1}):
-        if not await _raw_db.rewards_onboarding.find_one({"tenant_id": a["tenant_id"], "campaign_id": a["campaign_id"]}, {"_id": 1}):
-            await set_onboarding(a["tenant_id"], a["campaign_id"], {"status": "live", "live": True, "live_at": _now(), "live_by": "backfill"})
-
-
-async def campaign_live_ok(tenant_id: str, c: dict) -> bool:
-    """Casting page / joins / QR poster open only after the signed agreement AND HQ go-live."""
-    from routes.campaign_agreement import agreement_ok
-    if not await agreement_ok(tenant_id, c):
-        return False
-    return bool((await get_onboarding(tenant_id, c["id"])).get("live"))
 
 
 async def _owner_email(t: dict) -> Optional[str]:
@@ -85,7 +51,6 @@ async def invite_tenant_to_campaign(t: dict, by: str) -> dict:
 async def _features_payload(t: dict) -> dict:
     c = await get_campaign_for(t)
     flags = c.get("tenant_flags") or {}
-    from routes.campaign_agreement import agreement_state
     return {"tenant_id": t["id"], "name": t.get("name"), "slug": t.get("slug"), **features_of(t),
             "support_access": support_access_on(t),
             "campaign": {"on": _tenant_eligible(c, t), "manual": flags.get(t["id"]), "plan_ok": _plan_matches(t.get("plan") or "", c.get("eligible_plans") or []),
@@ -139,7 +104,6 @@ class OnboardingIn(BaseModel):
 async def sa_onboarding(tid: str, body: OnboardingIn, user=Depends(require_super_admin)):
     t = await _tenant(tid)
     c = await get_campaign_for(t)
-    from routes.campaign_agreement import agreement_ok
     agreed = await agreement_ok(t["id"], c)
     patch: dict = {"notes": body.notes} if body.notes is not None else {}
     em = await _owner_email(t)

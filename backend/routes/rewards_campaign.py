@@ -256,7 +256,7 @@ async def tenant_campaign(user=Depends(require_tenant_admin), t=Depends(current_
     popup_key = f"{c.get('updated_at', '')}|{c['start_date']}|{bool(c.get('payment_link'))}"
     acked = await _raw_db.rewards_tenant_acks.find_one({"tenant_id": t["id"], "user_id": user["id"], "key": popup_key}, {"_id": 1})
     from routes.rewards_settlements import tenant_settlement
-    from routes.campaign_agreement import agreement_state
+    from services.campaign_onboarding import agreement_state
     return {"campaign": pub, "agreement": await agreement_state(t, c), "enabled": bool(c.get("enabled")), "live": _is_live(c), "eligible": _tenant_eligible(c, t) and _is_live(c),
             "plan_ok": _tenant_eligible(c, t), "status": status, "participants": parts, "slug": t.get("slug"), "nudges": nudges,
             "popup_key": popup_key, "show_popup": bool(c.get("enabled")) and _tenant_eligible(c, t) and not acked,
@@ -366,7 +366,7 @@ async def _rewards_poster_jpeg(t: dict, c: dict, origin: str) -> bytes:
 async def rewards_qr_poster(origin: str = "", user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     from fastapi import Response
     c = await get_campaign_for(t)
-    from routes.tenant_features import campaign_live_ok
+    from services.campaign_onboarding import campaign_live_ok
     if not await campaign_live_ok(t["id"], c):
         raise HTTPException(403, "The QR poster unlocks once you've accepted the Participation Agreement and Miracurl HQ marks your campaign live (Settings → Brand Model Campaign)")
     img = await _rewards_poster_jpeg(t, c, origin)
@@ -382,8 +382,7 @@ async def public_campaign(slug: str):
                                                        "logo_url": 1, "location": 1, "phone": 1})
     if not t:
         raise HTTPException(404, "Salon not found")
-    from routes.campaign_agreement import agreement_ok
-    from routes.tenant_features import campaign_live_ok
+    from services.campaign_onboarding import campaign_live_ok
     agreed = await campaign_live_ok(t["id"], c)
     eligible = _tenant_eligible(c, t) and _is_live(c) and agreed
     winners = await _raw_db.rewards_participants.find(
@@ -441,7 +440,7 @@ async def public_join(slug: str, body: JoinIn, request: Request):
     t = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "plan": 1, "status": 1, "business_type": 1})
     if not t:
         raise HTTPException(404, "Salon not found")
-    from routes.tenant_features import campaign_live_ok
+    from services.campaign_onboarding import campaign_live_ok
     if not await campaign_live_ok(t["id"], c):
         raise HTTPException(403, "This salon hasn't completed campaign onboarding yet — please check back soon")
     if not (_tenant_eligible(c, t) and _is_live(c)):

@@ -2,20 +2,13 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Store, IndianRupee, Receipt, Lock, KeyRound, EyeOff, Loader2 } from "lucide-react";
-
-const inr = (n) => `₹${(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+import { Store, Lock, KeyRound, EyeOff, Loader2 } from "lucide-react";
+import { GroupKpis, BranchCard, PeriodPicker, PERIODS } from "@/components/dashboard/GroupDashboardBits";
 
 // Group Dashboard — multi-salon owners see combined collections across all branches.
 // PIN-locked: unlocks with the Owner PIN and re-locks on refresh/navigation.
-const PERIODS = [
-  { key: "today", label: "Today" },
-  { key: "week", label: "This week" },
-  { key: "month", label: "This month" },
-  { key: "last_month", label: "Last month" },
-  { key: "3m", label: "Last 3 months" },
-  { key: "6m", label: "Last 6 months" },
-];
+const inr = (n) => `₹${(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+const todayIso = () => new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10);
 
 export default function MySalonsOverview() {
   const { user } = useAuth();
@@ -24,24 +17,26 @@ export default function MySalonsOverview() {
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [period, setPeriod] = useState("today");
+  const [range, setRange] = useState({ from: todayIso(), to: todayIso() });
   const [pinCache, setPinCache] = useState("");
 
   const multi = (user?.salons || []).length > 1;
   const isOwner = user?.role === "admin" || user?.role === "super_admin";
   if (!multi || !isOwner) return null;
 
-  async function unlock(pinValue, p = period) {
+  async function unlock(pinValue, p = period, r = range) {
     setBusy(true);
     try {
       const usePin = pinValue || pinCache;
-      const { data: d } = await api.get(`/auth/my-salons/overview?period=${p}`,
-        usePin ? { headers: { "X-Owner-Pin": usePin } } : {});
+      const qs = p === "custom" ? `period=custom&date_from=${r.from}&date_to=${r.to}` : `period=${p}`;
+      const { data: d } = await api.get(`/auth/my-salons/overview?${qs}`, usePin ? { headers: { "X-Owner-Pin": usePin } } : {});
       if (usePin) setPinCache(usePin);
       setData(d);
       setPeriod(p);
+      setRange(r);
       setPinOpen(false);
       setPin("");
-      toast.success("Group Dashboard unlocked ✦");
+      if (!data) toast.success("Group Dashboard unlocked ✦");
     } catch (e) {
       const detail = e.response?.data?.detail;
       if (detail === "OWNER_PIN_REQUIRED") setPinOpen(true);
@@ -52,20 +47,20 @@ export default function MySalonsOverview() {
   if (!data) {
     return (
       <>
-        <div className="bg-slate-900 rounded-2xl p-5 text-white relative overflow-hidden" data-testid="group-dashboard-locked">
-          <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-fuchsia-500/20 blur-3xl pointer-events-none" />
-          <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="relative overflow-hidden rounded-3xl bg-[#14100c] text-white p-6 shadow-[0_30px_60px_-30px_rgba(0,0,0,.6)]" data-testid="group-dashboard-locked">
+          <div className="absolute -right-20 -top-20 w-64 h-64 rounded-full bg-[#e8c56a]/15 blur-3xl pointer-events-none" />
+          <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.25em] text-fuchsia-300 font-semibold flex items-center gap-1.5">
+              <div className="text-[10px] uppercase tracking-[0.28em] text-[#e8c56a] font-semibold flex items-center gap-1.5">
                 <Store className="w-3.5 h-3.5" /> Group Dashboard
               </div>
-              <p className="text-sm text-white/70 mt-1 flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-amber-300" />
-                Combined collections across all {user.salons.length} of your salons — Owner PIN required.
+              <p className="font-playfair text-2xl mt-1">All {user.salons.length} salons, one glance</p>
+              <p className="text-sm text-white/60 mt-1 flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-[#e8c56a]" /> Combined collections, cash, bookings & top stylist per branch — Owner PIN required.
               </p>
             </div>
             <button data-testid="group-dashboard-unlock-btn" disabled={busy} onClick={() => unlock()}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-600 text-white text-sm font-semibold hover:from-fuchsia-600 hover:to-pink-700 disabled:opacity-60 shrink-0">
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm font-bold hover:brightness-110 disabled:opacity-60 shrink-0 transition-[filter]">
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
               {busy ? "Unlocking…" : "Unlock Group Dashboard"}
             </button>
@@ -98,69 +93,43 @@ export default function MySalonsOverview() {
     );
   }
 
+  const cur = data.period || "today";
+  const label = PERIODS.find(x => x.key === cur)?.label || (cur === "custom" ? "Custom range" : /^\d{4}-\d{2}$/.test(cur) ? "Month" : cur);
+
   return (
-    <div className="bg-slate-900 rounded-2xl p-5 text-white relative overflow-hidden" data-testid="my-salons-overview">
-      <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-fuchsia-500/20 blur-3xl pointer-events-none" />
-      <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.25em] text-fuchsia-300 font-semibold flex items-center gap-1.5">
-            <Store className="w-3.5 h-3.5" /> Group Dashboard · {PERIODS.find(x => x.key === (data.period || "today"))?.label || data.period_label}
+    <section className="relative overflow-hidden rounded-3xl bg-[#14100c] text-white shadow-[0_30px_60px_-30px_rgba(0,0,0,.6)]" data-testid="my-salons-overview">
+      <div className="absolute -right-24 -top-24 w-80 h-80 rounded-full bg-[#e8c56a]/10 blur-3xl pointer-events-none" />
+      <div className="absolute -left-24 bottom-0 w-72 h-72 rounded-full bg-rose-400/10 blur-3xl pointer-events-none" />
+      <div className="relative p-6 sm:p-7">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase tracking-[0.28em] text-[#e8c56a] font-semibold flex items-center gap-1.5">
+              <Store className="w-3.5 h-3.5" /> Group Dashboard · {label}
+            </div>
+            <div className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="font-playfair text-4xl sm:text-5xl leading-none" data-testid="my-salons-total-today">{inr(data.total_today)}</span>
+              <span className="text-sm text-white/60" data-testid="my-salons-period-label">combined collection · {data.period_label || data.date}</span>
+            </div>
           </div>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-3xl font-bold" data-testid="my-salons-total-today">{inr(data.total_today)}</span>
-            <span className="text-xs text-white/60" data-testid="my-salons-period-label">combined collection · {data.period_label || data.date}</span>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-1.5" data-testid="group-period-chips">
-            <label className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border cursor-pointer transition-colors ${
-              /^\d{4}-\d{2}$/.test(data.period || "") ? "bg-fuchsia-500/30 border-fuchsia-400/60 text-white" : "bg-white/5 border-white/15 text-white/60 hover:text-white hover:border-white/40"}`}
-              title="Pick any month">
-              <span>Select month</span>
-              <input data-testid="group-period-custom-month" type="month" max={new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 7)}
-                value={/^\d{4}-\d{2}$/.test(data.period || "") ? data.period : ""}
-                onChange={e => e.target.value && unlock(null, e.target.value)} disabled={busy}
-                className="bg-transparent text-[11px] text-white/80 outline-none w-[7.5rem] [color-scheme:dark]" />
-            </label>
-            {PERIODS.map(p => (
-              <button key={p.key} data-testid={`group-period-${p.key}`} disabled={busy} onClick={() => unlock(null, p.key)}
-                className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
-                  (data.period || "today") === p.key ? "bg-fuchsia-500/30 border-fuchsia-400/60 text-white" : "bg-white/5 border-white/15 text-white/60 hover:text-white hover:border-white/40"}`}>
-                {p.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="text-right text-xs text-white/55">
+              This month<br /><span className="text-white font-semibold text-base" data-testid="my-salons-total-month">{inr(data.total_month)}</span>
+            </div>
+            <button data-testid="group-dashboard-lock-btn" onClick={() => { setData(null); setPinCache(""); }} title="Lock Group Dashboard"
+              className="p-2.5 rounded-full bg-white/10 border border-white/15 text-white/70 hover:text-white hover:bg-white/20 transition-colors">
+              <EyeOff className="w-4 h-4" />
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right text-xs text-white/60">
-            This month: <span className="text-white font-semibold" data-testid="my-salons-total-month">{inr(data.total_month)}</span>
-          </div>
-          <button data-testid="group-dashboard-lock-btn" onClick={() => { setData(null); setPinCache(""); }}
-            title="Lock Group Dashboard"
-            className="p-2 rounded-lg bg-white/10 border border-white/20 text-white/70 hover:text-white hover:bg-white/20">
-            <EyeOff className="w-4 h-4" />
-          </button>
+
+        <PeriodPicker cur={cur} range={range} busy={busy} onPick={(p) => unlock(null, p)} onRange={(r) => unlock(null, "custom", r)} />
+
+        <GroupKpis data={data} inr={inr} />
+
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {data.salons.map((s, i) => <BranchCard key={s.id} s={s} rank={i} showAvg={cur !== "today"} inr={inr} />)}
         </div>
       </div>
-      <div className="relative mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {data.salons.map(s => (
-          <div key={s.id} data-testid={`my-salon-card-${s.slug}`}
-            className={`rounded-xl p-3.5 border ${s.active ? "bg-white/10 border-fuchsia-400/50" : "bg-white/5 border-white/10"}`}>
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-semibold truncate">{s.name}</p>
-              {s.active && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-fuchsia-500/30 text-fuchsia-200 border border-fuchsia-400/40 uppercase tracking-wider shrink-0">Active</span>}
-            </div>
-            <p className="text-[10px] text-white/50 truncate">{s.location || s.slug}</p>
-            <div className="mt-2.5 flex items-center gap-1.5">
-              <IndianRupee className="w-4 h-4 text-emerald-300" />
-              <span className="text-xl font-bold" data-testid={`my-salon-today-${s.slug}`}>{inr(s.today)}</span>
-            </div>
-            <div className="mt-1 flex items-center gap-3 text-[11px] text-white/60">
-              <span className="inline-flex items-center gap-1"><Receipt className="w-3 h-3" /> {s.invoices_today} bill{s.invoices_today === 1 ? "" : "s"}</span>
-              <span>{s.appointments_today} appt{s.appointments_today === 1 ? "" : "s"}</span>
-              {(data.period || "today") !== "today" && s.invoices_today > 0 && <span className="text-white/40">avg {inr(Math.round(s.today / s.invoices_today))}/bill</span>}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    </section>
   );
 }

@@ -218,7 +218,7 @@ async def on_startup():
         try:
             from routes.rewards_campaign import ensure_rewards_indexes
             await ensure_rewards_indexes()
-            from routes.tenant_features import backfill_onboarding
+            from services.campaign_onboarding import backfill_onboarding
             await backfill_onboarding()
         except Exception as e:  # noqa: BLE001
             logging.warning(f"rewards indexes: {e}")

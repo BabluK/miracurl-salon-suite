@@ -170,10 +170,29 @@ async def switch_salon(body: SalonSwitchIn, user=Depends(get_current_user), t=De
     return {"ok": True, "active_salon": target}
 
 
-def _period_window(now_ist: datetime, period: str) -> tuple[datetime, datetime, str]:
+def _period_window(now_ist: datetime, period: str, date_from: str = "", date_to: str = "") -> tuple[datetime, datetime, str]:
     """IST window [start, end) + human label for the Group Dashboard period chips."""
     day0 = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
     month0 = day0.replace(day=1)
+    if period == "custom":
+        try:
+            f = datetime.strptime(date_from, "%Y-%m-%d").replace(tzinfo=now_ist.tzinfo)
+            e = datetime.strptime(date_to, "%Y-%m-%d").replace(tzinfo=now_ist.tzinfo)
+        except ValueError:
+            raise HTTPException(400, "Pick both From and To dates (YYYY-MM-DD)")
+        if e < f:
+            f, e = e, f
+        if (e - f).days > 366:
+            raise HTTPException(400, "Range too long — keep it within 12 months")
+        end = min(e + timedelta(days=1), day0 + timedelta(days=1))
+        lbl = f.strftime("%d %b") if f.date() == e.date() else f"{f.strftime('%d %b')} – {e.strftime('%d %b %Y')}"
+        return f, end, lbl
+    if period == "yesterday":
+        return day0 - timedelta(days=1), day0, f"Yesterday · {(day0 - timedelta(days=1)).strftime('%d %b %Y')}"
+    if period in ("4d", "7d", "15d", "30d"):
+        n = int(period[:-1])
+        start = day0 - timedelta(days=n - 1)
+        return start, day0 + timedelta(days=1), f"Last {n} days · {start.strftime('%d %b')} – {day0.strftime('%d %b')}"
     if period == "week":
         start = day0 - timedelta(days=day0.weekday())
         return start, day0 + timedelta(days=1), f"This week · from {start.strftime('%d %b')}"
@@ -199,10 +218,43 @@ def _period_window(now_ist: datetime, period: str) -> tuple[datetime, datetime, 
     return day0, day0 + timedelta(days=1), f"Today · {day0.date().isoformat()}"
 
 
+_CASH_MODES = ("cash",)
+
+
+def _branch_metrics(invs: list, staff_names: dict) -> dict:
+    """Revenue / bills / cash / upi / card + top stylist (item-level staff wins) for one salon's invoices."""
+    total = cash = upi = card = 0.0
+    by_staff: dict = {}
+    for inv in invs:
+        amt = float(inv.get("total") or 0)
+        total += amt
+        mode = str(inv.get("payment_mode") or "other").lower()
+        if mode in _CASH_MODES:
+            cash += amt
+        elif mode == "upi":
+            upi += amt
+        elif mode == "card":
+            card += amt
+        inv_staff = inv.get("staff_id")
+        for it in inv.get("items") or []:
+            sid = it.get("staff_id") or inv_staff
+            if sid:
+                row = by_staff.setdefault(sid, {"revenue": 0.0, "services": 0, "name": it.get("staff_name") or inv.get("staff_name")})
+                row["revenue"] += float(it.get("price") or 0) * float(it.get("qty") or 1)
+                row["services"] += 1
+    top = None
+    if by_staff:
+        sid, row = max(by_staff.items(), key=lambda kv: kv[1]["revenue"])
+        top = {"staff_id": sid, "name": staff_names.get(sid) or row["name"] or "Stylist", "revenue": round(row["revenue"], 2), "services": row["services"]}
+    return {"today": round(total, 2), "invoices_today": len(invs), "cash": round(cash, 2), "upi": round(upi, 2), "card": round(card, 2), "top_stylist": top}
+
+
 @router.get("/auth/my-salons/overview")
-async def my_salons_overview(request: Request, period: str = "today", user=Depends(get_current_user), t=Depends(current_tenant)):
+async def my_salons_overview(request: Request, period: str = "today", date_from: str = "", date_to: str = "",
+                             user=Depends(get_current_user), t=Depends(current_tenant)):
     """Group Dashboard (multi-salon owners): collections across all salons for a period
-    (today / week / month / last_month / 3m / 6m). Locked behind the Owner PIN (header X-Owner-Pin)."""
+    (today / yesterday / 4d / 7d / 15d / 30d / week / month / last_month / 3m / 6m / YYYY-MM / custom?date_from&date_to).
+    Locked behind the Owner PIN (header X-Owner-Pin)."""
     if user.get("role") not in ("admin", "super_admin"):
         raise HTTPException(403, "Only the owner/admin can view the Group Dashboard")
     ids = set(user.get("tenant_ids") or [])
@@ -222,39 +274,37 @@ async def my_salons_overview(request: Request, period: str = "today", user=Depen
         await _pin_attempt_clear(t["id"])
     ist = timezone(timedelta(hours=5, minutes=30))
     now_ist = datetime.now(ist)
-    p_start, p_end, p_label = _period_window(now_ist, period)
+    p_start, p_end, p_label = _period_window(now_ist, period, date_from, date_to)
     period_start = p_start.astimezone(timezone.utc).isoformat()
     period_end = p_end.astimezone(timezone.utc).isoformat()
     month_start = now_ist.replace(day=1, hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).isoformat()
     today_ist = now_ist.date().isoformat()
     appt_from, appt_to = p_start.date().isoformat(), (p_end - timedelta(seconds=1)).date().isoformat()
+    inv_q = {"created_at": {"$gte": period_start, "$lt": period_end}, "status": {"$nin": ["voided", "open"]}}
     salons = []
     for tid in ids:
         t = await _raw_db.tenants.find_one(
             {"id": tid}, {"_id": 0, "id": 1, "name": 1, "slug": 1, "location": 1, "logo_url": 1})
         if not t:
             continue
-        async def _inv_sum(since: str, until: str | None = None) -> tuple[float, int]:
-            rng = {"$gte": since, **({"$lt": until} if until else {})}
-            row = await _raw_db.invoices.aggregate([
-                {"$match": {"tenant_id": tid, "created_at": rng, "status": {"$nin": ["voided", "open"]}}},
-                {"$group": {"_id": None, "total": {"$sum": {"$toDouble": {"$ifNull": ["$total", 0]}}},
-                            "n": {"$sum": 1}}}]).to_list(1)
-            return (round(row[0]["total"], 2), row[0]["n"]) if row else (0.0, 0)
-
-        today_total, today_count = await _inv_sum(period_start, period_end)
-        month_total, _ = await _inv_sum(month_start)
+        invs = await _raw_db.invoices.find({"tenant_id": tid, **inv_q},
+                                           {"_id": 0, "total": 1, "payment_mode": 1, "staff_id": 1, "staff_name": 1, "items": 1}).to_list(20000)
+        sids = {it.get("staff_id") or inv.get("staff_id") for inv in invs for it in (inv.get("items") or [])} - {None}
+        names = {s["id"]: s.get("name") for s in await db.staff.find({"id": {"$in": list(sids)}}, {"_id": 0, "id": 1, "name": 1}).to_list(500)} if sids else {}
+        month_row = await _raw_db.invoices.aggregate([
+            {"$match": {"tenant_id": tid, "created_at": {"$gte": month_start}, "status": {"$nin": ["voided", "open"]}}},
+            {"$group": {"_id": None, "total": {"$sum": {"$toDouble": {"$ifNull": ["$total", 0]}}}}}]).to_list(1)
         appts_today = await _raw_db.appointments.count_documents(
             {"tenant_id": tid, "scheduled_at": {"$gte": appt_from, "$lte": appt_to + "T23:59:59"}, "status": {"$ne": "cancelled"}})
         salons.append({
             **t,
-            "today": today_total,
-            "invoices_today": today_count,
-            "month": month_total,
+            **_branch_metrics(invs, names),
+            "month": round(month_row[0]["total"], 2) if month_row else 0.0,
             "appointments_today": appts_today,
             "active": tid == user.get("tenant_id"),
         })
     salons.sort(key=lambda x: -x["today"])
+    tops = [s["top_stylist"] for s in salons if s.get("top_stylist")]
     return {
         "date": today_ist,
         "period": period, "period_label": p_label,
@@ -262,6 +312,12 @@ async def my_salons_overview(request: Request, period: str = "today", user=Depen
         "salons": salons,
         "total_today": round(sum(s["today"] for s in salons), 2),
         "total_month": round(sum(s["month"] for s in salons), 2),
+        "total_cash": round(sum(s["cash"] for s in salons), 2),
+        "total_upi": round(sum(s["upi"] for s in salons), 2),
+        "total_card": round(sum(s["card"] for s in salons), 2),
+        "total_bills": sum(s["invoices_today"] for s in salons),
+        "total_bookings": sum(s["appointments_today"] for s in salons),
+        "top_stylist": max(tops, key=lambda x: x["revenue"]) if tops else None,
     }
 
 

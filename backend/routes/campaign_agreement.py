@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from database import _raw_db
 from routes.rewards_campaign import _tenant_eligible, get_campaign, get_campaign_for
 from security import current_tenant, require_super_admin, require_tenant_admin
+from services.campaign_onboarding import agreement_ok, agreement_state, set_onboarding  # noqa: F401 — re-exported
 from services.campaign_docs import (
     agreement_version, build_agreement_pdf, build_guide_pdf, email_doc_pack, get_acceptance,
 )
@@ -25,23 +26,6 @@ def _pdf(data: bytes, name: str) -> Response:
 def _client_ip(request: Request) -> str:
     fwd = request.headers.get("x-forwarded-for", "")
     return (fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "")) or ""
-
-
-async def agreement_ok(tenant_id: str, c: dict) -> bool:
-    """True when the salon has accepted the CURRENT agreement version (gate for casting page, joins and QR poster)."""
-    acc = await get_acceptance(tenant_id, c["id"])
-    return bool(acc) and acc.get("version") == agreement_version(c)
-
-
-async def agreement_state(tenant: dict, c: dict) -> dict:
-    acc = await get_acceptance(tenant["id"], c["id"])
-    ver = agreement_version(c)
-    from routes.tenant_features import get_onboarding
-    return {"version": ver, "share_pct": float(c.get("salon_share_pct") or 10), "campaign": c["name"],
-            "onboarding": await get_onboarding(tenant["id"], c["id"]),
-            "accepted": acc is not None and acc.get("version") == ver,
-            "needs_reaccept": acc is not None and acc.get("version") != ver,
-            "acceptance": {k: acc.get(k) for k in ("id", "full_name", "designation", "accepted_at", "user_email", "version")} if acc else None}
 
 
 async def _find_tenant(tenant_id: str) -> dict:
@@ -131,7 +115,6 @@ async def accept_agreement(body: AcceptIn, request: Request, user=Depends(requir
     c, ver = await _open_campaign_or_400(t)
     acc = _acceptance_doc(body, request, user, t, c, ver)
     await _raw_db.rewards_agreements.insert_one(dict(acc))
-    from routes.tenant_features import set_onboarding
     await set_onboarding(t["id"], c["id"], {"status": "agreed", "agreed_at": acc["accepted_at"], "live": False})
     await _notify_hq_agreed(t, c, acc)
     return {"ok": True, "acceptance": {k: acc[k] for k in ("id", "full_name", "designation", "accepted_at", "version")},
