@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-17.266"
-BUILD_TIME = "17 Sep 2026, 02:00 PM IST"
+BUILD = "2026-09-17.267"
+BUILD_TIME = "17 Sep 2026, 04:30 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-17.267", "note": "Staff Activities: Clear log (owner+PIN, DELETE /manager/activity-logs) + 5-per-page pager; Fix-request modal hint when Send is disabled; bell reconciles cached notices with server each poll (stale colour-pick items dropped from localStorage); Pending Approvals initials/Mira avatar + overflow fix; briefing checked-in staff show profile photos (checked_in_staff); mobile perf CSS (no backdrop-blur / blurred blobs / infinite glow loops < 768px); This-month tile masked for owner too when Hide is ON, eye button peeks for 15s"},
     {"build": "2026-09-17.266", "note": "Appointments: branch tag on rows + All Branches / Main salon / <branch> filter (defaults to header branch); colour try-on carries ?branch= into the booking (share text, Book button, /book header CTA, ShadeTeaser); Book-here label re-renders via setSearchParams"},
     {"build": "2026-09-16.265", "note": "Mira daily briefing redesigned (KPI tiles, Mira Suggests, voice card, low-stock & checked-in cards, Mira-asks bar); /salon landing gets full nav header + 4-column footer; /book gets Signature Services tiles, trust strip, Gift/Membership image cards, Transformation CTA, About-us link; salon page linked from Dashboard + Settings; branch-aware bookings (Book here per location → branch on appointment; bell filters by selected branch); retired color_pick bell notices hidden at read time + purge decoupled from rewards indexes; Group Dashboard gradient KPI tiles + branch thumbnails"},
     {"build": "2026-09-16.264", "note": "Group Dashboard re-polished (gold editorial): Yesterday / Last 4 / Last 7 days chips + custom From→To date range; per-branch Total Cash, UPI·Card, Total Bookings, Total Bills, Top Stylist; group KPI strip + Leading-branch ribbon. Circular import campaign_agreement↔tenant_features resolved via services/campaign_onboarding.py"},
@@ -71,6 +72,10 @@ RELEASES = [
     {
         "date": "2026-09-16 (Editorial redesign, Mira on WhatsApp & HQ support 💬)",
         "changes": [
+            "🙈 This Month tile: when you switch on Hide, the amount is masked for you too (staff can glance at your screen) — tap the eye to peek for 15 seconds",
+            "🧹 Staff Activities: 5 records per page with numbered pages, and owners can Clear log (owner PIN)",
+            "📱 Smoother scrolling on phones — heavy blur and glow effects are switched off on small screens",
+            "👥 Checked-in staff on the briefing now show their profile photos; Pending Approvals from Mira show her avatar",
             "☀️ Mira's daily briefing has a new look — Today's Appointments, Yesterday's Revenue, Low Stock and Pending Requests tiles, Mira Suggests with her avatar, a voice-greeting card, low-stock and checked-in cards, and the restock question with Send Email / Send WhatsApp",
             "🌐 Your public salon page (/salon/your-name) now has a full navigation header (Home · Services · Offers · Gallery · About · Contact · Book Now) and a proper footer with quick links, services, contact & hours — find it from the Dashboard booking widget (\"Salon page\" row) or Settings → Open my salon page",
             "📅 Booking page polish: Signature Services tiles (tap to jump to that category), trust strip, big Gift Card & Premium Membership cards, \"Ready for your transformation?\" CTA and an About us link",

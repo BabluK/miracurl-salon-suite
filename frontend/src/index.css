@@ -763,3 +763,11 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 @keyframes mira-twinkle { 0%,100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
 @keyframes mira-dot { 0%,100% { transform: translateY(0); opacity: .5; } 50% { transform: translateY(-3px); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .mira-body, .mira-body img, .mira-glow, .mira-ring, .mira-orbit, .mira-spark, .mira-badge { animation: none !important; } }
+
+/* Mobile scroll performance: backdrop blur, giant blurred blobs and infinite glow loops are GPU-heavy on phones */
+@media (max-width: 768px) {
+  .backdrop-blur, .backdrop-blur-sm, .backdrop-blur-md, .backdrop-blur-lg, .backdrop-blur-xl, .backdrop-blur-2xl { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+  .blur-3xl.pointer-events-none, .blur-2xl.pointer-events-none { display: none !important; }
+  .gold-shine-text, .gold-shine-img, .mira-body, .mira-body img, .mira-ring, .mira-orbit, .mira-spark, .brand-orb, .brand-orb-spark, .brand-pill, .brand-scissors, .brand-curl { animation: none !important; }
+  .gold-shine-img { filter: none !important; }
+}

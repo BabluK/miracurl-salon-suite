@@ -46,6 +46,7 @@ export function FixRequestButton() {
             <p className="text-[11px] text-slate-500">Every change HQ makes is listed in Settings → Audit log as “Miracurl Support”. You can switch off support access any time in Settings.</p>
             <div className="flex justify-end gap-2">
               <button onClick={() => setOpen(false)} className="h-10 px-4 rounded-full border border-slate-200 text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
+              {issue.trim().length < 5 && <span className="text-xs text-amber-700 mr-auto self-center" data-testid="fix-request-hint">Type what's wrong above (a few words) to enable Send</span>}
               <button onClick={submit} disabled={busy || issue.trim().length < 5} data-testid="fix-request-submit"
                 className="h-10 px-5 rounded-full bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 disabled:opacity-40 inline-flex items-center gap-2">
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Send to Miracurl

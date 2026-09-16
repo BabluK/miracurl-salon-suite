@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from database import _raw_db
 from security import (
-    get_current_user, current_tenant, require_owner_pin, verify_pw,
+    get_current_user, current_tenant, require_owner_pin, verify_pw, require_tenant_admin,
     _pin_attempt_guard, _pin_attempt_fail, _pin_attempt_clear,
 )
 
@@ -69,3 +69,11 @@ async def activity_logs(user=Depends(get_current_user), t=Depends(current_tenant
     rows = await _raw_db.manager_activity_logs.find(
         {"tenant_id": t["id"]}, {"_id": 0}).sort("at", -1).to_list(300)
     return {"logs": rows}
+
+
+@router.delete("/activity-logs", dependencies=[Depends(require_owner_pin)])
+async def clear_activity_logs(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Owner-only (PIN + admin role): wipe the PIN audit trail for this salon."""
+    res = await _raw_db.manager_activity_logs.delete_many({"tenant_id": t["id"]})
+    await _log(t, user, "Staff Activities", f"cleared {res.deleted_count} records")
+    return {"ok": True, "deleted": res.deleted_count}

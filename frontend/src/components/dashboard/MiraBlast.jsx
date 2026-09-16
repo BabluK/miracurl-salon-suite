@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { MiraAvatar } from "@/components/mira/MiraAvatar";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Sparkles, X, Send, Loader2, Users, Coins, MessageCircle, Check, XCircle, ShieldCheck } from "lucide-react";
@@ -75,7 +76,8 @@ export function WinbackBlastModal({ onClose, onDone }) {
   );
 }
 
-const initials = (n) => (n || "?").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+const initials = (n) => ((n || "?").match(/\b[A-Za-z\u0900-\u097F]/g) || ["?"]).join("").slice(0, 2).toUpperCase();
+const isMira = (n) => /^mira\b/i.test(n || "");
 const TONES = ["bg-rose-100 text-rose-700", "bg-amber-100 text-amber-800", "bg-emerald-100 text-emerald-700", "bg-sky-100 text-sky-700", "bg-violet-100 text-violet-700"];
 
 export function PendingApprovalsTile() {
@@ -100,7 +102,7 @@ export function PendingApprovalsTile() {
   };
   if (items === null) return null;
   return (
-    <section className="rounded-3xl bg-white border border-slate-200/80 p-5 shadow-sm" data-testid="pending-approvals-tile">
+    <section className="rounded-3xl bg-white border border-slate-200/80 p-5 shadow-sm min-w-0 overflow-hidden" data-testid="pending-approvals-tile">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 font-playfair text-xl text-slate-900">
           <span className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center"><ShieldCheck className="w-4 h-4" /></span>
@@ -118,7 +120,9 @@ export function PendingApprovalsTile() {
         <div className="mt-4 space-y-2">
           {items.slice(0, 4).map((r, i) => (
             <div key={r.id} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2.5" data-testid={`approval-row-${r.id}`}>
-              <span className={`w-9 h-9 rounded-full text-xs font-bold flex items-center justify-center shrink-0 ${TONES[i % TONES.length]}`}>{initials(r.requested_by_name)}</span>
+              {isMira(r.requested_by_name)
+                ? <span className="w-9 h-9 shrink-0"><MiraAvatar size={36} /></span>
+                : <span className={`w-9 h-9 rounded-full text-xs font-bold flex items-center justify-center shrink-0 ${TONES[i % TONES.length]}`}>{initials(r.requested_by_name)}</span>}
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold text-slate-800 truncate">{r.requested_by_name} <span className="text-slate-400 font-normal">→</span> {r.client_name}</div>
                 <div className="text-xs text-slate-500 truncate flex items-center gap-1"><MessageCircle className="w-3 h-3" /> {r.kind?.replace(/_/g, " ")} · {r.message}</div>

@@ -3277,3 +3277,12 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Appointments.jsx: `branchF` state (init from getSelectedBranch() header choice), select `appt-branch-filter` (All Branches / Main salon `__main__` / tenant.branches names) shown only when tenant has branches; displayList filter uses branchOf(a). AppointmentRow shows `appt-branch-tag-<id>` (MapPin + short branch name) for non-main branches.
 - ColorTryOn.jsx: reads ?branch= and appends to share text + color-book-btn navigate; BookPublic header CTA + ShadeTeaser(to) forward ?branch= to /color/{slug}.
 - Verified: AECS public booking → tag "AECS" on row; filter Main → 0 tagged rows, AECS → 1 row. QA data cleaned.
+
+## 2026-09-17 (pm) — Six fixes — build 2026-09-17.267 (self-tested: screenshots + curl)
+1. Staff Activities: `DELETE /api/manager/activity-logs` (require_owner_pin + require_tenant_admin, logs a "cleared N records" row) + UI `activities-clear-btn` (admin only, confirm) + usePager 5/page (`activities-pager`).
+2. Fix-request modal: `fix-request-hint` explains Send is disabled until ≥5 chars (it was by design, user thought it was broken).
+3. Colour notices in prod bell — REAL root cause: NewBookingNotifier persists items in localStorage (`miracurl_notif_items:<tenant>`); the 3 colour-pick items were cached in the user's browser 4 days ago and never pruned. Fix: readItems() drops "🎨 … picked …" titles; every poll reconciles cached kind==="notice" items against server notices+pending ids and removes stale ones.
+4. Pending Approvals: initials use letters only ("Mira (auto)" → Mira avatar via isMira), section `min-w-0 overflow-hidden` so long messages no longer stretch the grid.
+5. Briefing `_staff_today_status` returns `checked_in_staff` [{id,name,photo_url}] (image_url/photo_url); MorningBriefing renders photos (fallback initials), testid briefing-checked-in-<id>.
+6. Mobile perf: index.css @media (max-width:768px) disables backdrop-filter, hides `.blur-3xl/.blur-2xl.pointer-events-none` blobs, stops gold-shine/mira/brand infinite animations.
+7. This-month tile: when tenant.hide_month_revenue is ON the owner is masked too (`monthMasked`), `month-revenue-reveal-btn` peeks 15s (auto re-hide), `month-revenue-hide-btn`. Staff remain locked with no reveal.

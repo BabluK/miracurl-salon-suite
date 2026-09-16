@@ -56,7 +56,7 @@ function writeLastSeen(iso) {
   try { localStorage.setItem(tenantKey(LAST_SEEN_KEY), iso); } catch { /* noop */ }
 }
 function readItems() {
-  try { return JSON.parse(localStorage.getItem(tenantKey(ITEMS_KEY)) || "[]"); } catch { return []; }
+  try { return JSON.parse(localStorage.getItem(tenantKey(ITEMS_KEY)) || "[]").filter(i => !/^🎨 .* picked /.test(i.title || "")); } catch { return []; }
 }
 function writeItems(items) {
   try { localStorage.setItem(tenantKey(ITEMS_KEY), JSON.stringify(items.slice(0, 30))); } catch { /* noop */ }
@@ -149,6 +149,11 @@ export function useNewBookingNotifier({ enabled }) {
         // First poll: don't replay old bookings, but DO load open notices & pending to-dos quietly.
         firstRunRef.current = false;
         data = { ...data, bookings: [], gift_cards: [], memberships: [], count: (data.notices || []).length + (data.pending || []).length };
+      }
+      {
+        const live = new Set([...(data.notices || []), ...(data.pending || [])].map(n => n.id));
+        const stale = (i) => i.kind === "notice" && !live.has(i.id);
+        setItems(prev => (prev.some(stale) ? prev.filter(i => !stale(i)) : prev));
       }
       if (data.count > 0) {
         const now = new Date().toISOString();

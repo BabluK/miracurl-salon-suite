@@ -30,7 +30,7 @@ def _revenue_sentence(yesterday: float, last_week: float) -> str:
 
 
 async def _staff_today_status(day: str) -> dict:
-    staff_list = await db.staff.find({"active": {"$ne": False}}, {"_id": 0, "id": 1, "name": 1}).to_list(200)
+    staff_list = await db.staff.find({"active": {"$ne": False}}, {"_id": 0, "id": 1, "name": 1, "image_url": 1, "photo_url": 1}).to_list(200)
     att = await db.attendance.find({"date": day}, {"_id": 0, "staff_id": 1}).to_list(300)
     checked = {a["staff_id"] for a in att}
     leaves = await db.leave_requests.find(
@@ -39,6 +39,7 @@ async def _staff_today_status(day: str) -> dict:
     on_leave = {lv["staff_id"] for lv in leaves}
     return {
         "checked_in": [s["name"] for s in staff_list if s["id"] in checked],
+        "checked_in_staff": [{"id": s["id"], "name": s["name"], "photo_url": s.get("image_url") or s.get("photo_url") or ""} for s in staff_list if s["id"] in checked],
         "on_leave": [s["name"] for s in staff_list if s["id"] in on_leave and s["id"] not in checked],
         "not_checked_in": [s["name"] for s in staff_list if s["id"] not in checked and s["id"] not in on_leave],
     }

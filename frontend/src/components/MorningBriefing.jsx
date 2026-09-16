@@ -296,8 +296,11 @@ export function MorningBriefing() {
           </div>
           {st.checked_in.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-3">
-              {st.checked_in.slice(0, 8).map((n, i) => (
-                <span key={n} className="flex items-center gap-2 rounded-xl bg-white border border-emerald-100 px-2.5 py-2"><InitialAvatar name={n} i={i} /><span className="text-xs font-medium text-slate-700 max-w-[90px] truncate">{n}</span></span>
+              {(st.checked_in_staff?.length ? st.checked_in_staff : st.checked_in.map(n => ({ id: n, name: n }))).slice(0, 8).map((p, i) => (
+                <span key={p.id} className="flex items-center gap-2 rounded-xl bg-white border border-emerald-100 px-2.5 py-2" data-testid={`briefing-checked-in-${p.id}`}>
+                  {p.photo_url ? <img src={p.photo_url} alt="" className="w-9 h-9 rounded-full object-cover border border-emerald-200 shrink-0" /> : <InitialAvatar name={p.name} i={i} />}
+                  <span className="text-xs font-medium text-slate-700 max-w-[90px] truncate">{p.name}</span>
+                </span>
               ))}
             </div>
           )}

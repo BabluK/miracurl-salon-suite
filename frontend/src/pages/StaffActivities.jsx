@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import pinApi from "@/lib/ownerPin";
 import { toast } from "sonner";
-import { Activity, Lock, RefreshCw } from "lucide-react";
+import { Activity, Lock, RefreshCw, Trash2 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { usePager } from "@/components/crm/CrmBits";
 
 const badge = (action) => {
   if (action.startsWith("unlocked")) return "bg-emerald-50 text-emerald-700 border-emerald-200";
@@ -13,6 +15,16 @@ const badge = (action) => {
 export default function StaffActivities() {
   const [logs, setLogs] = useState(null);
   const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  const { paged, pager } = usePager(logs || [], "records", 5);
+  const clearAll = async () => {
+    if (!window.confirm("Clear the whole staff activity log for this salon? This cannot be undone.")) return;
+    try {
+      const { data } = await pinApi.delete("/manager/activity-logs");
+      toast.success(`Cleared ${data.deleted} records ✦`);
+      load();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't clear the log"); }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -35,10 +47,18 @@ export default function StaffActivities() {
             <Lock className="w-3.5 h-3.5" /> PIN-protected audit — every time a manager opens or tries to open a protected section, it's recorded here.
           </p>
         </div>
-        <button onClick={load} disabled={loading} data-testid="activities-refresh-btn"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50">
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          {user?.role === "admin" && logs?.length > 0 && (
+            <button onClick={clearAll} data-testid="activities-clear-btn"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-rose-200 bg-white text-sm text-rose-600 hover:bg-rose-50">
+              <Trash2 className="w-4 h-4" /> Clear log
+            </button>
+          )}
+          <button onClick={load} disabled={loading} data-testid="activities-refresh-btn"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /> Refresh
+          </button>
+        </div>
       </div>
 
       {logs === null ? (
@@ -57,7 +77,7 @@ export default function StaffActivities() {
               </tr>
             </thead>
             <tbody>
-              {logs.map(l => (
+              {paged.map(l => (
                 <tr key={l.id} className="border-b border-slate-50 hover:bg-slate-50/60" data-testid={`activity-row-${l.id}`}>
                   <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
                     {new Date(l.at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
@@ -75,6 +95,7 @@ export default function StaffActivities() {
               {!logs.length && <tr><td colSpan={4} className="px-4 py-10 text-center text-slate-400 text-sm">No activity yet — logs appear when a manager opens a protected section.</td></tr>}
             </tbody>
           </table>
+          <div className="px-4 py-3 border-t border-slate-100" data-testid="activities-pager">{pager}</div>
         </div>
       )}
     </div>

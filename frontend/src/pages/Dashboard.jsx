@@ -3,7 +3,7 @@ import { BrandSplash } from "@/components/BrandSplash";
 import api from "@/lib/api";
 import pinApi from "@/lib/ownerPin";
 import { useAuth } from "@/context/AuthContext";
-import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare, Send, Bell, Check, Clock, ArrowRight, Lock, Unlock } from "lucide-react";
+import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare, Send, Bell, Check, Clock, ArrowRight, Lock, Unlock, Eye, EyeOff } from "lucide-react";
 import { ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, ReferenceDot } from "recharts";
 import { toast } from "sonner";
 import ReviewBlastModal from "./ReviewBlastModal";
@@ -85,6 +85,7 @@ function Stat({ icon: Icon, label, value, hint, testid, color = "sky", action, n
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
+  const [showMonth, setShowMonth] = useState(false);
   const [blastOpen, setBlastOpen] = useState(false);
   const [reminders, setReminders] = useState({ count: 0, items: [] });
   const [subStatus, setSubStatus] = useState(null);
@@ -108,6 +109,8 @@ export default function Dashboard() {
   }, [isOwner]);
 
   const isAdmin = user?.role === "admin" || user?.role === "super_admin";
+  const monthMasked = !!data && (data.month_revenue_locked || (data.month_revenue_hidden_for_staff && !showMonth));
+  useEffect(() => { if (!showMonth) return; const id = setTimeout(() => setShowMonth(false), 15000); return () => clearTimeout(id); }, [showMonth]);
   async function toggleRevenueLock() {
     const hide = !data.month_revenue_hidden_for_staff;
     try {
@@ -146,9 +149,13 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat icon={IndianRupee} label="Today Revenue" value={inr(data.today_revenue)} hint={`${data.today_invoices} invoices`} testid="kpi-revenue-today" color="emerald" now={data.today_revenue} prev={data.compare?.yesterday_revenue} vs="vs yesterday" />
         <Stat icon={Calendar} label="Today Bookings" value={data.today_bookings} hint="appointments scheduled" testid="kpi-bookings-today" color="sky" now={data.today_bookings} prev={data.compare?.yesterday_bookings} vs="vs yesterday" />
-        <Stat icon={TrendingUp} label="This Month" color="amber" testid="kpi-revenue-month" now={data.month_revenue_locked ? null : data.month_revenue} prev={data.month_revenue_locked ? null : data.compare?.last_month_revenue} vs="vs last month"
-          value={data.month_revenue_locked ? <span className="tracking-widest text-slate-400" data-testid="month-revenue-masked">••••••</span> : inr(data.month_revenue)}
-          hint={data.month_revenue_locked ? "Locked by owner" : (isAdmin && data.month_revenue_hidden_for_staff ? "hidden from staff · you see it as owner" : "month-to-date revenue")}
+        <Stat icon={TrendingUp} label="This Month" color="amber" testid="kpi-revenue-month" now={monthMasked ? null : data.month_revenue} prev={monthMasked ? null : data.compare?.last_month_revenue} vs="vs last month"
+          value={monthMasked
+            ? <span className="inline-flex items-center gap-2"><span className="tracking-widest text-slate-400" data-testid="month-revenue-masked">••••••</span>
+                {isAdmin && <button type="button" data-testid="month-revenue-reveal-btn" onClick={() => setShowMonth(true)} title="Reveal for a moment" className="w-7 h-7 rounded-full bg-amber-50 border border-amber-200 text-amber-700 inline-flex items-center justify-center hover:bg-amber-100"><Eye className="w-3.5 h-3.5" /></button>}</span>
+            : <span className="inline-flex items-center gap-2">{inr(data.month_revenue)}
+                {isAdmin && data.month_revenue_hidden_for_staff && <button type="button" data-testid="month-revenue-hide-btn" onClick={() => setShowMonth(false)} title="Hide again" className="w-7 h-7 rounded-full bg-amber-50 border border-amber-200 text-amber-700 inline-flex items-center justify-center hover:bg-amber-100"><EyeOff className="w-3.5 h-3.5" /></button>}</span>}
+          hint={data.month_revenue_locked ? "Locked by owner" : (data.month_revenue_hidden_for_staff ? (monthMasked ? "hidden · tap the eye to peek" : "visible for 15s · hides again automatically") : "month-to-date revenue")}
           action={isAdmin && (
             <button onClick={toggleRevenueLock} data-testid="month-revenue-lock-btn"
               title={data.month_revenue_hidden_for_staff ? "Hidden from managers/staff — tap to show them (owner PIN)" : "Visible to managers/staff — tap to hide (owner PIN)"}
