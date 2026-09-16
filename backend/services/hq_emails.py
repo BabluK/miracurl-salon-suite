@@ -94,3 +94,36 @@ def wa_credits_exhausted_email(t: dict) -> tuple[str, str]:
         cta_label="Top up WhatsApp credits ✦", cta_path="/settings",
         closing="Tip: the Dashboard warns you when credits drop under 20. — Team Miracurl")
     return subject, html
+
+
+def fix_request_hq_email(t: dict, no: int, page: str, page_title: str, issue: str, from_email: str) -> tuple[str, str]:
+    """HQ inbox mail: what the salon wants fixed + one-click path to open their workspace."""
+    e = html_lib.escape
+    name = t.get("name") or t.get("slug") or "Salon"
+    subject = f"🛠 Fix request #{no} · {name} · {page_title or page}"
+    quote = f"<div style='background:#f6f1e6;border-left:4px solid #c99a2e;border-radius:10px;padding:14px 16px;font-size:14px;color:#3a3a42;line-height:1.7'>{e(issue).replace(chr(10), '<br/>')}</div>"
+    html = owner_notice_html(
+        salon=f"{name} · {t.get('slug') or ''}", eyebrow=f"Fix request #{no}",
+        title=f"<span style='color:#e8c37f'>{e(name)}</span> needs a hand on <b>{e(page_title or page)}</b>",
+        intro=f"Requested by {e(from_email)} · page <code style='background:#eee;padding:1px 6px;border-radius:6px'>{e(page)}</code><br><br>{quote}",
+        bullets=["Super Admin → <b>HQ Inbox</b> → <b>Open workspace → " + e(page_title or page) + "</b> (lands on the exact page)",
+                 "Make the correction — it is logged in the salon's Audit log as <i>Miracurl Support</i>",
+                 "Mark the ticket <b>Resolved</b> — the owner gets a bell notice instantly"],
+        cta_label="Open HQ Inbox ✦", cta_path="/super-admin", closing="Miracurl HQ · support desk")
+    return subject, html
+
+
+def fix_request_owner_email(t: dict, no: int, page_title: str, issue: str) -> tuple[str, str]:
+    e = html_lib.escape
+    name = t.get("name") or "your salon"
+    subject = f"✅ We've got it — fix request #{no} received"
+    html = owner_notice_html(
+        salon=name, eyebrow="Fix request received",
+        title=f"Ticket <span style='color:#e8c37f'>#{no}</span> is with Miracurl Support",
+        intro=f"Namaste {e(name)} 👋 Thanks for telling us. Here's what you asked on <b>{e(page_title)}</b>:<br><br>"
+              f"<div style='background:#f6f1e6;border-left:4px solid #c99a2e;border-radius:10px;padding:12px 16px;font-size:14px'>{e(issue).replace(chr(10), '<br/>')}</div>",
+        bullets=["Our team opens your workspace and makes the correction — no call needed",
+                 "Every change is listed in <b>Settings → Audit log</b> as <i>Miracurl Support</i>",
+                 "You'll get a bell notification the moment it's marked fixed"],
+        cta_label="Track my request ✦", cta_path="/settings", closing="Usually done within a few working hours. — Team Miracurl")
+    return subject, html

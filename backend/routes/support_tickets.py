@@ -1,5 +1,4 @@
 """Owner "Ask Miracurl to fix this" tickets → HQ Inbox with one-click Open into the salon workspace."""
-import html as html_lib
 import os
 import uuid
 from datetime import datetime, timezone
@@ -43,12 +42,16 @@ async def create_fix_request(body: FixRequestIn, request: Request, user=Depends(
            "attachments": [], "read": False, "created_at": _now()}
     await _raw_db.hq_messages.insert_one(dict(doc))
     base = os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
+    from services.hq_emails import fix_request_hq_email, fix_request_owner_email
     try:
-        await _send_email([os.environ.get("HQ_EMAIL", "admin@miracurl.com")],
-                          f"🛠 Fix request #{no} — {t.get('name')} · {body.page_title or page}",
-                          f"<p><b>{html_lib.escape(t.get('name') or '')}</b> ({t.get('slug')}) asks Miracurl to fix something on <b>{html_lib.escape(page)}</b>.</p>"
-                          f"<div style='background:#f8f7fc;border:1px solid #e6e3f2;border-radius:10px;padding:14px;font-size:14px'>{html_lib.escape(body.issue).replace(chr(10), '<br/>')}</div>"
-                          f"<p>Open it in Super Admin → HQ Inbox → <b>Open workspace</b> ({base}/super-admin).</p>")
+        subj, html = fix_request_hq_email(t, no, page, body.page_title, body.issue, user.get("email") or "")
+        await _send_email([os.environ.get("HQ_EMAIL", "admin@miracurl.com")], subj, html, book_url=f"{base}/super-admin", book_label="Open Super Admin ✦",
+                          reply_to=user.get("email"))
+        from routes.rewards_settlements import _real_email
+        em = await _real_email(t)
+        if em:
+            subj2, html2 = fix_request_owner_email(t, no, body.page_title or page, body.issue)
+            await _send_email([em], subj2, html2, book_url=f"{base}/settings", book_label="Open Miracurl ✦")
     except Exception:  # noqa: BLE001 — ticket is stored regardless
         pass
     await notify_tenant(t["id"], "fix_request", f"Fix request #{no} sent to Miracurl",
