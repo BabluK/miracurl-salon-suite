@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-17.270"
-BUILD_TIME = "17 Sep 2026, 08:30 PM IST"
+BUILD = "2026-09-18.271"
+BUILD_TIME = "18 Sep 2026, 11:00 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-18.271", "note": "Staff portal: target/salary month uses IST boundaries; attendance 10/page + full-month PDF (GET /staff/me/attendance.pdf?month=); new pages /notice-period (planned leave, leave history, week-off) and /my-profile (profile settings) + nav; notice period: resignation date ≥ today, last day auto = +notice days, validated server-side, departed staff auto-hidden on every Staff list load (shown in Settings → Previous staff); resume download via axios blob + new-tab fallback"},
     {"build": "2026-09-17.270", "note": "Music channels re-verified against YouTube playabilityStatus: Spa Vibes → 1ZYbU82GVz4, Positive Energy → 36YnV9STBqc (Good Life Radio live), Bollywood Hot Hits → iLXM4Io4O4o (old fS-lamSWb4o removed by YouTube; Lofi Girl radios ended)"},
     {"build": "2026-09-17.269", "note": "Perf (all devices): app-canvas/mesh-dark background animations removed, aurora ribbons static (no animated blur), ribbons+sparkles hidden ≤1024px, backdrop-blur/glow loops off ≤1024px; Dashboard layout compacted (Mira AI | Low stock 5 items; Mira Suggests | Approvals | Quick actions; Membership banner full-width); Mira Suggests redesigned with Relaxing/Spa Vibes/Positive Energy instrumental channels playing inline (autoplay for instrumental) + robot mascot; BranchSwitcher: choosing Main no longer resets to All (double fetch fixed); Staff Registry roster spans all salons of the same owner with salon tag"},
     {"build": "2026-09-17.268", "note": "Fully-locked month revenue: tenant.month_revenue_peek_pin (Settings → Security PIN toggle, PUT /settings/revenue-peek-pin) withholds month_revenue from the owner's dashboard payload too; 👁 peek calls PIN-guarded GET /settings/revenue-peek with a fresh PIN prompt every time"},
@@ -75,6 +76,8 @@ RELEASES = [
     {
         "date": "2026-09-16 (Editorial redesign, Mira on WhatsApp & HQ support 💬)",
         "changes": [
+            "👩‍💼 Staff portal: new \"Serve Notice Period\" and \"Profile Settings\" pages; attendance now 10 days per page with a full-month PDF; monthly target counts this month exactly (salon time)",
+            "📝 Resignations: pick the resignation date (today or later) — last working day is auto-set from the notice period, and the staff card disappears the day after; find them under Settings → Previous staff",
             "🎧 Mira Suggests, redesigned: Relaxing · Spa Vibes · Positive Energy instrumental channels start instantly in the mini-player (30-min timer) — no page hop",
             "⚡ Faster everywhere: heavy background animations and blur effects removed; phones and tablets get an even lighter dashboard",
             "🏬 Multi-salon owners: Staff Registry now lists staff from all your salons (tagged with where they were registered) — AECS sees the Marathahalli roster too",

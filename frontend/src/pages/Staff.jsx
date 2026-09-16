@@ -24,7 +24,7 @@ const EMPTY_FORM = {
   commission_pct: 10, monthly_base_salary: 0, salary_visible: true,
   image_url: "", active: true, blood_group: "",
   shift_start: "10:00", shift_end: "21:00", overtime_rate: 0, week_off_day: "",
-  max_advance: 0, notice_period_days: 30, serving_notice: false,
+  max_advance: 0, notice_period_days: 30, serving_notice: false, notice_start_date: "",
   last_working_day: "", aadhaar: "", branch: "",
   monthly_target: 0, target_commission_pct: 0,
 };
@@ -39,6 +39,7 @@ const buildStaffPayload = (form) => ({
   max_advance: parseFloat(form.max_advance) || 0,
   notice_period_days: parseInt(form.notice_period_days, 10) || 30,
   serving_notice: !!form.serving_notice,
+  notice_start_date: form.notice_start_date || null,
   last_working_day: form.last_working_day || null,
   aadhaar: (form.aadhaar || "").trim() || null,
   monthly_target: parseFloat(form.monthly_target) || 0,
@@ -87,6 +88,7 @@ export default function Staff() {
       max_advance: s.max_advance ?? 0,
       notice_period_days: s.notice_period_days ?? 30,
       serving_notice: !!s.serving_notice,
+      notice_start_date: s.notice_start_date || "",
       last_working_day: s.last_working_day || "",
       aadhaar: "",
     });

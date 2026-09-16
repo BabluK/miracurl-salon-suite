@@ -41,6 +41,7 @@ async def list_staff(user=Depends(get_current_user)):
     proj = {"_id": 0, "aadhaar_hash": 0}
     if user.get("role") not in ("admin", "super_admin"):
         proj.update(_STAFF_SENSITIVE_FIELDS)  # SEC-001: staff/manager get no pay/bank/ID data
+    await auto_close_departed_staff()  # idempotent: staff past their last working day disappear immediately
     rows = await db.staff.find({"former": {"$ne": True}}, proj).to_list(500)
     tid = user.get("tenant_id")
     if tid:
@@ -207,6 +208,19 @@ def _staff_write_payload(body: StaffIn) -> dict:
     d = body.model_dump()
     if not d.get("joining_date"):
         d.pop("joining_date", None)
+    if d.get("serving_notice"):
+        today = datetime.now(timezone(timedelta(hours=5, minutes=30))).date()
+        start = d.get("notice_start_date") or today.isoformat()
+        if start < today.isoformat():
+            raise HTTPException(400, "Resignation date can't be in the past — pick today or a future date")
+        d["notice_start_date"] = start
+        if not d.get("last_working_day"):
+            y, m, dd = map(int, start.split("-"))
+            d["last_working_day"] = (datetime(y, m, dd) + timedelta(days=int(d.get("notice_period_days") or 30))).date().isoformat()
+        if d["last_working_day"] < start:
+            raise HTTPException(400, "Last working day must be on or after the resignation date")
+    else:
+        d["notice_start_date"] = None
     aad = re.sub(r"\D", "", d.pop("aadhaar", None) or "")
     if aad:
         if len(aad) != 12:

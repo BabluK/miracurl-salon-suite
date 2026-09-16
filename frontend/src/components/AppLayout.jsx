@@ -63,6 +63,8 @@ const NAV_STAFF = [
   { to: "/appointments", label: "Appointments", icon: Calendar, testid: "nav-appointments" },
   { to: "/pos", label: "POS / Billing", icon: ShoppingCart, testid: "nav-pos" },
   { to: "/cash", label: "Cash Register", icon: Wallet, testid: "nav-cash" },
+  { to: "/notice-period", label: "Serve Notice Period", icon: Calendar, testid: "nav-notice-period" },
+  { to: "/my-profile", label: "Profile Settings", icon: LayoutDashboard, testid: "nav-my-profile" },
   { to: "/bank-details", label: "Bank Details", icon: Landmark, testid: "nav-bank-details" },
   { to: "/build-resume", label: "Build Your Resume", icon: FileText, testid: "nav-build-resume" },
 ];

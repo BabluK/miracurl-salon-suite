@@ -116,6 +116,8 @@ const ReferEarn = lazy(() => import("@/pages/ReferEarn"));
 const StaffPortal = lazy(() => import("@/pages/StaffPortal"));
 const StaffBankDetails = lazy(() => import("@/pages/StaffBankDetails"));
 const StaffResume = lazy(() => import("@/pages/StaffResume"));
+const StaffProfileSettings = lazy(() => import("@/pages/StaffProfileSettings"));
+const StaffNoticePeriod = lazy(() => import("@/pages/StaffNoticePeriod"));
 const Attendance = lazy(() => import("@/pages/Attendance"));
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ManifestSwitcher from "@/components/ManifestSwitcher";
@@ -289,6 +291,8 @@ export default function App() {
               <Route path="staff-portal" element={<StaffPortal />} />
               <Route path="bank-details" element={<StaffBankDetails />} />
               <Route path="build-resume" element={<StaffResume />} />
+              <Route path="my-profile" element={<StaffProfileSettings />} />
+              <Route path="notice-period" element={<StaffNoticePeriod />} />
               <Route path="appointments" element={<Appointments />} />
               <Route path="customers" element={<AdminOnly><Customers /></AdminOnly>} />
               <Route path="staff" element={<OwnerOnly><Staff /></OwnerOnly>} />

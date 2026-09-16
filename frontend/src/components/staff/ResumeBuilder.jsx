@@ -50,21 +50,26 @@ export function ResumeBuilder({ standalone = false }) {
 
   async function download() {
     if (!(await save(true))) return;
+    setBusy(true);
     try {
-      const resp = await fetch(`${API}/staff/me/resume.pdf`, { credentials: "include" });
-      if (!resp.ok) { toast.error("Failed to generate resume PDF"); return; }
-      const blob = await resp.blob();
+      const resp = await api.get("/staff/me/resume.pdf", { responseType: "blob", timeout: 60000 });
+      const blob = resp.data instanceof Blob ? resp.data : new Blob([resp.data], { type: "application/pdf" });
+      if (!blob.size || (blob.type && !blob.type.includes("pdf"))) throw new Error("bad-pdf");
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
+      link.href = url;
       link.download = `resume-${(r.name || "me").replace(/\s+/g, "-").toLowerCase()}.pdf`;
+      link.rel = "noopener";
       document.body.appendChild(link);
       link.click();
       link.remove();
-      URL.revokeObjectURL(link.href);
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
       toast.success("Resume downloaded ✦ All the best!");
-    } catch {
-      toast.error("Download failed");
-    }
+    } catch (e) {
+      const detail = formatApiError(e?.response?.data?.detail);
+      toast.error(detail || "Couldn't download — opening the PDF in a new tab instead");
+      window.open(`${API}/staff/me/resume.pdf`, "_blank", "noopener");
+    } finally { setBusy(false); }
   }
 
   return (

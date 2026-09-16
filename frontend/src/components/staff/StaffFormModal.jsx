@@ -236,10 +236,11 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
               <input data-testid="staff-serving-notice-toggle" type="checkbox" checked={!!form.serving_notice}
                 onChange={e => {
                   const on = e.target.checked;
+                  const start = form.notice_start_date || new Date().toISOString().slice(0, 10);
                   const lwd = on && !form.last_working_day
-                    ? new Date(Date.now() + (parseInt(form.notice_period_days, 10) || 30) * 86400000).toISOString().slice(0, 10)
+                    ? new Date(new Date(start).getTime() + (parseInt(form.notice_period_days, 10) || 30) * 86400000).toISOString().slice(0, 10)
                     : form.last_working_day;
-                  setForm({ ...form, serving_notice: on, last_working_day: on ? lwd : "" });
+                  setForm({ ...form, serving_notice: on, notice_start_date: on ? start : "", last_working_day: on ? lwd : "" });
                 }}
                 className="mt-0.5" />
               <span>
@@ -248,9 +249,18 @@ export function StaffFormModal({ editing, form, setForm, branches, onClose, onSu
               </span>
             </label>
             {form.serving_notice && (
-              <div>
-                <label className="label-light block mb-1">Last working day</label>
-                <input data-testid="staff-last-working-day-input" type="date" className="input-light" value={form.last_working_day} onChange={e => setForm({ ...form, last_working_day: e.target.value })} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label-light block mb-1">Resignation date</label>
+                  <input data-testid="staff-notice-start-input" type="date" className="input-light" min={new Date().toISOString().slice(0, 10)} value={form.notice_start_date || ""}
+                    onChange={e => { const v = e.target.value; const lwd = v ? new Date(new Date(v).getTime() + (parseInt(form.notice_period_days, 10) || 30) * 86400000).toISOString().slice(0, 10) : form.last_working_day; setForm({ ...form, notice_start_date: v, last_working_day: lwd }); }} />
+                  <span className="block text-[11px] text-slate-500 mt-1">Today or later — notice is served from this date.</span>
+                </div>
+                <div>
+                  <label className="label-light block mb-1">Last working day</label>
+                  <input data-testid="staff-last-working-day-input" type="date" className="input-light" min={form.notice_start_date || new Date().toISOString().slice(0, 10)} value={form.last_working_day} onChange={e => setForm({ ...form, last_working_day: e.target.value })} />
+                  <span className="block text-[11px] text-slate-500 mt-1">Auto = resignation + {parseInt(form.notice_period_days, 10) || 30} days. Staff is hidden the day after.</span>
+                </div>
               </div>
             )}
           </div>
