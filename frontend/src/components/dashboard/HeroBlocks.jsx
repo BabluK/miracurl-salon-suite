@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Quote, Copy, ExternalLink, Bot, Sparkles, CalendarClock, UserPlus, Tag, MessageCircle, Calendar, Footprints, Users, Receipt, Crown, ArrowRight, AlertTriangle, Lightbulb, Play } from "lucide-react";
+import { MiraAvatar } from "@/components/mira/MiraAvatar";
+import { WinbackBlastModal } from "@/components/dashboard/MiraBlast";
+import { Quote, Copy, ExternalLink, Sparkles, CalendarClock, UserPlus, Tag, MessageCircle, Calendar, Footprints, Users, Receipt, Crown, ArrowRight, AlertTriangle, Lightbulb, Play } from "lucide-react";
 
 const QUOTES = [
   ["Beautiful salons create more than looks, they create confidence.", "Mira AI"],
@@ -64,16 +67,18 @@ const MIRA_ACTIONS = [
 ];
 
 export function MiraAssistantCard({ inactive }) {
+  const [blast, setBlast] = useState(false);
   return (
     <section className="relative overflow-hidden rounded-3xl bg-[#0f0e0b] text-white p-6 sm:p-7 border border-[#e8c56a]/20 shadow-[0_30px_60px_-30px_rgba(0,0,0,.7)]" data-testid="mira-assistant-card">
       <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-[#e8c56a]/15 blur-3xl pointer-events-none" />
       <div className="relative grid md:grid-cols-[1fr_auto] gap-6">
         <div>
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#f3e5ab] to-[#c99a2e] flex items-center justify-center shadow-[0_12px_30px_-10px_rgba(232,197,106,.8)]"><Bot className="w-9 h-9 text-[#1a1408]" /></div>
+          <div className="flex items-center gap-5">
+            <MiraAvatar size={112} speaking />
             <div>
               <h2 className="font-playfair text-2xl sm:text-3xl leading-tight">Mira AI Assistant</h2>
               <p className="text-white/60 text-sm">Your salon&apos;s smart companion</p>
+              <p className="text-[11px] text-[#e8c56a]/80 mt-1 inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Online · watching bookings, stock &amp; guests</p>
             </div>
           </div>
           <div className="mt-5 rounded-2xl bg-white/[.06] border border-[#e8c56a]/20 p-5">
@@ -81,7 +86,7 @@ export function MiraAssistantCard({ inactive }) {
               {inactive > 0 ? <>Would you like me to send follow-ups to <span className="text-[#e8c56a]">{inactive} customers</span> who haven&apos;t visited in 30 days?</> : <>Would you like me to send follow-ups to customers who haven&apos;t visited in 30 days?</>}
             </p>
             <div className="mt-4 flex items-center gap-4 flex-wrap">
-              <Link to="/customers?filter=inactive" data-testid="mira-yes-btn" className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm font-bold inline-flex items-center gap-2 hover:brightness-110"><Sparkles className="w-4 h-4" /> Yes, Do It</Link>
+              <button onClick={() => setBlast(true)} data-testid="mira-yes-btn" className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm font-bold inline-flex items-center gap-2 hover:brightness-110 hover:-translate-y-0.5 transition"><Sparkles className="w-4 h-4" /> Yes, Do It</button>
               <Link to="/assistant" className="text-sm text-white/60 underline underline-offset-4 hover:text-white" data-testid="mira-later-btn">Maybe later</Link>
             </div>
           </div>
@@ -94,6 +99,7 @@ export function MiraAssistantCard({ inactive }) {
           ))}
         </div>
       </div>
+      {blast && <WinbackBlastModal onClose={() => setBlast(false)} />}
     </section>
   );
 }

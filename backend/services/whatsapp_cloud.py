@@ -137,6 +137,32 @@ async def process_webhook_payload(payload: dict) -> dict:
     return counts
 
 
+async def send_template(to: str, name: str, params: list[str], tenant_id: str | None = None, lang: str = "en") -> dict[str, Any]:
+    """Business-initiated message via an approved Meta template (required outside the 24h service window)."""
+    cfg = wa_config()
+    if not cfg["access_token"] or not cfg["phone_number_id"]:
+        raise RuntimeError("WhatsApp Cloud API not configured")
+    if tenant_id:
+        from services.tenant_features import feature_on
+        if not await feature_on(tenant_id, "whatsapp"):
+            raise RuntimeError("WhatsApp is not enabled for this tenant")
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{cfg['phone_number_id']}/messages"
+    payload = {"messaging_product": "whatsapp", "to": to, "type": "template",
+               "template": {"name": name, "language": {"code": lang},
+                            "components": [{"type": "body", "parameters": [{"type": "text", "text": str(p)[:1024]} for p in params]}]}}
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        r = await client.post(url, json=payload, headers={"Authorization": f"Bearer {cfg['access_token']}"})
+    if r.is_error:
+        log.warning("whatsapp template send failed %s: %.300s", r.status_code, r.text)
+        raise RuntimeError(f"Meta API {r.status_code}: {r.text[:300]}")
+    data = r.json()
+    mid = ((data.get("messages") or [{}])[0]).get("id")
+    await _raw_db.whatsapp_messages.insert_one({
+        "direction": "outbound", "message_id": mid, "wa_id": to, "type": "template", "template": name, "text": " | ".join(map(str, params)),
+        "phone_number_id": cfg["phone_number_id"], "tenant_id": tenant_id, "status": "accepted", "created_at": _now()})
+    return data
+
+
 async def send_text(to: str, body: str, tenant_id: str | None = None) -> dict[str, Any]:
     """Send a free-form text (inside the 24h customer-service window). Returns Graph API JSON."""
     cfg = wa_config()

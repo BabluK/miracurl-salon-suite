@@ -9,7 +9,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from database import db, _raw_db
+from database import db
+from routes.mira_autopilot import _find_winback_leads, _raw_db
 from security import get_current_user, require_admin, require_tenant_admin, require_owner_pin, current_tenant, branch_lock
 
 router = APIRouter()
@@ -236,8 +237,7 @@ async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t
         "active_staff": active_staff,
         "low_stock_count": len(low_stock),
         "low_stock_items": low_stock[:10],
-        "inactive_customers_30d": await db.customers.count_documents(
-            {"last_visit": {"$lt": (now_local - timedelta(days=30)).date().isoformat()}}),
+        "inactive_customers_30d": len(await _find_winback_leads(t["id"], 30)),
         "top_services": top_services,
         "revenue_trend": trend,
         "upcoming_appointments": appts_today[:5],

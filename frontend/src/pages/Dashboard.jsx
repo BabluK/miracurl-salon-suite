@@ -28,6 +28,7 @@ import { SmsPointsWidget } from "@/components/dashboard/SmsPointsWidget";
 import { WaCreditsBanner } from "@/components/dashboard/WaCreditsBanner";
 import { WelcomeCongratsModal } from "@/components/WelcomeCongratsModal";
 import { TrialCountdownRing } from "@/components/dashboard/TrialCountdownRing";
+import { PendingApprovalsTile } from "@/components/dashboard/MiraBlast";
 import { DashboardHero, MiraAssistantCard, LowStockCard, MiraSuggestsCard, QuickActionsCard, MembershipPromoCard } from "@/components/dashboard/HeroBlocks";
 
 // Stable module-level constants so Recharts doesn't get new object refs every render.
@@ -166,9 +167,9 @@ export default function Dashboard() {
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1.1fr] gap-4" data-testid="dashboard-actions-row">
+        <PendingApprovalsTile />
         <QuickActionsCard />
         <MembershipPromoCard />
-        <div className="hidden xl:block" />
       </div>
 
       {isOwner && <WelcomeCongratsModal />}

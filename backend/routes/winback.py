@@ -124,3 +124,79 @@ async def winback_auto_toggle(body: WinbackAutoIn, admin=Depends(require_tenant_
         {"tenant_id": t["id"]},
         {"$set": {"winback_auto": body.enabled, "tenant_id": t["id"]}}, upsert=True)
     return {"ok": True, "enabled": body.enabled}
+
+
+BLAST_DAYS = 30
+BLAST_LIMIT = 100
+
+
+class BlastIn(BaseModel):
+    days: int = BLAST_DAYS
+    limit: int = BLAST_LIMIT
+    dry_run: bool = False
+
+
+def _wa_number(phone: str) -> str:
+    d = "".join(ch for ch in (phone or "") if ch.isdigit())
+    return d if len(d) > 10 else (f"91{d}" if len(d) == 10 else "")
+
+
+@router.get("/winback/blast/preview")
+async def winback_blast_preview(days: int = BLAST_DAYS, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """What one tap would do: eligible guests, credits available, channel readiness."""
+    from services.tenant_features import features_of
+    leads = [ld for ld in await _find_winback_leads(t["id"], max(7, min(days, 365))) if _wa_number(ld.get("phone"))]
+    base = os.environ.get("APP_PUBLIC_URL", "")
+    book_url = f"{base}/book/{t.get('slug', '')}" if base and t.get("slug") else ""
+    sample = leads[0] if leads else {"name": "Priya", "last_visit": ""}
+    fresh = await _raw_db.tenants.find_one({"id": t["id"]}, {"_id": 0, "wa_points": 1})
+    return {"eligible": len(leads), "days": days, "credits": int((fresh or {}).get("wa_points") or 0),
+            "whatsapp_enabled": features_of(t)["whatsapp"], "template": bool(os.environ.get("WHATSAPP_WINBACK_TEMPLATE")),
+            "sample_message": _nudge_message(t, (sample.get("name") or "there").split()[0], days, book_url),
+            "guests": [{"id": ld["id"], "name": ld["name"], "last_visit": ld["last_visit"]} for ld in leads[:8]]}
+
+
+@router.post("/winback/blast")
+async def winback_blast(body: BlastIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """One tap: WhatsApp win-back to every guest inactive for `days` (1 credit each, 30-day cooldown via lead_outreach)."""
+    from services.tenant_features import features_of
+    from services.whatsapp_cloud import send_template, send_text
+    if not features_of(t)["whatsapp"]:
+        raise HTTPException(403, "WhatsApp isn't enabled for your salon yet — ask Miracurl HQ to switch it on")
+    days = max(7, min(body.days, 365))
+    leads = [ld for ld in await _find_winback_leads(t["id"], days) if _wa_number(ld.get("phone"))][:max(1, min(body.limit, BLAST_LIMIT))]
+    if body.dry_run:
+        return {"eligible": len(leads), "sent": 0, "failed": 0, "skipped_no_credits": 0, "dry_run": True}
+    base = os.environ.get("APP_PUBLIC_URL", "")
+    book_url = f"{base}/book/{t.get('slug', '')}" if base and t.get("slug") else ""
+    template = os.environ.get("WHATSAPP_WINBACK_TEMPLATE", "")
+    today = datetime.now(timezone.utc).date()
+    sent, failed, no_credits, errors = 0, 0, 0, []
+    for ld in leads:
+        r = await _raw_db.tenants.update_one({"id": t["id"], "wa_points": {"$gte": 1}}, {"$inc": {"wa_points": -1}})
+        if not r.modified_count:
+            no_credits += 1
+            continue
+        first = (ld["name"] or "there").split()[0]
+        try:
+            d = (today - datetime.fromisoformat(ld["last_visit"]).date()).days
+        except ValueError:
+            d = days
+        to = _wa_number(ld["phone"])
+        try:
+            if template:
+                await send_template(to, template, [first, t.get("name", "our salon"), str(d), book_url or "—"], tenant_id=t["id"])
+            else:
+                await send_text(to, _nudge_message(t, first, d, book_url), tenant_id=t["id"])
+            sent += 1
+            await _raw_db.sms_credit_log.insert_one({"id": str(uuid.uuid4()), "tenant_id": t["id"], "points": -1, "source": "winback_blast",
+                                                     "channel": "whatsapp", "customer_id": ld["id"], "at": datetime.now(timezone.utc).isoformat()})
+            await _raw_db.lead_outreach.insert_one({"id": str(uuid.uuid4()), "tenant_id": t["id"], "customer_id": ld["id"], "name": ld["name"],
+                                                    "channel": "whatsapp", "to": to, "last_visit": ld.get("last_visit"), "by": admin["id"],
+                                                    "source": "mira_blast", "created_at": datetime.now(timezone.utc).isoformat()})
+        except Exception as e:  # noqa: BLE001 — refund and keep going
+            failed += 1
+            errors.append(str(e)[:160])
+            await _raw_db.tenants.update_one({"id": t["id"]}, {"$inc": {"wa_points": 1}})
+    return {"eligible": len(leads), "sent": sent, "failed": failed, "skipped_no_credits": no_credits, "errors": errors[:3],
+            "hint": None if template else "Tip: set WHATSAPP_WINBACK_TEMPLATE (approved Meta template) so messages reach guests outside the 24h window."}

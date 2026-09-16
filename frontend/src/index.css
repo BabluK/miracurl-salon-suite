@@ -735,3 +735,31 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 
 @keyframes trial-pop-in { from { opacity: 0; transform: translateY(18px) scale(.96); } to { opacity: 1; transform: none; } }
 .trial-pop-in { animation: trial-pop-in .45s cubic-bezier(.2,.8,.2,1) both; }
+
+/* ── Mira avatar (animated) ─────────────────────────────────────────── */
+.mira-avatar { filter: drop-shadow(0 0 0 transparent); }
+.mira-body { position: absolute; inset: 8%; border-radius: 9999px; overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, #3a2f14 0%, #15120a 70%); border: 2px solid rgba(232,197,106,.55);
+  animation: mira-float 4.5s ease-in-out infinite; }
+.mira-body img { transform: translateY(6%) scale(1.06); transform-origin: bottom center; animation: mira-breathe 5s ease-in-out infinite; }
+.mira-glow { position: absolute; inset: -6%; border-radius: 9999px; pointer-events: none;
+  background: radial-gradient(circle, rgba(232,197,106,.45) 0%, rgba(232,197,106,0) 62%); animation: mira-pulse 3s ease-in-out infinite; }
+.mira-ring { position: absolute; inset: 0; border-radius: 9999px; border: 1.5px solid rgba(232,197,106,.55); pointer-events: none; }
+.mira-ring-1 { animation: mira-ripple 3s ease-out infinite; }
+.mira-ring-2 { animation: mira-ripple 3s ease-out infinite 1.5s; }
+.mira-orbit { position: absolute; inset: -4%; border-radius: 9999px; animation: mira-spin 14s linear infinite; pointer-events: none; }
+.mira-spark { position: absolute; color: #f3e5ab; font-size: 14px; line-height: 1; text-shadow: 0 0 10px rgba(232,197,106,.9); animation: mira-twinkle 2.2s ease-in-out infinite; }
+.mira-spark.s1 { top: -2px; left: 50%; } .mira-spark.s2 { bottom: 6%; right: -2px; animation-delay: .7s; font-size: 11px; } .mira-spark.s3 { top: 30%; left: -3px; animation-delay: 1.3s; font-size: 22px; }
+.mira-badge { position: absolute; right: 4%; bottom: 6%; min-width: 26px; height: 26px; padding: 0 7px; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #f3e5ab, #c99a2e); color: #1a1408; font-size: 10px; font-weight: 800; letter-spacing: .08em; border: 2px solid #0f0e0b; box-shadow: 0 6px 16px -6px rgba(232,197,106,.9);
+  animation: mira-float 4.5s ease-in-out infinite reverse; }
+.mira-dots { display: inline-flex; gap: 3px; } .mira-dots i { width: 4px; height: 4px; border-radius: 9999px; background: #1a1408; animation: mira-dot 1s ease-in-out infinite; }
+.mira-dots i:nth-child(2) { animation-delay: .15s; } .mira-dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes mira-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes mira-breathe { 0%,100% { transform: translateY(6%) scale(1.06); } 50% { transform: translateY(5%) scale(1.085); } }
+@keyframes mira-pulse { 0%,100% { opacity: .55; transform: scale(.96); } 50% { opacity: 1; transform: scale(1.06); } }
+@keyframes mira-ripple { 0% { transform: scale(.9); opacity: .9; } 100% { transform: scale(1.35); opacity: 0; } }
+@keyframes mira-spin { to { transform: rotate(360deg); } }
+@keyframes mira-twinkle { 0%,100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes mira-dot { 0%,100% { transform: translateY(0); opacity: .5; } 50% { transform: translateY(-3px); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .mira-body, .mira-body img, .mira-glow, .mira-ring, .mira-orbit, .mira-spark, .mira-badge { animation: none !important; } }
