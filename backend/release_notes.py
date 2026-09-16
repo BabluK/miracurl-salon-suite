@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-17.269"
-BUILD_TIME = "17 Sep 2026, 07:45 PM IST"
+BUILD = "2026-09-17.270"
+BUILD_TIME = "17 Sep 2026, 08:30 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-17.270", "note": "Music channels re-verified against YouTube playabilityStatus: Spa Vibes → 1ZYbU82GVz4, Positive Energy → 36YnV9STBqc (Good Life Radio live), Bollywood Hot Hits → iLXM4Io4O4o (old fS-lamSWb4o removed by YouTube; Lofi Girl radios ended)"},
     {"build": "2026-09-17.269", "note": "Perf (all devices): app-canvas/mesh-dark background animations removed, aurora ribbons static (no animated blur), ribbons+sparkles hidden ≤1024px, backdrop-blur/glow loops off ≤1024px; Dashboard layout compacted (Mira AI | Low stock 5 items; Mira Suggests | Approvals | Quick actions; Membership banner full-width); Mira Suggests redesigned with Relaxing/Spa Vibes/Positive Energy instrumental channels playing inline (autoplay for instrumental) + robot mascot; BranchSwitcher: choosing Main no longer resets to All (double fetch fixed); Staff Registry roster spans all salons of the same owner with salon tag"},
     {"build": "2026-09-17.268", "note": "Fully-locked month revenue: tenant.month_revenue_peek_pin (Settings → Security PIN toggle, PUT /settings/revenue-peek-pin) withholds month_revenue from the owner's dashboard payload too; 👁 peek calls PIN-guarded GET /settings/revenue-peek with a fresh PIN prompt every time"},
     {"build": "2026-09-17.267", "note": "Staff Activities: Clear log (owner+PIN, DELETE /manager/activity-logs) + 5-per-page pager; Fix-request modal hint when Send is disabled; bell reconciles cached notices with server each poll (stale colour-pick items dropped from localStorage); Pending Approvals initials/Mira avatar + overflow fix; briefing checked-in staff show profile photos (checked_in_staff); mobile perf CSS (no backdrop-blur / blurred blobs / infinite glow loops < 768px); This-month tile masked for owner too when Hide is ON, eye button peeks for 15s"},
