@@ -3235,3 +3235,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Appointments rebuilt (Day/Upcoming/Week/Month via `?date=YYYY-MM`, search, status/staff filters, sort, checkbox select, CSV export, KPI strip, MonthGrid, Pro Tip + copy booking link). Components: appointments/{AppointmentRow,AppointmentsKpis,MonthGrid}.jsx.
 - Staff & Inventory: search + KPI strips + empty state; POS header restyled; Cash/Reviews/Services/Phase-2/3 titles enlarged; global CSS (`btn-blue`, `card-light`, `luxe-table-light`, `input-light`) moved to gold palette; sky/violet/blue accents swapped to gold across tenant pages.
 - Dashboard: `components/dashboard/HeroBlocks.jsx` — hero (salon photo `/assets/dashboard/hero-salon.jpg`, greeting, quote, booking link), Mira AI Assistant card, LowStockCard, MiraSuggestsCard, QuickActionsCard, MembershipPromoCard placed at top; all legacy widgets kept below. `/reports/dashboard` adds `inactive_customers_30d`.
+
+## 2026-09-16 — Mira blast, approvals tile, animated Mira avatar, luxe HQ ID card — VERIFIED iteration_161 (+ PDF render check)
+- `POST /winback/blast` (+ `/winback/blast/preview`): one-tap WhatsApp win-back to guests inactive 30d; 1 credit each, refund on failure, lead_outreach cooldown; uses approved Meta template `WHATSAPP_WINBACK_TEMPLATE` (env) via new `send_template`, else free text. UI: `components/dashboard/MiraBlast.jsx` modal from Mira card "Yes, Do It".
+- `PendingApprovalsTile` (staff WhatsApp requests with avatars, approve/reject/approve-all) in dashboard actions row.
+- `components/mira/MiraAvatar.jsx` + CSS (`.mira-*` keyframes) — animated avatar `/assets/mira/mira.png`.
+- HQ team ID card → `services/id_card_luxe.py` (navy waves, gold trim, CEO photo REQUIRED — 400 without photo, MS emblem badge, QR "SCAN • CONNECT", barcode, website pill). Team panel: "Add photo → ID Card" prompt.

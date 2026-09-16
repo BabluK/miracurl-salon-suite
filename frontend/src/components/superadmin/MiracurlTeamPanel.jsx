@@ -33,7 +33,8 @@ export const MiracurlTeamPanel = () => {
   function prefillCeo() {
     setEditing(null);
     setForm({ ...EMPTY, name: user?.name || "", email: user?.email || "", designation: "CEO & Entrepreneur" });
-    toast.info("CEO details pre-filled — add your phone & photo, then save ✦");
+    toast.info("CEO details pre-filled — add your phone & upload your photo (it goes on the ID card), then save ✦");
+    setTimeout(() => document.getElementById("team-photo-field")?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
   }
 
   function startEdit(m) {
@@ -109,9 +110,10 @@ export const MiracurlTeamPanel = () => {
               {BLOODS.map(b => <option key={b}>{b}</option>)}
             </select>
           </div>
-          <div>
-            <label className="label-light block mb-1">Photo</label>
+          <div id="team-photo-field">
+            <label className="label-light block mb-1">Photo <span className="text-rose-600">*</span> <span className="text-[10px] text-slate-400 font-normal">printed on the ID card</span></label>
             <ImageUploader value={form.photo_url} onChange={(url) => setForm(f => ({ ...f, photo_url: url }))} kind="misc" circular />
+            {!form.photo_url && <p className="text-[11px] text-amber-700 mt-1" data-testid="team-photo-required-hint">Upload a clear headshot — the ID card can't be generated without it.</p>}
           </div>
         </div>
         <button data-testid="team-save-btn" type="submit" disabled={saving} className="btn-blue flex items-center gap-2">
@@ -139,10 +141,17 @@ export const MiracurlTeamPanel = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <a href={`${API}/super/team/${m.id}/id-card.pdf`} target="_blank" rel="noreferrer" data-testid={`team-idcard-${m.id}`}
-                    className="text-xs py-1.5 px-3 rounded-md bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 inline-flex items-center gap-1" title="Download Miracurl company ID card">
-                    <FileDown className="w-3 h-3" /> ID Card
-                  </a>
+                  {m.photo_url ? (
+                    <a href={`${API}/super/team/${m.id}/id-card.pdf`} target="_blank" rel="noreferrer" data-testid={`team-idcard-${m.id}`}
+                      className="text-xs py-1.5 px-3 rounded-md bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 inline-flex items-center gap-1" title="Download Miracurl company ID card">
+                      <FileDown className="w-3 h-3" /> ID Card
+                    </a>
+                  ) : (
+                    <button data-testid={`team-idcard-${m.id}`} onClick={() => { startEdit(m); toast.info(`Add ${m.name.split(" ")[0]}'s photo to generate the ID card`); setTimeout(() => document.getElementById("team-photo-field")?.scrollIntoView({ behavior: "smooth", block: "center" }), 50); }}
+                      className="text-xs py-1.5 px-3 rounded-md bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 inline-flex items-center gap-1" title="Photo required for the ID card">
+                      <FileDown className="w-3 h-3" /> Add photo → ID Card
+                    </button>
+                  )}
                   <button data-testid={`team-edit-${m.id}`} onClick={() => startEdit(m)} className="p-1.5 text-slate-500 hover:text-sky-600" title="Edit"><Pencil className="w-3.5 h-3.5" /></button>
                   <button data-testid={`team-delete-${m.id}`} onClick={() => remove(m)} className="p-1.5 text-slate-400 hover:text-red-500" title="Remove"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>

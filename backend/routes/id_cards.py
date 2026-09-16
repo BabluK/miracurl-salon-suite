@@ -17,6 +17,7 @@ from routes.registry import _safe_fetch_image_bytes
 router = APIRouter()
 
 _MIRACURL_LOGO = os.path.join(os.path.dirname(__file__), "..", "assets", "miracurl-logo.png")
+_MS_EMBLEM = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public", "assets", "brand", "emblem-black-disc.png")
 
 
 def _site_host() -> str:
@@ -184,6 +185,8 @@ async def team_id_card(tid: str, admin=Depends(require_super_admin)):
     if not m:
         raise HTTPException(404, "Team member not found")
     photo = await _img_bytes(m.get("photo_url"))
+    if not photo:
+        raise HTTPException(400, f"Add a photo for {m['name']} first — Miracurl ID cards always carry the person's photo, never a monogram.")
     try:
         with open(_MIRACURL_LOGO, "rb") as f:
             logo = f.read()
@@ -201,5 +204,12 @@ async def team_id_card(tid: str, admin=Depends(require_super_admin)):
         "qr_url": base, "qr_label": "SCAN - MIRACURL",
         "accent": ROSE_GOLD,
     }
-    pdf_bytes = await asyncio.to_thread(_render_id_card_pdf, data)
+    data["qr_label"] = "SCAN • CONNECT"
+    try:
+        with open(_MS_EMBLEM, "rb") as f:
+            data["emblem_bytes"] = f.read()
+    except Exception:  # noqa: BLE001
+        data["emblem_bytes"] = None
+    from services.id_card_luxe import render_luxe_id_card
+    pdf_bytes = await asyncio.to_thread(render_luxe_id_card, data)
     return _card_response(pdf_bytes, m["name"])
