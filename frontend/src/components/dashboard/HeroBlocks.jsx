@@ -1,0 +1,173 @@
+import { Link } from "react-router-dom";
+import { Quote, Copy, ExternalLink, Bot, Sparkles, CalendarClock, UserPlus, Tag, MessageCircle, Calendar, Footprints, Users, Receipt, Crown, ArrowRight, AlertTriangle, Lightbulb, Play } from "lucide-react";
+
+const QUOTES = [
+  ["Beautiful salons create more than looks, they create confidence.", "Mira AI"],
+  ["Every guest who leaves smiling is tomorrow's best advertisement.", "Mira AI"],
+  ["Small daily follow-ups build the loyal client book you dream of.", "Mira AI"],
+  ["Great service is remembered long after the price is forgotten.", "Mira AI"],
+];
+
+const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good Morning" : h < 17 ? "Good Afternoon" : "Good Evening"; };
+
+export function DashboardHero({ user, tenant, data, bookingUrl, onCopy, inr }) {
+  const [q, by] = QUOTES[new Date().getDate() % QUOTES.length];
+  const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const n = data.today_bookings || 0;
+  return (
+    <section className="relative overflow-hidden rounded-3xl text-white min-h-[260px] shadow-[0_30px_60px_-30px_rgba(0,0,0,.6)]" data-testid="dashboard-hero">
+      <img src="/assets/dashboard/hero-salon.jpg" alt="" className="absolute inset-0 w-full h-full object-cover object-right" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#0b0a08]/95 via-[#0b0a08]/70 to-[#0b0a08]/25" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0b0a08]/70 via-transparent to-transparent" />
+      <div className="relative p-6 sm:p-8 grid lg:grid-cols-[1.4fr_.8fr] gap-6 items-end">
+        <div>
+          <div className="font-playfair text-2xl sm:text-3xl text-[#f3e5ab]/90">{greeting()},</div>
+          <h1 className="font-playfair text-4xl sm:text-5xl lg:text-6xl leading-[1.02] mt-1" data-testid="dashboard-welcome-heading">
+            {(user?.name || "Salon Admin").split(" ").slice(0, 2).join(" ")} <span className="text-[#e8c56a]">✦</span>
+          </h1>
+          <p className="text-white/80 mt-3 text-sm sm:text-base">{today}</p>
+          <p className="text-white/75 text-sm sm:text-base" data-testid="hero-today-collection">
+            ✦ {n} appointment{n === 1 ? "" : "s"} today · Collection {inr(data.today_revenue)} from {data.today_invoices} bill{data.today_invoices === 1 ? "" : "s"} — Here&apos;s your daily snapshot.
+          </p>
+          <div className="mt-5 max-w-xl rounded-2xl bg-white/[.06] backdrop-blur-md border border-[#e8c56a]/25 px-5 py-4 flex gap-4" data-testid="hero-quote">
+            <Quote className="w-6 h-6 text-[#e8c56a] shrink-0" />
+            <div>
+              <p className="text-sm sm:text-base text-white/90 italic leading-relaxed">“{q}”</p>
+              <p className="text-xs text-white/50 mt-1">— {by}</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-4">
+          <div className="hidden lg:block font-playfair italic text-4xl xl:text-5xl text-[#e8c56a] leading-[1.15] text-right drop-shadow-[0_6px_20px_rgba(232,197,106,.35)] select-none" style={{ fontStyle: "italic" }}>
+            Beauty<br />Grows<br />Confidence <span className="not-italic">♡</span>
+          </div>
+          <div className="w-full max-w-sm rounded-2xl bg-white/[.08] backdrop-blur-md border border-white/15 p-3" data-testid="booking-link-widget">
+            <div className="text-[10px] uppercase tracking-[.22em] text-[#e8c56a] font-semibold mb-1.5">Public booking link</div>
+            <div className="flex items-center gap-2">
+              <input id="booking-link-input" data-testid="booking-link-url" readOnly value={bookingUrl} onFocus={e => e.target.select()}
+                className="flex-1 min-w-0 bg-black/30 rounded-lg px-3 py-2 text-xs font-mono text-white/85 outline-none border border-white/10" />
+              <button data-testid="copy-booking-link-btn" onClick={onCopy} className="px-3 py-2 rounded-lg bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-xs font-bold inline-flex items-center gap-1 hover:brightness-110"><Copy className="w-3.5 h-3.5" /> Copy</button>
+              <a data-testid="open-booking-link-btn" href={bookingUrl} target="_blank" rel="noreferrer" className="px-3 py-2 rounded-lg bg-white/10 border border-white/15 text-white text-xs font-semibold inline-flex items-center gap-1 hover:bg-white/20"><ExternalLink className="w-3.5 h-3.5" /> Open</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const MIRA_ACTIONS = [
+  ["Send reminders", CalendarClock, "/appointments", "mira-act-reminders"],
+  ["Re-engage customers", UserPlus, "/customers", "mira-act-reengage"],
+  ["Suggest offers", Tag, "/offers-studio", "mira-act-offers"],
+  ["Answer queries 24/7", MessageCircle, "/assistant", "mira-act-assistant"],
+];
+
+export function MiraAssistantCard({ inactive }) {
+  return (
+    <section className="relative overflow-hidden rounded-3xl bg-[#0f0e0b] text-white p-6 sm:p-7 border border-[#e8c56a]/20 shadow-[0_30px_60px_-30px_rgba(0,0,0,.7)]" data-testid="mira-assistant-card">
+      <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-[#e8c56a]/15 blur-3xl pointer-events-none" />
+      <div className="relative grid md:grid-cols-[1fr_auto] gap-6">
+        <div>
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#f3e5ab] to-[#c99a2e] flex items-center justify-center shadow-[0_12px_30px_-10px_rgba(232,197,106,.8)]"><Bot className="w-9 h-9 text-[#1a1408]" /></div>
+            <div>
+              <h2 className="font-playfair text-2xl sm:text-3xl leading-tight">Mira AI Assistant</h2>
+              <p className="text-white/60 text-sm">Your salon&apos;s smart companion</p>
+            </div>
+          </div>
+          <div className="mt-5 rounded-2xl bg-white/[.06] border border-[#e8c56a]/20 p-5">
+            <p className="font-playfair text-lg sm:text-xl leading-snug text-white/95" data-testid="mira-suggestion-text">
+              {inactive > 0 ? <>Would you like me to send follow-ups to <span className="text-[#e8c56a]">{inactive} customers</span> who haven&apos;t visited in 30 days?</> : <>Would you like me to send follow-ups to customers who haven&apos;t visited in 30 days?</>}
+            </p>
+            <div className="mt-4 flex items-center gap-4 flex-wrap">
+              <Link to="/customers?filter=inactive" data-testid="mira-yes-btn" className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm font-bold inline-flex items-center gap-2 hover:brightness-110"><Sparkles className="w-4 h-4" /> Yes, Do It</Link>
+              <Link to="/assistant" className="text-sm text-white/60 underline underline-offset-4 hover:text-white" data-testid="mira-later-btn">Maybe later</Link>
+            </div>
+          </div>
+        </div>
+        <div className="grid gap-2.5 content-start md:w-60">
+          {MIRA_ACTIONS.map(([l, Icon, to, tid]) => (
+            <Link key={l} to={to} data-testid={tid} className="flex items-center gap-3 rounded-xl bg-white/[.06] border border-white/10 px-4 py-3 text-sm hover:bg-white/[.12] hover:border-[#e8c56a]/40 transition">
+              <Icon className="w-4 h-4 text-[#e8c56a]" /> {l}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function LowStockCard({ items = [], count = 0, sym = "₹" }) {
+  return (
+    <section className="rounded-3xl bg-gradient-to-br from-rose-50 to-white border border-rose-100 p-5 shadow-sm" data-testid="low-stock-card">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 font-playfair text-xl text-slate-900"><AlertTriangle className="w-5 h-5 text-rose-500" /> {count} Product{count === 1 ? "" : "s"} Running Low</div>
+          <p className="text-sm text-slate-500 mt-0.5">{count ? "Consider reordering to avoid stockouts." : "Stock levels look healthy."}</p>
+        </div>
+        <Link to="/inventory" className="text-sm font-semibold text-rose-600 inline-flex items-center gap-1 hover:underline shrink-0" data-testid="low-stock-view-btn">View Inventory <ArrowRight className="w-4 h-4" /></Link>
+      </div>
+      {items.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {items.slice(0, 3).map(p => (
+            <div key={p.id || p.name} className="flex items-center gap-3 rounded-xl bg-white border border-rose-100 px-3 py-2.5">
+              <div className="w-9 h-9 rounded-lg bg-rose-50 overflow-hidden flex items-center justify-center shrink-0">{p.image_url ? <img src={p.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-rose-400 text-xs font-bold">{(p.name || "?")[0]}</span>}</div>
+              <div className="flex-1 min-w-0 text-sm font-medium text-slate-800 truncate uppercase tracking-wide">{p.name}</div>
+              <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-xs font-bold">{p.stock ?? 0} left</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+export function MiraSuggestsCard() {
+  return (
+    <section className="rounded-3xl bg-gradient-to-r from-amber-50 to-white border border-amber-100 p-5 flex items-center gap-4 shadow-sm" data-testid="mira-suggests-card">
+      <div className="w-11 h-11 rounded-full bg-amber-100 text-[#b8893a] flex items-center justify-center shrink-0"><Lightbulb className="w-5 h-5" /></div>
+      <div className="flex-1 min-w-0">
+        <div className="font-playfair text-lg text-slate-900">Mira Suggests</div>
+        <div className="text-sm text-slate-500">Start the day with 30 minutes of soothing salon music.</div>
+      </div>
+      <Link to="/entertainment" data-testid="mira-suggests-play" className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm font-bold inline-flex items-center gap-2 hover:brightness-110"><Play className="w-4 h-4" /> Play Now</Link>
+    </section>
+  );
+}
+
+const QUICK = [
+  ["New Booking", Calendar, "/appointments", "bg-emerald-50 text-emerald-600", "qa-new-booking"],
+  ["Walk-in", Footprints, "/pos", "bg-violet-50 text-violet-600", "qa-walkin"],
+  ["Add Customer", Users, "/customers", "bg-sky-50 text-sky-600", "qa-add-customer"],
+  ["Create Bill", Receipt, "/pos", "bg-amber-50 text-[#b8893a]", "qa-create-bill"],
+];
+export function QuickActionsCard() {
+  return (
+    <section className="rounded-3xl bg-white border border-slate-200/80 p-5 shadow-sm" data-testid="quick-actions-card">
+      <div className="flex items-center gap-2 font-playfair text-xl text-slate-900"><span className="w-9 h-9 rounded-xl bg-amber-50 text-[#b8893a] flex items-center justify-center"><Sparkles className="w-4 h-4" /></span> Quick Actions</div>
+      <div className="grid grid-cols-2 gap-2.5 mt-4">
+        {QUICK.map(([l, Icon, to, tone, tid]) => (
+          <Link key={l} to={to} data-testid={tid} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3 text-sm font-medium text-slate-700 hover:border-[#b8893a]/50 hover:bg-amber-50/40 transition">
+            <span className={`w-9 h-9 rounded-lg flex items-center justify-center ${tone}`}><Icon className="w-4 h-4" /></span> {l}
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function MembershipPromoCard() {
+  return (
+    <section className="relative overflow-hidden rounded-3xl bg-[#0f0e0b] text-white p-6 border border-[#e8c56a]/25 shadow-[0_30px_60px_-30px_rgba(0,0,0,.7)]" data-testid="membership-promo-card">
+      <img src="/assets/salon/premium-membership.jpg" alt="" className="absolute inset-0 w-full h-full object-cover object-right opacity-60" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#0f0e0b] via-[#0f0e0b]/85 to-transparent" />
+      <div className="relative max-w-[62%]">
+        <div className="flex items-center gap-2 text-[#e8c56a]"><Crown className="w-5 h-5" /><span className="text-[10px] uppercase tracking-[.22em] font-semibold">Premium</span></div>
+        <h3 className="font-playfair text-2xl leading-tight mt-1">Grow Your Salon<br />with Memberships</h3>
+        <p className="text-sm text-white/70 mt-2">Turn first-time visitors into loyal customers.</p>
+        <Link to="/plans?tab=memberships" data-testid="membership-promo-btn" className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm font-bold hover:brightness-110">Create Membership Plan <ArrowRight className="w-4 h-4" /></Link>
+      </div>
+    </section>
+  );
+}

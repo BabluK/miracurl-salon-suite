@@ -1,0 +1,42 @@
+{
+  "summary": "Iter-159 (FRONTEND-only regression + visual sanity for editorial-gold UI redesign). Verified end-to-end against admin@miracurl.com on preview URL. Appointments: all view switches (list/upcoming/week/month) work, appt-date-filter changes day, appt-search filters live, appt-filters-btn reveals appt-status-filters & appt-status-completed, appt-staff-filter select renders, appt-export-btn downloads 'appointments-2026-09-16.csv', appt-select-all toggles 5 checkboxes, KPI tiles appt-kpi-total/new/walkins/revenue/avg/rating render numbers, appt-month-grid renders 30 appt-month-day-YYYY-MM-DD cells, clicking a bookings-day switches back to Day view for that date, empty state appt-empty on 2026-01-05 shows illustration + empty-new-booking-btn + see-upcoming-btn, copy-booking-link-btn works, add-appointment-btn opens NewAppointmentModal with appt-customer-select/appt-staff-select/appt-datetime-input/save-appt-btn and save-appt-btn validates (toast 'Select customer, staff and at least one service'). Confirm/complete-appt-<id> row-action buttons render (4 each on 2026-09-16). Staff (after admin-pin-input=4321 → admin-pin-unlock-btn): staff-search/staff-kpi-total/onduty/away/logins/add-staff-btn all present; search filters; add-staff-btn opens the add form. Inventory: inventory-search, inv-kpi tiles, inv-tab-retail/in_house tabs switch, add-product-btn opens; pager present. POS: header h1='POS / Billing', pos-search filters, pos-tab-products; clicking first catalog item adds to cart with visible grand total ₹2360. Cash Register: h1='Cash Register', cash-prev-day/next-day buttons and form render. Reviews & Services render, add-service-btn opens modal on /services. Phase 2/3 smoke: /attendance, /registry, /plans (tabs Packages/Memberships/Coupons found), /offers-studio, /messages (Direct Chats list renders), /gallery, /hire, /refer, /mira-studio, /assistant, /cctv, /entertainment, /staff-activities, /reports, /customers, /dashboard, /settings all load with h1 title in Playfair, no page-error / no blank pages, 0 uncaught pageerror events. Mobile 390x844: /appointments and /inventory have NO horizontal page overflow (scrollWidth==clientWidth==390), KPI tiles wrap to 2 columns, header actions wrap.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "verifications": {
+    "appointments_views": "list/upcoming/week/month switch OK",
+    "appointments_filters": "appt-search live, appt-filters-btn reveals appt-status-filters + appt-status-completed, appt-staff-filter select present",
+    "appointments_export": "appt-export-btn triggers download appointments-2026-09-16.csv",
+    "appointments_select_all": "appt-select-all toggled -> 5 checkboxes checked",
+    "appointments_kpis": "appt-kpi-total, appt-kpi-new, appt-kpi-walkins, appt-kpi-revenue, appt-kpi-avg, appt-kpi-rating all render values (Total 4, revenue ₹0, avg 146m today).",
+    "appointments_month": "appt-month-grid + 30 appt-month-day-YYYY-MM-DD cells; clicking 2026-09-16 switches back to Day view.",
+    "appointments_empty_state": "appt-date-filter=2026-01-05 shows appt-empty + empty-new-booking-btn + see-upcoming-btn + copy-booking-link-btn (illustration + Pro Tip visible).",
+    "appointments_new_modal": "add-appointment-btn opens NewAppointmentModal with appt-customer-select, appt-staff-select, appt-datetime-input, save-appt-btn. save validates missing service → toast 'Select customer, staff and at least one service'.",
+    "appointments_row_actions": "confirm-appt-<id> ×4 and complete-appt-<id> ×4 buttons present on Upcoming view (not clicked to avoid mutating seed data).",
+    "staff_page": "AdminLockScreen (admin-pin-input) with PIN 4321 unlocks; staff-search, staff-kpi-{total,onduty,away,logins}, add-staff-btn all present; add-staff-btn opens add-form.",
+    "inventory_page": "inventory-search, inv-tab-retail, inv-tab-in_house switching, add-product-btn, pager all present. KPI tiles Products=6, Low Stock=6, Out=5, Stock Value visible.",
+    "pos_page": "h1='POS / Billing', pos-search + pos-tab-products present; clicking first item added service to cart; grand total = ₹2360 rendered.",
+    "cash_page": "h1='Cash Register', cash-prev-day and cash-next-day buttons rendered; form renders.",
+    "reviews_services": "/reviews renders 9k+ chars of cards; /services renders 4.7k chars with add-service-btn opening modal.",
+    "phase23_smoke": "/attendance(2.8k, h1 'Attendance'), /registry(12.6k), /plans (tabs Packages/Memberships/Coupons found), /offers-studio(5.5k), /messages(5.2k, Direct Chats), /gallery, /hire, /refer, /mira-studio, /assistant, /cctv, /entertainment, /staff-activities(23.8k), /reports(4k), /customers(3.3k), /dashboard(9k), /settings(after admin-pin)=18.5k, h1 'Salon Settings'. 0 pageerror events across all pages.",
+    "mobile_390x844": "/appointments and /inventory: documentElement.scrollWidth == clientWidth == 390 (no overflow). KPI tiles wrap to 2 cols, header buttons stack — visually confirmed via screenshots."
+  },
+  "critical_code_review_comments": [
+    "Repeating hydration console error: 'In HTML, <span> cannot be a child of <option>' emitted from src/components/MiraDayOffer.jsx (~line 55). React 18/19 hydrates option elements without allowing children other than plain text; the current markup uses <span data-ve-dynamic> wrappers inside <option>. This is a pre-existing but noisy warning that fires on every page mount that includes the Dashboard MiraDayOffer widget. Should render option labels as raw strings.",
+    "AdminLockScreen (used for /staff and /settings when the ADMIN role visits them) shows a heading 'Sorry, you're not authorized' via ManagerLockScreen wording in some contexts and 'Staff is protected / Enter your Owner PIN' in others — copy is inconsistent between ManagerLockScreen.jsx and AdminLockScreen.jsx. Consider aligning the copy so owners don't see 'not authorized' when they simply need to enter the Owner PIN.",
+    "NewAppointmentModal service picker has no data-testid on the multi-select for services (only appt-customer-select, appt-staff-select, appt-datetime-input, save-appt-btn). Add a data-testid like 'appt-services-select' or per-service 'appt-service-<id>' to make E2E booking creation reliably scriptable.",
+    "The ADMIN_LOCKED gate stores the unlock in sessionStorage per (userId, path). Reloading a tab after admin-pin-unlock keeps the section unlocked, which is the intended shared-device UX; the visible copy however says 're-locks on refresh' in comments — align comment and behaviour.",
+    "Several pages still ship 404/403 background fetches on load (/refer, /staff-activities, /offers-studio, /inventory) — non-blocking but pollutes DevTools; consider gating those calls behind role/feature flags."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (tenant miracurl-marathahalli), Owner/Admin PIN 4321.",
+  "seed_data_creation": "NONE. No bookings, staff, products, or services were created or deleted. Attempted new-appointment save was blocked by expected validation (missing service).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "UI redesign to editorial-gold style is functionally intact across all Phase-1/2/3 pages. AdminLockScreen (data-testid=admin-pin-input / admin-pin-unlock-btn) — NOT ManagerLockScreen — is the gate for admin users on /staff and /settings; use PIN 4321. For NewAppointmentModal, service picker has no data-testid — a full end-to-end 'create booking' requires selecting from the multi-select via CSS/label selectors. Month grid cell testid pattern is appt-month-day-YYYY-MM-DD (zero-padded). Ignore the recurring 'span child of option' hydration console error from MiraDayOffer — pre-existing, non-blocking. Mobile responsiveness (390×844) confirmed clean for /appointments and /inventory."
+}

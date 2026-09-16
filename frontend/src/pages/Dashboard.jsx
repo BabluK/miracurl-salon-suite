@@ -28,6 +28,7 @@ import { SmsPointsWidget } from "@/components/dashboard/SmsPointsWidget";
 import { WaCreditsBanner } from "@/components/dashboard/WaCreditsBanner";
 import { WelcomeCongratsModal } from "@/components/WelcomeCongratsModal";
 import { TrialCountdownRing } from "@/components/dashboard/TrialCountdownRing";
+import { DashboardHero, MiraAssistantCard, LowStockCard, MiraSuggestsCard, QuickActionsCard, MembershipPromoCard } from "@/components/dashboard/HeroBlocks";
 
 // Stable module-level constants so Recharts doesn't get new object refs every render.
 const CHART_TOOLTIP_STYLE = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#0f172a' };
@@ -138,6 +139,38 @@ export default function Dashboard() {
   return (
     <div className="app-canvas relative isolate overflow-hidden -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="dashboard-page">
       <DashboardAurora />
+      <DashboardHero user={user} tenant={tenant} data={data} bookingUrl={bookingUrl} onCopy={copyLink} inr={inr} />
+
+      {/* KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Stat icon={IndianRupee} label="Today Revenue" value={inr(data.today_revenue)} hint={`${data.today_invoices} invoices`} testid="kpi-revenue-today" color="emerald" now={data.today_revenue} prev={data.compare?.yesterday_revenue} vs="vs yesterday" />
+        <Stat icon={Calendar} label="Today Bookings" value={data.today_bookings} hint="appointments scheduled" testid="kpi-bookings-today" color="sky" now={data.today_bookings} prev={data.compare?.yesterday_bookings} vs="vs yesterday" />
+        <Stat icon={TrendingUp} label="This Month" color="amber" testid="kpi-revenue-month" now={data.month_revenue_locked ? null : data.month_revenue} prev={data.month_revenue_locked ? null : data.compare?.last_month_revenue} vs="vs last month"
+          value={data.month_revenue_locked ? <span className="tracking-widest text-slate-400" data-testid="month-revenue-masked">••••••</span> : inr(data.month_revenue)}
+          hint={data.month_revenue_locked ? "Locked by owner" : (isAdmin && data.month_revenue_hidden_for_staff ? "hidden from staff · you see it as owner" : "month-to-date revenue")}
+          action={isAdmin && (
+            <button onClick={toggleRevenueLock} data-testid="month-revenue-lock-btn"
+              title={data.month_revenue_hidden_for_staff ? "Hidden from managers/staff — tap to show them (owner PIN)" : "Visible to managers/staff — tap to hide (owner PIN)"}
+              className={`inline-flex items-center justify-center w-6 h-6 rounded-full border transition ${data.month_revenue_hidden_for_staff ? "border-amber-300 bg-amber-50 text-amber-600" : "border-slate-200 text-slate-400 hover:text-slate-700"}`}>
+              {data.month_revenue_hidden_for_staff ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+            </button>
+          )} />
+        <Stat icon={Users} label="Total Customers" value={data.total_customers} hint={`${data.active_staff} active staff`} testid="kpi-customers" color="rose" now={data.total_customers} prev={data.compare?.customers_last_month} vs="vs last month" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1.35fr_1fr] gap-4" data-testid="dashboard-mira-row">
+        <MiraAssistantCard inactive={data.inactive_customers_30d} />
+        <div className="space-y-4">
+          <LowStockCard items={data.low_stock_items || []} count={data.low_stock_count || 0} />
+          <MiraSuggestsCard />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1.1fr] gap-4" data-testid="dashboard-actions-row">
+        <QuickActionsCard />
+        <MembershipPromoCard />
+        <div className="hidden xl:block" />
+      </div>
+
       {isOwner && <WelcomeCongratsModal />}
       <RenewalBanner sub={subStatus} />
       {isOwner && <TrialCountdownRing />}
@@ -159,66 +192,6 @@ export default function Dashboard() {
       {isOwner && <BranchSwitchApprovals />}
       <QuickMusicBar />
       {isOwner && <LogoStudio />}
-
-      {/* Hero strip with booking link */}
-      <div className="bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl p-6 text-white relative overflow-hidden">
-        <div className="absolute -right-20 -bottom-20 w-72 h-72 rounded-full bg-white/10 blur-3xl pointer-events-none" />
-        <div className="absolute -left-10 top-10 w-40 h-40 rounded-full bg-rose-400/30 blur-2xl pointer-events-none" />
-        <div className="relative flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
-          <div>
-            <div className="text-xs uppercase tracking-[0.25em] text-white/80 font-medium">Today&apos;s Snapshot</div>
-            <h1 className="text-3xl sm:text-4xl font-semibold mt-2 tracking-tight" data-testid="dashboard-welcome-heading">Welcome back to {tenant?.name || "your salon"} ✦</h1>
-            <div className="mt-3 inline-flex items-center gap-2 bg-white/15 backdrop-blur-md border border-white/30 rounded-full px-4 py-2" data-testid="hero-today-collection">
-              <IndianRupee className="w-4 h-4 text-emerald-200" />
-              <span className="text-sm font-semibold">Today&apos;s Collection: {inr(data.today_revenue)}</span>
-              <span className="text-xs text-white/80">· {data.today_invoices} bill{data.today_invoices === 1 ? "" : "s"}</span>
-            </div>
-            <p className="text-white/85 mt-3 max-w-lg text-sm">A polished glance at appointments, revenue and inventory — everything you need at a glance.</p>
-          </div>
-          <div className="bg-white/15 backdrop-blur-md border border-white/30 rounded-xl p-4 max-w-md w-full" data-testid="booking-link-widget">
-            <div className="flex items-center gap-2 mb-2">
-              <LinkIcon className="w-4 h-4" />
-              <span className="text-xs uppercase tracking-[0.2em] font-medium">Public Booking Link</span>
-            </div>
-            <p className="text-xs text-white/85 mb-3">Share on Instagram, WhatsApp & Google profile — customers can self-book 24/7.</p>
-            <div className="flex items-center gap-2 bg-white/95 rounded-lg px-3 py-2 mb-3">
-              <input
-                id="booking-link-input"
-                data-testid="booking-link-url"
-                readOnly
-                value={bookingUrl}
-                onFocus={(e) => e.target.select()}
-                className="text-xs text-slate-800 font-mono truncate flex-1 bg-transparent outline-none border-0 p-0"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <button data-testid="copy-booking-link-btn" onClick={copyLink} className="flex-1 px-3 py-1.5 rounded-md bg-white text-sky-700 text-xs font-semibold hover:bg-slate-100 transition flex items-center justify-center gap-1">
-                <Copy className="w-3 h-3" /> Copy Link
-              </button>
-              <a data-testid="open-booking-link-btn" href={bookingUrl} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-md bg-slate-900/30 hover:bg-slate-900/40 text-white text-xs font-semibold transition flex items-center justify-center gap-1">
-                <ExternalLink className="w-3 h-3" /> Open
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Stat icon={IndianRupee} label="Today Revenue" value={inr(data.today_revenue)} hint={`${data.today_invoices} invoices`} testid="kpi-revenue-today" color="emerald" now={data.today_revenue} prev={data.compare?.yesterday_revenue} vs="vs yesterday" />
-        <Stat icon={Calendar} label="Today Bookings" value={data.today_bookings} hint="appointments scheduled" testid="kpi-bookings-today" color="sky" now={data.today_bookings} prev={data.compare?.yesterday_bookings} vs="vs yesterday" />
-        <Stat icon={TrendingUp} label="This Month" color="amber" testid="kpi-revenue-month" now={data.month_revenue_locked ? null : data.month_revenue} prev={data.month_revenue_locked ? null : data.compare?.last_month_revenue} vs="vs last month"
-          value={data.month_revenue_locked ? <span className="tracking-widest text-slate-400" data-testid="month-revenue-masked">••••••</span> : inr(data.month_revenue)}
-          hint={data.month_revenue_locked ? "Locked by owner" : (isAdmin && data.month_revenue_hidden_for_staff ? "hidden from staff · you see it as owner" : "month-to-date revenue")}
-          action={isAdmin && (
-            <button onClick={toggleRevenueLock} data-testid="month-revenue-lock-btn"
-              title={data.month_revenue_hidden_for_staff ? "Hidden from managers/staff — tap to show them (owner PIN)" : "Visible to managers/staff — tap to hide (owner PIN)"}
-              className={`inline-flex items-center justify-center w-6 h-6 rounded-full border transition ${data.month_revenue_hidden_for_staff ? "border-amber-300 bg-amber-50 text-amber-600" : "border-slate-200 text-slate-400 hover:text-slate-700"}`}>
-              {data.month_revenue_hidden_for_staff ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
-            </button>
-          )} />
-        <Stat icon={Users} label="Total Customers" value={data.total_customers} hint={`${data.active_staff} active staff`} testid="kpi-customers" color="rose" now={data.total_customers} prev={data.compare?.customers_last_month} vs="vs last month" />
-      </div>
 
       {/* Rating + Pending review widgets */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
