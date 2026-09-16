@@ -27,7 +27,6 @@ async def set_onboarding(tenant_id: str, campaign_id: str, patch: dict) -> dict:
 
 async def backfill_onboarding() -> None:
     """One-time: salons that signed before the go-live gate existed stay live (no disruption)."""
-    await _raw_db.tenant_notices.delete_many({"kind": "color_pick"})
     async for a in _raw_db.rewards_agreements.find({}, {"_id": 0, "tenant_id": 1, "campaign_id": 1}):
         if not await _raw_db.rewards_onboarding.find_one({"tenant_id": a["tenant_id"], "campaign_id": a["campaign_id"]}, {"_id": 1}):
             await set_onboarding(a["tenant_id"], a["campaign_id"], {"status": "live", "live": True, "live_at": _now(), "live_by": "backfill"})

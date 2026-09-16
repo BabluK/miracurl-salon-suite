@@ -216,6 +216,12 @@ async def on_startup():
         await db.users.create_index("email", unique=True)
         await db.tenants.create_index("slug", unique=True)
         try:
+            purged = await _raw_db.tenant_notices.delete_many({"kind": "color_pick"})
+            if purged.deleted_count:
+                logging.info(f"purged {purged.deleted_count} retired color_pick notices")
+        except Exception as e:  # noqa: BLE001
+            logging.warning(f"color_pick purge: {e}")
+        try:
             from routes.rewards_campaign import ensure_rewards_indexes
             await ensure_rewards_indexes()
             from services.campaign_onboarding import backfill_onboarding

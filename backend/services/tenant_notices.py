@@ -25,7 +25,8 @@ async def notices_open(tenant_id: str, user_id: str, limit: int = 20) -> list[di
     """Last 7 days of notices this user hasn't dismissed (they stay in the bell across reloads until dismissed)."""
     from datetime import timedelta
     since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-    return await _raw_db.tenant_notices.find({"tenant_id": tenant_id, "created_at": {"$gt": since}, "dismissed_by": {"$ne": user_id}},
+    # color_pick notices were retired on 12 Sep; never surface leftovers even if the startup purge hasn't run yet
+    return await _raw_db.tenant_notices.find({"tenant_id": tenant_id, "created_at": {"$gt": since}, "dismissed_by": {"$ne": user_id}, "kind": {"$ne": "color_pick"}},
                                              {"_id": 0, "dedupe_key": 0, "dismissed_by": 0}).sort("created_at", -1).to_list(limit)
 
 
