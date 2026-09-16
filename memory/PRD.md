@@ -3286,3 +3286,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 5. Briefing `_staff_today_status` returns `checked_in_staff` [{id,name,photo_url}] (image_url/photo_url); MorningBriefing renders photos (fallback initials), testid briefing-checked-in-<id>.
 6. Mobile perf: index.css @media (max-width:768px) disables backdrop-filter, hides `.blur-3xl/.blur-2xl.pointer-events-none` blobs, stops gold-shine/mira/brand infinite animations.
 7. This-month tile: when tenant.hide_month_revenue is ON the owner is masked too (`monthMasked`), `month-revenue-reveal-btn` peeks 15s (auto re-hide), `month-revenue-hide-btn`. Staff remain locked with no reveal.
+
+## 2026-09-17 — PIN-to-peek for This Month revenue — build 2026-09-17.268 (self-tested curl + screenshot)
+- tenant.month_revenue_peek_pin; `PUT /settings/revenue-peek-pin` (admin + owner PIN); `GET /settings/revenue-peek` (admin + owner PIN) returns month_revenue. /reports/dashboard: locked = hide && (non-owner || peek_pin) → owner payload has month_revenue None when peek_pin on; adds month_revenue_peek_pin.
+- ownerPin.js exports getWithFreshPin(url) (always prompts, no cache). Dashboard peekMonth(): prompts PIN when peek_pin on, stores peekValue, 15s auto-hide. SecurityPinCard: toggle row revenue-peek-pin-row / revenue-peek-pin-toggle (shown once PIN is set).
+- Preview settings restored to hide=false, peek_pin=false after testing.

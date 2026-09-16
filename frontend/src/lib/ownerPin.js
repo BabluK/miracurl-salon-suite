@@ -85,6 +85,17 @@ async function withPin(method, url, data) {
   }
 }
 
+export async function getWithFreshPin(url) {
+  const pin = await askPinOnce();
+  if (!pin) return null;
+  try {
+    return await api.get(url, { headers: { "X-Owner-Pin": pin } });
+  } catch (e) {
+    if (e.response?.status === 403 && e.response?.data?.detail === "OWNER_PIN_REQUIRED") { toast.error("Incorrect PIN", { duration: 4000 }); return null; }
+    throw e;
+  }
+}
+
 const pinApi = {
   get: (url) => withPin("get", url),
   post: (url, data) => withPin("post", url, data),

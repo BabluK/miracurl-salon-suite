@@ -172,7 +172,9 @@ def _branch_query(branch, tenant=None):
 async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t=Depends(current_tenant)):
     branch = branch_lock(user, branch)
     # Owner can hide month-to-date revenue from managers/staff (PIN-guarded toggle below)
-    locked = bool(t.get("hide_month_revenue")) and user.get("role") not in ("admin", "super_admin")
+    hide, peek_pin = bool(t.get("hide_month_revenue")), bool(t.get("month_revenue_peek_pin"))
+    # Managers/staff: locked when hidden. Owner: also withheld when "PIN to peek" is on (fetched via /settings/revenue-peek)
+    locked = hide and (user.get("role") not in ("admin", "super_admin") or peek_pin)
     # Anchored to the business's OWN timezone (tenant.timezone, default India) —
     # UTC dates put early-morning bills on "yesterday" (user-reported wrong records)
     tz = _tenant_tz(t)
@@ -232,7 +234,8 @@ async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t
         "today_invoices": len(invoices_today),
         "month_revenue": (None if locked else round(sum(float(inv.get("total") or 0) for inv in invoices_month), 2)),
         "month_revenue_locked": locked,
-        "month_revenue_hidden_for_staff": bool(t.get("hide_month_revenue")),
+        "month_revenue_hidden_for_staff": hide,
+        "month_revenue_peek_pin": peek_pin,
         "total_customers": total_customers,
         "active_staff": active_staff,
         "low_stock_count": len(low_stock),
@@ -739,6 +742,31 @@ async def erase_billing_data(body: EraseBillingIn, user=Depends(require_tenant_a
 
 class RevenueLockIn(BaseModel):
     hide: bool
+
+
+class RevenuePeekPinIn(BaseModel):
+    require_pin: bool
+
+
+@router.put("/settings/revenue-peek-pin")
+async def set_revenue_peek_pin(body: RevenuePeekPinIn, user=Depends(require_admin), t=Depends(current_tenant),
+                               _pin=Depends(require_owner_pin)):
+    """Owner-only, PIN-guarded: when on, even the owner must enter the PIN to peek at month revenue."""
+    if user.get("role") not in ("admin", "super_admin"):
+        raise HTTPException(403, "Only the owner can change this")
+    await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"month_revenue_peek_pin": body.require_pin}})
+    return {"ok": True, "month_revenue_peek_pin": body.require_pin}
+
+
+@router.get("/settings/revenue-peek")
+async def revenue_peek(user=Depends(require_admin), t=Depends(current_tenant), _pin=Depends(require_owner_pin)):
+    """Owner-only, PIN-guarded: month-to-date revenue for the 15-second peek."""
+    if user.get("role") not in ("admin", "super_admin"):
+        raise HTTPException(403, "Only the owner can peek")
+    tz = _tenant_tz(t)
+    month_start = datetime.now(tz).replace(day=1, hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).isoformat()
+    rows = await db.invoices.find({"created_at": {"$gte": month_start}, "status": {"$nin": ["voided", "open"]}}, {"_id": 0, "total": 1}).to_list(50000)
+    return {"month_revenue": round(sum(float(r.get("total") or 0) for r in rows), 2)}
 
 
 @router.put("/settings/revenue-lock")

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import pinApi from "@/lib/ownerPin";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { KeyRound, Save, Info } from "lucide-react";
@@ -10,6 +11,16 @@ export function SecurityPinCard() {
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [saving, setSaving] = useState(false);
+  const [peekPin, setPeekPin] = useState(null);
+  useEffect(() => { api.get("/reports/dashboard").then(r => setPeekPin(!!r.data.month_revenue_peek_pin)).catch(() => setPeekPin(false)); }, []);
+  const togglePeekPin = async () => {
+    const next = !peekPin;
+    try {
+      await pinApi.put("/settings/revenue-peek-pin", { require_pin: next });
+      setPeekPin(next);
+      toast.success(next ? "Owner PIN is now required to peek at month revenue" : "Month revenue peeks no longer ask for the PIN");
+    } catch (e) { if (e?.response) toast.error(e.response?.data?.detail || "Couldn't update"); }
+  };
 
   useEffect(() => {
     api.get("/settings/security-pin").then(r => setIsSet(!!r.data.set)).catch(() => {});
@@ -66,6 +77,19 @@ export function SecurityPinCard() {
         <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
         <div>Keep this PIN private — don't share it with billing staff. If you forget it, contact HQ to reset.</div>
       </div>
+
+      {isSet && peekPin !== null && (
+        <div className="mt-5 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-3" data-testid="revenue-peek-pin-row">
+          <div>
+            <div className="text-sm font-semibold text-slate-800">Ask for PIN before peeking at This Month revenue</div>
+            <div className="text-xs text-slate-500">Fully locked mode — even you must enter the owner PIN each time you tap the 👁 on the dashboard.</div>
+          </div>
+          <button type="button" role="switch" aria-checked={peekPin} onClick={togglePeekPin} data-testid="revenue-peek-pin-toggle"
+            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${peekPin ? "bg-[#c99a2e]" : "bg-slate-300"}`}>
+            <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform mt-0.5 ml-0.5 ${peekPin ? "translate-x-5" : ""}`} />
+          </button>
+        </div>
+      )}
 
       <div className="flex justify-end mt-6">
         <button data-testid="pin-save-btn" onClick={save} disabled={saving}
