@@ -212,7 +212,7 @@ function describeBookingError(err) {
 
 export default function BookPublic() {
   const { slug: routeSlug } = useParams();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [pickedColor, setPickedColor] = useState(null); // from /color/{slug} try-on
   const slug = routeSlug || DEFAULT_SLUG;
   const PUBLIC = useMemo(() => axios.create({ baseURL: `${BACKEND_URL}/api/public` }), []);
@@ -931,7 +931,7 @@ export default function BookPublic() {
         )}
       </main>
 
-      <LocationsSection salon={salon} activeBranch={searchParams.get("branch") || ""} onBookHere={(id) => { const u = new URL(window.location.href); u.searchParams.set("branch", id); window.history.replaceState(null, "", u.toString()); goToServices(); }} />
+      <LocationsSection salon={salon} activeBranch={searchParams.get("branch") || ""} onBookHere={(id) => { const sp = new URLSearchParams(searchParams); sp.set("branch", id); setSearchParams(sp, { replace: true }); goToServices(); }} />
       {lp && step < 5 && <TransformCTA s={lp} onBook={goToServices} />}
 
       <footer className="border-t border-white/5 mt-10 py-8 text-center text-xs text-ink-muted">
