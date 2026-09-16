@@ -3311,3 +3311,10 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - `frontend/src/lib/noticeCountdown.js`: `noticeCountdown(last_working_day)` → {days, label ("X days left" / "Last day today" / "Notice period over"), urgent (≤7)}.
 - StaffCard.jsx notice badge now shows countdown (amber → rose when ≤7 days) with Hourglass icon; StaffPortal.jsx shows a `staff-notice-banner` at top (countdown + big days tile) when `profile.serving_notice`.
 - `DELETE /api/super-admin/email-log` (super_admin) wipes `email_log`; EmailLogCard "Clear log" button (`email-log-clear`, confirm dialog, disabled when empty). Verified via curl (65 rows → 0) + screenshots. BUILD 2026-09-18.272.
+
+## 2026-09-18 — Staff Dashboard redesign (mockup match)
+- `components/staff/PortalBits.jsx`: StaffHero (hero-salon.jpg bg, gold-ring avatar, script tagline), SalonKpiStrip (GET /staff/me/salon-today → whole-salon today vs yesterday: cash/upi/card/bookings/bills), BankDetailsCard (masked account + copy, View/Edit → /bank-details), NoticePeriodCard (own status + countdown, Start notice → /notice-period).
+- TargetNudge restyled as "Monthly Business Goal" (icon circle, month pill, still-to-go). Attendance card + Bank card two-column on xl. Top notice banner now only when ≤7 days (card covers the rest).
+- Backend: `staff_salon_today` + `_salon_day_snapshot` in staff_portal.py; BankDetailsIn.account_number (digits only, ≤24) + input on StaffBankDetails.jsx.
+- Tested: iteration_164.json (6/6 backend, all frontend flows incl. mobile 390px). BUILD 2026-09-18.273.
+- Security audit #4 (read-only): CONDITIONAL PASS — one MEDIUM: credentialed CORS allow_origin_regex trusts all *.emergent.host / *.emergentagent.com (server.py ~443). Not yet fixed (pending user decision). P3: BlogPost dangerouslySetInnerHTML, public_base_url host trust, signup without email verification.

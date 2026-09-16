@@ -1,0 +1,34 @@
+{
+  "summary": "Iter 164 — Staff Portal redesign (/staff-portal), whole-salon KPI strip, Monthly Business Goal, Attendance + Bank Details columns, Notice Period card, staff Bank Details account_number field, GET /api/staff/me/salon-today, and Super-Admin email delivery-log Clear button. Backend pytest 6/6 PASS in test_iter164_staff_portal_and_email_log.py: (a) GET /api/staff/me/salon-today (priya cookie) → 200 with today/yesterday buckets containing numeric date, cash, upi, card, total, bills, bookings; (b) same endpoint with admin@miracurl.com session → 403 (admin not linked to a staff record); (c) PUT /api/staff/me/bank-details with account_number='501001234567891234' → 200 {ok:true}, GET /api/staff/me/profile reflects the saved account_number + ifsc 'UTIB0001234'; (d) PUT bank-details with account_number='ABCDEF1234' → 422 (pattern `^[0-9]*$` in BankDetailsIn); (e) DELETE /api/super-admin/email-log with super cookie + X-CSRF-Token → 200 {ok:true, deleted:<int>}; (f) DELETE /api/super-admin/email-log with admin (tenant) cookie → 403. Frontend Playwright: after staff login priya.staff@miracurl.com/Staff@5678 lands directly on /staff-portal. All 19 required data-testids present: staff-hero, staff-portal-greeting ('Priya'), salon-kpi-strip, kpi-cash / kpi-upi / kpi-card / kpi-bookings / kpi-bills (values load — Total Cash ₹0, UPI ₹0, Card ₹0, Total Bookings 4, Total Bills 0 — NOT '—'), target-nudge (₹1,050 of ₹50,000, 15 days left · need ₹3,263/day, still to go ₹48,950), attendance-card with today-checkin-time / today-checkout-time / check-in-btn / check-out-btn, bank-details-card with bank-row-account-number = 'XXXX XXXX 1234' + IFSC UTIB0001234 visible + bank-view-edit link → /bank-details, notice-period-card + notice-period-countdown showing '12 days left' (last working day 28 Sept 2026), staff-notice-banner is CORRECTLY hidden (>7 days). Regression: Salary/Deductions/Scan/QR text present on portal (Attendance history nav lives elsewhere). Mobile 390px: KPI strip is 2 columns (grid-template-columns '173px 173px'), no horizontal overflow (scrollWidth=clientWidth=390). Bank details page (/bank-details): bank-account-input strips non-digits — typing 'abc123def456' shows '123456' in the input, 18-digit save persists and is reflected as 'XXXX XXXX 1234' masked on portal. Super Admin /super-admin → Billing & Subscriptions tab: email-log-card present, email-log-clear button present and DISABLED (log already empty per context) — DELETE endpoint itself verified via pytest. Admin (admin@miracurl.com, PIN 4321) → /staff: Priya's card shows notice-badge-3cdf66d1-ea58-4605-a4d7-333330a96e8a with text 'Serving notice · 12 days left (2026-09-28)' ✓.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard / SuperAdmin / Staff (multiple pages)", "issues": ["React hydration warning in console: <span> cannot be a child of <option> — emitted by MiraDayOffer.jsx line ~55, MessageCreditsCard.jsx line ~82, ManagersSection.jsx line ~125. Pre-existing (also flagged in iter 160-163) — cosmetic only, no functional impact. Root cause is Emergent Studio's runtime injector wrapping dynamic <option> text in a <span data-ve-dynamic>, which is illegal HTML."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter164_staff_portal_and_email_log.py",
+    "/app/test_reports/pytest/iter164.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "staff_portal.py:_salon_day_snapshot uses `db.appointments.count_documents({scheduled_at: {$regex: '^<day>'}, status:{$ne:'cancelled'}})` — regex on a non-indexed string field will do a collection scan on busy tenants. Consider storing scheduled_at as ISO date + a scheduled_local_day derived field and indexing it, or using $gte/$lt against parsed datetime.",
+    "staff_portal.py:_salon_day_snapshot invoice query filters `status: {$nin:['voided','open']}` — 'open' here likely means 'draft/unpaid'. If a tenant marks paid invoices with a status other than 'paid' (e.g. 'partial'), they will still be included in today's cash/UPI/card totals. Consider explicit whitelist status ∈ ['paid','settled'] instead of blacklist.",
+    "BankDetailsIn.account_number uses regex `^[0-9]*$` — accepts empty string. If empty account is set intentionally, that's fine; otherwise consider min_length=1 or require non-empty when bank_name/ifsc are provided.",
+    "hq_clear_email_log wipes the entire email_log with `delete_many({})` and no confirmation grace period. Consider a soft-delete flag or a 'clear older than X days' variant so an accidental Clear from Super-Admin UI cannot destroy diagnostic data during an active incident.",
+    "PortalBits.jsx SalonKpiStrip masks account is derived client-side from full account_number in bank_details response — the backend GET /api/staff/me/profile returns the full account_number in plaintext. Fine for the staff viewing their own record, but if this endpoint is ever exposed to a peer or manager scope, consider masking server-side.",
+    "notice-period-card countdown is computed from last_working_day - today in the client; if a tenant's browser TZ differs materially from the salon TZ around midnight the number can flicker ±1 day. Consider computing days_left server-side using tenant TZ."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter164_staff_portal_and_email_log.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "priya.staff@miracurl.com / Staff@5678 (tenant miracurl-marathahalli), admin@miracurl.com / q6QY@tn3p#9DtL PIN 4321, super@miracurl.com / og9T@41Es#OQb6",
+  "seed_data_creation": "Re-saved Priya's bank details (Axis Bank / UTIB0001234 / 501001234567891234 / Priya Sharma) via UI — matches the seeded state described in the review request. Email log was fully cleared by the pytest DELETE call — Clear button will now stay disabled until new emails are logged (expected per context).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All acceptance criteria for iter 164 pass end-to-end: staff hero + KPI strip + target nudge + attendance + bank card + notice card render with the correct data-testids and values, whole-salon KPI endpoint works and is scoped to staff (admin gets 403), bank account_number field is digit-only client-side and pattern-validated 422 server-side, super-admin clear-email-log endpoint returns {ok:true,deleted:N} and is 403 for tenant admins, admin Staff page shows the 'Serving notice · 12 days left' badge. Pre-existing hydration warning (<span> inside <option>) still noisy in console on Dashboard / SuperAdmin / Staff pages — has been called out since iter 160+; NOT blocking. Public URL used: https://hair-hub-system.preview.emergentagent.com.",
+  "rca of the issue": "N/A — no bugs found in this iteration."
+}
