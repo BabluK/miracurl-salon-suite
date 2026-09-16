@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-16.263"
-BUILD_TIME = "16 Sep 2026, 06:30 PM IST"
+BUILD = "2026-09-16.264"
+BUILD_TIME = "16 Sep 2026, 08:10 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-16.264", "note": "Group Dashboard re-polished (gold editorial): Yesterday / Last 4 / Last 7 days chips + custom From→To date range; per-branch Total Cash, UPI·Card, Total Bookings, Total Bills, Top Stylist; group KPI strip + Leading-branch ribbon. Circular import campaign_agreement↔tenant_features resolved via services/campaign_onboarding.py"},
     {"build": "2026-09-16.263", "note": "Rose/gold editorial redesign of every tenant tab (Dashboard hero, Appointments Day/Week/Month, POS, Inventory, Staff, Reports, CRM, Settings, public salon landing) + numbered 20/page pagination; Mira auto-replies on WhatsApp (1 credit/reply, refund on failure, low-credit banner + owner toggle); one-tap 30-day win-back blast; Pending approvals tile; HQ per-tenant SMS/WhatsApp/Campaign switches; campaign consent flow + go-live checklist + branded HQ emails; owner fix-request tickets with HQ 'Open workspace'; support-access switch + hq_edit audit; luxe double-sided HQ ID card; security audit fixes (CSV injection, phone oracle, webhook fail-closed)"},
     {"build": "2026-09-12.262", "note": "Branch switch is now an instant in-app swap (no reload) with sidebar re-brand; booking page uses category banners only (no per-service thumbnails, EXIF-rotation fix on uploads); colour picks land in CRM; manager access to colour tools; colour-price morning reminder; booked_via trace; OT approval owner-PIN gated; per-salon pick cap; CORS accepts *.emergent.host; security audit #3 PASS; regression iter152 25/25"},
     {"build": "2026-09-12.260", "note": "Colour Studio: men's catalogue (16) + 40 women's shades with photos, gender confirm step, beard-safe try-on, split front/back preview (~8s), upload-a-selfie, full-screen preview; Pro formula guide (Igora/Majirel/Koleston/SoColor, vol, ratio); shade tiers + auto colour services + per-shade quotes; colour-only booking → stylist step; staff price on colour card. Payroll: 15h auto-checkout, per-minute OT with owner approval queue, target-gated commission, ₹-to-target nudge. Security audit #2 PASS"},
@@ -68,6 +69,7 @@ RELEASES = [
     {
         "date": "2026-09-16 (Editorial redesign, Mira on WhatsApp & HQ support 💬)",
         "changes": [
+            "🏬 Group Dashboard (multi-salon owners): pick Yesterday, Last 4 / 7 days or any From → To date range (e.g. 1–5 Sep) and see, per branch, Total Cash, UPI · Card, Total Bookings, Total Bills and the Top Stylist — plus group totals and a Leading-branch ribbon",
             "✨ A brand-new rose & gold look across your whole workspace — Dashboard hero with your salon photo and daily quote, Appointments (Day / Upcoming / Week / Month views with search, filters, sort, checkbox select & CSV export), POS, Inventory, Staff, Reports, CRM, Settings and your public salon landing page",
             "🔢 Numbered pagination everywhere — 20 rows per page (choose 10/20/50/100) on customers, invoices, inventory, appointments and reports, with first/prev/next/last",
             "📊 Reports reimagined: KPIs with 'vs last period' deltas, bill lookup with Today / Yesterday / This Week / This Month chips, tips chart, loyalty gifts, payment-mix, premium membership tiles",
