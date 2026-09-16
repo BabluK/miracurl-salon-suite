@@ -63,7 +63,8 @@ async def whatsapp_receive(request: Request, background: BackgroundTasks):
             log.warning("whatsapp webhook: invalid X-Hub-Signature-256")
             return JSONResponse({"detail": "Invalid signature"}, status_code=401)
     else:
-        log.warning("whatsapp webhook: META_APP_SECRET not set — signature NOT verified")
+        log.error("whatsapp webhook: META_APP_SECRET not set — rejecting inbound (fail-closed)")
+        return JSONResponse({"detail": "Webhook not configured"}, status_code=503)
     try:
         payload = WhatsAppWebhookPayload.model_validate(json.loads(raw or b"{}"))
     except Exception as e:  # noqa: BLE001 — malformed body: acknowledge so Meta doesn't retry forever

@@ -223,40 +223,37 @@ async def _instant_faq_reply(t, message: str) -> Optional[str]:
     return None
 
 
-async def _returning_guest_block(message: str, hist: list) -> str:
-    """If the guest shared a phone number we recognise, hand Mira their visit history for a personal welcome-back."""
-    texts = [message] + [h.get("content") or "" for h in reversed(hist) if h.get("role") == "user"]
-    for txt in texts[:12]:
-        for m in _PHONE_IN_TEXT_RE.findall(txt):
-            digits = re.sub(r"\D", "", m)
-            if len(digits) < 7:
-                continue
-            cust = await db.customers.find_one(
-                {"phone": {"$regex": f"{re.escape(digits[-10:])}$"}},
-                {"_id": 0, "id": 1, "name": 1, "visits": 1})
-            if not cust or not cust.get("name"):
-                continue
-            last = await db.appointments.find_one(
-                {"customer_id": cust["id"], "status": {"$ne": "cancelled"}},
-                {"_id": 0, "service_names": 1, "scheduled_at": 1},
-                sort=[("scheduled_at", -1)])
-            when, svcs = "", ""
-            if last:
-                try:
-                    when = datetime.fromisoformat(str(last["scheduled_at"]).replace("Z", "+00:00")).strftime("%d %B %Y")
-                except ValueError:
-                    when = str(last.get("scheduled_at") or "")[:10]
-                svcs = ", ".join(last.get("service_names") or [])
-            first = cust["name"].split()[0]
-            return (
-                f"\n\nRETURNING GUEST DETECTED (matched by their phone number): name={cust['name']}"
-                + (f", last visit={when} for {svcs}" if last else f", visits so far={cust.get('visits') or 'a few'}")
-                + ". Your VERY NEXT reply must open with a warm personalised welcome-back IN THE GUEST'S LANGUAGE, like: "
-                f"'Hey {first}! So happy to see you back 💛"
-                + (f" Last time you visited us for {svcs} — how was your service?" if svcs else "")
-                + " What would you like me to book today? Thank you for choosing us again!' "
-                "Give this welcome-back ONCE only, never re-ask their name, and use their first name naturally afterwards."
-            )
+async def _returning_guest_block(verified_phone: str) -> str:
+    """Personal welcome-back ONLY for a channel-verified number (WhatsApp sender id) — never for a phone typed into
+    the public web chat, which would let anyone look up a guest's name/visit by phone (SEC-002)."""
+    digits = re.sub(r"\D", "", verified_phone or "")
+    if len(digits) >= 7:
+        cust = await db.customers.find_one(
+            {"phone": {"$regex": f"{re.escape(digits[-10:])}$"}},
+            {"_id": 0, "id": 1, "name": 1, "visits": 1})
+        if not cust or not cust.get("name"):
+            return ""
+        last = await db.appointments.find_one(
+            {"customer_id": cust["id"], "status": {"$ne": "cancelled"}},
+            {"_id": 0, "service_names": 1, "scheduled_at": 1},
+            sort=[("scheduled_at", -1)])
+        when, svcs = "", ""
+        if last:
+            try:
+                when = datetime.fromisoformat(str(last["scheduled_at"]).replace("Z", "+00:00")).strftime("%d %B %Y")
+            except ValueError:
+                when = str(last.get("scheduled_at") or "")[:10]
+            svcs = ", ".join(last.get("service_names") or [])
+        first = cust["name"].split()[0]
+        return (
+            f"\n\nRETURNING GUEST DETECTED (matched by their phone number): name={cust['name']}"
+            + (f", last visit={when} for {svcs}" if last else f", visits so far={cust.get('visits') or 'a few'}")
+            + ". Your VERY NEXT reply must open with a warm personalised welcome-back IN THE GUEST'S LANGUAGE, like: "
+            f"'Hey {first}! So happy to see you back 💛"
+            + (f" Last time you visited us for {svcs} — how was your service?" if svcs else "")
+            + " What would you like me to book today? Thank you for choosing us again!' "
+            "Give this welcome-back ONCE only, never re-ask their name, and use their first name naturally afterwards."
+        )
     return ""
 
 
@@ -420,7 +417,8 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
     sid = f"pub-{t['id']}-{session_id}"
     hist = await _raw_db.public_ai_messages.find({"sid": sid}, {"_id": 0}).sort("created_at", 1).to_list(40)
     catalog = await _booking_catalog(t)
-    catalog += await _returning_guest_block(message, hist)
+    wa_match = re.fullmatch(r"wa-(\d{7,15})", session_id or "")
+    catalog += await _returning_guest_block(wa_match.group(1) if wa_match else "")
     is_open, local_now = _salon_open_now(t)
     resto_system = (
         f"You are Mira, the dedicated AI dining concierge of '{t.get('name', 'the restaurant')}' — you serve THIS restaurant only. "

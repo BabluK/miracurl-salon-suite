@@ -34,7 +34,7 @@ export function filterInvoices(rows, { q, range, from, to }) {
 }
 
 export function downloadCsv(rows, name) {
-  const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const esc = (v) => { const t = String(v ?? ""); return `"${(/^[=+\-@\t\r]/.test(t) ? "'" + t : t).replace(/"/g, '""')}"`; };
   const head = ["Booking ID", "Customer", "Phone", "Date", "Mode", "Status", "Subtotal", "Discount", "GST", "Total"];
   const lines = rows.map(i => [i.invoice_no || i.id, i.customer_name || "Walk-in", i.customer_phone || "",
     new Date(i.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }), MODE_LABEL[modeKey(i)],
