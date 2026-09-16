@@ -1495,6 +1495,31 @@ class BankDetailsIn(BaseModel):
     bank_name: str = Field("", max_length=100)
     ifsc: str = Field("", max_length=20)
     account_holder: str = Field("", max_length=100)
+    account_number: str = Field("", max_length=24, pattern=r"^[0-9]*$")
+
+
+async def _salon_day_snapshot(t: dict, date_str: str) -> dict:
+    from routes.reports import _local_day_window, _payment_mode_buckets, _tenant_tz
+    day, utc_start, utc_end = _local_day_window(_tenant_tz(t), date_str)
+    invs = await db.invoices.find(
+        {"created_at": {"$gte": utc_start, "$lte": utc_end}, "status": {"$nin": ["voided", "open"]}},
+        {"_id": 0, "total": 1, "payment_mode": 1}).to_list(3000)
+    buckets, total = _payment_mode_buckets(invs)
+    bookings = await db.appointments.count_documents(
+        {"scheduled_at": {"$regex": f"^{day}"}, "status": {"$ne": "cancelled"}})
+    return {"date": day, "cash": round(buckets["cash"], 2), "upi": round(buckets["upi"], 2),
+            "card": round(buckets["card"], 2), "total": round(total, 2), "bills": len(invs), "bookings": bookings}
+
+
+@router.get("/staff/me/salon-today")
+async def staff_salon_today(s=Depends(_current_staff), t=Depends(current_tenant)):
+    """Whole-salon totals for today vs yesterday (staff dashboard KPI strip)."""
+    from routes.reports import _tenant_tz
+    now_local = datetime.now(_tenant_tz(t))
+    today = now_local.date().isoformat()
+    yesterday = (now_local - timedelta(days=1)).date().isoformat()
+    cur, prev = await asyncio.gather(_salon_day_snapshot(t, today), _salon_day_snapshot(t, yesterday))
+    return {"today": cur, "yesterday": prev}
 
 
 @router.put("/staff/me/bank-details")

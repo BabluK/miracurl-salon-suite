@@ -7,14 +7,14 @@ const inputCls = "w-full bg-black/40 border border-white/10 rounded-md px-3 py-2
 const labelCls = "block text-[10px] uppercase tracking-[0.2em] text-white/40 mb-1";
 
 export default function StaffBankDetails() {
-  const [form, setForm] = useState({ bank_name: "", ifsc: "", account_holder: "" });
+  const [form, setForm] = useState({ bank_name: "", ifsc: "", account_holder: "", account_number: "" });
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     api.get("/staff/me/profile").then(r => {
       const b = r.data.bank_details || {};
-      setForm({ bank_name: b.bank_name || "", ifsc: b.ifsc || "", account_holder: b.account_holder || "" });
+      setForm({ bank_name: b.bank_name || "", ifsc: b.ifsc || "", account_holder: b.account_holder || "", account_number: b.account_number || "" });
       setLoaded(true);
     }).catch(() => setLoaded(true));
   }, []);
@@ -48,6 +48,11 @@ export default function StaffBankDetails() {
               <label className={labelCls}>Bank name</label>
               <input data-testid="bank-name-input" required className={inputCls} value={form.bank_name}
                 onChange={e => setForm({ ...form, bank_name: e.target.value })} placeholder="e.g. HDFC Bank" maxLength={100} />
+            </div>
+            <div>
+              <label className={labelCls}>Account number</label>
+              <input data-testid="bank-account-input" className={`${inputCls} tracking-wider`} value={form.account_number} inputMode="numeric"
+                onChange={e => setForm({ ...form, account_number: e.target.value.replace(/\D/g, "").slice(0, 24) })} placeholder="e.g. 50100123456789" maxLength={24} />
             </div>
             <div>
               <label className={labelCls}>IFSC code</label>

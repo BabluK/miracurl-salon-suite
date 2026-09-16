@@ -4,13 +4,14 @@ import { Link } from "react-router-dom";
 import { AttendanceHistory } from "@/components/staff/AttendanceHistory";
 import { toast } from "sonner";
 import {
-  Clock, LogIn, LogOut, IndianRupee, Download, User as UserIcon,
-  Calendar, Sparkles, CheckCircle2, TrendingUp, FileText, Camera, QrCode, MapPin,
+  Clock, LogIn, LogOut, IndianRupee, Download,
+  Calendar, Sparkles, CheckCircle2, TrendingUp, QrCode, MapPin,
 } from "lucide-react";
 import { TargetNudge } from "@/components/staff/TargetNudge";
 import { QrScanCheckIn } from "@/components/QrScanCheckIn";
 import { playCheckinGreeting, playCheckoutGreeting } from "@/lib/checkinSound";
 import { noticeCountdown } from "@/lib/noticeCountdown";
+import { StaffHero, SalonKpiStrip, BankDetailsCard, NoticePeriodCard } from "@/components/staff/PortalBits";
 
 
 function monthOptions(count = 6) {
@@ -216,6 +217,7 @@ export default function StaffPortal() {
       {profile.serving_notice && (() => {
         const cd = noticeCountdown(profile.last_working_day);
         const red = cd?.urgent;
+        if (!red) return null;
         return (
           <div className={`rounded-2xl border px-4 py-3 flex items-center gap-3 ${red ? "bg-rose-500/15 border-rose-400/40" : "bg-amber-500/10 border-amber-400/30"}`} data-testid="staff-notice-banner">
             <span className="text-xl">⏳</span>
@@ -254,57 +256,36 @@ export default function StaffPortal() {
           </div>
         </div>
       )}
-      {/* Hero */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gold/20 via-blush/10 to-transparent border border-gold/30 p-5 sm:p-8">
-        <div className="absolute -top-8 -right-8 w-40 h-40 bg-gold/20 rounded-full blur-3xl" />
-        <div className="relative flex items-center gap-4">
-          <div className="relative shrink-0">
-            <img
-              src={profile.image_url || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300"}
-              alt={profile.name}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-gold/50"
-            />
-            <label
-              data-testid="staff-photo-upload-label"
-              title="Change photo — shows on the booking page & admin portal"
-              className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-gold text-bg-base flex items-center justify-center cursor-pointer hover:opacity-90 border-2 border-bg-base"
-            >
-              <Camera className="w-3.5 h-3.5" />
-              <input data-testid="staff-photo-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={uploadPhoto} />
-            </label>
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10px] uppercase tracking-[0.25em] text-white/50">
-              {(() => { const h = new Date().getHours(); return h < 12 ? "☀️ Good morning" : h < 17 ? "🌤 Good afternoon" : "🌙 Good evening"; })()}
-            </div>
-            <div className="font-playfair text-2xl sm:text-3xl truncate" data-testid="staff-portal-greeting">
-              {profile.name?.split(" ")[0]} — have a wonderful day!
-            </div>
-            <div className="text-white/60 text-sm mt-1">{profile.role}</div>
-            <div className="text-gold/80 text-xs sm:text-sm mt-2 italic" data-testid="staff-motivation-line">
-              “{MOTIVATION[new Date().getDate() % MOTIVATION.length]}”
-            </div>
-          </div>
-        </div>
-      </div>
+      <StaffHero profile={profile} quote={MOTIVATION[new Date().getDate() % MOTIVATION.length]} onUploadPhoto={uploadPhoto} />
+      <SalonKpiStrip refreshKey={today?.check_out_at || today?.check_in_at} />
 
       {/* Check In/Out */}
       <TargetNudge refreshKey={today?.check_out_at || today?.check_in_at} />
-      <div className="rounded-2xl bg-[#0F0F0F] border border-white/5 p-5 sm:p-6" data-testid="attendance-card">
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_0.9fr] gap-4">
+      <div className="rounded-2xl bg-[#0F0F0F] border border-white/10 p-5" data-testid="attendance-card">
         <div className="flex items-center justify-between mb-4">
-          <div className="font-playfair text-lg flex items-center gap-2"><Clock className="w-4 h-4 text-gold" /> Today</div>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${checkedIn ? "bg-emerald-500/20 text-emerald-300" : "bg-gold/15 text-gold"}`}>{checkedIn ? <CheckCircle2 className="w-5 h-5" /> : <Clock className="w-5 h-5" />}</div>
+            <div className="font-playfair text-lg text-white">Today's Attendance</div>
+          </div>
           <div className="text-xs text-white/40">{new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" })}</div>
         </div>
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="rounded-lg bg-white/5 border border-white/10 p-3">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-white/40 mb-1">Check-in</div>
-            <div className="text-lg font-medium" data-testid="today-checkin-time">{fmtTime(today?.check_in_at)}</div>
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="rounded-xl bg-white/5 border border-white/10 p-3 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-white/10 text-white/70 flex items-center justify-center shrink-0"><LogIn className="w-4 h-4" /></div>
+            <div><div className="text-[11px] text-white/50">Check-In</div><div className="text-xl font-semibold text-white" data-testid="today-checkin-time">{fmtTime(today?.check_in_at)}</div></div>
           </div>
-          <div className="rounded-lg bg-white/5 border border-white/10 p-3">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-white/40 mb-1">Check-out</div>
-            <div className="text-lg font-medium" data-testid="today-checkout-time">{fmtTime(today?.check_out_at)}</div>
+          <div className="rounded-xl bg-white/5 border border-white/10 p-3 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-white/10 text-white/70 flex items-center justify-center shrink-0"><LogOut className="w-4 h-4" /></div>
+            <div><div className="text-[11px] text-white/50">Check-Out</div><div className="text-xl font-semibold text-white" data-testid="today-checkout-time">{fmtTime(today?.check_out_at)}</div></div>
           </div>
         </div>
+        {checkedIn && (
+          <div className={`rounded-xl border px-3 py-2 mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs ${checkedOut ? "bg-white/5 border-white/10 text-white/60" : "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"}`} data-testid="today-status-row">
+            <span className="inline-flex items-center gap-1.5 font-semibold"><CheckCircle2 className="w-4 h-4" /> {checkedOut ? "Day closed" : "Checked in"}</span>
+            {fence?.fenced && <span className="inline-flex items-center gap-1 text-white/50"><MapPin className="w-3.5 h-3.5 text-gold" /> Check-in location: <b className="text-white/80">{fence.label}</b> · within {fence.fence_m}m</span>}
+          </div>
+        )}
         {(today?.late_penalty > 0 || today?.overtime_pay > 0 || today?.auto_checked_out) && (
           <div className="flex flex-wrap gap-2 mb-4" data-testid="today-flags">
             {today?.late_penalty > 0 && (
@@ -371,7 +352,7 @@ export default function StaffPortal() {
             </div>
           </div>
         )}
-        {fence && (fence.fenced ? (
+        {fence && (fence.fenced && !checkedIn ? (
           <div className="mt-3 flex items-center gap-1.5 text-xs text-white/50" data-testid="fence-info">
             <MapPin className="w-3.5 h-3.5 text-gold shrink-0" />
             Check-in location: <span className="text-white/80">{fence.label}</span> · within {fence.fence_m}m
@@ -398,6 +379,10 @@ export default function StaffPortal() {
           />
         )}
       </div>
+      <BankDetailsCard bank={profile.bank_details} />
+      </div>
+
+      <NoticePeriodCard profile={profile} />
 
       {/* Month summary */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -493,7 +478,7 @@ export default function StaffPortal() {
         <span className="font-playfair text-base text-white">More</span>
         <Link to="/my-profile" data-testid="staff-link-profile" className="px-3 py-1.5 rounded-full border border-gold/30 text-gold hover:bg-gold/10">Profile settings</Link>
         <Link to="/notice-period" data-testid="staff-link-notice" className="px-3 py-1.5 rounded-full border border-gold/30 text-gold hover:bg-gold/10">Leave & notice period</Link>
-        <Link to="/bank-details" className="px-3 py-1.5 rounded-full border border-white/10 hover:border-gold/40">Bank details</Link>
+        <Link to="/build-resume" data-testid="staff-link-resume" className="px-3 py-1.5 rounded-full border border-white/10 hover:border-gold/40">Build your resume</Link>
       </div>
     </div>
   );
