@@ -14,4 +14,4 @@ tenant dashboards via the "What's New ✨" popup. This popup shows once per BUIL
 - The popup appears once per BUILD on all tenant dashboards ("deployment tag + changes popup").
 - Also lets the user verify on production that the deploy actually landed (build banner shows the tag).
 
-Last bump: 2026-08-27.120 (festival Mira, festival posters, dual-PWA, booking page images)
+Last bump: 2026-09-16.263 (editorial redesign, Mira on WhatsApp, HQ support tickets/features, ID card, security fixes) — tag MIRA-DEPLOYED-2026-09-16

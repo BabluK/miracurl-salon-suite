@@ -3247,3 +3247,10 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - SEC-001 CSV formula injection: `downloadCsv` (reports/invoiceUtils.js, shell/PageShell.jsx) prefixes cells starting with = + - @ \t \r with `'`.
 - SEC-002 public chat phone→identity oracle: `_returning_guest_block(verified_phone)` now personalises ONLY for WhatsApp sessions (`wa-<digits>` = channel-verified sender); web chat never looks up guests by typed phone.
 - Hardening: WhatsApp webhook fails closed (503) when META_APP_SECRET unset. HQ impersonation guard, SSRF fetch, credit spending, secrets: verified sound by audit.
+
+## 2026-09-16 — Deployment tag + What's New popup for the whole Sept 15–16 session — VERIFIED (curl)
+- User caught that release_notes.py was still at BUILD 2026-09-12.262 (nothing from the redesign / WhatsApp / HQ work had been announced).
+- BUILD → 2026-09-16.263 (BUILD_TIME 16 Sep 2026 06:30 PM IST), BUILD_LOG line added, RELEASES[0] = "2026-09-16 (Editorial redesign, Mira on WhatsApp & HQ support 💬)" with 12 owner-facing highlights (popup caps at 8).
+- Verified: /api/public/build + /api/whats-new (super cookie session) + /api/super/version → build 2026-09-16.263, latest_tag MIRA-DEPLOYED-2026-09-16. WhatsNewModal is localStorage-keyed on build, so it re-shows once to every admin/manager.
+- NOTE: screenshot tool could not render the preview (platform "Preview Unavailable" page served to the headless browser while curl returned 200) — popup UI not re-screenshotted this round; component unchanged since last verified render.
+- Pending user decision (declined for now): circular import campaign_agreement.py ↔ tenant_features.py; P1 Advance/deposit booking; P1 Guest bill split.
