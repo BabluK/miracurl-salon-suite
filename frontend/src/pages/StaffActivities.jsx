@@ -30,7 +30,7 @@ export default function StaffActivities() {
     <div className="space-y-6" data-testid="staff-activities-page">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="font-playfair text-3xl flex items-center gap-3"><Activity className="w-7 h-7 text-amber-500" /> Staff Activities</h1>
+          <h1 className="font-playfair text-4xl sm:text-5xl text-slate-900 leading-[1.05] flex items-center gap-3"><Activity className="w-7 h-7 text-amber-500" /> Staff Activities</h1>
           <p className="text-slate-500 text-sm mt-1 flex items-center gap-1.5">
             <Lock className="w-3.5 h-3.5" /> PIN-protected audit — every time a manager opens or tries to open a protected section, it's recorded here.
           </p>

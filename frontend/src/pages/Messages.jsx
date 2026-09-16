@@ -184,7 +184,7 @@ export default function Messages() {
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800">
       <div className="mb-5">
-        <h1 className="text-2xl font-semibold text-slate-800 flex items-center gap-2" data-testid="messages-title">
+        <h1 className="font-playfair text-4xl sm:text-5xl text-slate-900 leading-[1.05] flex items-center gap-2" data-testid="messages-title">
           <MessageSquare className="w-6 h-6 text-sky-600" /> Customer Messages
         </h1>
         <p className="text-sm text-slate-500 mt-1">Chats started by customers from your booking page.</p>

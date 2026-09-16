@@ -42,7 +42,7 @@ export default function Plans() {
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-5">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-800 flex items-center gap-2" data-testid="plans-title">
+          <h1 className="font-playfair text-4xl sm:text-5xl text-slate-900 leading-[1.05] flex items-center gap-2" data-testid="plans-title">
             <BadgePercent className="w-6 h-6 text-violet-600" /> Offers &amp; Plans
           </h1>
           <p className="text-sm text-slate-500 mt-1">Packages, memberships and coupon codes — sold at POS, applied on the booking page.</p>

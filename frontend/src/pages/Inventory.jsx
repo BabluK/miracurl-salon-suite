@@ -5,8 +5,11 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import ImageUploader from "@/components/ImageUploader";
 import { usePager } from "@/components/crm/CrmBits";
+import { PageHeader, SearchBox, GoldBtn, GhostBtn, ExportBtn, KpiStrip, KpiTile } from "@/components/shell/PageShell";
+import { PackageX, IndianRupee } from "lucide-react";
 
 export default function Inventory() {
+  const [invQ, setInvQ] = useState("");
   const [list, setList] = useState([]);
   const [confirmAsk, setConfirmAsk] = useState(null);
   const [open, setOpen] = useState(false);
@@ -71,7 +74,8 @@ export default function Inventory() {
   }
 
   const lowStock = list.filter(p => p.stock <= p.low_stock_threshold);
-  const shown = list.filter(p => tab === "all" ? true : (p.product_type || "retail") === tab);
+  const shown = list.filter(p => (tab === "all" ? true : (p.product_type || "retail") === tab) &&
+    (!invQ.trim() || `${p.name} ${p.brand || ""} ${p.sku || ""}`.toLowerCase().includes(invQ.trim().toLowerCase())));
   const { paged: shownPage, pager, resetPage } = usePager(shown, "products");
 
   async function recordUse(e) {
@@ -85,22 +89,21 @@ export default function Inventory() {
 
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-playfair text-3xl">Inventory</h1>
-          <p className="text-slate-500 text-sm mt-1">Track products, stock and reorder alerts.</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
+      <PageHeader title="Inventory" subtitle="Track products, stock levels and reorder alerts."
+        right={<>
+          <SearchBox value={invQ} onChange={setInvQ} placeholder="Search product, brand or SKU…" testid="inventory-search" className="w-[280px] max-w-full" />
           <input ref={csvRef} type="file" accept=".csv" className="hidden" onChange={handleImportCsv} data-testid="import-products-csv-input" />
-          <button data-testid="import-products-csv-btn" onClick={() => csvRef.current?.click()} className="btn-slate flex items-center gap-2" title="Bulk add/update products from CSV">
-            <Upload className="w-4 h-4" /> Import CSV
-          </button>
-          <button data-testid="export-products-csv-btn" onClick={exportCsv} className="btn-slate flex items-center gap-2" title="Download all products as CSV">
-            <Download className="w-4 h-4" /> Export CSV
-          </button>
-          <button data-testid="add-product-btn" onClick={startNew} className="btn-blue flex items-center gap-2"><Plus className="w-4 h-4" /> Add Product</button>
-        </div>
-      </div>
+          <GhostBtn icon={Upload} data-testid="import-products-csv-btn" onClick={() => csvRef.current?.click()} title="Bulk add/update products from CSV">Import CSV</GhostBtn>
+          <ExportBtn data-testid="export-products-csv-btn" onClick={exportCsv} title="Download all products as CSV">Export</ExportBtn>
+          <GoldBtn data-testid="add-product-btn" onClick={startNew} icon={Plus}>Add Product</GoldBtn>
+        </>} />
+
+      <KpiStrip cols={4}>
+        <KpiTile icon={Package} tone="gold" label="Products" value={list.length} sub={`${list.filter(p => (p.product_type || "retail") === "retail").length} retail · ${list.filter(p => p.product_type === "in_house").length} in-house`} testid="inv-kpi-total" />
+        <KpiTile icon={AlertTriangle} tone="amber" label="Low Stock" value={lowStock.length} sub="at or below reorder level" testid="inv-kpi-low" />
+        <KpiTile icon={PackageX} tone="rose" label="Out of Stock" value={list.filter(p => (p.stock || 0) <= 0).length} sub="needs reorder now" testid="inv-kpi-out" />
+        <KpiTile icon={IndianRupee} tone="emerald" label="Stock Value" value={`₹${list.reduce((a, p) => a + (p.stock || 0) * (p.cost_price || p.price || 0), 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`} sub="at cost / list price" testid="inv-kpi-value" />
+      </KpiStrip>
 
       {lowStock.length > 0 && (
         <div className="card-light bg-amber-500/5 border-amber-500/20 flex items-start gap-3" data-testid="low-stock-banner">
@@ -115,7 +118,7 @@ export default function Inventory() {
       <div className="flex items-center gap-2">
         {[["all", "All"], ["retail", "Retail · For Sale"], ["in_house", "In-house · Service Use"]].map(([k, l]) => (
           <button key={k} data-testid={`inv-tab-${k}`} onClick={() => { setTab(k); resetPage(); }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors ${tab === k ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"}`}>
+                  className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-colors ${tab === k ? "bg-gradient-to-r from-[#b8893a] to-[#8f6a2a] text-white border-transparent" : "bg-white text-slate-500 border-slate-200 hover:border-[#b8893a]/40"}`}>
             {l}
           </button>
         ))}

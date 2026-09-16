@@ -500,8 +500,8 @@ export default function OffersStudio() {
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="offers-studio-page">
       <div>
-        <h1 className="font-playfair text-2xl sm:text-3xl flex items-center gap-2"><Sparkles className="w-6 h-6 text-violet-500" /> Offer Maker</h1>
-        <p className="text-slate-500 text-sm mt-1">120 seasonal templates — your logo, location & number auto-placed. Download ready-to-post images for Instagram, Facebook & WhatsApp status.</p>
+        <h1 className="font-playfair text-4xl sm:text-5xl text-slate-900 leading-[1.05] flex items-center gap-2"><Sparkles className="w-6 h-6 text-violet-500" /> Offer Maker</h1>
+        <p className="text-slate-500 text-base mt-2">120 seasonal templates — your logo, location & number auto-placed. Download ready-to-post images for Instagram, Facebook & WhatsApp status.</p>
       </div>
 
       {isResto ? (

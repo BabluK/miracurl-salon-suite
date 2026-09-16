@@ -45,8 +45,8 @@ export default function CctvAnalytics() {
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
             <div className="text-[10px] uppercase tracking-[0.25em] text-slate-400 font-semibold">AI CCTV Analytics</div>
-            <h1 className="font-playfair text-3xl mt-1 flex items-center gap-3"><Cctv className="w-7 h-7 text-amber-500" /> Salon floor, live</h1>
-            <p className="text-slate-500 text-sm mt-1">Vision AI reads a camera frame every few minutes — waiting guests, empty chairs, queue and idle staff.</p>
+            <h1 className="font-playfair text-4xl sm:text-5xl text-slate-900 leading-[1.05] mt-1 flex items-center gap-3"><Cctv className="w-7 h-7 text-amber-500" /> Salon floor, live</h1>
+            <p className="text-slate-500 text-base mt-2">Vision AI reads a camera frame every few minutes — waiting guests, empty chairs, queue and idle staff.</p>
           </div>
           <Link to="/cctv-capture" data-testid="open-capture-btn"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-amber-400 to-rose-400 text-white text-sm font-semibold hover:opacity-90 shadow-[0_8px_20px_-6px_rgba(245,158,11,0.5)]">

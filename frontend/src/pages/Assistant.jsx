@@ -80,7 +80,7 @@ export default function Assistant() {
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-800 flex items-center gap-2">
+          <h1 className="font-playfair text-4xl sm:text-5xl text-slate-900 leading-[1.05] flex items-center gap-2">
             <Bot className="w-6 h-6 text-violet-600" /> AI Assistant
           </h1>
           <p className="text-sm text-slate-500 mt-1">Ask Mira anything about your {resto ? "restaurant" : "salon"} — or log ideas &amp; issues on the board.</p>

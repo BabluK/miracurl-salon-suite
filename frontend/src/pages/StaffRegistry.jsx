@@ -179,8 +179,8 @@ export default function StaffRegistry() {
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="staff-registry-page">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="font-playfair text-2xl sm:text-3xl flex items-center gap-2"><ShieldCheck className="w-7 h-7 text-violet-600" /> Staff Registry</h1>
-          <p className="text-slate-500 text-sm mt-1">Cross-salon employment history — register your staff, rate them, and verify new hires before onboarding.</p>
+          <h1 className="font-playfair text-4xl sm:text-5xl text-slate-900 leading-[1.05] flex items-center gap-2"><ShieldCheck className="w-7 h-7 text-violet-600" /> Staff Registry</h1>
+          <p className="text-slate-500 text-base mt-2">Cross-salon employment history — register your staff, rate them, and verify new hires before onboarding.</p>
         </div>
         <button data-testid="registry-add-employee-btn" onClick={() => setOpenReg(true)} className="btn-blue flex items-center justify-center gap-2">
           <Plus className="w-4 h-4" /> Register Employee

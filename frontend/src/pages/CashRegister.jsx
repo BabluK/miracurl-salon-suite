@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
-import { Wallet, Plus, Trash2, Receipt, Send, ChevronLeft, ChevronRight, Banknote, AlertTriangle, Coffee } from "lucide-react";
+import { Plus, Trash2, Receipt, Send, ChevronLeft, ChevronRight, Banknote, AlertTriangle, Coffee } from "lucide-react";
 import { CashMonthlyReport } from "@/components/cash/CashMonthlyReport";
 
 const inr = (v) => `₹${Math.round(Number(v) || 0).toLocaleString("en-IN")}`;
@@ -68,16 +68,16 @@ export default function CashRegister() {
   }
 
   return (
-    <div className="space-y-6" data-testid="cash-register-page">
+    <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="cash-register-page">
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
-          <h1 className="font-playfair text-3xl flex items-center gap-2"><Wallet className="w-7 h-7 text-emerald-600" /> Cash Register</h1>
-          <p className="text-slate-500 text-sm mt-1">Today's cash − expenses = cash in hand. Yesterday's closing carries forward automatically. Owner gets this by email every evening.</p>
+          <h1 className="font-playfair text-4xl sm:text-5xl text-slate-900 leading-[1.05]">Cash Register</h1>
+          <p className="text-slate-500 text-base mt-2">Today's cash − expenses = cash in hand. Yesterday's closing carries forward automatically. Owner gets this by email every evening.</p>
         </div>
         <div className={`flex items-center gap-2 ${tab === "month" ? "invisible" : ""}`}>
-          <button data-testid="cash-prev-day" onClick={() => setDate(shift(date, -1))} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50"><ChevronLeft className="w-4 h-4" /></button>
-          <input data-testid="cash-date" type="date" value={date} max={todayIST()} onChange={e => setDate(e.target.value)} className="input-light !w-auto" />
-          <button data-testid="cash-next-day" onClick={() => setDate(shift(date, 1))} disabled={isToday} className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40"><ChevronRight className="w-4 h-4" /></button>
+          <button data-testid="cash-prev-day" onClick={() => setDate(shift(date, -1))} className="w-10 h-10 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 shadow-sm"><ChevronLeft className="w-4 h-4" /></button>
+          <input data-testid="cash-date" type="date" value={date} max={todayIST()} onChange={e => setDate(e.target.value)} className="input-light !w-auto shadow-sm" />
+          <button data-testid="cash-next-day" onClick={() => setDate(shift(date, 1))} disabled={isToday} className="w-10 h-10 inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-50 shadow-sm disabled:opacity-40"><ChevronRight className="w-4 h-4" /></button>
           {isMgr && (
             <button data-testid="cash-send-report" onClick={sendReport} disabled={busy} className="btn-slate flex items-center gap-2 disabled:opacity-50"
               title={target?.to?.length ? `Sends to ${target.to.join(", ")} (${target.source === "salon_email" ? "Salon email from Settings" : "login email — set a Salon email in Settings → Branding"})` : ""}>

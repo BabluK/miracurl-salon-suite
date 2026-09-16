@@ -119,8 +119,8 @@ export default function Attendance() {
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="font-playfair text-2xl sm:text-3xl">Attendance</h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <h1 className="font-playfair text-4xl sm:text-5xl text-slate-900 leading-[1.05]">Attendance</h1>
+          <p className="text-slate-500 text-base mt-2">
             See who checked in, who&apos;s still on shift, and download history.
             {getSelectedBranch() && (
               <span data-testid="attendance-branch-filter-tag" className="ml-2 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-violet-50 border border-violet-200 text-violet-700 font-medium">

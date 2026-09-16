@@ -4,6 +4,8 @@ import pinApi from "@/lib/ownerPin";
 import { mainSalonLabel } from "@/lib/branch";
 import { Plus, Landmark, CreditCard, FileDown } from "lucide-react";
 import { toast } from "sonner";
+import { PageHeader, SearchBox, GoldBtn, KpiStrip, KpiTile, EmptyState } from "@/components/shell/PageShell";
+import { Users, UserCheck, Plane, KeyRound } from "lucide-react";
 import { ManagersSection } from "@/components/ManagersSection";
 import { useAuth } from "@/context/AuthContext";
 import { StaffCard } from "@/components/staff/StaffCard";
@@ -44,6 +46,7 @@ const buildStaffPayload = (form) => ({
 });
 
 export default function Staff() {
+  const [staffQ, setStaffQ] = useState("");
   const { tenant, user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "super_admin";
   const branches = tenant?.branches || [];
@@ -194,22 +197,26 @@ export default function Staff() {
     } catch { toast.error("Auto-save failed — press Save"); }
   }
 
+  const shownStaff = list.filter(s => !staffQ.trim() || `${s.name} ${s.role || ""} ${s.phone || ""}`.toLowerCase().includes(staffQ.trim().toLowerCase()));
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="font-playfair text-2xl sm:text-3xl">Team Management</h1>
-          <p className="text-slate-500 text-sm mt-1">Your stylists, therapists and the talents that make your salon shine.</p>
-        </div>
-        <button data-testid="add-staff-btn" onClick={startNew} className="btn-blue flex items-center justify-center gap-2">
-          <Plus className="w-4 h-4" /> Add Staff
-        </button>
-      </div>
+      <PageHeader title="Team Management" subtitle="Your stylists, therapists and the talents that make your salon shine."
+        right={<>
+          <SearchBox value={staffQ} onChange={setStaffQ} placeholder="Search name, role or phone…" testid="staff-search" className="w-[280px] max-w-full" />
+          <GoldBtn data-testid="add-staff-btn" onClick={startNew} icon={Plus}>Add Staff</GoldBtn>
+        </>} />
+
+      <KpiStrip cols={4}>
+        <KpiTile icon={Users} tone="gold" label="Team Members" value={list.length} sub={`${list.filter(s => s.active).length} active`} testid="staff-kpi-total" />
+        <KpiTile icon={UserCheck} tone="emerald" label="On Duty Today" value={list.filter(s => s.active && !s.away).length} sub="available for bookings" testid="staff-kpi-onduty" />
+        <KpiTile icon={Plane} tone="amber" label="Away / On Leave" value={list.filter(s => s.away).length} sub="marked away" testid="staff-kpi-away" />
+        <KpiTile icon={KeyRound} tone="violet" label="With App Login" value={list.filter(s => s.user_id).length} sub="can use the staff app" testid="staff-kpi-logins" />
+      </KpiStrip>
 
       <PendingSignupsPanel onChanged={load} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-        {list.map(s => (
+        {shownStaff.map(s => (
           <StaffCard
             key={s.id}
             s={s}
@@ -225,8 +232,13 @@ export default function Staff() {
             mainLabel={mainSalonLabel(tenant)}
           />
         ))}
-        {list.length === 0 && (
-          <div className="col-span-full text-center py-12 text-slate-400">No staff yet — click &ldquo;Add Staff&rdquo; to get started.</div>
+        {shownStaff.length === 0 && (
+          <div className="col-span-full rounded-2xl bg-white border border-slate-200/80 shadow-sm">
+            <EmptyState image="/assets/empty/team.png" testid="staff-empty" title={list.length ? "No team member matches" : "Build your dream team"}
+              sub={list.length ? "Try a different name, role or phone." : "Add your stylists and therapists — they'll appear on your booking page and in POS."}>
+              {!list.length && <GoldBtn data-testid="empty-add-staff-btn" onClick={startNew} icon={Plus}>Add Staff</GoldBtn>}
+            </EmptyState>
+          </div>
         )}
       </div>
 

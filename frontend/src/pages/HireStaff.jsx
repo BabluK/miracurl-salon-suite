@@ -63,8 +63,8 @@ export default function HireStaff() {
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
             <div className="text-[10px] uppercase tracking-[0.25em] text-slate-400 font-semibold">Hiring Marketplace</div>
-            <h1 className="font-playfair text-3xl mt-1 flex items-center gap-3"><Briefcase className="w-7 h-7 text-amber-500" /> Hire verified staff</h1>
-            <p className="text-slate-500 text-sm mt-1">Tell HQ who you need — we match you with HQ-verified professionals from the Miracurl registry and schedule trials for you.</p>
+            <h1 className="font-playfair text-4xl sm:text-5xl text-slate-900 leading-[1.05] mt-1 flex items-center gap-3"><Briefcase className="w-7 h-7 text-amber-500" /> Hire verified staff</h1>
+            <p className="text-slate-500 text-base mt-2">Tell HQ who you need — we match you with HQ-verified professionals from the Miracurl registry and schedule trials for you.</p>
           </div>
           <button onClick={() => setShowForm(true)} data-testid="hire-new-request-btn"
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-amber-400 to-rose-400 text-white text-sm font-semibold hover:opacity-90 shadow-[0_8px_20px_-6px_rgba(245,158,11,0.5)]">

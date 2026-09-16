@@ -118,33 +118,33 @@ table.luxe-table { width: 100%; border-collapse: collapse; }
 
 /* ============ Light (Respark) admin utilities ============ */
 .btn-blue {
-  background: linear-gradient(to right, #0ea5e9, #3b82f6); color: #fff; font-weight: 600;
-  padding: 0.625rem 1.5rem; border-radius: 0.5rem;
-  box-shadow: 0 4px 14px -4px rgba(59,130,246,0.5);
-  transition: all 0.2s ease;
+  background: linear-gradient(to right, #b8893a, #8f6a2a); color: #fff; font-weight: 600;
+  padding: 0.625rem 1.5rem; border-radius: 0.75rem;
+  box-shadow: 0 10px 24px -12px rgba(143,106,42,0.9);
+  transition: filter 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
-.btn-blue:hover { filter: brightness(1.05); transform: translateY(-1px); }
+.btn-blue:hover { filter: brightness(1.08); transform: translateY(-1px); }
 .btn-blue:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
 .btn-slate {
   background: #fff; color: #475569;
   border: 1px solid #e2e8f0;
-  padding: 0.625rem 1.5rem; border-radius: 0.5rem;
-  transition: all 0.2s ease;
+  padding: 0.625rem 1.5rem; border-radius: 0.75rem;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
 }
 .btn-slate:hover { background: #f8fafc; border-color: #cbd5e1; }
 
 .input-light {
-  background: #f8fafc;
+  background: #fff;
   border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   padding: 0.625rem 0.875rem;
   color: #0f172a;
   width: 100%;
   font-size: 0.875rem;
   transition: all 0.15s ease;
 }
-.input-light:focus { outline: none; background: #fff; border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(186,230,253,0.5); }
+.input-light:focus { outline: none; background: #fff; border-color: rgba(184,137,58,0.6); box-shadow: 0 0 0 3px rgba(184,137,58,0.15); }
 /* Let Tailwind left-padding utilities win over .input-light's shorthand padding
    (inputs with an absolute-positioned leading icon) */
 .input-light.pl-9 { padding-left: 2.25rem; }
@@ -152,10 +152,10 @@ table.luxe-table { width: 100%; border-collapse: collapse; }
 
 .card-light {
   background: #fff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid rgba(226,232,240,0.8);
   border-radius: 1rem;
   padding: 1.25rem;
-  box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 12px 30px -24px rgba(143,106,42,0.35);
 }
 
 .label-light {
@@ -165,18 +165,19 @@ table.luxe-table { width: 100%; border-collapse: collapse; }
 
 table.luxe-table-light { width: 100%; border-collapse: collapse; }
 .luxe-table-light thead th {
-  text-align: left; padding: 0.875rem 1rem; font-size: 0.7rem;
-  text-transform: uppercase; letter-spacing: 0.15em;
+  text-align: left; padding: 1rem 1.25rem; font-size: 0.7rem;
+  text-transform: uppercase; letter-spacing: 0.14em;
   color: #64748b; font-weight: 600;
-  border-bottom: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-bottom: 1px solid #eef2f7;
+  background: rgba(248,250,252,0.6);
 }
 .luxe-table-light tbody td {
-  padding: 0.875rem 1rem; border-bottom: 1px solid #f1f5f9;
+  padding: 1rem 1.25rem; border-bottom: 1px solid #f1f5f9;
   font-size: 0.875rem;
   color: #334155;
 }
-.luxe-table-light tbody tr:hover { background: #f8fafc; }
+.luxe-table-light tbody tr:hover { background: rgba(255,251,235,0.5); }
+.luxe-table-light tbody tr:last-child td { border-bottom: 0; }
 
 /* ============ Brand mark animations (Miracurl wordmark) ============ */
 .brand-pill {

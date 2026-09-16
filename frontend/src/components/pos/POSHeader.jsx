@@ -10,19 +10,26 @@ const TAB_BUTTONS = [
 ];
 
 function tabClass(active, live) {
-  if (active) return "bg-sky-50 border-sky-300 text-sky-600";
-  if (live) return "bg-white border-slate-200 text-slate-700 hover:border-sky-200 hover:text-sky-600";
+  if (active) return "bg-gradient-to-r from-[#b8893a] to-[#8f6a2a] border-transparent text-white font-semibold shadow";
+  if (live) return "bg-white border-slate-200 text-slate-700 hover:border-[#b8893a]/50 hover:text-[#8f6a2a]";
   return "bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed";
 }
 
 export function POSHeader({ q, setQ, mode, setMode, onGiftCard }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 px-4 py-3 mb-4 flex flex-wrap items-center gap-2">
+    <div className="mb-4 space-y-4">
+    <div className="flex items-end justify-between gap-4 flex-wrap">
+      <div>
+        <h1 className="font-playfair text-4xl sm:text-5xl text-slate-900 leading-[1.05]">POS / Billing</h1>
+        <p className="text-slate-500 text-base mt-2">Bill services, products, packages and memberships in seconds.</p>
+      </div>
+    </div>
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm px-4 py-3 flex flex-wrap items-center gap-2">
       <div className="relative flex-1 min-w-[200px] max-w-sm">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
           data-testid="pos-search"
-          className="w-full pl-10 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+          className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-800 text-sm placeholder:text-slate-400 focus:outline-none focus:border-[#b8893a]/60 focus:ring-2 focus:ring-[#b8893a]/15"
           placeholder="Search Service"
           value={q}
           onChange={e => setQ(e.target.value)}
@@ -39,12 +46,13 @@ export function POSHeader({ q, setQ, mode, setMode, onGiftCard }) {
               setMode(b.k);
             }}
             disabled={!b.live}
-            className={`px-4 py-2 rounded-lg text-sm font-medium border transition ${tabClass(mode === b.k, b.live)}`}
+            className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${tabClass(mode === b.k, b.live)}`}
           >
             {b.label}
           </button>
         ))}
       </div>
+    </div>
     </div>
   );
 }
