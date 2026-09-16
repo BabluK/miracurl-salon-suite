@@ -6,6 +6,7 @@ import { serviceIcon } from "@/lib/serviceIcon";
 const fmt12 = (v, d) => { const [h, m] = (v || d).split(":").map(Number); return `${h % 12 || 12}:${String(m || 0).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
 export const openChat = () => window.dispatchEvent(new CustomEvent("miracurl:open-chat", { detail: { tab: "ai" } }));
 export const GOLD_BTN = "inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] font-bold text-sm shadow-[0_12px_30px_-12px_rgba(232,197,106,.8)] hover:brightness-110 transition-[filter,transform] hover:-translate-y-0.5";
+const TILE_CLS = "group w-full rounded-2xl border border-gold/20 bg-gradient-to-b from-white/[0.05] to-transparent p-4 text-center hover:border-gold/60 hover:-translate-y-1 transition-[transform,border-color] duration-300";
 export const GHOST_BTN = "inline-flex items-center gap-2 px-5 py-3.5 rounded-xl border border-gold/40 bg-white/[0.04] text-white text-sm font-semibold hover:border-gold hover:bg-white/[0.08] transition-colors";
 
 export function SalonHero({ s, bookHref, cats }) {
@@ -52,29 +53,33 @@ export function SalonHero({ s, bookHref, cats }) {
   );
 }
 
-export function SignatureServices({ s, cats, bookHref }) {
+export function SignatureServices({ s, cats, bookHref, onCategory }) {
   const tiles = cats.slice(0, 7);
+  const Tile = ({ cat, children, testid }) => onCategory
+    ? <button type="button" data-testid={testid} onClick={() => onCategory(cat)} className={TILE_CLS}>{children}</button>
+    : <Link to={bookHref} data-testid={testid} className={TILE_CLS}>{children}</Link>;
   return (
     <section className="max-w-6xl mx-auto px-5 sm:px-8 py-10" data-testid="salon-signature-services">
       <div className="flex items-end justify-between gap-4 mb-5">
         <h2 className="font-playfair text-2xl sm:text-3xl text-white flex items-center gap-3">{s.business_type === "restaurant" ? "Our Signature Dishes" : "Our Signature Services"} <span className="hidden sm:block w-16 h-px bg-gold/60" /></h2>
-        <Link to={bookHref} className="text-xs text-gold inline-flex items-center gap-1 hover:underline">View All {s.business_type === "restaurant" ? "Dishes" : "Services"} <ArrowRight className="w-3.5 h-3.5" /></Link>
+        {onCategory
+          ? <button type="button" onClick={() => onCategory("All")} className="text-xs text-gold inline-flex items-center gap-1 hover:underline">View All {s.business_type === "restaurant" ? "Dishes" : "Services"} <ArrowRight className="w-3.5 h-3.5" /></button>
+          : <Link to={bookHref} className="text-xs text-gold inline-flex items-center gap-1 hover:underline">View All {s.business_type === "restaurant" ? "Dishes" : "Services"} <ArrowRight className="w-3.5 h-3.5" /></Link>}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
         {tiles.map(c => {
           const Icon = serviceIcon({ name: c, category: c }) || Sparkles;
           return (
-            <Link key={c} to={bookHref} data-testid={`salon-cat-${c.replace(/\s+/g, "-").toLowerCase()}`}
-              className="group rounded-2xl border border-gold/20 bg-gradient-to-b from-white/[0.05] to-transparent p-4 text-center hover:border-gold/60 hover:-translate-y-1 transition-[transform,border-color] duration-300">
+            <Tile key={c} cat={c} testid={`salon-cat-${c.replace(/\s+/g, "-").toLowerCase()}`}>
               <Icon className="w-9 h-9 mx-auto text-gold" strokeWidth={1.2} />
               <div className="mt-3 text-xs text-white/90 leading-snug">{c}</div>
-            </Link>
+            </Tile>
           );
         })}
-        <Link to={bookHref} data-testid="salon-cat-more" className="rounded-2xl border border-gold/20 bg-gradient-to-b from-white/[0.05] to-transparent p-4 text-center hover:border-gold/60 hover:-translate-y-1 transition-[transform,border-color] duration-300">
+        <Tile cat="All" testid="salon-cat-more">
           <MoreHorizontal className="w-9 h-9 mx-auto text-gold" strokeWidth={1.2} />
           <div className="mt-3 text-xs text-white/90 leading-snug">More<br />{s.business_type === "restaurant" ? "Dishes" : "Services"}</div>
-        </Link>
+        </Tile>
       </div>
     </section>
   );

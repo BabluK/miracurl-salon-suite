@@ -101,6 +101,16 @@ export function ServicesStep({ byCategory, picked, onToggle, catImages = {}, cat
   const [active, setActive] = useState("All");
   const [photoDish, setPhotoDish] = useState(null);
   const shown = active === "All" ? cats : cats.filter((c) => c === active);
+  useEffect(() => {
+    const onJump = (e) => {
+      const cat = e.detail?.category || "All";
+      setGender("All");
+      setActive(cats.includes(cat) ? cat : "All");
+      setTimeout(() => document.getElementById("choose-services")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+    };
+    window.addEventListener("miracurl:book-category", onJump);
+    return () => window.removeEventListener("miracurl:book-category", onJump);
+  }, [cats]);
 
   return (
     <section id="choose-services" className="space-y-6 animate-fade-up scroll-mt-24">

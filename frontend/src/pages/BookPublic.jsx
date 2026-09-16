@@ -10,6 +10,8 @@ import { HeroCTAs, GalleryShowcase, OffersShowcase, VerifiedTeam, ReferEarnBanne
 import { ShadeTeaser } from "@/components/booking/ShadeTeaser";
 import { MiracurlProductsStrip } from "@/components/MiracurlProductsStrip";
 import { BrandSplash } from "@/components/BrandSplash";
+import { SignatureServices, TrustStrip } from "@/components/salon/LandingSections";
+import { PromoCards, TransformCTA } from "@/components/salon/LandingPromos";
 import { trackBooking } from "@/lib/analytics";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -293,8 +295,14 @@ export default function BookPublic() {
   }, [PUBLIC, slug, date, staffId]);
 
   const [rewards, setRewards] = useState(null);
+  const [lp, setLp] = useState(null);
+  const jumpToCategory = useCallback((category) => {
+    setStep(0);
+    setTimeout(() => window.dispatchEvent(new CustomEvent("miracurl:book-category", { detail: { category } })), 80);
+  }, []);
   useEffect(() => {
     PUBLIC.get(`/salon/${slug}`).then(r => setSalon(r.data)).catch(() => setSalon({ error: true }));
+    PUBLIC.get(`/salon-page/${slug}`).then(r => setLp(r.data)).catch(() => {});
     PUBLIC.get(`/rewards/${slug}`).then(r => setRewards(r.data?.eligible ? r.data : null)).catch(() => {});
     PUBLIC.get(`/gift-cards/${slug}/config`).then(r => {
       const amts = (r.data?.amounts || []).map(Number).filter(a => a > 0);
@@ -442,6 +450,7 @@ export default function BookPublic() {
   );
 
   const bgImage = BOOK_BG_IMAGES[salon.book_bg];
+  const landingCats = catOrder.length ? catOrder.filter(c => byCategory[c]) : Object.keys(byCategory);
   const effLogoShape = salon.logo_shape || (logoWide ? "square" : "circle");
   return (
     <div className={salon.book_bg ? "min-h-screen text-ink-primary" : "min-h-screen mesh-dark text-ink-primary"}
@@ -492,6 +501,10 @@ export default function BookPublic() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <Link to={`/salon/${slug}`} data-testid="book-about-link"
+              className="hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-[#dcc98f] text-[11px] text-[#8a6d1f] hover:bg-[#f6eeda] transition-colors">
+              About us
+            </Link>
             <Link to="/book" data-testid="find-salon-link"
               className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-[#dcc98f] text-[11px] text-[#8a6d1f] hover:bg-[#f6eeda] transition-colors">
               <Star className="w-3 h-3 text-[#b08d3f]" /> {salon.business_type === "restaurant" ? "Explore Miracurl" : "Find a salon"}
@@ -638,7 +651,7 @@ export default function BookPublic() {
             </Link>
           )}
           {/* Row D — Gift card & Membership: two matched glass feature cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5 max-w-2xl" data-testid="hero-secondary-links">
+          {(salon.business_type === "restaurant" || !lp) && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5 max-w-2xl" data-testid="hero-secondary-links">
             {salon.business_type === "restaurant" ? (
               <Link to={`/order/${slug}`} data-testid="hero-order-food-btn"
                 className="hero-card hero-card-food group flex items-center gap-3 p-3 pr-4 rounded-2xl backdrop-blur-md border">
@@ -681,9 +694,16 @@ export default function BookPublic() {
                 <ArrowRight className="w-4 h-4 text-gold opacity-70 group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </>)}
-          </div>
+          </div>}
         </div>
       </header>
+      {step === 0 && lp && (
+        <div data-testid="book-landing-blocks">
+          <SignatureServices s={lp} cats={landingCats} onCategory={jumpToCategory} />
+          <TrustStrip s={lp} />
+          {salon.business_type !== "restaurant" && <PromoCards s={lp} slug={slug} />}
+        </div>
+      )}
       {salon.business_type !== "restaurant" && !pickedColor && step === 0 && <ShadeTeaser slug={slug} />}
 
       <main id="booking-wizard" className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
@@ -911,6 +931,7 @@ export default function BookPublic() {
       </main>
 
       <LocationsSection salon={salon} />
+      {lp && step < 5 && <TransformCTA s={lp} onBook={goToServices} />}
 
       <footer className="border-t border-white/5 mt-10 py-8 text-center text-xs text-ink-muted">
         <div className="flex items-center justify-center gap-4 mb-4">

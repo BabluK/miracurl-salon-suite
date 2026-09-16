@@ -57,7 +57,7 @@ export function TrendingShades({ s, slug }) {
   );
 }
 
-export function TransformCTA({ s, bookHref }) {
+export function TransformCTA({ s, bookHref, onBook }) {
   const resto = s.business_type === "restaurant";
   const bg = s.gallery?.[0] ? `${process.env.REACT_APP_BACKEND_URL}${s.gallery[0]}` : (s.hero_image || "");
   const bullets = resto ? [[Calendar, "Quick Reservation"], [Sparkles, "Expert Chefs"], [ShieldCheck, "Safe & Hygienic"], [Users, "Great Experience"]]
@@ -72,7 +72,9 @@ export function TransformCTA({ s, bookHref }) {
           <div>
             <h2 className="font-playfair text-2xl sm:text-3xl text-white">Ready for Your {resto ? "Table" : "Transformation"}?</h2>
             <p className="text-sm text-white/65 mt-2">{resto ? "Reserve now and let our chefs take care of the rest." : "Book your appointment now and let our experts bring out the best version of you."}</p>
-            <Link to={bookHref} data-testid="salon-footer-book-btn" className={`${GOLD_BTN} mt-5`}><Calendar className="w-4 h-4" /> {resto ? "Reserve Your Table" : "Book Your Slot"} <ArrowRight className="w-4 h-4" /></Link>
+            {onBook
+              ? <button type="button" onClick={onBook} data-testid="salon-footer-book-btn" className={`${GOLD_BTN} mt-5`}><Calendar className="w-4 h-4" /> {resto ? "Reserve Your Table" : "Book Your Slot"} <ArrowRight className="w-4 h-4" /></button>
+              : <Link to={bookHref} data-testid="salon-footer-book-btn" className={`${GOLD_BTN} mt-5`}><Calendar className="w-4 h-4" /> {resto ? "Reserve Your Table" : "Book Your Slot"} <ArrowRight className="w-4 h-4" /></Link>}
           </div>
           <ul className="space-y-3 text-sm text-white/85">{bullets.map(([Icon, l]) => <li key={l} className="flex items-center gap-3"><Icon className="w-5 h-5 text-gold" strokeWidth={1.5} /> {l}</li>)}</ul>
         </div>
