@@ -1,0 +1,39 @@
+{
+  "summary": "Iter 165 — Self-hosted OpenWA WhatsApp gateway (per-tenant Link WhatsApp): backend + frontend verified end-to-end WITHOUT triggering a single real message send. Backend pytest test_iter165_whatsapp_link.py 9 passed / 2 skipped (elegance-koramangala tenant login returns 403 trial_expired — pre-existing environmental gate, not a WhatsApp bug). Frontend Playwright: Settings → whatsapp-link-card shows '● Linked · +918217072523', whatsapp-link-connected banner, whatsapp-prefer-toggle initially checked, whatsapp-test-phone/text inputs visible, whatsapp-test-send DISABLED when phone empty (never clicked), whatsapp-link-unlink visible (never clicked). Toggle round-trip: OFF → 'Customer messages will go by SMS' toast confirmed in DOM ✓; ON → 'Customer messages will go via WhatsApp first' toast confirmed ✓; final state checked = true (persisted via PUT /api/whatsapp-link/preferences round-trip in pytest). Regression: Settings shows Connected Accounts + Salon profile cards; /staff-portal loads for priya.staff@miracurl.com/Staff@5678 with staff-hero visible. Review Blast Modal (Dashboard → Pending Reviews 'Send review-request blast'): opens as data-testid=review-blast-modal with 4 pending targets — 5 per-row WhatsApp buttons render with title='Send from your salon\\'s linked WhatsApp' ✓ (buttons NOT clicked).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/auth/login (owner@elegance.com)", "issue": "Returns 403 trial_expired since end_date 2026-07-14 — blocked verification of second-tenant not-linked WhatsApp status/test-send scenarios. Tests were auto-skipped. Not a WhatsApp-link bug; the elegance tenant needs its trial extended in seed / super-admin for future isolation tests."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard / SuperAdmin / Settings", "issues": ["Pre-existing React hydration warning: <span> cannot be a child of <option> (MiraDayOffer.jsx L~55, MessageCreditsCard.jsx, ManagersSection.jsx). Called out in iter 160-164 — cosmetic only, caused by Emergent Studio's dynamic-injector wrapping <option> text in <span data-ve-dynamic>. Not a WhatsApp-feature regression."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter165_whatsapp_link.py",
+    "/app/test_reports/pytest/iter165.xml"
+  ],
+  "action_items": [
+    "(Low) Extend/reactivate owner@elegance.com trial in seed so multi-tenant WhatsApp isolation checks (status not_created, test-send 409) can run automatically."
+  ],
+  "critical_code_review_comments": [
+    "routes/whatsapp_link.py:link_prefs updates only tenants where wa_gateway exists (`{'wa_gateway': {'$exists': True}}`) — silently succeeds with prefer_over_sms in the response body even when nothing was matched (e.g. a tenant that unlinked between GET and PUT). Consider returning 409/404 when matched_count == 0 so the UI can prompt the user to re-link.",
+    "routes/whatsapp_link.py:PairIn / TestSendIn use min_length=10 at Pydantic level but then compute `re.sub(r'\\D', '', body.phone)` after — a phone like 'abcdefghij' (10 chars, 0 digits) passes Pydantic and is caught by the 400 below. Consider a Pydantic `@field_validator` on phone that strips non-digits and enforces min-digits, so validation always yields 422 with a consistent shape instead of a mix of 400 and 422.",
+    "routes/whatsapp_link.py:link_test_send default message contains an em-dash and ✦ glyph — fine for WhatsApp, but reminder that some legacy carriers/preview clients render glyphs as '?'. Consider making the default text configurable per-tenant.",
+    "services/whatsapp_gateway.py should be reviewed to confirm every outbound path (send_tenant_sms WhatsApp-first) still gracefully falls back to SMS when st.status transitions from 'ready' → 'disconnected' mid-flight; the connected banner in the UI is a snapshot and prefer_over_sms defaults on."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter165_whatsapp_link.py"
+  ],
+  "success_rate": {"backend": "100% (9/9 executable, 2 skipped for env)", "frontend": "100%"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (PIN 4321), manager@miracurl.com / Manager@1234, owner@elegance.com / Owner@123 (trial expired), priya.staff@miracurl.com / Staff@5678",
+  "seed_data_creation": "None. prefer_over_sms was toggled off→on inside a try/finally and left at true (default) as required by review request.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "OpenWA gateway live at 127.0.0.1:2785, miracurl-marathahalli tenant is linked to +918217072523 (status=ready/connected, prefer_over_sms=true). DO NOT run test-send with valid phone, do NOT call /start on elegance-koramangala (would create Chromium session), do NOT click review-blast-send-* buttons or Send-to-all (real customer WhatsApp messages). All 4 review-blast pending targets carry real customer numbers (9000000153, 9800033344, 9800022233, 9998343425). Pre-existing hydration <span>-in-<option> warning still noisy in console — not a regression. Elegance tenant is trial_expired so second-tenant flows must be reactivated by main agent (or via super-admin) if isolation coverage is needed.",
+  "rca of the issue": "N/A — no bugs found. Skipped elegance tests are due to a subscription/trial gate (403 trial_expired code) that is orthogonal to the WhatsApp-link feature."
+}
