@@ -2,6 +2,8 @@
 import os, io
 import pytest
 import requests
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 def _load_base():
     v = os.environ.get("REACT_APP_BACKEND_URL")
@@ -20,7 +22,7 @@ def _load_base():
 BASE = _load_base()
 
 SUPER = ("super@miracurl.com", "og9T@41Es#OQb6")
-ADMIN = ("admin@miracurl.com", "q6QY@tn3p#9DtL", "miracurl-marathahalli")
+ADMIN = ("admin@miracurl.com", password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD"), "miracurl-marathahalli")
 
 
 def _session(email, password, slug=None):

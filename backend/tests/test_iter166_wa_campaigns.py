@@ -6,6 +6,8 @@ and we NEVER POST to /test-send with a valid phone. Compose (LLM) is allowed.
 import os
 import pytest
 import requests
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 
 def _read_frontend_env():
@@ -20,7 +22,7 @@ def _read_frontend_env():
 BASE = (os.environ.get("REACT_APP_BACKEND_URL") or _read_frontend_env()).rstrip("/")
 assert BASE, "REACT_APP_BACKEND_URL must be set"
 
-ADMIN = ("admin@miracurl.com", "q6QY@tn3p#9DtL", "miracurl-marathahalli")
+ADMIN = ("admin@miracurl.com", password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD"), "miracurl-marathahalli")
 
 
 @pytest.fixture(scope="module")
@@ -165,7 +167,7 @@ class TestCampaignCreateValidation:
         r = admin_session.post(f"{BASE}/api/whatsapp-link/campaigns",
                                json={"customer_ids": [], "text": "Hello everyone, this is a valid message"},
                                timeout=15)
-        assert r.status_code == 422, r.text
+        assert r.status_code in (400, 422), r.text  # 400 since audience mode (iter 168)
 
     def test_text_too_short_422(self, admin_session):
         r = admin_session.post(f"{BASE}/api/whatsapp-link/campaigns",

@@ -2,11 +2,13 @@
 import os
 import requests
 import pytest
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 TENANT_SLUG = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASS = "q6QY@tn3p#9DtL"
+ADMIN_PASS = password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")
 MGR_EMAIL = "manager@miracurl.com"
 MGR_PASS = "Manager@1234"
 

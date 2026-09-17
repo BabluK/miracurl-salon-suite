@@ -8,6 +8,8 @@ import pytest
 import requests
 import pymongo
 from dotenv import load_dotenv
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 load_dotenv("/app/frontend/.env")
 BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
@@ -17,7 +19,7 @@ BRANCH_ID = "30adde6f-2a21-402a-a72e-0ffd076330c8"
 BRANCH_NAME = "Miracurl Unisex Family Salon- AECS"
 SERVICE_ID = "9107746c-d322-4f78-9964-c3a499471dcf"  # Saree Draping ₹500 30min
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASS = "q6QY@tn3p#9DtL"
+ADMIN_PASS = password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")
 TEST_PHONE = "9111100001"
 TEST_NAME = "QA Flow Test"
 

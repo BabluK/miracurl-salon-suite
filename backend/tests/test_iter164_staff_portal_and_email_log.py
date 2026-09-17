@@ -3,6 +3,8 @@ import os
 import pytest
 import requests
 from pathlib import Path
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 def _load_frontend_env():
     env_path = Path("/app/frontend/.env")
@@ -17,7 +19,7 @@ TENANT = "miracurl-marathahalli"
 STAFF_EMAIL = "priya.staff@miracurl.com"
 STAFF_PASS = "Staff@5678"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASS = "q6QY@tn3p#9DtL"
+ADMIN_PASS = password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")
 SUPER_EMAIL = "super@miracurl.com"
 SUPER_PASS = "og9T@41Es#OQb6"
 

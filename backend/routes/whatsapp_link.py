@@ -86,7 +86,6 @@ async def link_test_send(body: TestSendIn, request: Request, user=Depends(requir
         img = None
         if body.image_url:
             from services.wa_campaigns import _image_payload
-            from security import public_base_url
             img = await _image_payload(body.image_url)
         if img:
             # same shape the campaign worker sends: image + caption in one bubble
@@ -166,7 +165,7 @@ async def link_festivals(user=Depends(require_tenant_admin), t=Depends(current_t
     """Mira's festival radar (same calendar that powers Offer of the Day)."""
     from festivals import festival_today, next_festival, FESTIVALS
     from datetime import date as _date, timedelta as _td
-    from routes.reports import _tenant_tz
+    from services.day_window import _tenant_tz
     today = datetime.now(_tenant_tz(t)).date()
     upcoming = []
     for iso, (name, emoji, span) in sorted(FESTIVALS.items()):
@@ -189,7 +188,7 @@ async def campaign_poster(body: PosterIn, user=Depends(require_tenant_admin), t=
     """Mira paints a bespoke festival / offer poster for this campaign (same engine as Offer of the Day)."""
     from routes.mira_common import _gen_image
     from festivals import festival_today, next_festival
-    from routes.reports import _tenant_tz
+    from services.day_window import _tenant_tz
     today = datetime.now(_tenant_tz(t)).date()
     fest = body.festival or ((festival_today(today) or next_festival(today, window=60) or {}).get("name") or "")
     svcs = await _raw_db.services.find({"tenant_id": t["id"], "id": {"$in": body.service_ids}},
@@ -248,9 +247,8 @@ async def campaign_compose(body: ComposeIn, request: Request, user=Depends(requi
     base = public_base_url(request)
     svcs = await _raw_db.services.find({"tenant_id": t["id"], "id": {"$in": body.service_ids}},
                                        {"_id": 0, "name": 1, "price": 1}).to_list(10) if body.service_ids else []
-    from datetime import date as _date
     from festivals import festival_today, next_festival
-    from routes.reports import _tenant_tz
+    from services.day_window import _tenant_tz
     _today = datetime.now(_tenant_tz(t)).date()
     fest = festival_today(_today) or next_festival(_today, window=30)
     offer_line = {

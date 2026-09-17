@@ -1,6 +1,8 @@
 """Iteration 127: winner card PNG + advisory tracker regression."""
 import os, hmac, hashlib, requests, io
 from dotenv import dotenv_values
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 API = os.popen("grep REACT_APP_BACKEND_URL /app/frontend/.env | cut -d= -f2").read().strip() + "/api"
 SLUG = "miracurl-marathahalli"
@@ -18,7 +20,7 @@ def _session(email, pwd, headers=None):
 def test_winner_card_flow():
     sa = _session("super@miracurl.com", "og9T@41Es#OQb6")
     H = {"X-CSRF-Token": sa.cookies.get("csrf_token") or ""}
-    ad = _session("admin@miracurl.com", "q6QY@tn3p#9DtL", {"X-Tenant-Slug": SLUG})
+    ad = _session("admin@miracurl.com", password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD"), {"X-Tenant-Slug": SLUG})
     TH = {"X-Tenant-Slug": SLUG, "X-CSRF-Token": ad.cookies.get("csrf_token") or "", "X-Owner-Pin": "4321"}
 
     # Use NEW phone to avoid rate limits/state
@@ -83,7 +85,7 @@ def test_winner_card_flow():
 def test_advisory_tracker_flow():
     sa = _session("super@miracurl.com", "og9T@41Es#OQb6")
     H = {"X-CSRF-Token": sa.cookies.get("csrf_token") or ""}
-    ad = _session("admin@miracurl.com", "q6QY@tn3p#9DtL", {"X-Tenant-Slug": SLUG})
+    ad = _session("admin@miracurl.com", password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD"), {"X-Tenant-Slug": SLUG})
     TH = {"X-Tenant-Slug": SLUG, "X-CSRF-Token": ad.cookies.get("csrf_token") or "", "X-Owner-Pin": "4321"}
 
     # Create booking (starter)

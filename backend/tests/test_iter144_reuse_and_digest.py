@@ -8,6 +8,8 @@ import os
 import sys
 import asyncio
 import requests
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 # Make backend importable for the digest test
 BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -34,7 +36,7 @@ WF_TID = "ceeceec8-93b8-4058-abd4-631baa14aaf9"
 def _login():
     s = requests.Session()
     r = s.post(f"{API}/auth/login",
-               json={"email": "admin@miracurl.com", "password": "q6QY@tn3p#9DtL"},
+               json={"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")},
                headers={"X-Tenant-Slug": SLUG})
     assert r.status_code == 200, r.text
     s.headers.update({"X-Tenant-Slug": SLUG, "X-CSRF-Token": s.cookies.get("csrf_token")})

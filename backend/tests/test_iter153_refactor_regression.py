@@ -6,6 +6,8 @@ import os
 import pytest
 import requests
 from datetime import datetime, timezone, timedelta
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 def _read_env(path):
     try:
@@ -19,7 +21,7 @@ def _read_env(path):
 BASE = (os.environ.get("REACT_APP_BACKEND_URL") or _read_env("/app/frontend/.env")).rstrip("/")
 API = BASE + "/api"
 
-ADMIN = ("admin@miracurl.com", "q6QY@tn3p#9DtL")
+ADMIN = ("admin@miracurl.com", password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD"))
 STAFF = ("priya.staff@miracurl.com", "Staff@5678")
 SUPER = ("super@miracurl.com", "og9T@41Es#OQb6")
 TSLUG = "miracurl-marathahalli"

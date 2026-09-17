@@ -2,6 +2,8 @@
 import os
 import pytest
 import requests
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 def _read_frontend_env():
     p = "/app/frontend/.env"
@@ -14,7 +16,7 @@ def _read_frontend_env():
 BASE = (os.environ.get("REACT_APP_BACKEND_URL") or _read_frontend_env()).rstrip("/")
 assert BASE, "REACT_APP_BACKEND_URL must be set"
 
-ADMIN = ("admin@miracurl.com", "q6QY@tn3p#9DtL", "miracurl-marathahalli")
+ADMIN = ("admin@miracurl.com", password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD"), "miracurl-marathahalli")
 MANAGER = ("manager@miracurl.com", "Manager@1234", "miracurl-marathahalli")
 ELEG = ("owner@elegance.com", "Owner@123", "elegance-koramangala")
 

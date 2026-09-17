@@ -3,10 +3,12 @@ NO real sends triggered — dry_run only + compose is LLM-only."""
 import os
 import requests
 import pytest
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW = "q6QY@tn3p#9DtL"
+ADMIN_PW = password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")
 TENANT = "miracurl-marathahalli"
 
 

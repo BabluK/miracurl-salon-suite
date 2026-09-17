@@ -21,6 +21,8 @@ import pytest
 import requests
 from pymongo import MongoClient
 from dotenv import load_dotenv
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 
 def _pdf_text(content: bytes) -> str:
@@ -43,7 +45,7 @@ RZP_WEBHOOK_SECRET = os.environ.get("RAZORPAY_WEBHOOK_SECRET") or ""
 SA_EMAIL = "super@miracurl.com"
 SA_PASS = "og9T@41Es#OQb6"
 TA_EMAIL = "admin@miracurl.com"
-TA_PASS = "q6QY@tn3p#9DtL"
+TA_PASS = password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")
 TA_SLUG = "miracurl-marathahalli"
 OWNER_EMAIL = "delivered@resend.dev"
 

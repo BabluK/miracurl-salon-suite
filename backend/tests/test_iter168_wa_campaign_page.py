@@ -5,11 +5,13 @@ CRITICAL: Do NOT POST valid campaigns (would send real messages).
 import os
 import pytest
 import requests
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 TENANT = "miracurl-marathahalli"
 EMAIL = "admin@miracurl.com"
-PASSWORD = "q6QY@tn3p#9DtL"
+PASSWORD = password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")
 
 
 @pytest.fixture(scope="module")

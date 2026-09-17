@@ -23,6 +23,8 @@ from datetime import datetime, timedelta, timezone
 import pytest
 import requests
 from PIL import Image
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 
 def _base():
@@ -37,7 +39,7 @@ def _base():
 BASE = _base()
 SLUG = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASS = "q6QY@tn3p#9DtL"
+ADMIN_PASS = password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")
 
 STATE: dict = {}
 

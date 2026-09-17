@@ -3351,3 +3351,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-17 — Security audit #5 (FAIL → fixed)
 - SEC-001 HIGH SSRF in `wa_campaigns._image_payload` fixed: `_load_image_bytes` reads `/api/files/<id>` from storage and `/assets/*` from disk (realpath-guarded), any other URL must be https + `is_safe_public_url` + `_safe_fetch_image_bytes` (no redirects). `image_url` fields now regex-restricted (CampaignIn, TestSendIn). Verified: metadata/localhost/path-traversal denied, own files OK.
 - P3s: gateway error text no longer echoed (logged server-side), daily-cap write scoped to linked tenants. Remaining P3 (accepted): LLM prompt includes owner brief (admin-reviewed before send).
+
+## 2026-09-17 — Code review follow-up
+- New `services/day_window.py` (tenant_tz / local_day_window / payment_mode_buckets) breaks the staff_portal→reports and whatsapp_link→reports import edges; reports.py re-exports the same names. Remaining cycles (super_admin_ops↔staff_admin, rewards_*, whatsapp_cloud↔whatsapp_mira) are already lazy function-level imports — app boots; left as-is.
+- Tests: no literal passwords — `backend/tests/_creds.py::password_for(email)` reads env or /app/memory/test_credentials.md. Tests need REACT_APP_BACKEND_URL exported.
+- `_run_birthday_emails` split into `_celebrants` → `_wish_on_whatsapp` / `_send_celebration_email` → `_celebrate_tenant` pipeline. Unused imports removed (ruff F401 clean outside tests).
+- Reviewed & rejected as false positives: security.py:232 (comment describing CSRF HMAC derivation — key comes from JWT_SECRET env), utils.py:8 (`in` tuple membership, not `is` literal comparison), "93 undefined variables" (ruff F821 = 0 in production code).

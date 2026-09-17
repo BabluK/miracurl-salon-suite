@@ -5,6 +5,8 @@ import time
 
 import pytest
 import requests
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 def _load_backend_url():
     v = os.environ.get("REACT_APP_BACKEND_URL")
@@ -24,7 +26,7 @@ BASE = _load_backend_url()
 
 SUPER = {"email": "super@miracurl.com", "password": "og9T@41Es#OQb6"}
 OWNER = {"email": "owner@elegance.com", "password": "Owner@123", "slug": "elegance-koramangala"}
-ADMIN = {"email": "admin@miracurl.com", "password": "q6QY@tn3p#9DtL", "slug": "miracurl-marathahalli"}
+ADMIN = {"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD"), "slug": "miracurl-marathahalli"}
 
 INV_NUM_RE = re.compile(r"^MC-2026-\d{4}$")
 

@@ -2,6 +2,8 @@
 import os
 import requests
 import pytest
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 SLUG = "miracurl-marathahalli"
@@ -79,7 +81,7 @@ class TestPersistedGender:
         s = requests.Session()
         r = s.post(f"{BASE}/api/auth/login",
                    headers={"X-Tenant-Slug": SLUG, "Content-Type": "application/json"},
-                   json={"email": "admin@miracurl.com", "password": "q6QY@tn3p#9DtL"})
+                   json={"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")})
         if r.status_code != 200:
             pytest.skip(f"login failed: {r.status_code} {r.text[:200]}")
         s.headers.update({"X-Tenant-Slug": SLUG})
@@ -104,7 +106,7 @@ class TestRegressionAdminCatalog:
         s = requests.Session()
         r = s.post(f"{BASE}/api/auth/login",
                    headers={"X-Tenant-Slug": SLUG, "Content-Type": "application/json"},
-                   json={"email": "admin@miracurl.com", "password": "q6QY@tn3p#9DtL"})
+                   json={"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")})
         if r.status_code != 200:
             pytest.skip("login failed")
         s.headers.update({"X-Tenant-Slug": SLUG})

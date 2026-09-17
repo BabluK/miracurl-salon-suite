@@ -1499,7 +1499,7 @@ class BankDetailsIn(BaseModel):
 
 
 async def _salon_day_snapshot(t: dict, date_str: str) -> dict:
-    from routes.reports import _local_day_window, _payment_mode_buckets, _tenant_tz
+    from services.day_window import _local_day_window, _payment_mode_buckets, _tenant_tz
     day, utc_start, utc_end = _local_day_window(_tenant_tz(t), date_str)
     invs = await db.invoices.find(
         {"created_at": {"$gte": utc_start, "$lte": utc_end}, "status": {"$nin": ["voided", "open"]}},
@@ -1514,7 +1514,7 @@ async def _salon_day_snapshot(t: dict, date_str: str) -> dict:
 @router.get("/staff/me/salon-today")
 async def staff_salon_today(s=Depends(_current_staff), t=Depends(current_tenant)):
     """Whole-salon totals for today vs yesterday (staff dashboard KPI strip)."""
-    from routes.reports import _tenant_tz
+    from services.day_window import _tenant_tz
     now_local = datetime.now(_tenant_tz(t))
     today = now_local.date().isoformat()
     yesterday = (now_local - timedelta(days=1)).date().isoformat()

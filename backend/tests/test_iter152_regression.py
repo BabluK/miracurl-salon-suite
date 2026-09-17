@@ -3,6 +3,8 @@ import os
 import time
 import pytest
 import requests
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 def _base():
     v = os.environ.get("REACT_APP_BACKEND_URL", "").strip()
@@ -19,7 +21,7 @@ def _base():
 BASE = _base()
 SLUG = "miracurl-marathahalli"
 OWNER_EMAIL = "admin@miracurl.com"
-OWNER_PASS = "q6QY@tn3p#9DtL"
+OWNER_PASS = password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")
 MANAGER_EMAIL = "manager@miracurl.com"
 MANAGER_PASS = "Manager@1234"
 STAFF_EMAIL = "priya.staff@miracurl.com"

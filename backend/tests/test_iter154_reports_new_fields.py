@@ -3,6 +3,8 @@ import os
 import requests
 import pytest
 from pathlib import Path
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 def _load_url():
     v = os.environ.get("REACT_APP_BACKEND_URL")
@@ -15,7 +17,7 @@ def _load_url():
 BASE = _load_url()
 TENANT = "miracurl-marathahalli"
 EMAIL = "admin@miracurl.com"
-PWD = "q6QY@tn3p#9DtL"
+PWD = password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")
 
 
 @pytest.fixture(scope="module")

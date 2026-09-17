@@ -9,7 +9,6 @@ import re
 import uuid
 from datetime import datetime, timezone, timedelta
 
-import httpx
 
 from database import _raw_db
 from services import whatsapp_gateway as gw
@@ -21,7 +20,7 @@ _last_sent: dict[str, float] = {}
 
 
 def _tz(t: dict):
-    from routes.reports import _tenant_tz
+    from services.day_window import _tenant_tz
     return _tenant_tz(t)
 
 
@@ -214,7 +213,7 @@ async def draft_festival_campaigns() -> int:
     from datetime import date as _date
     from festivals import FESTIVALS
     from routes.mira_common import _ask_json
-    from routes.reports import _tenant_tz
+    from services.day_window import _tenant_tz
     made = 0
     async for t in _raw_db.tenants.find({"wa_gateway.phone": {"$nin": [None, ""]}}, {"_id": 0}):
         today = datetime.now(_tenant_tz(t)).date()

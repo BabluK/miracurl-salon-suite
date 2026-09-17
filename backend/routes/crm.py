@@ -197,52 +197,56 @@ async def _send_celebration_email(t: dict, c: dict, field: str, subject_tpl: str
             "sent": status.get("sent", False), "error": status.get("error")}
 
 
+_OCCASIONS = (("dob", "🎂", "Birthday"), ("anniversary", "💞", "Anniversary"))
+
+
+async def _celebrants(tenant_id: str, field: str, mmdd: str, channel: str, today_iso: str) -> list[dict]:
+    """Guests whose <field> falls on today (MM-DD) and who can be reached on <channel> (email|phone)."""
+    flt = {"tenant_id": tenant_id, field: {"$regex": f"-{mmdd}$"}, channel: {"$exists": True, "$nin": [None, ""]}}
+    if channel == "phone":
+        flt[f"wa_{field}_wished_on"] = {"$ne": today_iso}  # once per guest per day
+    return await _raw_db.customers.find(flt, {"_id": 0, "id": 1, "name": 1, "email": 1, "phone": 1}).to_list(200)
+
+
+async def _wish_on_whatsapp(t: dict, c: dict, field: str, emoji: str, word: str, offer: str, book_url: str, today_iso: str) -> dict:
+    from sms_service import send_tenant_sms
+    first = (c.get("name") or "there").split()[0]
+    msg = (f"{emoji} Happy {word}, {first}! Everyone at {t.get('name', 'your salon')} wishes you a wonderful day ✦\n\n"
+           f"Our little treat for you: *{offer}* — valid this week.\nBook your pampering: {book_url}")
+    r = await send_tenant_sms(t["id"], c["phone"], msg, kind="birthday")
+    await _raw_db.customers.update_one({"id": c["id"]}, {"$set": {f"wa_{field}_wished_on": today_iso}})
+    return {"tenant": t["name"], "customer": c["name"], "phone": c["phone"], "occasion": field,
+            "channel": r.get("channel", "sms"), "sent": bool(r.get("sent")), "error": r.get("error")}
+
+
+async def _celebrate_tenant(t: dict, mmdd: str, today_iso: str, app_url: str) -> list[dict]:
+    offer = t.get("birthday_offer_text") or DEFAULT_BIRTHDAY_OFFER
+    book_url = f"{app_url}/book/{t.get('slug', '')}"
+    wa_linked = bool((t.get("wa_gateway") or {}).get("phone"))
+    results: list[dict] = []
+    for field, emoji, word in _OCCASIONS:
+        subject_tpl = f"{emoji} Happy {word} {{name}} — from {t.get('name', 'your salon')} ✦"
+        for c in await _celebrants(t["id"], field, mmdd, "email", today_iso):
+            results.append(await _send_celebration_email(t, c, field, subject_tpl, offer, book_url))
+        if wa_linked:
+            for c in await _celebrants(t["id"], field, mmdd, "phone", today_iso):
+                results.append(await _wish_on_whatsapp(t, c, field, emoji, word, offer, book_url, today_iso))
+    return results
+
+
 async def _run_birthday_emails(tenant_id: Optional[str] = None) -> dict:
-    """Email birthday + anniversary wishes to guests whose special day is today (IST).
+    """Birthday + anniversary wishes (email, and WhatsApp when the salon linked its number) for today (IST).
     Used by the daily scheduler AND the admin 'send now' button."""
     ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
-    mmdd = ist.strftime("%m-%d")
+    mmdd, today_iso = ist.strftime("%m-%d"), ist.strftime("%Y-%m-%d")
     flt = {"id": tenant_id} if tenant_id else {"status": {"$in": ["active", "trial"]}}
-    tenants = await _raw_db.tenants.find(flt, {"_id": 0}).to_list(500)
     app_url = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
-    results = []
-    for t in tenants:
-        if not tenant_id and t.get("birthday_emails_enabled") is False:
-            continue
-        offer = t.get("birthday_offer_text") or DEFAULT_BIRTHDAY_OFFER
-        book_url = f"{app_url}/book/{t.get('slug', '')}"
-        occasions = [
-            ("dob", f"🎂 Happy Birthday {{name}} — from {t.get('name', 'your salon')} ✦"),
-            ("anniversary", f"💞 Happy Anniversary {{name}} — from {t.get('name', 'your salon')} ✦"),
-        ]
-        wa_linked = bool((t.get("wa_gateway") or {}).get("phone"))
-        today_iso = ist.strftime("%Y-%m-%d")
-        for field, subject_tpl in occasions:
-            custs = await _raw_db.customers.find(
-                {"tenant_id": t["id"], field: {"$regex": f"-{mmdd}$"},
-                 "email": {"$exists": True, "$nin": [None, ""]}},
-                {"_id": 0, "id": 1, "name": 1, "email": 1}).to_list(200)
-            for c in custs:
-                results.append(await _send_celebration_email(t, c, field, subject_tpl, offer, book_url))
-            if not wa_linked:
-                continue
-            # Mira's WhatsApp wish from the salon's own number (once per guest per day)
-            emoji, word = ("🎂", "Birthday") if field == "dob" else ("💞", "Anniversary")
-            wa_custs = await _raw_db.customers.find(
-                {"tenant_id": t["id"], field: {"$regex": f"-{mmdd}$"}, "phone": {"$nin": [None, ""]},
-                 f"wa_{field}_wished_on": {"$ne": today_iso}},
-                {"_id": 0, "id": 1, "name": 1, "phone": 1}).to_list(200)
-            from sms_service import send_tenant_sms
-            for c in wa_custs:
-                first = (c.get("name") or "there").split()[0]
-                msg = (f"{emoji} Happy {word}, {first}! Everyone at {t.get('name', 'your salon')} wishes you a wonderful day ✦\n\n"
-                       f"Our little treat for you: *{offer}* — valid this week.\nBook your pampering: {book_url}")
-                r = await send_tenant_sms(t["id"], c["phone"], msg, kind="birthday")
-                await _raw_db.customers.update_one({"id": c["id"]}, {"$set": {f"wa_{field}_wished_on": today_iso}})
-                results.append({"tenant": t["name"], "customer": c["name"], "phone": c["phone"], "occasion": field,
-                                "channel": r.get("channel", "sms"), "sent": bool(r.get("sent")), "error": r.get("error")})
+    results: list[dict] = []
+    for t in await _raw_db.tenants.find(flt, {"_id": 0}).to_list(500):
+        if tenant_id or t.get("birthday_emails_enabled") is not False:
+            results += await _celebrate_tenant(t, mmdd, today_iso, app_url)
     sent = sum(1 for r in results if r["sent"])
-    return {"date": ist.strftime("%Y-%m-%d"), "sent": sent, "failed": len(results) - sent, "results": results}
+    return {"date": today_iso, "sent": sent, "failed": len(results) - sent, "results": results}
 
 
 @router.get("/crm/celebrations-today")

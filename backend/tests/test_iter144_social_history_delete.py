@@ -6,6 +6,8 @@ import asyncio
 import requests
 from PIL import Image
 from motor.motor_asyncio import AsyncIOMotorClient
+import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+from _creds import password_for  # noqa: E402
 
 API = os.environ.get("API_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/") + "/api"
 SLUG = "miracurl-marathahalli"
@@ -23,7 +25,7 @@ def _env():
 
 def _login():
     s = requests.Session()
-    r = s.post(f"{API}/auth/login", json={"email": "admin@miracurl.com", "password": "q6QY@tn3p#9DtL"},
+    r = s.post(f"{API}/auth/login", json={"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")},
                headers={"X-Tenant-Slug": SLUG})
     assert r.status_code == 200, r.text
     s.headers.update({"X-Tenant-Slug": SLUG, "X-CSRF-Token": s.cookies.get("csrf_token")})
