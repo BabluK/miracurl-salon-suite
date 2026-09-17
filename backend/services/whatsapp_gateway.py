@@ -37,7 +37,8 @@ async def _call(method: str, path: str, **kw) -> dict:
     async with httpx.AsyncClient(timeout=kw.pop("timeout", 25.0)) as client:
         r = await client.request(method, f"{c['base']}/api{path}", headers={"X-API-Key": c["key"]}, **kw)
     if r.is_error:
-        raise RuntimeError(f"Gateway {r.status_code}: {r.text[:300]}")
+        log.warning("gateway %s %s → %s %s", method, path, r.status_code, r.text[:300])
+        raise RuntimeError(f"Gateway {r.status_code}")
     return r.json() if r.content else {}
 
 

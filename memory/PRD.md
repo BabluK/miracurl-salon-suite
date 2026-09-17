@@ -3347,3 +3347,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - compose uses gpt-5.4 (`_ask_json(..., model=)`), festival hint appended to brief; painted poster preserved on compose. test-send accepts image_url (compressed via wa_campaigns._image_payload).
 - Customers.jsx: both panes stay mounted (campaign pane pre-warmed after 2.5s) → instant toggle; StrictMode double-fetch is dev-only.
 - Login: /assets/login/{bg-salon,salon-people,restaurant}.jpg (Gemini-generated), LoginFeatureFooter removed, countries trust strip, partner badge. BUILD 2026-09-18.277.
+
+## 2026-09-17 — Security audit #5 (FAIL → fixed)
+- SEC-001 HIGH SSRF in `wa_campaigns._image_payload` fixed: `_load_image_bytes` reads `/api/files/<id>` from storage and `/assets/*` from disk (realpath-guarded), any other URL must be https + `is_safe_public_url` + `_safe_fetch_image_bytes` (no redirects). `image_url` fields now regex-restricted (CampaignIn, TestSendIn). Verified: metadata/localhost/path-traversal denied, own files OK.
+- P3s: gateway error text no longer echoed (logged server-side), daily-cap write scoped to linked tenants. Remaining P3 (accepted): LLM prompt includes owner brief (admin-reviewed before send).

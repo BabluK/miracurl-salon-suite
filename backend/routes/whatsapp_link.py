@@ -1,4 +1,5 @@
 """Settings → Link WhatsApp: the salon pairs its own WhatsApp number with the self-hosted gateway by QR."""
+import logging
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -25,7 +26,8 @@ async def link_start(user=Depends(require_tenant_admin), t=Depends(current_tenan
     try:
         await gw.start_session(t)
     except RuntimeError as e:
-        raise HTTPException(502, f"Couldn't start WhatsApp pairing — {e}")
+        logging.getLogger("whatsapp").warning("start failed: %s", e)
+        raise HTTPException(502, "Couldn't start WhatsApp pairing — the gateway is not reachable right now")
     fresh = {**t, "wa_gateway": await gw.tenant_session(t["id"])}
     return {"available": True, **await gw.status(fresh)}
 
@@ -49,7 +51,8 @@ async def link_pairing_code(body: PairIn, user=Depends(require_tenant_admin), t=
         msg = str(e)
         if "409" in msg or "400" in msg:
             raise HTTPException(409, "WhatsApp is still starting up — wait a few seconds and try again")
-        raise HTTPException(502, f"Couldn't get a pairing code — {msg[:200]}")
+        logging.getLogger("whatsapp").warning("pairing-code failed: %s", msg)
+        raise HTTPException(502, "Couldn't get a pairing code right now — try again in a moment")
 
 
 class PrefIn(BaseModel):
@@ -67,7 +70,7 @@ async def link_prefs(body: PrefIn, user=Depends(require_tenant_admin), t=Depends
 class TestSendIn(BaseModel):
     phone: str = Field(..., min_length=10, max_length=16)
     text: str = Field("", max_length=1000)
-    image_url: str | None = Field(None, max_length=600)
+    image_url: str | None = Field(None, max_length=600, pattern=r"^(/api/files/[A-Za-z0-9-]{8,64}|/assets/[A-Za-z0-9_./-]+\.(jpe?g|png|webp)|https://[^\s]+)$")
 
 
 @router.post("/test-send")
@@ -84,8 +87,7 @@ async def link_test_send(body: TestSendIn, request: Request, user=Depends(requir
         if body.image_url:
             from services.wa_campaigns import _image_payload
             from security import public_base_url
-            url = body.image_url if body.image_url.startswith("http") else f"{public_base_url(request)}{body.image_url}"
-            img = await _image_payload(url)
+            img = await _image_payload(body.image_url)
         if img:
             # same shape the campaign worker sends: image + caption in one bubble
             r = await gw._call("POST", f"/sessions/{sid}/messages/send-image",
@@ -94,7 +96,8 @@ async def link_test_send(body: TestSendIn, request: Request, user=Depends(requir
         else:
             r = await gw.send_text(sid, t["id"], digits, text)
     except RuntimeError as e:
-        raise HTTPException(502, f"Send failed — {e}")
+        logging.getLogger("whatsapp").warning("test-send failed: %s", e)
+        raise HTTPException(502, "Send failed — the WhatsApp gateway rejected the message. Check the number and try again.")
     return {"ok": True, "message_id": r.get("messageId"), "to": digits, "with_image": bool(img)}
 
 
@@ -144,7 +147,7 @@ class CapIn(BaseModel):
 
 @router.put("/daily-cap")
 async def link_daily_cap(body: CapIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"wa_gateway.daily_cap": body.daily_cap}})
+    await _raw_db.tenants.update_one({"id": t["id"], "wa_gateway.session_id": {"$exists": True}}, {"$set": {"wa_gateway.daily_cap": body.daily_cap}})
     return {"ok": True, "daily_cap": body.daily_cap}
 
 
@@ -278,7 +281,7 @@ class CampaignIn(BaseModel):
     audience: str = Field("selected", pattern="^(selected|all|loyal)$")
     customer_ids: list[str] = Field(default_factory=list, max_length=500)
     text: str = Field(..., min_length=5, max_length=1000)
-    image_url: Optional[str] = Field(None, max_length=600)
+    image_url: Optional[str] = Field(None, max_length=600, pattern=r"^(/api/files/[A-Za-z0-9-]{8,64}|/assets/[A-Za-z0-9_./-]+\.(jpe?g|png|webp)|https://[^\s]+)$")
     name: str = Field("CRM campaign", max_length=80)
     scheduled_at: Optional[str] = Field(None, max_length=40)
 
@@ -358,7 +361,8 @@ async def link_inbox(days: int = 7, user=Depends(require_tenant_admin), t=Depend
     try:
         data = await gw._call("GET", f"/sessions/{g['session_id']}/messages", params={"limit": 500, "direction": "incoming"}, timeout=20.0)
     except RuntimeError as e:
-        raise HTTPException(502, f"Gateway unavailable — {e}")
+        logging.getLogger("whatsapp").warning("inbox failed: %s", e)
+        raise HTTPException(502, "WhatsApp gateway unavailable — try again shortly")
     # WhatsApp hides numbers behind @lid ids; learn lid→phone from our own sends
     lid_to_phone: dict[str, str] = {}
     async for m in _raw_db.whatsapp_messages.find({"tenant_id": t["id"], "provider": "openwa"}, {"_id": 0, "to": 1, "message_id": 1}).sort("created_at", -1).limit(3000):

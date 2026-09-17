@@ -5,6 +5,7 @@ import os
 import base64
 import logging
 import random
+import re
 import uuid
 from datetime import datetime, timezone, timedelta
 
@@ -62,16 +63,42 @@ async def set_status(tenant_id: str, cid: str, status: str) -> bool:
     return bool(r.modified_count)
 
 
+_ASSETS_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public"))
+
+
+async def _load_image_bytes(url: str) -> bytes | None:
+    """Our own files are read from storage (no HTTP); anything else goes through the SSRF-safe fetcher."""
+    from urllib.parse import urlparse
+    path = urlparse(url).path if url.startswith("http") else url
+    m = re.match(r"^/api/files/([A-Za-z0-9-]{8,64})$", path)
+    if m:
+        from services.storage import _get_object
+        rec = await _raw_db.uploads.find_one({"id": m.group(1), "is_deleted": False}, {"_id": 0, "storage_path": 1})
+        if not rec:
+            return None
+        data, _ = await asyncio.to_thread(_get_object, rec["storage_path"])
+        return data
+    if path.startswith("/assets/"):
+        full = os.path.realpath(os.path.join(_ASSETS_ROOT, path.lstrip("/")))
+        if full.startswith(_ASSETS_ROOT + os.sep) and os.path.isfile(full):
+            return await asyncio.to_thread(lambda: open(full, "rb").read())
+        return None
+    if url.startswith("https://"):
+        from services.safe_fetch import _safe_fetch_image_bytes, is_safe_public_url
+        if is_safe_public_url(url):
+            return await asyncio.to_thread(_safe_fetch_image_bytes, url)
+    return None
+
+
 async def _image_payload(url: str) -> dict | None:
     try:
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as c:
-            r = await c.get(url)
-        if r.is_error or not r.content:
+        raw = await _load_image_bytes(url)
+        if not raw:
             return None
         # WhatsApp-friendly: ≤1280px JPEG (~100 KB) — large PNG flyers make the gateway choke
         import io
         from PIL import Image
-        im = Image.open(io.BytesIO(r.content)).convert("RGB")
+        im = Image.open(io.BytesIO(raw)).convert("RGB")
         im.thumbnail((1280, 1280))
         buf = io.BytesIO()
         im.save(buf, "JPEG", quality=82, optimize=True)
