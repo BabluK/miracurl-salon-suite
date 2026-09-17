@@ -27,12 +27,15 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
   const [testPhone, setTestPhone] = useState("");
   const [busy, setBusy] = useState("");
   const [camps, setCamps] = useState(null);
+  const [fest, setFest] = useState(null);
+  const [festPick, setFestPick] = useState("");
   const [showHistory, setShowHistory] = useState(false);
 
   const loadCamps = () => api.get("/whatsapp-link/campaigns").then(r => setCamps(r.data)).catch(() => {});
   useEffect(() => {
     api.get("/whatsapp-link/status").then(r => setStatus(r.data)).catch(() => setStatus({ available: false }));
     api.get("/whatsapp-link/audience-counts").then(r => setCounts(r.data)).catch(() => {});
+    api.get("/whatsapp-link/festivals").then(r => { setFest(r.data); const f = r.data.today || r.data.next; if (f) setFestPick(f.name); }).catch(() => {});
     loadCamps();
     const id = setInterval(loadCamps, 15000);
     return () => clearInterval(id);
@@ -51,12 +54,27 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
     setBusy("mira");
     try {
       const { data } = await api.post("/whatsapp-link/campaigns/compose", {
-        audience, customer_ids: selectedCustomers.map(c => c.id), brief,
+        audience, customer_ids: selectedCustomers.map(c => c.id), brief: tpl === "festive" && festPick ? `${brief} — festival: ${festPick}` : brief,
         offer_type: TEMPLATES[tpl].offer_type, discount_pct: TEMPLATES[tpl].offer_type === "discount" || tpl === "festive" ? discount : null,
       });
-      setText(data.text); setImage(data.image); setCands(data.candidates || []);
+      setText(data.text);
+      setCands(c => [...c.filter(x => x.id.startsWith("mira:")), ...(data.candidates || [])]);
+      if (!image?.id?.startsWith("mira:")) setImage(data.image); // keep a painted poster
       toast.success(data.why ? `Mira: ${data.why}` : "Mira drafted your campaign ✦");
     } catch (e) { toast.error(e.response?.data?.detail || "Mira couldn't draft this"); }
+    finally { setBusy(""); }
+  };
+
+  const paintPoster = async () => {
+    setBusy("poster");
+    try {
+      const { data } = await api.post("/whatsapp-link/campaigns/poster", {
+        festival: tpl === "festive" ? festPick : "", offer_type: TEMPLATES[tpl].offer_type,
+        discount_pct: tpl === "festive" || tpl === "promo" ? discount : null, service_ids: [],
+      });
+      setImage(data); setCands(c => [data, ...c.filter(x => x.id !== data.id)]);
+      toast.success(`Mira painted your ${data.festival || "campaign"} poster ✦`);
+    } catch (e) { toast.error(e.response?.data?.detail || "Mira couldn't paint right now"); }
     finally { setBusy(""); }
   };
 
@@ -147,6 +165,13 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
           </Step>
 
           <Step n={2} title="Choose Template or Create Message" right={<button onClick={compose} disabled={!!busy || !linked || !recipients} data-testid="wa-campaign-mira" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold hover:bg-rose-700 disabled:opacity-50">{busy === "mira" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Let Mira write it</button>}>
+            {fest && (fest.today || fest.upcoming?.length > 0) && (
+              <div className="rounded-xl bg-gradient-to-r from-amber-50 via-rose-50 to-amber-50 border border-amber-200 px-3 py-2 mb-3 flex items-center gap-3 flex-wrap text-xs" data-testid="wa-festival-radar">
+                <span className="font-semibold text-amber-800 inline-flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> Mira's festival radar</span>
+                {fest.today && <button onClick={() => { pickTemplate("festive"); setFestPick(fest.today.name); }} data-testid="wa-fest-today" className={`px-2.5 py-1 rounded-full border font-semibold ${festPick === fest.today.name && tpl === "festive" ? "bg-rose-600 text-white border-rose-600" : "bg-white border-amber-300 text-slate-700"}`}>{fest.today.emoji} Today · {fest.today.name}{fest.today.day > 1 ? ` (day ${fest.today.day})` : ""}</button>}
+                {fest.upcoming?.slice(0, 3).map(f => <button key={f.date} onClick={() => { pickTemplate("festive"); setFestPick(f.name); }} data-testid={`wa-fest-${f.date}`} className={`px-2.5 py-1 rounded-full border ${festPick === f.name && tpl === "festive" ? "bg-rose-600 text-white border-rose-600" : "bg-white border-slate-200 text-slate-600 hover:border-amber-400"}`}>{f.emoji} {f.name} · in {f.days_away}d</button>)}
+              </div>
+            )}
             <div className="flex gap-2 flex-wrap mb-3" data-testid="wa-templates">
               {Object.entries(TEMPLATES).map(([k, v]) => <button key={k} onClick={() => pickTemplate(k)} data-testid={`wa-template-${k}`} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${tpl === k ? "bg-rose-50 border-rose-300 text-rose-700" : "bg-white border-slate-200 text-slate-600 hover:border-slate-400"}`}>{v.label}</button>)}
               {(tpl === "festive" || tpl === "promo") && (
@@ -166,11 +191,11 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
             </div>
           </Step>
 
-          <Step n={3} title="Add Image / Media (Optional)">
+          <Step n={3} title="Add Image / Media (Optional)" right={<button onClick={paintPoster} disabled={!!busy} data-testid="wa-campaign-paint" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#d4af37] to-[#8a6a1c] text-white text-xs font-semibold disabled:opacity-50">{busy === "poster" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />} {busy === "poster" ? "Mira is painting…" : `Paint ${tpl === "festive" && festPick ? festPick : "campaign"} poster`}</button>}>
             <div className="flex gap-3 flex-wrap items-start">
               {image ? (
-                <div className="relative w-36 h-36 rounded-xl overflow-hidden border border-slate-200" data-testid="wa-campaign-image">
-                  <img src={image.url} alt="" className="w-full h-full object-cover" />
+                <div className="relative w-44 rounded-xl overflow-hidden border border-slate-200 bg-slate-50" data-testid="wa-campaign-image">
+                  <img src={image.url} alt="" className="w-full h-auto max-h-64 object-contain" />
                   <button onClick={() => setImage(null)} data-testid="wa-campaign-no-image" className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center"><X className="w-3.5 h-3.5" /></button>
                 </div>
               ) : (

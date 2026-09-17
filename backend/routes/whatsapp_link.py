@@ -1,5 +1,6 @@
 """Settings → Link WhatsApp: the salon pairs its own WhatsApp number with the self-hosted gateway by QR."""
 import re
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -157,6 +158,65 @@ async def _audience_ids(t: dict, audience: str, ids: list[str]) -> list[str]:
     return [r["id"] for r in rows]
 
 
+@router.get("/festivals")
+async def link_festivals(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Mira's festival radar (same calendar that powers Offer of the Day)."""
+    from festivals import festival_today, next_festival, FESTIVALS
+    from datetime import date as _date, timedelta as _td
+    from routes.reports import _tenant_tz
+    today = datetime.now(_tenant_tz(t)).date()
+    upcoming = []
+    for iso, (name, emoji, span) in sorted(FESTIVALS.items()):
+        d = _date.fromisoformat(iso)
+        if today < d <= today + _td(days=60):
+            upcoming.append({"name": name, "emoji": emoji, "date": iso, "days_away": (d - today).days})
+    return {"today": festival_today(today), "next": next_festival(today, window=60), "upcoming": upcoming[:4]}
+
+
+class PosterIn(BaseModel):
+    festival: str = Field("", max_length=60)
+    offer_type: str = Field("festive", pattern="^(general|festive|discount|new_service|winback)$")
+    discount_pct: Optional[int] = Field(None, ge=5, le=70)
+    service_ids: list[str] = Field(default_factory=list, max_length=10)
+    headline: str = Field("", max_length=80)
+
+
+@router.post("/campaigns/poster")
+async def campaign_poster(body: PosterIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Mira paints a bespoke festival / offer poster for this campaign (same engine as Offer of the Day)."""
+    from routes.mira_common import _gen_image
+    from festivals import festival_today, next_festival
+    from routes.reports import _tenant_tz
+    today = datetime.now(_tenant_tz(t)).date()
+    fest = body.festival or ((festival_today(today) or next_festival(today, window=60) or {}).get("name") or "")
+    svcs = await _raw_db.services.find({"tenant_id": t["id"], "id": {"$in": body.service_ids}},
+                                       {"_id": 0, "name": 1, "price": 1}).to_list(10) if body.service_ids else []
+    resto = t.get("business_type") == "restaurant"
+    theme = {
+        "festive": f"a luxurious {fest or 'festive season'} celebration poster — traditional Indian festive motifs (diyas, marigolds, rangoli or the festival's own symbols), rich gold and jewel tones",
+        "discount": "a bold premium sale poster, clean typography-led layout, gold and black",
+        "new_service": "an elegant launch poster spotlighting a new signature service",
+        "winback": "a warm 'we miss you' poster, soft blush and gold, welcoming mood",
+        "general": "an elegant premium brand poster, soft cream and gold",
+    }[body.offer_type]
+    subject = "a beautifully plated gourmet dish and ambient restaurant table" if resto else "a radiant model with glossy styled hair and flawless skin"
+    lines = [body.headline or (f"Happy {fest}" if fest else "Special Offer")]
+    if body.discount_pct:
+        lines.append(f"{body.discount_pct}% OFF")
+    if svcs:
+        lines.append(" · ".join(x["name"] for x in svcs[:2]))
+    text_spec = "\n".join(f'Line {i + 1}: "{ln}"' for i, ln in enumerate(lines) if ln)
+    prompt = (f"Design {theme}, for a {'restaurant' if resto else 'unisex salon'} WhatsApp campaign. Square 1:1, photorealistic {subject} "
+              f"as the hero on one side, clean negative space on the other side for text. Typography: elegant serif headline, "
+              f"max {len(lines)} short text lines, spelled EXACTLY as written below, letter-perfect, no extra words:\n{text_spec}\n"
+              "Premium, Instagram-quality, no watermark, no logos other than the text.")
+    url = await _gen_image(prompt, t, "wa-campaign")
+    if not url:
+        raise HTTPException(502, "Mira couldn't paint the poster right now — try again in a moment")
+    label = f"Mira poster — {body.headline or ('Happy ' + fest if fest else body.offer_type)}"
+    return {"id": f"mira:{url}", "label": label, "url": url, "festival": fest}
+
+
 @router.get("/audience-counts")
 async def audience_counts(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     base = {"tenant_id": t["id"], "phone": {"$nin": [None, ""]}}
@@ -188,7 +248,9 @@ async def campaign_compose(body: ComposeIn, request: Request, user=Depends(requi
                                        {"_id": 0, "name": 1, "price": 1}).to_list(10) if body.service_ids else []
     from datetime import date as _date
     from festivals import festival_today, next_festival
-    fest = festival_today(_date.today()) or next_festival(_date.today(), window=30)
+    from routes.reports import _tenant_tz
+    _today = datetime.now(_tenant_tz(t)).date()
+    fest = festival_today(_today) or next_festival(_today, window=30)
     offer_line = {
         "festive": f"FESTIVE OFFER — theme it around {fest['emoji'] + ' ' + fest['name'] if fest else 'the upcoming festival season'}"
                    f"{(' (in ' + str(fest['days_away']) + ' days)') if fest and fest.get('days_away') else ''}.",
@@ -208,7 +270,7 @@ async def campaign_compose(body: ComposeIn, request: Request, user=Depends(requi
               f"Image options (pick exactly one id): {[{'id': c['id'], 'label': c['label']} for c in cands]}. "
               "Write a WhatsApp message under 380 characters: friendly, Indian salon tone, 1-2 emojis max, use {name} as the "
               "greeting placeholder, include the booking link once, no hashtags. Return {\"text\": str, \"image_id\": str, \"why\": str}.")
-    out = await _ask_json("You are Mira, the marketing assistant for a salon/restaurant SaaS.", prompt)
+    out = await _ask_json("You are Mira, the marketing assistant for a salon/restaurant SaaS.", prompt, model="gpt-5.4")
     pick = next((c for c in cands if c["id"] == out.get("image_id")), cands[-1] if cands else None)
     return {"text": (out.get("text") or "").strip(), "image": pick, "why": out.get("why", ""), "candidates": cands}
 

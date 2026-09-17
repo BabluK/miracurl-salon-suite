@@ -55,10 +55,10 @@ async def _ask(system: str, prompt: str, *, model: str = "gpt-4o-mini", session:
             await asyncio.sleep(wait)
 
 
-async def _ask_json(system: str, prompt: str) -> dict:
+async def _ask_json(system: str, prompt: str, *, model: str = "gpt-4o-mini") -> dict:
     sys = system + " Reply with ONLY valid minified JSON, no markdown, no prose."
     for attempt in range(2):
-        raw = await _ask(sys, prompt)
+        raw = await _ask(sys, prompt, model=model)
         raw = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
         try:
             return json.loads(raw)

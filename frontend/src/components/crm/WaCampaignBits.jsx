@@ -33,7 +33,7 @@ export function PhonePreview({ salon, text, image, firstName, testPhone, setTest
         </div>
         <div className="bg-[#ECE5DD] p-3 min-h-[320px]" style={{ backgroundImage: "radial-gradient(#d9d2c5 0.6px, transparent 0.6px)", backgroundSize: "12px 12px" }}>
           <div className="bg-white rounded-xl rounded-tl-sm shadow-sm p-1.5 max-w-[95%]">
-            {image && <img src={image.url} alt="" className="w-full rounded-lg max-h-56 object-cover mb-1.5" data-testid="wa-preview-image" />}
+            {image && <img src={image.url} alt="" className="w-full rounded-lg h-auto object-contain bg-black/5 mb-1.5" data-testid="wa-preview-image" />}
             <div className="px-1.5 pb-1 text-[13px] text-slate-800 whitespace-pre-wrap leading-relaxed" data-testid="wa-preview-text">{body}</div>
             {/(https?:\/\/\S+)/.test(body) && (
               <div className="mt-1.5 mx-1 rounded-lg bg-slate-50 border border-slate-200 p-2 flex items-center gap-2" data-testid="wa-preview-link-card">
