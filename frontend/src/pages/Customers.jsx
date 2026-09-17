@@ -26,6 +26,12 @@ export default function Customers() {
   const [selected, setSelected] = useState(() => new Set());
   const [campaignOpen, setCampaignOpen] = useState(false);
   const [view, setView] = useState("crm");
+  const [campaignMounted, setCampaignMounted] = useState(false);
+  useEffect(() => {
+    if (view === "campaign") { setCampaignMounted(true); return; }
+    const id = setTimeout(() => setCampaignMounted(true), 2500); // warm the campaign pane in the background
+    return () => clearTimeout(id);
+  }, [view]);
   const toggleSel = (id) => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [dateFilter, setDateFilter] = useState("all"); // all | today | yesterday | week
   const [sort, setSort] = useState({ key: "created_at", dir: "desc" });
@@ -146,18 +152,16 @@ export default function Customers() {
     </div>
   );
 
-  if (view === "campaign") {
-    return (
-      <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-5">
-        <div className="flex justify-end">{flip}</div>
-        <WaCampaignPage selectedCustomers={list.filter(c => selected.has(c.id))} onViewCustomers={() => setView("crm")} />
-      </div>
-    );
-  }
-
+  const isCamp = view === "campaign";
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
       <div className="flex justify-end -mb-2">{flip}</div>
+      {campaignMounted && (
+        <div className={isCamp ? "" : "hidden"} data-testid="crm-campaign-pane">
+          <WaCampaignPage selectedCustomers={list.filter(c => selected.has(c.id))} onViewCustomers={() => setView("crm")} />
+        </div>
+      )}
+      <div className={isCamp ? "hidden" : "space-y-6"} data-testid="crm-relationship-pane">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-start gap-5">
           <div>
@@ -346,6 +350,7 @@ export default function Customers() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

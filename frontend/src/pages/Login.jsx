@@ -135,12 +135,9 @@ export default function Login() {
     : "Reset Password";
 
   return (
-    <div className="min-h-screen relative overflow-hidden pb-16" data-testid="login-page"
-         style={{ background: "linear-gradient(135deg, #fdf7f2 0%, #fbeee8 35%, #f7f1e6 70%, #fdf6ec 100%)" }}>
+    <div className="min-h-screen relative overflow-hidden" data-testid="login-page"
+         style={{ backgroundImage: "linear-gradient(135deg, rgba(253,247,242,.82) 0%, rgba(251,238,232,.78) 40%, rgba(247,241,230,.84) 100%), url(/assets/login/bg-salon.jpg)", backgroundSize: "cover", backgroundPosition: "center" }}>
       {blocked && <SubscriptionBlockModal info={blocked} onClose={() => setBlocked(null)} />}
-      <LoginFeatureFooter />
-      <div className="pointer-events-none absolute -left-24 -top-24 w-[420px] h-[420px] rounded-full opacity-60 blur-2xl" style={{ background: "radial-gradient(circle, #f3c4d3 0%, transparent 70%)" }} />
-      <div className="pointer-events-none absolute -right-32 top-1/3 w-[520px] h-[520px] rounded-full opacity-50 blur-2xl" style={{ background: "radial-gradient(circle, #f5dfa6 0%, transparent 70%)" }} />
 
       {/* Mobile brand mark (desktop shows the full showcase panel) */}
       <div className="lg:hidden absolute z-10 px-6 pt-5">
@@ -151,6 +148,9 @@ export default function Login() {
       </div>
 
       <InstallAppPrompt variant="app" />
+      <div className="hidden xl:flex absolute -right-6 -bottom-8 z-10 w-44 h-44 rounded-full bg-[#14100a] text-[#e8c56a] items-center justify-center text-center font-playfair italic text-lg leading-snug shadow-2xl ring-4 ring-[#d4af37]/40 -rotate-12 p-6" data-testid="login-partner-badge">
+        More<br />Than Software<br />A Partner in<br />Your Growth
+      </div>
 
       <div className="relative z-10 min-h-screen max-w-[1380px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-8 xl:gap-12 items-center px-4 sm:px-8 py-8 lg:py-6">
         <LoginShowcase />
@@ -264,7 +264,7 @@ export default function Login() {
                          disabled:opacity-60 disabled:cursor-not-allowed
                          transition-all active:scale-[0.98]"
             >
-              {busy ? "Please wait..." : SUBMIT_LABELS[mode] || "Login"}
+              {busy ? "Please wait..." : <>{SUBMIT_LABELS[mode] || "Login"}{mode === "login" && <span className="ml-2">→</span>}</>}
             </button>
           </form>
 
