@@ -1,6 +1,7 @@
 """Tenant-local calendar-day helpers shared by reports, staff portal and WhatsApp campaigns (no route imports → no cycles)."""
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from fastapi import HTTPException
 
 from zoneinfo import ZoneInfo
 

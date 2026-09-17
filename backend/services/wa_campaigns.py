@@ -7,15 +7,14 @@ import logging
 import random
 import re
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 from database import _raw_db
-from services import whatsapp_gateway as gw
 
 log = logging.getLogger("wa_campaign")
-DEFAULT_DAILY_CAP = 200
-MIN_GAP_S, MAX_GAP_S = 30, 45
+DEFAULT_DAILY_CAP = 1000
+MIN_GAP_S, MAX_GAP_S = 2, 4
 _last_sent: dict[str, float] = {}
 
 
@@ -33,8 +32,8 @@ async def usage_today(tenant: dict) -> dict:
     start_local = datetime.now(tz).replace(hour=0, minute=0, second=0, microsecond=0)
     start_utc = start_local.astimezone(timezone.utc).isoformat()
     sent = await _raw_db.whatsapp_messages.count_documents(
-        {"tenant_id": tenant["id"], "provider": "openwa", "direction": "outbound", "created_at": {"$gte": start_utc}})
-    cap = int(((tenant.get("wa_gateway") or {}).get("daily_cap")) or DEFAULT_DAILY_CAP)
+        {"tenant_id": tenant["id"], "provider": {"$in": ["openwa", "meta"]}, "direction": "outbound", "created_at": {"$gte": start_utc}})
+    cap = int(tenant.get("wa_daily_cap") or DEFAULT_DAILY_CAP)
     return {"sent": sent, "cap": cap, "remaining": max(0, cap - sent), "gap_seconds": [MIN_GAP_S, MAX_GAP_S],
             "resets_at": (start_local + timedelta(days=1)).isoformat()}
 
@@ -107,42 +106,47 @@ async def _image_payload(url: str) -> dict | None:
         return None
 
 
-async def _send_one(sid: str, tenant_id: str, camp: dict, rcp: dict, img: dict | None) -> dict:
-    text = camp["text"].replace("{name}", (rcp.get("name") or "there").split()[0])
-    to = gw.wa_chat_id(rcp["phone"])
-    if img:
-        data = await gw._call("POST", f"/sessions/{sid}/messages/send-image",
-                              json={"chatId": to, **img, "caption": text[:1024]}, timeout=90.0)
-        await gw._log_msg(tenant_id, to, "image", text, data.get("messageId"), sid)
-        return data
-    return await gw.send_text(sid, tenant_id, rcp["phone"], text)
+def _campaign_params(camp: dict, t: dict, first: str) -> tuple[str, list[str]]:
+    """Map a campaign onto an approved Miracurl template: festival (5 vars) or winback (3 vars)."""
+    salon = t.get("name", "our salon")
+    offer = camp.get("offer") or camp.get("headline") or camp.get("text", "")[:120]
+    if camp.get("source") == "winback" or camp.get("offer_type") == "winback":
+        return "winback", [first, salon, offer]
+    fest = camp.get("festival") or "festive season"
+    valid = camp.get("valid_till") or (datetime.now(timezone.utc) + timedelta(days=7)).strftime("%d %b")
+    return "festival", [first, salon, fest, offer, valid]
+
+
+async def _send_one(t: dict, camp: dict, rcp: dict) -> dict:
+    from services import whatsapp_official as official
+    first = (rcp.get("name") or "there").split()[0]
+    kind, params = _campaign_params(camp, t, first)
+    r = await official.send(kind, t, rcp["phone"], params, image_url=camp.get("image_url"))
+    return {"messageId": r.get("message_id")}
 
 
 async def _tick_tenant(camp: dict) -> None:
-    t = await _raw_db.tenants.find_one({"id": camp["tenant_id"]}, {"_id": 0, "id": 1, "wa_gateway": 1, "timezone": 1, "name": 1})
+    t = await _raw_db.tenants.find_one({"id": camp["tenant_id"]}, {"_id": 0})
     if not t:
         await _raw_db.wa_campaigns.update_one({"id": camp["id"]}, {"$set": {"status": "failed", "error": "tenant missing"}})
         return
-    gap = random.uniform(MIN_GAP_S, MAX_GAP_S)
-    if asyncio.get_event_loop().time() - _last_sent.get(t["id"], 0) < gap:
+    if asyncio.get_event_loop().time() - _last_sent.get(t["id"], 0) < random.uniform(MIN_GAP_S, MAX_GAP_S):
         return
     use = await usage_today(t)
     if use["remaining"] <= 0:
         await _raw_db.wa_campaigns.update_one({"id": camp["id"]}, {"$set": {"status": "capped", "updated_at": _now()}})
         return
-    sid = await gw.tenant_connected(t["id"])
-    if not sid:
-        await _raw_db.wa_campaigns.update_one({"id": camp["id"]}, {"$set": {"status": "paused", "error": "WhatsApp disconnected — relink in Settings", "updated_at": _now()}})
+    if int(t.get("wa_points") or 0) < 1:
+        await _raw_db.wa_campaigns.update_one({"id": camp["id"]}, {"$set": {"status": "paused", "error": "No WhatsApp credits — top up in Settings", "updated_at": _now()}})
         return
     idx = next((i for i, r in enumerate(camp["recipients"]) if r["status"] == "pending"), None)
     if idx is None:
         await _raw_db.wa_campaigns.update_one({"id": camp["id"]}, {"$set": {"status": "done", "finished_at": _now()}})
         return
     rcp = camp["recipients"][idx]
-    img = await _image_payload(camp["image_url"]) if camp.get("image_url") else None
     _last_sent[t["id"]] = asyncio.get_event_loop().time()
     try:
-        data = await _send_one(sid, t["id"], camp, rcp, img)
+        data = await _send_one(t, camp, rcp)
         upd = {f"recipients.{idx}.status": "sent", f"recipients.{idx}.message_id": data.get("messageId"), f"recipients.{idx}.sent_at": _now()}
         inc = {"sent": 1}
     except Exception as e:  # noqa: BLE001
@@ -157,7 +161,7 @@ async def worker_loop() -> None:
     """One pass every 5s: at most one message per tenant per pass (spacing enforced per tenant)."""
     while True:
         try:
-            if gw.gateway_available():
+            if True:  # official channel is always on
                 camps = await _raw_db.wa_campaigns.find({"status": {"$in": ["queued", "running", "capped"]},
                                                          "$or": [{"scheduled_at": None}, {"scheduled_at": {"$lte": _now()}}]}, {"_id": 0}).to_list(200)
                 seen: set[str] = set()
@@ -178,17 +182,10 @@ def start_worker() -> None:
 
 async def refresh_results(tenant: dict, camps: list[dict]) -> list[dict]:
     """Attach read receipts (from the gateway's outgoing log) + bookings made by recipients after the send."""
-    from services import whatsapp_gateway as gw
-    g = (tenant.get("wa_gateway") or {})
     status_by_id: dict[str, str] = {}
-    if g.get("session_id") and any(c.get("sent") for c in camps):
-        try:
-            data = await gw._call("GET", f"/sessions/{g['session_id']}/messages", params={"limit": 500, "direction": "outgoing"}, timeout=20.0)
-            for m in data.get("messages", []):
-                if m.get("waMessageId"):
-                    status_by_id[m["waMessageId"]] = m.get("status") or ""
-        except Exception as e:  # noqa: BLE001
-            log.warning("gateway message log unavailable: %s", e)
+    async for m in _raw_db.whatsapp_messages.find({"tenant_id": tenant["id"], "direction": "outbound"}, {"_id": 0, "message_id": 1, "status": 1}).limit(3000):
+        if m.get("message_id"):
+            status_by_id[m["message_id"]] = m.get("status") or ""
     out = []
     for c in camps:
         full = await _raw_db.wa_campaigns.find_one({"id": c["id"]}, {"_id": 0, "recipients": 1, "created_at": 1})
@@ -215,7 +212,7 @@ async def draft_festival_campaigns() -> int:
     from routes.mira_common import _ask_json
     from services.day_window import _tenant_tz
     made = 0
-    async for t in _raw_db.tenants.find({"wa_gateway.phone": {"$nin": [None, ""]}}, {"_id": 0}):
+    async for t in _raw_db.tenants.find({"wa_points": {"$gt": 0}}, {"_id": 0}):
         today = datetime.now(_tenant_tz(t)).date()
         for iso, (name, emoji, span) in FESTIVALS.items():
             if (_date.fromisoformat(iso) - today).days != 5:

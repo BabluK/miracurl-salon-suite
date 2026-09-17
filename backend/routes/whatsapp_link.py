@@ -1,111 +1,17 @@
-"""Settings → Link WhatsApp: the salon pairs its own WhatsApp number with the self-hosted gateway by QR."""
-import logging
+"""WhatsApp (official Miracurl channel): credits, usage, festival radar, campaigns, Mira compose/poster."""
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from security import current_tenant, require_tenant_admin
-from services import whatsapp_gateway as gw
+from database import _raw_db
+from security import current_tenant, public_base_url, require_tenant_admin
+from services import wa_campaigns as camp
 
 router = APIRouter(prefix="/whatsapp-link")
 
-
-@router.get("/status")
-async def link_status(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    if not gw.gateway_available():
-        return {"available": False, "linked": False, "status": "unavailable", "connected": False}
-    return {"available": True, **await gw.status(t)}
-
-
-@router.post("/start")
-async def link_start(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    if not gw.gateway_available():
-        raise HTTPException(503, "WhatsApp gateway is not configured on this server")
-    try:
-        await gw.start_session(t)
-    except RuntimeError as e:
-        logging.getLogger("whatsapp").warning("start failed: %s", e)
-        raise HTTPException(502, "Couldn't start WhatsApp pairing — the gateway is not reachable right now")
-    fresh = {**t, "wa_gateway": await gw.tenant_session(t["id"])}
-    return {"available": True, **await gw.status(fresh)}
-
-
-@router.post("/unlink")
-async def link_unlink(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    return await gw.unlink(t)
-
-
-class PairIn(BaseModel):
-    phone: str = Field(..., min_length=10, max_length=16)
-
-
-@router.post("/pairing-code")
-async def link_pairing_code(body: PairIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    if len(re.sub(r"\D", "", body.phone)) < 10:
-        raise HTTPException(400, "Enter the WhatsApp number with country code, e.g. 918217072523")
-    try:
-        return await gw.pairing_code(t, body.phone)
-    except RuntimeError as e:
-        msg = str(e)
-        if "409" in msg or "400" in msg:
-            raise HTTPException(409, "WhatsApp is still starting up — wait a few seconds and try again")
-        logging.getLogger("whatsapp").warning("pairing-code failed: %s", msg)
-        raise HTTPException(502, "Couldn't get a pairing code right now — try again in a moment")
-
-
-class PrefIn(BaseModel):
-    prefer_over_sms: bool
-
-
-@router.put("/preferences")
-async def link_prefs(body: PrefIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    from database import _raw_db
-    await _raw_db.tenants.update_one({"id": t["id"], "wa_gateway": {"$exists": True}},
-                                     {"$set": {"wa_gateway.prefer_over_sms": body.prefer_over_sms}})
-    return {"ok": True, "prefer_over_sms": body.prefer_over_sms}
-
-
-class TestSendIn(BaseModel):
-    phone: str = Field(..., min_length=10, max_length=16)
-    text: str = Field("", max_length=1000)
-    image_url: str | None = Field(None, max_length=600, pattern=r"^(/api/files/[A-Za-z0-9-]{8,64}|/assets/[A-Za-z0-9_./-]+\.(jpe?g|png|webp)|https://[^\s]+)$")
-
-
-@router.post("/test-send")
-async def link_test_send(body: TestSendIn, request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    digits = re.sub(r"\D", "", body.phone)
-    if len(digits) < 10:
-        raise HTTPException(400, "Enter a valid mobile number with country code")
-    sid = await gw.tenant_connected(t["id"])
-    if not sid:
-        raise HTTPException(409, "Your WhatsApp isn't linked yet — scan the QR first")
-    text = body.text.strip() or f"Hello from {t.get('name', 'our salon')} ✦ This is a test message from Miracurl — your WhatsApp is linked and working."
-    try:
-        img = None
-        if body.image_url:
-            from services.wa_campaigns import _image_payload
-            img = await _image_payload(body.image_url)
-        if img:
-            # same shape the campaign worker sends: image + caption in one bubble
-            r = await gw._call("POST", f"/sessions/{sid}/messages/send-image",
-                               json={"chatId": gw.wa_chat_id(digits), **img, "caption": text[:1024]}, timeout=90.0)
-            await gw._log_msg(t["id"], gw.wa_chat_id(digits), "image", text, r.get("messageId"), sid)
-        else:
-            r = await gw.send_text(sid, t["id"], digits, text)
-    except RuntimeError as e:
-        logging.getLogger("whatsapp").warning("test-send failed: %s", e)
-        raise HTTPException(502, "Send failed — the WhatsApp gateway rejected the message. Check the number and try again.")
-    return {"ok": True, "message_id": r.get("messageId"), "to": digits, "with_image": bool(img)}
-
-
-# ---------------- Campaigns (CRM → selected guests) with guardrails ----------------
-from typing import Optional  # noqa: E402
-from fastapi import Request  # noqa: E402
-from database import _raw_db  # noqa: E402
-from security import public_base_url  # noqa: E402
-from services import wa_campaigns as camp  # noqa: E402
 
 CURATED = [
     {"id": "curated:facial", "label": "Glowing facial / skin care", "url": "/assets/offers/facial.jpg"},
@@ -135,18 +41,29 @@ async def _image_candidates(t: dict) -> list[dict]:
     return out
 
 
+@router.get("/status")
+async def link_status(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Official Miracurl WhatsApp channel: always on; salons spend WhatsApp credits per message."""
+    from services import whatsapp_official as official
+    from services.whatsapp_cloud import wa_config
+    cfg = wa_config()
+    return {"available": bool(cfg["access_token"] and cfg["phone_number_id"]), "connected": True, "linked": True,
+            "channel": "official", "sender": "+91 91802 61256", "credits": await official.credits(t["id"]),
+            "templates": list(official.TEMPLATES.values())}
+
+
 @router.get("/usage")
 async def link_usage(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     return await camp.usage_today(t)
 
 
 class CapIn(BaseModel):
-    daily_cap: int = Field(..., ge=10, le=1000)
+    daily_cap: int = Field(..., ge=10, le=5000)
 
 
 @router.put("/daily-cap")
 async def link_daily_cap(body: CapIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    await _raw_db.tenants.update_one({"id": t["id"], "wa_gateway.session_id": {"$exists": True}}, {"$set": {"wa_gateway.daily_cap": body.daily_cap}})
+    await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"wa_daily_cap": body.daily_cap}})
     return {"ok": True, "daily_cap": body.daily_cap}
 
 
@@ -269,10 +186,14 @@ async def campaign_compose(body: ComposeIn, request: Request, user=Depends(requi
               f"Booking link: {base}/book/{t.get('slug', '')}. "
               f"Image options (pick exactly one id): {[{'id': c['id'], 'label': c['label']} for c in cands]}. "
               "Write a WhatsApp message under 380 characters: friendly, Indian salon tone, 1-2 emojis max, use {name} as the "
-              "greeting placeholder, include the booking link once, no hashtags. Return {\"text\": str, \"image_id\": str, \"why\": str}.")
+              "greeting placeholder, include the booking link once, no hashtags. Also give: offer (one line ≤120 chars, e.g. 'Flat 20% off on all hair & skin services'), "
+              "festival (the festival name if festive, else a short theme like 'Weekend Glow'), valid_till (like '12 Nov', within 10 days). "
+              "Return {\"text\": str, \"image_id\": str, \"why\": str, \"offer\": str, \"festival\": str, \"valid_till\": str}.")
     out = await _ask_json("You are Mira, the marketing assistant for a salon/restaurant SaaS.", prompt, model="gpt-5.4")
     pick = next((c for c in cands if c["id"] == out.get("image_id")), cands[-1] if cands else None)
-    return {"text": (out.get("text") or "").strip(), "image": pick, "why": out.get("why", ""), "candidates": cands}
+    return {"text": (out.get("text") or "").strip(), "image": pick, "why": out.get("why", ""), "candidates": cands,
+            "offer": (out.get("offer") or "")[:160], "festival": (out.get("festival") or (fest or {}).get("name") or "")[:60],
+            "valid_till": (out.get("valid_till") or "")[:30]}
 
 
 class CampaignIn(BaseModel):
@@ -282,12 +203,17 @@ class CampaignIn(BaseModel):
     image_url: Optional[str] = Field(None, max_length=600, pattern=r"^(/api/files/[A-Za-z0-9-]{8,64}|/assets/[A-Za-z0-9_./-]+\.(jpe?g|png|webp)|https://[^\s]+)$")
     name: str = Field("CRM campaign", max_length=80)
     scheduled_at: Optional[str] = Field(None, max_length=40)
+    festival: str = Field("", max_length=60)
+    offer: str = Field("", max_length=160)
+    valid_till: str = Field("", max_length=30)
+    offer_type: str = Field("festive", pattern="^(general|festive|discount|new_service|winback)$")
 
 
 @router.post("/campaigns")
 async def campaign_create(body: CampaignIn, request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    if not await gw.tenant_connected(t["id"]):
-        raise HTTPException(409, "Link your salon WhatsApp in Settings first")
+    from services import whatsapp_official as official
+    if await official.credits(t["id"]) < 1:
+        raise HTTPException(409, "No WhatsApp credits — top up in Settings → Credits")
     ids = await _audience_ids(t, body.audience, body.customer_ids)
     if not ids:
         raise HTTPException(400, "Pick at least one guest")
@@ -308,6 +234,8 @@ async def campaign_create(body: CampaignIn, request: Request, user=Depends(requi
         except ValueError:
             raise HTTPException(400, "Bad schedule time")
     doc = await camp.create_campaign(t, name=body.name, text=body.text, image_url=img, recipients=rcps, created_by=user["id"], scheduled_at=sched)
+    await _raw_db.wa_campaigns.update_one({"id": doc["id"]}, {"$set": {"festival": body.festival, "offer": body.offer,
+                                                                        "valid_till": body.valid_till, "offer_type": body.offer_type}})
     use = await camp.usage_today(t)
     doc.pop("recipients", None)
     return {**doc, "skipped_no_phone": len(custs) - len(rcps), "usage": use}
@@ -330,8 +258,6 @@ async def campaign_detail(cid: str, user=Depends(require_tenant_admin), t=Depend
 @router.post("/campaigns/{cid}/approve")
 async def campaign_approve(cid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """One-tap approval of a Mira-drafted festival campaign → joins the throttled queue."""
-    if not await gw.tenant_connected(t["id"]):
-        raise HTTPException(409, "Link your salon WhatsApp in Settings first")
     r = await _raw_db.wa_campaigns.update_one({"id": cid, "tenant_id": t["id"], "status": "draft"},
                                               {"$set": {"status": "queued", "approved_by": user["id"], "approved_at": datetime.now(timezone.utc).isoformat()}})
     if not r.modified_count:
@@ -349,42 +275,48 @@ async def campaign_action(cid: str, action: str, user=Depends(require_tenant_adm
     return {"ok": True, "status": status}
 
 
-# ---------------- Replies inbox ----------------
+
+
+class TestSendIn(BaseModel):
+    phone: str = Field(..., min_length=10, max_length=16)
+    festival: str = Field("", max_length=60)
+    offer: str = Field("", max_length=160)
+    valid_till: str = Field("", max_length=30)
+    image_url: Optional[str] = Field(None, max_length=600, pattern=r"^(/api/files/[A-Za-z0-9-]{8,64}|/assets/[A-Za-z0-9_./-]+\.(jpe?g|png|webp)|https://[^\s]+)$")
+
+
+@router.post("/test-send")
+async def link_test_send(body: TestSendIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Send the festival campaign template to the owner's own number (1 credit)."""
+    from services import whatsapp_official as official
+    digits = re.sub(r"\D", "", body.phone)
+    if len(digits) < 10:
+        raise HTTPException(400, "Enter a valid mobile number")
+    from datetime import timedelta
+    params = [(user.get("name") or "there").split()[0], t.get("name", "our salon"), body.festival or "the festive season",
+              body.offer or "a special festive treat", body.valid_till or (datetime.now(timezone.utc) + timedelta(days=7)).strftime("%d %b")]
+    try:
+        r = await official.send("festival", t, digits, params, image_url=body.image_url)
+    except RuntimeError as e:
+        raise HTTPException(409 if "credits" in str(e) else 502, str(e))
+    return {"ok": True, "message_id": r.get("message_id"), "with_image": bool(body.image_url), "credits": await official.credits(t["id"])}
+
+
 @router.get("/inbox")
 async def link_inbox(days: int = 7, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    """Guests' WhatsApp replies (last N days) matched to CRM profiles — book them on the spot."""
-    g = t.get("wa_gateway") or {}
-    if not g.get("session_id"):
-        return {"replies": [], "linked": False}
-    try:
-        data = await gw._call("GET", f"/sessions/{g['session_id']}/messages", params={"limit": 500, "direction": "incoming"}, timeout=20.0)
-    except RuntimeError as e:
-        logging.getLogger("whatsapp").warning("inbox failed: %s", e)
-        raise HTTPException(502, "WhatsApp gateway unavailable — try again shortly")
-    # WhatsApp hides numbers behind @lid ids; learn lid→phone from our own sends
-    lid_to_phone: dict[str, str] = {}
-    async for m in _raw_db.whatsapp_messages.find({"tenant_id": t["id"], "provider": "openwa"}, {"_id": 0, "to": 1, "message_id": 1}).sort("created_at", -1).limit(3000):
-        mm = re.match(r"^(?:true|false)_(\d+)@lid", m.get("message_id") or "")
-        if mm and m.get("to"):
-            lid_to_phone.setdefault(mm.group(1), re.sub(r"\D", "", m["to"].split("@")[0]))
+    """Guests' WhatsApp replies (official channel webhook) matched to CRM profiles."""
+    from datetime import timedelta
     since = (datetime.now(timezone.utc) - timedelta(days=max(1, min(days, 30)))).isoformat()
-    out = []
-    for m in data.get("messages", []):
-        frm = m.get("from") or ""
-        if m.get("isGroup") or frm.endswith("@g.us") or "@g.us" in (m.get("to") or "") or not (m.get("body") or "").strip() or (m.get("createdAt") or "") < since:
-            continue
-        digits = re.sub(r"\D", "", frm.split("@")[0])
-        phone = lid_to_phone.get(digits, "") if frm.endswith("@lid") else digits
-        if not phone or len(phone) > 15 or phone[-10:] == re.sub(r"\D", "", g.get("phone") or "")[-10:]:
-            continue  # skip our own number's messages (sent from the salon phone)
-        out.append({"phone": phone, "body": m["body"][:500], "at": m.get("createdAt"), "type": m.get("type")})
-    phones = list({r["phone"][-10:] for r in out})
+    rows = await _raw_db.whatsapp_messages.find({"tenant_id": t["id"], "direction": "inbound", "created_at": {"$gte": since}, "text": {"$nin": [None, ""]}},
+                                                 {"_id": 0, "wa_id": 1, "text": 1, "created_at": 1, "type": 1}).sort("created_at", -1).to_list(200)
+    phones = list({(r.get("wa_id") or "")[-10:] for r in rows if r.get("wa_id")})
     custs = await _raw_db.customers.find({"tenant_id": t["id"], "phone": {"$regex": "(" + "|".join(map(re.escape, phones)) + ")$"}},
                                          {"_id": 0, "id": 1, "name": 1, "phone": 1, "visits": 1, "last_visit": 1}).to_list(500) if phones else []
-    by_last10 = {re.sub(r"\D", "", c.get("phone") or "")[-10:]: c for c in custs}
-    for r in out:
-        c = by_last10.get(r["phone"][-10:])
-        r.update({"customer_id": c["id"] if c else None, "name": c["name"] if c else "Unknown guest",
-                  "visits": (c or {}).get("visits", 0), "last_visit": (c or {}).get("last_visit")})
-    out.sort(key=lambda r: r["at"] or "", reverse=True)
-    return {"replies": out[:200], "linked": True, "unread": len(out)}
+    by10 = {re.sub(r"\D", "", c.get("phone") or "")[-10:]: c for c in custs}
+    out = []
+    for r in rows:
+        c = by10.get((r.get("wa_id") or "")[-10:])
+        out.append({"phone": r.get("wa_id"), "body": (r.get("text") or "")[:500], "at": r.get("created_at"), "type": r.get("type"),
+                    "customer_id": c["id"] if c else None, "name": c["name"] if c else "Unknown guest",
+                    "visits": (c or {}).get("visits", 0), "last_visit": (c or {}).get("last_visit")})
+    return {"replies": out, "linked": True, "unread": len(out)}

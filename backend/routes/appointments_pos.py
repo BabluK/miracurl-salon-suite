@@ -116,15 +116,15 @@ def _ist_when(raw) -> str:
 
 async def _tenant_for_sms(user: dict):
     from sms_service import sms_configured
-    t = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0, "id": 1, "name": 1, "wa_gateway": 1})
-    if not t or not (sms_configured() or (t.get("wa_gateway") or {}).get("phone")):
+    t = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0, "id": 1, "name": 1, "reception_phone": 1, "phone": 1, "wa_points": 1})
+    if not t or not (sms_configured() or int(t.get("wa_points") or 0) > 0):
         return None
     return t
 
 
-def _queue_sms(t: dict, phone: str, text: str, kind: str) -> None:
+def _queue_sms(t: dict, phone: str, text: str, kind: str, wa: dict | None = None) -> None:
     from sms_service import send_tenant_sms
-    asyncio.create_task(send_tenant_sms(t["id"], phone, text, kind=kind))
+    asyncio.create_task(send_tenant_sms(t["id"], phone, text, kind=kind, wa=wa))
 
 
 async def _send_booking_sms(user: dict, cust: dict, staff: dict, services: list, scheduled_at) -> None:
@@ -136,7 +136,9 @@ async def _send_booking_sms(user: dict, cust: dict, staff: dict, services: list,
     _queue_sms(t, cust["phone"],
                f"{t.get('name') or 'Your salon'}: Hi {cust['name']}, your booking is CONFIRMED! "
                f"{', '.join(s['name'] for s in services)} on {_ist_when(scheduled_at)} with {staff['name']}. See you soon!",
-               "booking")
+               "booking",
+               wa={"kind": "booking", "params": [cust["name"].split()[0], t.get("name") or "your salon", _ist_when(scheduled_at),
+                                                 ", ".join(s["name"] for s in services), staff["name"], t.get("reception_phone") or t.get("phone") or "the salon"]})
 
 
 async def _send_cancellation_sms(user: dict, appt: dict, phone: str) -> None:

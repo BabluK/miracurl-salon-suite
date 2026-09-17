@@ -94,7 +94,7 @@ async def send_sms(to_phone: str, body: str) -> dict:
     return await _send_twilio(to, body)
 
 
-async def send_tenant_sms(tenant_id: str, to_phone: str, body: str, kind: str = "general") -> dict:
+async def send_tenant_sms(tenant_id: str, to_phone: str, body: str, kind: str = "general", wa: dict | None = None) -> dict:
     """Point-metered customer SMS: burns 1 sms_point from the tenant, refunds on failure.
     Every attempt is recorded in sms_log for the HQ delivery log."""
     from database import _raw_db
@@ -109,18 +109,19 @@ async def send_tenant_sms(tenant_id: str, to_phone: str, body: str, kind: str = 
         except Exception as e:  # noqa: BLE001 — logging must never break sending
             log.warning("sms_log write failed: %s", e)
 
-    # Salon linked its own WhatsApp (OpenWA gateway)? Customer messages go there first — free, no SMS point.
-    if kind != "staff_transfer":
+    # Official Miracurl WhatsApp (Meta template) first when the caller supplied template params; SMS is the fallback.
+    if wa and kind != "staff_transfer":
         try:
-            from services import whatsapp_gateway as gw
-            sid = await gw.tenant_connected(tenant_id) if await gw.prefer_whatsapp(tenant_id) else None
-            if sid:
-                r = await gw.send_text(sid, tenant_id, to_phone, body)
-                res = {"sent": True, "channel": "whatsapp", "sid": r.get("messageId")}
+            from services import whatsapp_official as official
+            from services.tenant_features import feature_on
+            t_doc = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+            if t_doc and await feature_on(tenant_id, "whatsapp") and int(t_doc.get("wa_points") or 0) >= 1:
+                r = await official.send(wa["kind"], t_doc, to_phone, wa["params"], image_url=wa.get("image_url"))
+                res = {"sent": True, "channel": "whatsapp", "sid": r.get("message_id")}
                 await _log(res)
                 return res
         except Exception as e:  # noqa: BLE001 — fall back to SMS
-            log.warning("whatsapp gateway send failed, falling back to SMS: %s", e)
+            log.warning("official whatsapp send failed, falling back to SMS: %s", e)
 
     if not sms_configured():
         res = {"sent": False, "error": "not_configured"}

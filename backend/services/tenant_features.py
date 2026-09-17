@@ -8,8 +8,8 @@ def features_of(t: dict | None) -> dict:
     """Missing key = OFF: HQ switches each feature on per tenant."""
     f = (t or {}).get("features") or {}
     out = {k: bool(f.get(k)) for k in FEATURE_KEYS}
-    if ((t or {}).get("wa_gateway") or {}).get("phone"):
-        out["whatsapp"] = True  # salon linked its own WhatsApp number (OpenWA gateway)
+    if int((t or {}).get("wa_points") or 0) > 0:
+        out["whatsapp"] = True  # tenant holds WhatsApp credits for Miracurl's official channel
     return out
 
 

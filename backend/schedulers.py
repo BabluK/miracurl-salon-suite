@@ -38,8 +38,8 @@ async def _sms_reminder_scheduler() -> None:
     from database import _raw_db
     while True:
         try:
-            wa_linked = await _raw_db.tenants.count_documents({"wa_gateway.phone": {"$nin": [None, ""]}}, limit=1)
-            if sms_configured() or wa_linked:
+            wa_ready = await _raw_db.tenants.count_documents({"wa_points": {"$gt": 0}}, limit=1)
+            if sms_configured() or wa_ready:
                 intl = {t["id"]: t async for t in _raw_db.tenants.find(
                     {}, {"_id": 0, "id": 1, "name": 1})}
                 if intl:
@@ -72,11 +72,14 @@ async def _sms_reminder_scheduler() -> None:
                         if cust and cust.get("phone"):
                             t = intl[a["tenant_id"]]
                             first = (cust.get("name") or a.get("customer_name") or "there").split()[0]
+                            svc = ", ".join(a.get("service_names") or ["appointment"])
+                            at_time = a["scheduled_at"][11:16]
                             await send_tenant_sms(a["tenant_id"], cust["phone"],
                                            f"Hi {first}! Gentle reminder from {t.get('name') or 'your salon'} — your "
-                                           f"{', '.join(a.get('service_names') or ['appointment'])} is in about 1 hour"
+                                           f"{svc} is in about 1 hour"
                                            f"{(' with ' + a['staff_name']) if a.get('staff_name') else ''}. See you soon ✦",
-                                           kind="reminder")
+                                           kind="reminder",
+                                           wa={"kind": "reminder", "params": [first, svc, t.get("name") or "your salon", at_time]})
                         await _raw_db.appointments.update_one({"id": a["id"]}, {"$set": {"hour_reminder_sent": True}})
                 # Low-balance alert: email HQ once per tenant per day when points dip under 20
                 today = datetime.now(timezone.utc).date().isoformat()

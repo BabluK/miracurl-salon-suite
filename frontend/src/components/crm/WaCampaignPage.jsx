@@ -29,6 +29,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
   const [camps, setCamps] = useState(null);
   const [fest, setFest] = useState(null);
   const [festPick, setFestPick] = useState("");
+  const [meta, setMeta] = useState({ festival: "", offer: "", valid_till: "" });
   const [showHistory, setShowHistory] = useState(false);
   const [showInbox, setShowInbox] = useState(false);
 
@@ -59,6 +60,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
         offer_type: TEMPLATES[tpl].offer_type, discount_pct: TEMPLATES[tpl].offer_type === "discount" || tpl === "festive" ? discount : null,
       });
       setText(data.text);
+      setMeta({ festival: data.festival || "", offer: data.offer || "", valid_till: data.valid_till || "" });
       setCands(c => [...c.filter(x => x.id.startsWith("mira:")), ...(data.candidates || [])]);
       if (!image?.id?.startsWith("mira:")) setImage(data.image); // keep a painted poster
       toast.success(data.why ? `Mira: ${data.why}` : "Mira drafted your campaign ✦");
@@ -83,7 +85,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
     if (!text.trim()) return toast.error("Write or generate the message first");
     setBusy("test");
     try {
-      const { data } = await api.post("/whatsapp-link/test-send", { phone: testPhone, text: text.replace(/\{name\}/g, "there"), image_url: image?.url || null });
+      const { data } = await api.post("/whatsapp-link/test-send", { phone: testPhone, festival: meta.festival, offer: meta.offer, valid_till: meta.valid_till, image_url: image?.url || null });
       toast.success(data.with_image ? "Test sent with the image ✦" : "Test sent to your number ✦");
     } catch (e) { toast.error(e.response?.data?.detail || "Test failed"); }
     finally { setBusy(""); }
@@ -99,6 +101,8 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
         audience, customer_ids: selectedCustomers.map(c => c.id), text, image_url: image?.url || null,
         name: `${TEMPLATES[tpl].label} · ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`,
         scheduled_at: when === "later" ? new Date(schedAt).toISOString() : null,
+        festival: meta.festival || festPick, offer: meta.offer || brief.slice(0, 160), valid_till: meta.valid_till,
+        offer_type: TEMPLATES[tpl].offer_type,
       });
       toast.success(when === "later" ? `Scheduled for ${data.total} guests ✦` : `Queued ${data.total} messages — sending gradually ✦`);
       setText(""); setImage(null); loadCamps(); setShowHistory(true);
@@ -125,7 +129,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
 
       {!linked && status && (
         <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800" data-testid="wa-campaign-not-linked">
-          Link your salon WhatsApp first — <a href="/settings" className="underline font-semibold">Settings → Link your WhatsApp</a>.
+          WhatsApp messaging isn't available right now — <a href="/settings" className="underline font-semibold">check Settings → WhatsApp messaging</a>.
         </div>
       )}
 

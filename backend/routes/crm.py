@@ -213,7 +213,8 @@ async def _wish_on_whatsapp(t: dict, c: dict, field: str, emoji: str, word: str,
     first = (c.get("name") or "there").split()[0]
     msg = (f"{emoji} Happy {word}, {first}! Everyone at {t.get('name', 'your salon')} wishes you a wonderful day ✦\n\n"
            f"Our little treat for you: *{offer}* — valid this week.\nBook your pampering: {book_url}")
-    r = await send_tenant_sms(t["id"], c["phone"], msg, kind="birthday")
+    r = await send_tenant_sms(t["id"], c["phone"], msg, kind="birthday",
+                              wa={"kind": "birthday", "params": [first, t.get("name", "your salon"), offer]} if field == "dob" else None)
     await _raw_db.customers.update_one({"id": c["id"]}, {"$set": {f"wa_{field}_wished_on": today_iso}})
     return {"tenant": t["name"], "customer": c["name"], "phone": c["phone"], "occasion": field,
             "channel": r.get("channel", "sms"), "sent": bool(r.get("sent")), "error": r.get("error")}
@@ -222,7 +223,7 @@ async def _wish_on_whatsapp(t: dict, c: dict, field: str, emoji: str, word: str,
 async def _celebrate_tenant(t: dict, mmdd: str, today_iso: str, app_url: str) -> list[dict]:
     offer = t.get("birthday_offer_text") or DEFAULT_BIRTHDAY_OFFER
     book_url = f"{app_url}/book/{t.get('slug', '')}"
-    wa_linked = bool((t.get("wa_gateway") or {}).get("phone"))
+    wa_linked = int(t.get("wa_points") or 0) > 0
     results: list[dict] = []
     for field, emoji, word in _OCCASIONS:
         subject_tpl = f"{emoji} Happy {word} {{name}} — from {t.get('name', 'your salon')} ✦"

@@ -166,11 +166,6 @@ async def send_template(to: str, name: str, params: list[str], tenant_id: str | 
 async def send_text(to: str, body: str, tenant_id: str | None = None) -> dict[str, Any]:
     """Send a free-form text. Routes via the salon's own linked WhatsApp (OpenWA gateway) when
     available, otherwise the Meta Cloud API (24h customer-service window applies)."""
-    if tenant_id:
-        from services import whatsapp_gateway as gw
-        sid = await gw.tenant_connected(tenant_id)
-        if sid:
-            return await gw.send_text(sid, tenant_id, to, body)
     cfg = wa_config()
     if not cfg["access_token"] or not cfg["phone_number_id"]:
         raise RuntimeError("WhatsApp Cloud API not configured (WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID)")

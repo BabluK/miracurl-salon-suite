@@ -501,15 +501,18 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
         total = total - coupon_discount
 
     # SMS confirmation for every salon (fire-and-forget, burns 1 sms_point)
-    t_doc = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "currency": 1, "gift_cards": 1, "wa_gateway": 1})
+    t_doc = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "currency": 1, "gift_cards": 1, "wa_points": 1, "reception_phone": 1, "phone": 1})
     if t_doc:
         from sms_service import send_tenant_sms, sms_configured
-        if sms_configured() or (t_doc.get("wa_gateway") or {}).get("phone"):
+        if sms_configured() or int(t_doc.get("wa_points") or 0) > 0:
             when = appt["scheduled_at"][:16].replace("T", " at ")
             asyncio.create_task(send_tenant_sms(
                 t_doc["id"], body.customer_phone,
                 f"{t_doc.get('name') or 'Your salon'}: booking confirmed! {', '.join(s['name'] for s in services)} on {when} with {staff['name']}. See you there!",
-                kind="booking"))
+                kind="booking",
+                wa={"kind": "booking", "params": [(cust.get("name") or "there").split()[0], t_doc.get("name") or "your salon", when,
+                                                  ", ".join(s["name"] for s in services), staff["name"],
+                                                  t_doc.get("reception_phone") or t_doc.get("phone") or "the salon"]}))
             # UPI prepay link when the diner chose "Pay by UPI" at reservation
             upi_vpa = ((t_doc.get("gift_cards") or {}).get("upi_id") or "").strip()
             if upi_vpa and "Pay by UPI" in (appt.get("notes") or "") and total and total > 0:

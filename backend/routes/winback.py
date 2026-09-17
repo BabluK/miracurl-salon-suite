@@ -150,8 +150,7 @@ async def winback_blast_preview(days: int = BLAST_DAYS, admin=Depends(require_te
     book_url = f"{base}/book/{t.get('slug', '')}" if base and t.get("slug") else ""
     sample = leads[0] if leads else {"name": "Priya", "last_visit": ""}
     fresh = await _raw_db.tenants.find_one({"id": t["id"]}, {"_id": 0, "wa_points": 1})
-    from services import whatsapp_gateway as gw
-    own_number = bool(await gw.tenant_connected(t["id"]))
+    own_number = int((fresh or {}).get("wa_points") or 0) > 0  # official channel: queue when the salon has credits
     return {"eligible": len(leads), "days": days, "credits": int((fresh or {}).get("wa_points") or 0), "own_number": own_number,
             "whatsapp_enabled": features_of(t)["whatsapp"], "template": bool(os.environ.get("WHATSAPP_WINBACK_TEMPLATE")),
             "sample_message": _nudge_message(t, (sample.get("name") or "there").split()[0], days, book_url),
@@ -169,9 +168,8 @@ async def winback_blast(body: BlastIn, admin=Depends(require_tenant_admin), t=De
     leads = [ld for ld in await _find_winback_leads(t["id"], days) if _wa_number(ld.get("phone"))][:max(1, min(body.limit, BLAST_LIMIT))]
     if body.dry_run:
         return {"eligible": len(leads), "sent": 0, "failed": 0, "skipped_no_credits": 0, "dry_run": True}
-    from services import whatsapp_gateway as gw
-    if await gw.tenant_connected(t["id"]):
-        # Own WhatsApp number → safe throttled queue (30–45s apart, daily cap) instead of a burst
+    if int(t.get("wa_points") or 0) > 0:
+        # Official channel → throttled queue (credits deducted per send) instead of a burst
         from services import wa_campaigns as camp
         base_q = os.environ.get("APP_PUBLIC_URL", "")
         book_q = f"{base_q}/book/{t.get('slug', '')}" if base_q and t.get("slug") else ""
@@ -188,9 +186,8 @@ async def winback_blast(body: BlastIn, admin=Depends(require_tenant_admin), t=De
                 "campaign_id": doc["id"], "own_number": True}
     base = os.environ.get("APP_PUBLIC_URL", "")
     book_url = f"{base}/book/{t.get('slug', '')}" if base and t.get("slug") else ""
-    from services import whatsapp_gateway as gw
-    own_number = bool(await gw.tenant_connected(t["id"]))
-    template = "" if own_number else os.environ.get("WHATSAPP_WINBACK_TEMPLATE", "")
+    own_number = False
+    template = os.environ.get("WHATSAPP_WINBACK_TEMPLATE", "")
     today = datetime.now(timezone.utc).date()
     sent, failed, no_credits, errors = 0, 0, 0, []
     for ld in leads:

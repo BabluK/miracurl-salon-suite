@@ -657,17 +657,12 @@ async def reviews_blast_send(body: BlastSendIn, user=Depends(require_admin), t=D
     link = f"{base}/review/{target['appointment_id']}"
     first = (target["customer_name"] or "there").split(" ")[0]
     if body.channel == "whatsapp":
-        from services import whatsapp_gateway as gw
-        sid = await gw.tenant_connected(t["id"])
-        if not sid:
-            raise HTTPException(409, "Link your salon WhatsApp in Settings first")
+        from services import whatsapp_official as official
         try:
-            r = await gw.send_text(sid, t["id"], target["phone"],
-                                   f"Hi {first}! Thanks for visiting {t.get('name', 'us')} 💇 "
-                                   f"We'd love your quick rating: {link}")
+            r = await official.send("review", t, target["phone"], [t.get("name", "us"), first])
         except RuntimeError as e:
-            raise HTTPException(502, f"WhatsApp send failed — {e}")
-        return {"ok": True, "channel": "whatsapp", "message_id": r.get("messageId")}
+            raise HTTPException(409 if "credits" in str(e) else 502, str(e))
+        return {"ok": True, "channel": "whatsapp", "message_id": r.get("message_id")}
     if body.channel == "sms":
         from sms_service import send_sms
         res = await send_sms(target["phone"],
