@@ -1,6 +1,6 @@
 """Settings → Link WhatsApp: the salon pairs its own WhatsApp number with the self-hosted gateway by QR."""
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -200,20 +200,19 @@ async def campaign_poster(body: PosterIn, user=Depends(require_tenant_admin), t=
         "general": "an elegant premium brand poster, soft cream and gold",
     }[body.offer_type]
     subject = "a beautifully plated gourmet dish and ambient restaurant table" if resto else "a radiant model with glossy styled hair and flawless skin"
-    lines = [body.headline or (f"Happy {fest}" if fest else "Special Offer")]
-    if body.discount_pct:
-        lines.append(f"{body.discount_pct}% OFF")
-    if svcs:
-        lines.append(" · ".join(x["name"] for x in svcs[:2]))
-    text_spec = "\n".join(f'Line {i + 1}: "{ln}"' for i, ln in enumerate(lines) if ln)
+    headline = body.headline or (f"Happy {fest}" if fest else {"discount": "Limited-Time Offer", "new_service": "Now at " + t.get("name", "our salon"),
+                                                                "winback": "We Miss You", "general": t.get("name", "Special Offer")}[body.offer_type])
+    sub = " · ".join(x["name"] for x in svcs[:3]) if svcs else ("Hair · Skin · Nails · Spa" if not resto else "Dine-in · Takeaway · Celebrations")
+    badge = f"FLAT {body.discount_pct}% OFF" if body.discount_pct else ""
     prompt = (f"Design {theme}, for a {'restaurant' if resto else 'unisex salon'} WhatsApp campaign. Square 1:1, photorealistic {subject} "
-              f"as the hero on one side, clean negative space on the other side for text. Typography: elegant serif headline, "
-              f"max {len(lines)} short text lines, spelled EXACTLY as written below, letter-perfect, no extra words:\n{text_spec}\n"
-              "Premium, Instagram-quality, no watermark, no logos other than the text.")
-    url = await _gen_image(prompt, t, "wa-campaign")
+              f"as the hero in the upper two-thirds, the lower third calm and darker with soft bokeh. ABSOLUTELY NO TEXT, letters, "
+              "numbers or logos anywhere in the image. Premium, Instagram-quality.")
+    from services.poster_text import overlay_poster_text
+    post = lambda b: overlay_poster_text(b, headline, sub, badge, t.get("name", ""))  # noqa: E731
+    url = await _gen_image(prompt, t, "wa-campaign", post=post)
     if not url:
         raise HTTPException(502, "Mira couldn't paint the poster right now — try again in a moment")
-    label = f"Mira poster — {body.headline or ('Happy ' + fest if fest else body.offer_type)}"
+    label = f"Mira poster — {headline}"
     return {"id": f"mira:{url}", "label": label, "url": url, "festival": fest}
 
 
@@ -327,6 +326,18 @@ async def campaign_detail(cid: str, user=Depends(require_tenant_admin), t=Depend
     return doc
 
 
+@router.post("/campaigns/{cid}/approve")
+async def campaign_approve(cid: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """One-tap approval of a Mira-drafted festival campaign → joins the throttled queue."""
+    if not await gw.tenant_connected(t["id"]):
+        raise HTTPException(409, "Link your salon WhatsApp in Settings first")
+    r = await _raw_db.wa_campaigns.update_one({"id": cid, "tenant_id": t["id"], "status": "draft"},
+                                              {"$set": {"status": "queued", "approved_by": user["id"], "approved_at": datetime.now(timezone.utc).isoformat()}})
+    if not r.modified_count:
+        raise HTTPException(409, "Not a pending draft")
+    return {"ok": True, "status": "queued"}
+
+
 @router.post("/campaigns/{cid}/{action}")
 async def campaign_action(cid: str, action: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     status = {"pause": "paused", "resume": "queued", "cancel": "cancelled"}.get(action)
@@ -335,3 +346,43 @@ async def campaign_action(cid: str, action: str, user=Depends(require_tenant_adm
     if not await camp.set_status(t["id"], cid, status):
         raise HTTPException(409, "Campaign already finished")
     return {"ok": True, "status": status}
+
+
+# ---------------- Replies inbox ----------------
+@router.get("/inbox")
+async def link_inbox(days: int = 7, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Guests' WhatsApp replies (last N days) matched to CRM profiles — book them on the spot."""
+    g = t.get("wa_gateway") or {}
+    if not g.get("session_id"):
+        return {"replies": [], "linked": False}
+    try:
+        data = await gw._call("GET", f"/sessions/{g['session_id']}/messages", params={"limit": 500, "direction": "incoming"}, timeout=20.0)
+    except RuntimeError as e:
+        raise HTTPException(502, f"Gateway unavailable — {e}")
+    # WhatsApp hides numbers behind @lid ids; learn lid→phone from our own sends
+    lid_to_phone: dict[str, str] = {}
+    async for m in _raw_db.whatsapp_messages.find({"tenant_id": t["id"], "provider": "openwa"}, {"_id": 0, "to": 1, "message_id": 1}).sort("created_at", -1).limit(3000):
+        mm = re.match(r"^(?:true|false)_(\d+)@lid", m.get("message_id") or "")
+        if mm and m.get("to"):
+            lid_to_phone.setdefault(mm.group(1), re.sub(r"\D", "", m["to"].split("@")[0]))
+    since = (datetime.now(timezone.utc) - timedelta(days=max(1, min(days, 30)))).isoformat()
+    out = []
+    for m in data.get("messages", []):
+        frm = m.get("from") or ""
+        if m.get("isGroup") or frm.endswith("@g.us") or "@g.us" in (m.get("to") or "") or not (m.get("body") or "").strip() or (m.get("createdAt") or "") < since:
+            continue
+        digits = re.sub(r"\D", "", frm.split("@")[0])
+        phone = lid_to_phone.get(digits, "") if frm.endswith("@lid") else digits
+        if not phone or len(phone) > 15 or phone[-10:] == re.sub(r"\D", "", g.get("phone") or "")[-10:]:
+            continue  # skip our own number's messages (sent from the salon phone)
+        out.append({"phone": phone, "body": m["body"][:500], "at": m.get("createdAt"), "type": m.get("type")})
+    phones = list({r["phone"][-10:] for r in out})
+    custs = await _raw_db.customers.find({"tenant_id": t["id"], "phone": {"$regex": "(" + "|".join(map(re.escape, phones)) + ")$"}},
+                                         {"_id": 0, "id": 1, "name": 1, "phone": 1, "visits": 1, "last_visit": 1}).to_list(500) if phones else []
+    by_last10 = {re.sub(r"\D", "", c.get("phone") or "")[-10:]: c for c in custs}
+    for r in out:
+        c = by_last10.get(r["phone"][-10:])
+        r.update({"customer_id": c["id"] if c else None, "name": c["name"] if c else "Unknown guest",
+                  "visits": (c or {}).get("visits", 0), "last_visit": (c or {}).get("last_visit")})
+    out.sort(key=lambda r: r["at"] or "", reverse=True)
+    return {"replies": out[:200], "linked": True, "unread": len(out)}

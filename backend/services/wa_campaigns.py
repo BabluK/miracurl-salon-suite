@@ -1,6 +1,7 @@
 """WhatsApp campaign queue with ban-safety guardrails: one message every 30–45s per salon,
 daily cap per salon (default 200), auto-pause when the cap is hit, resumes next day."""
 import asyncio
+import os
 import base64
 import logging
 import random
@@ -56,7 +57,7 @@ async def list_campaigns(tenant_id: str, limit: int = 20) -> list[dict]:
 
 async def set_status(tenant_id: str, cid: str, status: str) -> bool:
     r = await _raw_db.wa_campaigns.update_one(
-        {"id": cid, "tenant_id": tenant_id, "status": {"$in": ["queued", "running", "paused", "capped"]}},
+        {"id": cid, "tenant_id": tenant_id, "status": {"$in": ["queued", "running", "paused", "capped", "draft"]}},
         {"$set": {"status": status, "updated_at": _now()}})
     return bool(r.modified_count)
 
@@ -146,6 +147,7 @@ async def worker_loop() -> None:
 
 def start_worker() -> None:
     asyncio.get_event_loop().create_task(worker_loop())
+    asyncio.get_event_loop().create_task(festival_draft_loop())
 
 
 async def refresh_results(tenant: dict, camps: list[dict]) -> list[dict]:
@@ -178,3 +180,55 @@ async def refresh_results(tenant: dict, camps: list[dict]) -> list[dict]:
              "status": {"$ne": "cancelled"}}) if ids else 0
         out.append({**c, "delivered": delivered, "read": read, "booked": booked})
     return out
+
+
+async def draft_festival_campaigns() -> int:
+    """Mira pre-drafts a WhatsApp campaign 5 days before each upcoming festival for every WA-linked salon (one-tap approve)."""
+    from datetime import date as _date
+    from festivals import FESTIVALS
+    from routes.mira_common import _ask_json
+    from routes.reports import _tenant_tz
+    made = 0
+    async for t in _raw_db.tenants.find({"wa_gateway.phone": {"$nin": [None, ""]}}, {"_id": 0}):
+        today = datetime.now(_tenant_tz(t)).date()
+        for iso, (name, emoji, span) in FESTIVALS.items():
+            if (_date.fromisoformat(iso) - today).days != 5:
+                continue
+            if await _raw_db.wa_campaigns.find_one({"tenant_id": t["id"], "source": "festival_auto", "festival": name, "festival_date": iso}, {"_id": 1}):
+                continue
+            base = os.environ.get("APP_PUBLIC_URL", "")
+            book = f"{base}/book/{t.get('slug', '')}" if base and t.get("slug") else ""
+            resto = t.get("business_type") == "restaurant"
+            try:
+                out = await _ask_json(
+                    "You are Mira, the marketing assistant for a salon/restaurant SaaS.",
+                    f"Business: {t.get('name')} ({'restaurant' if resto else 'salon'}). Festival in 5 days: {emoji} {name} ({iso}). "
+                    f"Write a warm WhatsApp festive offer under 380 characters with {{name}} as greeting placeholder, a flat 15-20% festive "
+                    f"discount, 1-2 emojis, booking link once: {book}. Return {{\"text\": str, \"headline\": str}}.", model="gpt-5.4")
+            except Exception as e:  # noqa: BLE001
+                log.warning("festival draft LLM failed for %s: %s", t.get("slug"), e)
+                continue
+            rcps = [{"customer_id": c["id"], "name": c.get("name") or "", "phone": c["phone"]} async for c in
+                    _raw_db.customers.find({"tenant_id": t["id"], "phone": {"$nin": [None, ""]}}, {"_id": 0, "id": 1, "name": 1, "phone": 1}).limit(500)]
+            if not rcps:
+                continue
+            doc = await create_campaign(t, name=f"{emoji} {name} festive campaign", text=out.get("text", ""), image_url=None,
+                                        recipients=rcps, created_by="mira", source="festival_auto")
+            await _raw_db.wa_campaigns.update_one({"id": doc["id"]}, {"$set": {"status": "draft", "festival": name, "festival_date": iso,
+                                                                               "headline": out.get("headline", f"Happy {name}")}})
+            made += 1
+    return made
+
+
+async def festival_draft_loop() -> None:
+    await asyncio.sleep(90)
+    while True:
+        try:
+            flag = await _raw_db.system_flags.find_one({"key": "wa_festival_drafts"})
+            today = datetime.now(timezone.utc).date().isoformat()
+            if not flag or flag.get("value") != today:
+                n = await draft_festival_campaigns()
+                await _raw_db.system_flags.update_one({"key": "wa_festival_drafts"}, {"$set": {"value": today, "made": n, "ran_at": _now()}}, upsert=True)
+        except Exception as e:  # noqa: BLE001
+            log.warning("festival draft loop error: %s", e)
+        await asyncio.sleep(3600)

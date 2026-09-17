@@ -129,10 +129,12 @@ async def _tenant_logo(t: dict) -> bytes | None:
         return None
 
 
-async def _gen_image(prompt: str, t: dict, kind: str) -> str:
+async def _gen_image(prompt: str, t: dict, kind: str, post=None) -> str:
     data = await _gen_image_bytes(prompt)
     if not data:
         return ""
+    if post:
+        data = post(data)
     from routes.promo_common import stamp_monogram_bytes
     data = stamp_monogram_bytes(data, await _tenant_logo(t))
     fid = str(uuid.uuid4())

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { MessageCircle, Users, Mail, Send, Clock, Sparkles, ImageIcon, X, ArrowRight, History, Loader2 } from "lucide-react";
-import { PhonePreview, CampaignHistory, Step } from "./WaCampaignBits";
+import { PhonePreview, CampaignHistory, Step, MiraDrafts, RepliesInbox } from "./WaCampaignBits";
 
 const TEMPLATES = {
   festive: { label: "Festival Offer", offer_type: "festive", brief: "Festive season offer with a flat discount on hair, skin and nail services + special festive packages" },
@@ -30,6 +30,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
   const [fest, setFest] = useState(null);
   const [festPick, setFestPick] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const [showInbox, setShowInbox] = useState(false);
 
   const loadCamps = () => api.get("/whatsapp-link/campaigns").then(r => setCamps(r.data)).catch(() => {});
   useEffect(() => {
@@ -117,6 +118,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
         </div>
         <div className="flex items-center gap-4">
           <div className="hidden md:block font-playfair italic text-rose-600 text-lg leading-tight">Happy Clients<br />Beautiful Journeys ♡</div>
+          <button onClick={() => setShowInbox(v => !v)} data-testid="wa-campaign-inbox-btn" className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium ${showInbox ? "bg-emerald-600 text-white border-emerald-600" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}><MessageCircle className="w-4 h-4" /> Replies</button>
           <button onClick={() => setShowHistory(v => !v)} data-testid="wa-campaign-history-btn" className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50"><History className="w-4 h-4" /> {showHistory ? "Hide" : "View"} Campaign History</button>
         </div>
       </div>
@@ -141,6 +143,8 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
         ))}
       </div>
 
+      <MiraDrafts camps={camps} onChange={loadCamps} />
+      {showInbox && <RepliesInbox />}
       {showHistory && <CampaignHistory camps={camps} onChange={loadCamps} />}
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-5">
