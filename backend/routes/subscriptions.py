@@ -340,10 +340,10 @@ SMS_PACKS = {
     "pack_499": {"price": 499, "points": 700, "label": "Growth"},
     "pack_999": {"price": 999, "points": 1500, "label": "Pro"},
 }
-WA_PACKS = {
-    "wa_299": {"price": 299, "points": 250, "label": "Starter"},
-    "wa_749": {"price": 749, "points": 700, "label": "Growth"},
-    "wa_1499": {"price": 1499, "points": 1500, "label": "Pro"},
+WA_PACKS = {  # Meta marketing ≈ ₹0.88/msg + platform margin
+    "wa_100": {"price": 149, "points": 100, "label": "Starter"},
+    "wa_500": {"price": 649, "points": 500, "label": "Growth"},
+    "wa_1000": {"price": 1199, "points": 1000, "label": "Pro"},
 }
 CHANNELS = {"sms": {"packs": SMS_PACKS, "field": "sms_points", "label": "SMS"},
             "whatsapp": {"packs": WA_PACKS, "field": "wa_points", "label": "WhatsApp"}}

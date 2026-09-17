@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { SmsPacksCard } from "./SmsPacksCard";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { MessageCircle, Coins, ShieldCheck } from "lucide-react";
@@ -50,7 +51,8 @@ export const WhatsAppLinkCard = () => {
           <div className="text-[11px] text-slate-500 mt-0.5">Booking · Reminder · Review · Win-back · Birthday · Festival</div>
         </div>
       </div>
-      <p className="text-xs text-slate-500">Need more credits? Ask Miracurl HQ to top up your wallet — the same wallet used for win-back nudges. SMS is used automatically when credits run out.</p>
+      <p className="text-xs text-slate-500">Buy more credits below (Razorpay, instant). SMS is used automatically when credits run out.</p>
+      <div className="-mx-5 -mb-5" data-testid="whatsapp-buy-packs"><SmsPacksCard defaultChannel="whatsapp" embedded /></div>
     </div>
   );
 };

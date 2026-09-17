@@ -14,7 +14,7 @@ function loadRazorpayScript() {
   });
 }
 
-export function SmsPacksCard({ defaultChannel = "sms" }) {
+export function SmsPacksCard({ defaultChannel = "sms", embedded = false }) {
   const [cfg, setCfg] = useState(null);
   const [busy, setBusy] = useState("");
   const [channel, setChannel] = useState(defaultChannel);
@@ -78,7 +78,7 @@ export function SmsPacksCard({ defaultChannel = "sms" }) {
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm" data-testid="sms-packs-card">
+    <div className={embedded ? "bg-slate-50/60 border-t border-slate-100 rounded-b-2xl p-6" : "bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm"} data-testid={embedded ? "wa-packs-card" : "sms-packs-card"}>
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
           <MessageSquare className="w-5 h-5" />
