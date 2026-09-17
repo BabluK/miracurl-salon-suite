@@ -240,7 +240,8 @@ async def campaign_create(body: CampaignIn, request: Request, user=Depends(requi
 
 @router.get("/campaigns")
 async def campaign_list(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    return {"campaigns": await camp.list_campaigns(t["id"]), "usage": await camp.usage_today(t)}
+    rows = await camp.list_campaigns(t["id"])
+    return {"campaigns": await camp.refresh_results(t, rows[:10]) + rows[10:], "usage": await camp.usage_today(t)}
 
 
 @router.get("/campaigns/{cid}")

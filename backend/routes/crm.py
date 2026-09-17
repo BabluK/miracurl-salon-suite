@@ -215,6 +215,8 @@ async def _run_birthday_emails(tenant_id: Optional[str] = None) -> dict:
             ("dob", f"🎂 Happy Birthday {{name}} — from {t.get('name', 'your salon')} ✦"),
             ("anniversary", f"💞 Happy Anniversary {{name}} — from {t.get('name', 'your salon')} ✦"),
         ]
+        wa_linked = bool((t.get("wa_gateway") or {}).get("phone"))
+        today_iso = ist.strftime("%Y-%m-%d")
         for field, subject_tpl in occasions:
             custs = await _raw_db.customers.find(
                 {"tenant_id": t["id"], field: {"$regex": f"-{mmdd}$"},
@@ -222,6 +224,23 @@ async def _run_birthday_emails(tenant_id: Optional[str] = None) -> dict:
                 {"_id": 0, "id": 1, "name": 1, "email": 1}).to_list(200)
             for c in custs:
                 results.append(await _send_celebration_email(t, c, field, subject_tpl, offer, book_url))
+            if not wa_linked:
+                continue
+            # Mira's WhatsApp wish from the salon's own number (once per guest per day)
+            emoji, word = ("🎂", "Birthday") if field == "dob" else ("💞", "Anniversary")
+            wa_custs = await _raw_db.customers.find(
+                {"tenant_id": t["id"], field: {"$regex": f"-{mmdd}$"}, "phone": {"$nin": [None, ""]},
+                 f"wa_{field}_wished_on": {"$ne": today_iso}},
+                {"_id": 0, "id": 1, "name": 1, "phone": 1}).to_list(200)
+            from sms_service import send_tenant_sms
+            for c in wa_custs:
+                first = (c.get("name") or "there").split()[0]
+                msg = (f"{emoji} Happy {word}, {first}! Everyone at {t.get('name', 'your salon')} wishes you a wonderful day ✦\n\n"
+                       f"Our little treat for you: *{offer}* — valid this week.\nBook your pampering: {book_url}")
+                r = await send_tenant_sms(t["id"], c["phone"], msg, kind="birthday")
+                await _raw_db.customers.update_one({"id": c["id"]}, {"$set": {f"wa_{field}_wished_on": today_iso}})
+                results.append({"tenant": t["name"], "customer": c["name"], "phone": c["phone"], "occasion": field,
+                                "channel": r.get("channel", "sms"), "sent": bool(r.get("sent")), "error": r.get("error")})
     sent = sum(1 for r in results if r["sent"])
     return {"date": ist.strftime("%Y-%m-%d"), "sent": sent, "failed": len(results) - sent, "results": results}
 

@@ -146,3 +146,35 @@ async def worker_loop() -> None:
 
 def start_worker() -> None:
     asyncio.get_event_loop().create_task(worker_loop())
+
+
+async def refresh_results(tenant: dict, camps: list[dict]) -> list[dict]:
+    """Attach read receipts (from the gateway's outgoing log) + bookings made by recipients after the send."""
+    from services import whatsapp_gateway as gw
+    g = (tenant.get("wa_gateway") or {})
+    status_by_id: dict[str, str] = {}
+    if g.get("session_id") and any(c.get("sent") for c in camps):
+        try:
+            data = await gw._call("GET", f"/sessions/{g['session_id']}/messages", params={"limit": 500, "direction": "outgoing"}, timeout=20.0)
+            for m in data.get("messages", []):
+                if m.get("waMessageId"):
+                    status_by_id[m["waMessageId"]] = m.get("status") or ""
+        except Exception as e:  # noqa: BLE001
+            log.warning("gateway message log unavailable: %s", e)
+    out = []
+    for c in camps:
+        full = await _raw_db.wa_campaigns.find_one({"id": c["id"]}, {"_id": 0, "recipients": 1, "created_at": 1})
+        rcps = (full or {}).get("recipients") or []
+        delivered = read = 0
+        for r in rcps:
+            st = status_by_id.get(r.get("message_id") or "", "")
+            if st in ("delivered", "read"):
+                delivered += 1
+            if st == "read":
+                read += 1
+        ids = [r["customer_id"] for r in rcps if r.get("status") == "sent"]
+        booked = await _raw_db.appointments.count_documents(
+            {"tenant_id": tenant["id"], "customer_id": {"$in": ids}, "created_at": {"$gte": (full or {}).get("created_at", "")},
+             "status": {"$ne": "cancelled"}}) if ids else 0
+        out.append({**c, "delivered": delivered, "read": read, "booked": booked})
+    return out

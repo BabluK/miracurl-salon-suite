@@ -67,7 +67,10 @@ export function CampaignHistory({ camps, onChange }) {
             <div className="font-medium text-slate-800 truncate">{c.name}</div>
             <div className="text-[11px] text-slate-400">{new Date(c.scheduled_at || c.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}{c.failed ? ` · ${c.failed} failed` : ""}</div>
           </div>
-          <span className="text-xs text-slate-600 shrink-0">{c.sent}/{c.total} sent</span>
+          <span className="text-xs text-slate-600 shrink-0 text-right" data-testid={`wa-history-results-${c.id}`}>
+            {c.sent}/{c.total} sent
+            {c.sent > 0 && <span className="block text-[11px] text-slate-400"><span className="text-sky-600">✓✓ {c.read ?? 0} read</span> · {c.delivered ?? 0} delivered · <span className={c.booked ? "text-emerald-600 font-semibold" : ""}>{c.booked ?? 0} booked</span></span>}
+          </span>
           {["queued", "running", "capped"].includes(c.status) && <button onClick={() => act(c.id, "pause")} className="text-xs text-slate-500 hover:text-slate-800">Pause</button>}
           {c.status === "paused" && <button onClick={() => act(c.id, "resume")} className="text-xs text-emerald-700 font-semibold">Resume</button>}
           {["queued", "paused", "capped"].includes(c.status) && <button onClick={() => act(c.id, "cancel")} className="text-xs text-rose-600">Cancel</button>}

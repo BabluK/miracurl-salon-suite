@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import log from "@/lib/log";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { User, Lock, Eye, EyeOff } from "lucide-react";
+import { User, Lock, Eye, EyeOff, Globe } from "lucide-react";
 import { toast } from "sonner";
 import BrandMark from "@/components/BrandMark";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import { passkeySupported, registerPasskey, loginWithPasskey } from "@/lib/webauthn";
+import { LoginShowcase } from "@/components/LoginShowcase";
 import { SubscriptionBlockModal } from "@/components/SubscriptionBlockModal";
 
 const FOOTER_FEATURES = [
@@ -134,38 +135,34 @@ export default function Login() {
     : "Reset Password";
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-white pb-16" data-testid="login-page">
+    <div className="min-h-screen relative overflow-hidden pb-16" data-testid="login-page"
+         style={{ background: "linear-gradient(135deg, #fdf7f2 0%, #fbeee8 35%, #f7f1e6 70%, #fdf6ec 100%)" }}>
       {blocked && <SubscriptionBlockModal info={blocked} onClose={() => setBlocked(null)} />}
       <LoginFeatureFooter />
-      {/* Decorative rose-gold gradient blobs — matching the brand logo */}
-      <div className="pointer-events-none absolute -right-32 -bottom-32 w-[640px] h-[640px] rounded-full opacity-90"
-           style={{ background: "radial-gradient(circle at 30% 30%, #e8918f 0%, #d4af37 40%, #ec4899 75%, transparent 100%)" }} />
-      <div className="pointer-events-none absolute -left-40 -bottom-44 w-[520px] h-[520px] rounded-full opacity-80"
-           style={{ background: "radial-gradient(circle at 60% 40%, #f5d78e 0%, #e8a0a8 45%, #d4af37 80%, transparent 100%)" }} />
-      {/* AI sparkles drifting over the page */}
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        {[["12%","18%","0s"],["85%","12%","1.2s"],["70%","30%","2.1s"],["20%","65%","0.7s"],["90%","55%","1.8s"],["45%","10%","2.6s"],["8%","42%","3.2s"],["60%","75%","1.5s"]].map(([l,t,d]) => (
-          <span key={l+t} className="dash-sparkle dash-sparkle-gold" style={{ left: l, top: t, width: 5, height: 5, animationDelay: d, animationDuration: "4s" }} />
-        ))}
-      </div>
+      <div className="pointer-events-none absolute -left-24 -top-24 w-[420px] h-[420px] rounded-full opacity-60 blur-2xl" style={{ background: "radial-gradient(circle, #f3c4d3 0%, transparent 70%)" }} />
+      <div className="pointer-events-none absolute -right-32 top-1/3 w-[520px] h-[520px] rounded-full opacity-50 blur-2xl" style={{ background: "radial-gradient(circle, #f5dfa6 0%, transparent 70%)" }} />
 
-      {/* Brand mark — top-left (absolute so the card centers in the viewport) */}
-      <div className="absolute z-10 px-6 pt-5 sm:px-10 sm:pt-6">
+      {/* Mobile brand mark (desktop shows the full showcase panel) */}
+      <div className="lg:hidden absolute z-10 px-6 pt-5">
         <BrandMark variant="light" size="lg" />
       </div>
+      <div className="absolute right-5 top-4 z-10 hidden sm:inline-flex items-center gap-2 rounded-full bg-white/90 border border-slate-200 px-3.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm" data-testid="login-language-pill">
+        <Globe className="w-3.5 h-3.5" /> English
+      </div>
 
-      {/* PWA install prompt — encourages install from the login screen so
-          returning users can open the app in one tap. */}
       <InstallAppPrompt variant="app" />
 
-      {/* Card — vertically centered so Login is visible without scrolling */}
-      <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-6">
+      <div className="relative z-10 min-h-screen max-w-[1380px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-8 xl:gap-12 items-center px-4 sm:px-8 py-8 lg:py-6">
+        <LoginShowcase />
+        <div className="relative w-full max-w-md mx-auto lg:mx-0">
+          <div className="hidden xl:block absolute -right-16 top-1/2 -translate-y-1/2 font-playfair italic text-[#b58a2c] text-lg leading-snug text-center">Dream<br />Build<br />Serve<br />Grow<br />Together<br />♡</div>
         <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.18)] ring-1 ring-slate-100 p-7 sm:p-8 animate-fade-up">
-          <h1 className="text-center text-3xl sm:text-[2rem] font-semibold text-slate-800 tracking-tight" data-testid="login-heading">
+          <h1 className="text-center font-playfair text-4xl sm:text-[2.6rem] font-semibold text-slate-900 tracking-tight" data-testid="login-heading">
             {heading}
           </h1>
-          <p className="text-center text-[11px] uppercase tracking-[0.25em] mt-2 font-semibold" data-testid="login-ai-tagline">
-            <span className="brand-ai-tag">✦ AI Powered Salon Suite ✦</span>
+          {mode === "login" && <p className="text-center text-lg text-slate-700 -mt-0.5">to <span className="text-[#b58a2c] font-semibold">Miracurl Suite</span></p>}
+          <p className="text-center text-sm text-slate-500 mt-1.5" data-testid="login-ai-tagline">
+            {mode === "login" ? "Sign in to manage your salon or restaurant" : mode === "signup" ? "Create your staff account" : "We'll send a reset link to your email"}
           </p>
 
           <form onSubmit={submit} className="mt-6 space-y-4">
@@ -261,9 +258,9 @@ export default function Login() {
               type="submit"
               disabled={busy}
               data-testid="login-submit-btn"
-              className="w-full py-3.5 rounded-xl text-white font-medium text-base
-                         bg-gradient-to-r from-rose-400 via-pink-500 to-amber-500 hover:from-rose-500 hover:via-pink-600 hover:to-amber-600
-                         shadow-[0_8px_20px_-6px_rgba(232,145,143,0.65)]
+              className="w-full py-3.5 rounded-xl text-white font-semibold text-base tracking-wide
+                         bg-gradient-to-r from-[#d4af37] via-[#b8892b] to-[#1a1408] hover:from-[#e2bd45] hover:via-[#c69630] hover:to-[#2a2010]
+                         shadow-[0_10px_24px_-8px_rgba(184,137,43,0.7)]
                          disabled:opacity-60 disabled:cursor-not-allowed
                          transition-all active:scale-[0.98]"
             >
@@ -332,6 +329,7 @@ export default function Login() {
               </span>
             </p>
           )}
+        </div>
         </div>
       </div>
     </div>

@@ -445,9 +445,9 @@ if _cors_origins != ["*"]:
                 _cors_origins.append(_www)
 # SEC: never combine wildcard origins with credentials (cookie theft vector)
 _cors_credentials = _cors_origins != ["*"]
-# Production on Emergent ({app}.emergent.host) and preview pods are always accepted alongside the custom domains —
-# an explicit list (not "*") is required because auth cookies need credentialed CORS.
-_cors_regex = None if _cors_origins == ["*"] else r"^https://([a-z0-9-]+\.)*(emergent\.host|emergentagent\.com)$"
+# SEC (audit #4): no wildcard platform regex — only the explicit CORS_ORIGINS list is trusted with credentials.
+# The app is served same-origin in production, so its own host never needs a CORS entry.
+_cors_regex = None
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=_cors_credentials,
