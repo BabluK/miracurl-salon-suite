@@ -1,7 +1,7 @@
 """Settings → Link WhatsApp: the salon pairs its own WhatsApp number with the self-hosted gateway by QR."""
 import re
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from security import current_tenant, require_tenant_admin
@@ -66,10 +66,11 @@ async def link_prefs(body: PrefIn, user=Depends(require_tenant_admin), t=Depends
 class TestSendIn(BaseModel):
     phone: str = Field(..., min_length=10, max_length=16)
     text: str = Field("", max_length=1000)
+    image_url: str | None = Field(None, max_length=600)
 
 
 @router.post("/test-send")
-async def link_test_send(body: TestSendIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+async def link_test_send(body: TestSendIn, request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     digits = re.sub(r"\D", "", body.phone)
     if len(digits) < 10:
         raise HTTPException(400, "Enter a valid mobile number with country code")
@@ -78,10 +79,22 @@ async def link_test_send(body: TestSendIn, user=Depends(require_tenant_admin), t
         raise HTTPException(409, "Your WhatsApp isn't linked yet — scan the QR first")
     text = body.text.strip() or f"Hello from {t.get('name', 'our salon')} ✦ This is a test message from Miracurl — your WhatsApp is linked and working."
     try:
-        r = await gw.send_text(sid, t["id"], digits, text)
+        img = None
+        if body.image_url:
+            from services.wa_campaigns import _image_payload
+            from security import public_base_url
+            url = body.image_url if body.image_url.startswith("http") else f"{public_base_url(request)}{body.image_url}"
+            img = await _image_payload(url)
+        if img:
+            # same shape the campaign worker sends: image + caption in one bubble
+            r = await gw._call("POST", f"/sessions/{sid}/messages/send-image",
+                               json={"chatId": gw.wa_chat_id(digits), **img, "caption": text[:1024]}, timeout=90.0)
+            await gw._log_msg(t["id"], gw.wa_chat_id(digits), "image", text, r.get("messageId"), sid)
+        else:
+            r = await gw.send_text(sid, t["id"], digits, text)
     except RuntimeError as e:
         raise HTTPException(502, f"Send failed — {e}")
-    return {"ok": True, "message_id": r.get("messageId"), "to": digits}
+    return {"ok": True, "message_id": r.get("messageId"), "to": digits, "with_image": bool(img)}
 
 
 # ---------------- Campaigns (CRM → selected guests) with guardrails ----------------

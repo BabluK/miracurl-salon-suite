@@ -35,7 +35,12 @@ export function PhonePreview({ salon, text, image, firstName, testPhone, setTest
           <div className="bg-white rounded-xl rounded-tl-sm shadow-sm p-1.5 max-w-[95%]">
             {image && <img src={image.url} alt="" className="w-full rounded-lg max-h-56 object-cover mb-1.5" data-testid="wa-preview-image" />}
             <div className="px-1.5 pb-1 text-[13px] text-slate-800 whitespace-pre-wrap leading-relaxed" data-testid="wa-preview-text">{body}</div>
-            <div className="mt-1 border-t border-slate-100 pt-1.5 text-center text-sky-600 text-sm font-medium inline-flex w-full justify-center items-center gap-1.5"><CalendarCheck className="w-4 h-4" /> Book Now</div>
+            {/(https?:\/\/\S+)/.test(body) && (
+              <div className="mt-1.5 mx-1 rounded-lg bg-slate-50 border border-slate-200 p-2 flex items-center gap-2" data-testid="wa-preview-link-card">
+                <div className="w-9 h-9 rounded-md bg-rose-100 text-rose-600 flex items-center justify-center shrink-0"><CalendarCheck className="w-4 h-4" /></div>
+                <div className="min-w-0"><div className="text-xs font-semibold text-slate-800 truncate">Book Now · {salon}</div><div className="text-[10px] text-slate-500 truncate">{body.match(/(https?:\/\/\S+)/)[1].replace(/^https?:\/\//, "")}</div></div>
+              </div>
+            )}
             <div className="text-right text-[10px] text-slate-400 pr-1.5">{time}</div>
           </div>
         </div>

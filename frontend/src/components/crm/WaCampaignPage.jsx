@@ -64,8 +64,8 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
     if (!text.trim()) return toast.error("Write or generate the message first");
     setBusy("test");
     try {
-      await api.post("/whatsapp-link/test-send", { phone: testPhone, text: text.replace(/\{name\}/g, "there") });
-      toast.success("Test sent to your number ✦");
+      const { data } = await api.post("/whatsapp-link/test-send", { phone: testPhone, text: text.replace(/\{name\}/g, "there"), image_url: image?.url || null });
+      toast.success(data.with_image ? "Test sent with the image ✦" : "Test sent to your number ✦");
     } catch (e) { toast.error(e.response?.data?.detail || "Test failed"); }
     finally { setBusy(""); }
   };
