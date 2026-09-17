@@ -169,14 +169,17 @@ async def winback_blast(body: BlastIn, admin=Depends(require_tenant_admin), t=De
         return {"eligible": len(leads), "sent": 0, "failed": 0, "skipped_no_credits": 0, "dry_run": True}
     base = os.environ.get("APP_PUBLIC_URL", "")
     book_url = f"{base}/book/{t.get('slug', '')}" if base and t.get("slug") else ""
-    template = os.environ.get("WHATSAPP_WINBACK_TEMPLATE", "")
+    from services import whatsapp_gateway as gw
+    own_number = bool(await gw.tenant_connected(t["id"]))
+    template = "" if own_number else os.environ.get("WHATSAPP_WINBACK_TEMPLATE", "")
     today = datetime.now(timezone.utc).date()
     sent, failed, no_credits, errors = 0, 0, 0, []
     for ld in leads:
-        r = await _raw_db.tenants.update_one({"id": t["id"], "wa_points": {"$gte": 1}}, {"$inc": {"wa_points": -1}})
-        if not r.modified_count:
-            no_credits += 1
-            continue
+        if not own_number:
+            r = await _raw_db.tenants.update_one({"id": t["id"], "wa_points": {"$gte": 1}}, {"$inc": {"wa_points": -1}})
+            if not r.modified_count:
+                no_credits += 1
+                continue
         first = (ld["name"] or "there").split()[0]
         try:
             d = (today - datetime.fromisoformat(ld["last_visit"]).date()).days
@@ -189,7 +192,7 @@ async def winback_blast(body: BlastIn, admin=Depends(require_tenant_admin), t=De
             else:
                 await send_text(to, _nudge_message(t, first, d, book_url), tenant_id=t["id"])
             sent += 1
-            await _raw_db.sms_credit_log.insert_one({"id": str(uuid.uuid4()), "tenant_id": t["id"], "points": -1, "source": "winback_blast",
+            await _raw_db.sms_credit_log.insert_one({"id": str(uuid.uuid4()), "tenant_id": t["id"], "points": 0 if own_number else -1, "source": "winback_blast",
                                                      "channel": "whatsapp", "customer_id": ld["id"], "at": datetime.now(timezone.utc).isoformat()})
             await _raw_db.lead_outreach.insert_one({"id": str(uuid.uuid4()), "tenant_id": t["id"], "customer_id": ld["id"], "name": ld["name"],
                                                     "channel": "whatsapp", "to": to, "last_visit": ld.get("last_visit"), "by": admin["id"],
@@ -197,6 +200,7 @@ async def winback_blast(body: BlastIn, admin=Depends(require_tenant_admin), t=De
         except Exception as e:  # noqa: BLE001 — refund and keep going
             failed += 1
             errors.append(str(e)[:160])
-            await _raw_db.tenants.update_one({"id": t["id"]}, {"$inc": {"wa_points": 1}})
+            if not own_number:
+                await _raw_db.tenants.update_one({"id": t["id"]}, {"$inc": {"wa_points": 1}})
     return {"eligible": len(leads), "sent": sent, "failed": failed, "skipped_no_credits": no_credits, "errors": errors[:3],
             "hint": None if template else "Tip: set WHATSAPP_WINBACK_TEMPLATE (approved Meta template) so messages reach guests outside the 24h window."}

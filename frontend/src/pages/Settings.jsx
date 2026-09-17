@@ -31,6 +31,7 @@ import { SecurityPinCard } from "@/components/settings/SecurityPinCard";
 import { UpdatedBillsCard } from "@/components/settings/UpdatedBillsCard";
 import { RateMiracurlCard } from "@/components/settings/RateMiracurlCard";
 import { SocialConnectionsCard } from "@/components/settings/SocialConnectionsCard";
+import { WhatsAppLinkCard } from "@/components/settings/WhatsAppLinkCard";
 import { MiracurlProductsCard } from "@/components/settings/MiracurlProductsCard";
 import { LoyaltyStampsCard } from "@/components/settings/LoyaltyStampsCard";
 import { RewardsQrCard } from "@/components/settings/RewardsQrCard";
@@ -93,6 +94,7 @@ export default function Settings() {
             <Lazy eager={eager}><SupportAccessCard /></Lazy>
             <Lazy eager={eager}><AttendanceFinesCard /></Lazy>
             <Lazy eager={eager}><PreviousStaffCard /></Lazy>
+            <Lazy eager={eager}><WhatsAppLinkCard /></Lazy>
             <Lazy eager={eager}><SocialConnectionsCard /></Lazy>
             <Lazy eager={eager}><ReferEarnCard /></Lazy>
             <Lazy eager={eager}><NotifyEmailCard /></Lazy>

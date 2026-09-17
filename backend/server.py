@@ -87,6 +87,7 @@ from routes.cctv import router as cctv_router  # noqa: E402
 from routes.hiring import router as hiring_router  # noqa: E402
 from routes.hq_notifications import router as hq_notifications_router  # noqa: E402
 from routes.winback import router as winback_router  # noqa: E402
+from routes.whatsapp_link import router as whatsapp_link_router  # noqa: E402
 from routes.payments_intl import router as payments_intl_router  # noqa: E402
 from routes.employee_portal import router as employee_portal_router  # noqa: E402
 from routes.hq_documents import router as hq_documents_router  # noqa: E402
@@ -138,7 +139,7 @@ for _r in (
     cctv_router, hiring_router, hq_notifications_router, winback_router, payments_intl_router,
     employee_portal_router, hq_documents_router, mira_builder_router, manager_access_router,
     setup_wizard_router, lead_gen_router, tenant_mira_router, feedback_router, salon_digest_router,
-    pay_links_router, whatsapp_webhook_router,
+    pay_links_router, whatsapp_webhook_router, whatsapp_link_router,
     passkeys_router, eod_digests_router, wallet_pass_router, site_info_router,
     blog_router, cash_register_router, rewards_campaign_router, growth_advisory_router,
     subscription_invoices_router, rewards_settlements_router, campaign_agreement_router, tenant_features_router, support_tickets_router,

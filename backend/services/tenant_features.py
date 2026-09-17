@@ -7,7 +7,10 @@ FEATURE_KEYS = ("sms", "whatsapp")
 def features_of(t: dict | None) -> dict:
     """Missing key = OFF: HQ switches each feature on per tenant."""
     f = (t or {}).get("features") or {}
-    return {k: bool(f.get(k)) for k in FEATURE_KEYS}
+    out = {k: bool(f.get(k)) for k in FEATURE_KEYS}
+    if ((t or {}).get("wa_gateway") or {}).get("phone"):
+        out["whatsapp"] = True  # salon linked its own WhatsApp number (OpenWA gateway)
+    return out
 
 
 async def feature_on(tenant_id: str, key: str) -> bool:

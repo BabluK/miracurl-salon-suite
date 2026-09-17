@@ -3318,3 +3318,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Backend: `staff_salon_today` + `_salon_day_snapshot` in staff_portal.py; BankDetailsIn.account_number (digits only, ≤24) + input on StaffBankDetails.jsx.
 - Tested: iteration_164.json (6/6 backend, all frontend flows incl. mobile 390px). BUILD 2026-09-18.273.
 - Security audit #4 (read-only): CONDITIONAL PASS — one MEDIUM: credentialed CORS allow_origin_regex trusts all *.emergent.host / *.emergentagent.com (server.py ~443). Not yet fixed (pending user decision). P3: BlogPost dangerouslySetInnerHTML, public_base_url host trust, signup without email verification.
+
+## 2026-09-17 — OpenWA self-hosted WhatsApp gateway (PoC, preview only)
+- User blocked on Meta WhatsApp (no GST/MSME). Installed OpenWA (github rmyndharis/OpenWA, MIT) in /opt/openwa — see /app/memory/OPENWA_SETUP.md.
+- Each tenant links its own WhatsApp from Settings → "Link your WhatsApp" (QR or 8-char pairing code). Linked → send_text routes through the gateway automatically (win-back blasts, Mira replies); wa_points not charged; HQ whatsapp switch bypassed.
+- Verified: gateway up, session create/start, live QR + real pairing codes from WhatsApp servers, status polling, UI card. NOT yet verified: actual phone pairing + message delivery (needs user to scan/enter code); pending test send to +917406869271.
+- Decision by user: if this works → Meta WhatsApp not configured (only MSG91 for SMS).
