@@ -110,3 +110,14 @@
 - lead_gen.py: GET /super-admin/assist-requests + PUT /super-admin/assist-requests/{id}/status (new|contacted|done).
 - components/superadmin/AssistQueueCard.jsx — mounted in SuperAdmin Tenants tab under header (assist-queue-card): rows w/ 📞 tel: + 💬 wa.me (auto-set contacted), Done/Reopen, show-completed toggle, "N waiting" badge; hidden when no requests.
 - Verified: API list/status via curl + full UI screenshot (row, call/wa/done buttons). Seed cleaned. release_notes → .174 (needs next deploy — .173 deploy was queued earlier).
+
+## 2026-09-18 — Mira WhatsApp Receptionist (iter 173)
+- NEW page `/receptionist` (nav "Mira Receptionist", AdminOnly). Components: `components/receptionist/{ReceptionistHero,ReceptionistSim,ReceptionistThreads}.jsx`.
+- Backend `services/wa_receptionist.py`: tenant routing for inbound WA on the shared platform number — own phone_number_id → `#slug` in message → sticky `wa_sessions` (wa_id→tenant_id) → last outbound tenant (campaign replies) → WHATSAPP_DEFAULT_TENANT_SLUG. Human takeover (`human_until` 2h): Mira stays silent, inbound marked `human_queue`, bell notice `wa_human_msg`/`wa_handoff`.
+- `services/whatsapp_mira.py` rewired to the resolver; `[HANDOFF]` from Mira now sets human mode + notifies owner.
+- `routes/public_chat.py`: restaurants can now RESERVE via chat — resto prompt emits `[[BOOK]]` with `party_size`/`seating`, `_ai_execute_booking(payload, t)` accepts empty service_ids for restaurants; localized `reserve` confirmation (en/hi/kn).
+- Endpoints (`/api/whatsapp-link/receptionist*`): GET status+stats+threads, GET qr.png, POST simulate {text,session} (exact pipeline, no Meta/credits, wa_id `999…` derived via sha1), DELETE simulate/{session}, GET threads/{wa_id}, POST threads/{wa_id}/reply (send_text, 1 credit, sets human mode), PUT threads/{wa_id}/human.
+- `.env`: `WHATSAPP_PLATFORM_NUMBER=919180261256` (invite link `wa.me/<num>?text=Hi <name>! #<slug>`).
+- Note: handoff only triggers inside business hours (existing OUTSIDE-HOURS rule) — out of hours Mira takes a request instead.
+- Tests: `/app/backend/tests/test_iter173_wa_receptionist.py` (10 pass) + Playwright UI pass — `/app/test_reports/iteration_173.json`. BUILD 2026-09-18.279.
+- Still BLOCKED: Meta phone OTP registration (+91 91802 61256) — user will say "send code"; MSG91_FLOW_ID not available yet.

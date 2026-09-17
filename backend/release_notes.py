@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-18.278"
-BUILD_TIME = "19 Sep 2026, 03:00 AM IST"
+BUILD = "2026-09-18.279"
+BUILD_TIME = "18 Sep 2026, 11:00 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-18.279", "note": "Mira WhatsApp Receptionist (/receptionist): per-business wa.me invite link + QR (#slug routing on Miracurl's shared number, sticky wa_sessions, campaign-reply routing), restaurant table reservations via chat ([[BOOK]] with party_size), human handoff → 2h takeover (Mira pauses, bell notice), staff reply from the app (1 credit), owner test-bench simulator (no Meta/credits), 30-day stats + live conversation threads"},
     {"build": "2026-09-18.278", "note": "Official Meta WhatsApp channel (WABA 1627056435755219, +91 91802 61256, 6 approved templates) replaces the unofficial OpenWA gateway; every send costs 1 WhatsApp credit (wa_points); booking confirmations, 1h reminders, review requests, birthday wishes, win-back and CRM campaigns all use branded templates (tenant name + poster/logo header); Settings card = WhatsApp messaging + credits; Growth Advisory Razorpay checkout branded Miracurl AI Salon Suite"},
     {"build": "2026-09-18.277", "note": "WhatsApp Campaign: Mira festival radar (today + next 60 days), Paint <festival> poster (gpt-image-1/Gemini via _gen_image), compose on gpt-5.4 keeps painted poster, uncropped previews, test-send includes image; CRM view toggle keeps both panes mounted (instant switch); login page with real photography, no emoji footer, countries trust strip, partner badge"},
     {"build": "2026-09-18.276", "note": "New two-column login page (Miracurl Suite showcase + Welcome Back card, MS logo); CORS tightened to explicit origins only (audit #4 closed); campaign results (read receipts + bookings) in Campaign History; Mira WhatsApp birthday/anniversary wishes with the salon's treat"},
@@ -80,6 +81,15 @@ BUILD_LOG = [
 ]
 
 RELEASES = [
+    {
+        "date": "2026-09-18 (Mira answers your WhatsApp 24×7 🎧)",
+        "changes": [
+            "🎧 NEW · Mira Receptionist: guests message your WhatsApp and Mira replies in seconds — English, Hindi, Kannada or Hinglish — with your real prices, timings and open slots, and books the appointment (or reserves the table) herself",
+            "🔗 Your own WhatsApp link + QR (Mira Receptionist page): share on Instagram, Google, bills and posters — every guest lands with YOUR business, even on Miracurl's shared number",
+            "🙋 Human handoff: when a guest asks for a person, Mira pauses for 2 hours, rings your bell, and your team replies right from the app",
+            "🧪 Try Mira as a guest: a free test chat that uses the exact WhatsApp brain — see how she answers before going live",
+        ],
+    },
     {
         "date": "2026-09-16 (Editorial redesign, Mira on WhatsApp & HQ support 💬)",
         "changes": [

@@ -1,0 +1,28 @@
+{
+  "summary": "Iter 173 — Mira WhatsApp Receptionist tested end-to-end (backend + frontend). Created /app/backend/tests/test_iter173_wa_receptionist.py (10 pytest cases, all passing after a URL-encoding assertion fix). Frontend UI verified via Playwright: nav item, hero, live badge, invite link, all 5 stat tiles, copy toast, QR panel/image (naturalWidth=450), simulator hint→guest→Mira reply, sim reset, toggle round-trip (badge 'Mira is live on WhatsApp' ↔ 'Paused by you'), threads-empty state. Public web chat regression still returns 200. Salon and restaurant booking flows produce booked=true via simulator (Hair Cut - Men appointment created for tomorrow, restaurant table for 4 reserved, party_size=4). Reply endpoint returns 502 (Meta not registered) without decreasing credits and without 500. Webhook routing unit-test: #slug resolves tenant then sticky session works on 2nd message. All created test data (appointment, customers, wa_sessions) cleaned up.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Receptionist toggle toast", "issues": ["Toast copy is 'Mira paused — messages will wait for your team' / 'Mira is answering your WhatsApp'. Spec asked for 'WhatsApp auto-replies paused' / 'Mira paused…'. Semantic match is fine but copy differs slightly — main agent may want to align."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter173_wa_receptionist.py", "/app/test_reports/pytest/iter173.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "wa_receptionist.resolve_inbound_tenant: relies on WHATSAPP_PHONE_NUMBER_ID match — good; sticky session fallback correctly returns same tenant on 2nd non-slug message.",
+    "receptionist_reply: correctly decrements credits only on success (send_text before $inc), returns 502 on RuntimeError from Meta. Verified credits unchanged on failure.",
+    "human_active check compares ISO strings — works because they are UTC ISO timestamps of equal length; still, comparing datetime objects is safer.",
+    "Hydration warning on /receptionist: 'In HTML <span> cannot be a child of <option>' — pre-existing minor React warning surfaced in console.",
+    "receptionist_qr endpoint has no rate limiting; low risk but consider caching per tenant."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter173_wa_receptionist.py"],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "100% of tested flows"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (miracurl-marathahalli); infinity.admin@miracurl.com / Infinity@2026 (infinity-family-restaurant)",
+  "seed_data_creation": "Created and cleaned up: 1 appointment (tomorrow, Hair Cut - Men, 'Booked via AI advisor chat'), 2 customers (9811122233, 9822233344), wa_sessions rows for 919000055555 & 919000077777.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 173 Mira WhatsApp Receptionist covered. Reply endpoint returns 502 because Meta phone number 1327822217077398 isn't registered in prod — expected. Restaurant tenant has 0 wa_points so live badge would say 'Needs WhatsApp credits' — did not verify on FE (only salon tested end-to-end). Sim booking flow occasionally requires generous 60-90s waits due to LLM. Existing hydration warning about span-in-option present on receptionist page.",
+  "rca of the issue": "N/A — no bugs found. Only one assertion in first test run failed because invite_link is URL-encoded (`%23` not `#`) — fixed the test, not the code."
+}

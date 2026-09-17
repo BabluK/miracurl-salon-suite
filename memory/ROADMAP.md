@@ -32,3 +32,10 @@
 
 ## Recently completed (Jul 6, 2026)
 - Code Quality report closure, httpOnly-cookie-only auth, Evening Mira, luxe monthly report email, Aadhaar pepper migration
+
+## Updated 2026-09-18
+- DONE: Mira WhatsApp Receptionist (see CHANGELOG).
+- BLOCKED (user action): Meta phone OTP for +91 91802 61256 ("send code" when ready); MSG91_FLOW_ID for SMS fallback.
+- USER SAID DO NOT SUGGEST AGAIN: advance/deposit booking, guest bill split, rewards QR on KOT.
+- Candidate unique features offered (user picked b): a) Mira Virtual Try-On (selfie→hairstyle), c) Empty-slot Flash Deals, d) Hair Formula Passport, e) Menu Photo Studio (resto).
+- Receptionist follow-ups: voice-note (audio) replies via Whisper, interactive list/button messages for slot picking, per-tenant own WhatsApp number onboarding (Embedded Signup).
