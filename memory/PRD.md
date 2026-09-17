@@ -3341,3 +3341,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Campaign results: `wa_campaigns.refresh_results` (gateway outgoing log → waMessageId status; bookings = appointments by recipients after created_at) returned by GET /whatsapp-link/campaigns; CampaignHistory shows read/delivered/booked.
 - Birthday/anniversary: `_run_birthday_emails` also sends WhatsApp via send_tenant_sms(kind="birthday") when tenant linked; idempotent via customers.wa_dob_wished_on / wa_anniversary_wished_on. Verified live delivery.
 - VPS production guide: /app/memory/OPENWA_VPS_SETUP.md (systemd + nginx + certbot, env OPENWA_BASE_URL/OPENWA_API_KEY on Emergent Deploy). BUILD 2026-09-18.276.
+
+## 2026-09-17 — Festival radar + Mira posters + speed (iteration_170 PASS)
+- GET /whatsapp-link/festivals (festivals.py calendar, tenant tz). POST /whatsapp-link/campaigns/poster {festival, offer_type, discount_pct, service_ids, headline} → mira_common._gen_image (kind "wa-campaign") → {id:"mira:/api/files/..", url}. Prompt keeps ≤3 short text lines (long text garbles); salon name omitted (monogram stamp already added).
+- compose uses gpt-5.4 (`_ask_json(..., model=)`), festival hint appended to brief; painted poster preserved on compose. test-send accepts image_url (compressed via wa_campaigns._image_payload).
+- Customers.jsx: both panes stay mounted (campaign pane pre-warmed after 2.5s) → instant toggle; StrictMode double-fetch is dev-only.
+- Login: /assets/login/{bg-salon,salon-people,restaurant}.jpg (Gemini-generated), LoginFeatureFooter removed, countries trust strip, partner badge. BUILD 2026-09-18.277.

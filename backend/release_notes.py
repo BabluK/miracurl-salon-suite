@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-18.276"
-BUILD_TIME = "18 Sep 2026, 11:00 PM IST"
+BUILD = "2026-09-18.277"
+BUILD_TIME = "19 Sep 2026, 12:30 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-18.277", "note": "WhatsApp Campaign: Mira festival radar (today + next 60 days), Paint <festival> poster (gpt-image-1/Gemini via _gen_image), compose on gpt-5.4 keeps painted poster, uncropped previews, test-send includes image; CRM view toggle keeps both panes mounted (instant switch); login page with real photography, no emoji footer, countries trust strip, partner badge"},
     {"build": "2026-09-18.276", "note": "New two-column login page (Miracurl Suite showcase + Welcome Back card, MS logo); CORS tightened to explicit origins only (audit #4 closed); campaign results (read receipts + bookings) in Campaign History; Mira WhatsApp birthday/anniversary wishes with the salon's treat"},
     {"build": "2026-09-18.275", "note": "CRM flip: Customer Relationships | WhatsApp Campaign full page (recipients All/Loyal/Selected, templates Festival/Promo/Rebooking/Loyalty/Custom, Mira writes + picks image, phone preview, test on my number, Send now / Schedule later, history). Win-back Send all via throttled queue; 1-hour-before WhatsApp reminder; scheduled campaigns"},
     {"build": "2026-09-18.274", "note": "Fix: Salon profile Receptionist/Manager numbers were saved but not read back (GET /settings/branding omitted them → fields looked blank after reload). Self-hosted WhatsApp gateway (OpenWA): Settings → Link your WhatsApp (QR / pairing code), own-number routing for confirmations, reminders, win-back, review requests, Mira replies; CRM WhatsApp campaigns (select guests → Mira writes text + picks image) with guardrails: 30–45s spacing, 200/day cap"},
@@ -81,6 +82,8 @@ RELEASES = [
     {
         "date": "2026-09-16 (Editorial redesign, Mira on WhatsApp & HQ support 💬)",
         "changes": [
+            "🪔 WhatsApp Campaign: Mira's festival radar shows today's and upcoming festivals — tap one and Mira paints a bespoke festive poster and writes the message (now on GPT-5.4)",
+            "⚡ CRM ↔ WhatsApp Campaign switch is instant — no page reload",
             "✨ New login page: Miracurl Suite showcase — one platform for salons and restaurants — with the new MS monogram",
             "📈 Campaign History now shows ✓✓ read, delivered and how many guests booked after each campaign",
             "🎂 Mira wishes every guest a happy birthday / anniversary on WhatsApp with your treat (Settings → Birthday offer text)",

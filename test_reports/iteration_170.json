@@ -1,0 +1,33 @@
+{
+  "summary": "Iter 170 verified end-to-end: (1) festivals radar GET returns today/next/upcoming with proper shape; (2) poster paint POST returns mira: id + /api/files/ URL and image is >10KB PNG (fetched OK); (3) compose uses gpt-5.4, output contains {name} placeholder and festive/Navratri theme; (4) test-send with 2-digit phone returns 400 (no send); (5) offer_type='bogus' returns 422. Frontend Playwright @1440x900: Login page has bg-salon.jpg background, LoginShowcase salon-card & restaurant-card <img> both load (naturalWidth=604), login-trust-strip contains 'Trusted in multiple countries', login-countries has 8 span entries incl. 🇮🇳 India, login-partner-badge visible at xl, NO login-feature-footer element, login-submit-btn text is 'Login→'. Admin login → /dashboard OK. /customers default view = crm-relationship-pane, click crm-view-campaign shows wa-campaign-page and relationship-pane className contains 'hidden' but element still in DOM. wa-festival-radar visible with wa-fest-today (1) + 3 upcoming chips (wa-fest-2026-10-11/20/29). Clicking an upcoming Navratri chip → chip class contains 'bg-rose-600' (red), wa-template-festive becomes active (bg-rose-50 border-rose-300 text-rose-700), wa-campaign-paint label = ' Paint Navratri poster' (contains 'Navratri'). Toggle back to crm-view-crm then to campaign again: 0 /whatsapp-link/status network calls on second toggle (pane kept mounted, pre-warmed as expected). Clicked wa-campaign-paint (paid #2 of 2): within 120s wa-campaign-image contained <img src=/api/files/2dc3200f...> naturalWidth=1024, objectFit=contain; wa-preview-image mirrored the same file with rendered ratio 1.0 matching src ratio 1.0 (uncropped). Clicked wa-campaign-mira → textarea populated (>20 chars) AND wa-campaign-image img.src UNCHANGED (painted poster kept). wa-campaign-no-image cleared the image. Mobile 390x844: scrollWidth==clientWidth (no overflow), login-partner-badge hidden. Staff regression: priya.staff@miracurl.com/Staff@5678 → /staff-portal loads. NO real WhatsApp sends attempted: wa-campaign-send / wa-test-send / winback-send-all never clicked, no valid POST to /whatsapp-link/campaigns, no valid /test-send call. Paid image generations used: exactly 2 (1 backend test + 1 Playwright paint).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter170_wa_festival_poster.py",
+    "/app/test_reports/pytest/iter170.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Login.jsx:13-32 — LoginFeatureFooter component and FOOTER_FEATURES const are defined but never rendered (dead code after the redesign). Safe to delete to reduce bundle size and avoid future confusion.",
+    "whatsapp_link.py:213 campaign_poster — no rate-limit / per-tenant quota on a paid image generation endpoint (gpt-image-1 / Gemini). A single click floods hardly, but an owner accidentally holding down the button, or an XSS/CSRF path, could rack up cost. Consider a small per-tenant debounce (e.g., max 1 running poster + max N per hour).",
+    "WaCampaignPage.jsx:52-66 compose() replaces `text` unconditionally — if the owner has already edited the draft, Mira overwrites it silently. Consider a confirm dialog when `text` is non-empty (parallels the 'keep painted poster' behaviour already implemented for the image).",
+    "WaCampaignPage.jsx:38 GET /whatsapp-link/festivals + /audience-counts + /status all run on mount every time WaCampaignPage first mounts. Since the pane is now kept mounted, these calls happen only once per session — good. Confirmed by Playwright: 0 status calls on 2nd toggle.",
+    "Login.jsx:96-101 auto-registerPasskey (carried over from iter169) still auto-prompts on every fresh device — consider Settings-based opt-in.",
+    "Poster payload accepts free-form headline up to 80 chars; text is baked into the image prompt verbatim. Cheap prompt-injection surface (e.g. 'ignore previous, draw NSFW') — image models generally reject but worth an allowlist / basic profanity filter for owner UX."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter170_wa_festival_poster.py",
+    "/app/test_reports/iteration_170.json"
+  ],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% (all requested acceptance checks passed)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (Owner PIN 4321, X-Tenant-Slug miracurl-marathahalli); priya.staff@miracurl.com / Staff@5678",
+  "seed_data_creation": "None. Only read + one poster paint per plan. No campaign posted, no WhatsApp send.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter 170 focus: festival radar strip + Mira poster painter + gpt-5.4 compose + kept-mounted campaign pane + Login redesign (bg-salon.jpg, showcase cards, trust strip, partner badge, NO feature-footer). All acceptance items verified. Note the DOM markers: wa-campaign-page (root), wa-festival-radar, wa-fest-today, wa-fest-<iso-date> chips, wa-template-festive, wa-campaign-paint, wa-campaign-image (contains <img> once painted), wa-campaign-no-image (clear btn), wa-campaign-mira (compose), wa-preview-image (phone preview). Campaign pane is warmed 2.5s after mount via setCampaignMounted in Customers.jsx:31-32 and toggled by CSS 'hidden' class — do NOT expect it to unmount. Existing 'Festive glow facial test' campaign from iter169 still in history. WhatsApp gateway remains live — do not click wa-campaign-send/wa-test-send/winback-send-all, do not POST /whatsapp-link/campaigns with a valid text+audience payload, do not POST /test-send with a real phone.",
+  "rca of the issue": "N/A — all specified features verified working."
+}
