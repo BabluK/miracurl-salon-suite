@@ -12,6 +12,12 @@ export default function WaCampaignModal({ customers, onClose, onQueued }) {
   const [cands, setCands] = useState([]);
   const [why, setWhy] = useState("");
   const [busy, setBusy] = useState("");
+  const [offerType, setOfferType] = useState("general");
+  const [services, setServices] = useState([]);
+  const [svcIds, setSvcIds] = useState([]);
+  const [discount, setDiscount] = useState(15);
+
+  useEffect(() => { api.get("/services").then(r => setServices((Array.isArray(r.data) ? r.data : r.data.items || []).filter(x => x.active !== false))).catch(() => {}); }, []);
 
   useEffect(() => {
     api.get("/whatsapp-link/status").then(r => setWa(r.data)).catch(() => setWa({ connected: false }));
@@ -24,7 +30,7 @@ export default function WaCampaignModal({ customers, onClose, onQueued }) {
   const compose = async () => {
     setBusy("compose");
     try {
-      const { data } = await api.post("/whatsapp-link/campaigns/compose", { customer_ids: ids, brief });
+      const { data } = await api.post("/whatsapp-link/campaigns/compose", { customer_ids: ids, brief, offer_type: offerType, service_ids: svcIds, discount_pct: offerType === "discount" ? discount : null });
       setText(data.text); setImage(data.image); setCands(data.candidates || []); setWhy(data.why || "");
       toast.success("Mira drafted your campaign ✦");
     } catch (e) { toast.error(e.response?.data?.detail || "Mira couldn't draft this"); }
@@ -66,6 +72,34 @@ export default function WaCampaignModal({ customers, onClose, onQueued }) {
             </div>
           )}
 
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-slate-600">Offer type</label>
+            <div className="flex gap-1.5 flex-wrap" data-testid="wa-campaign-offer-types">
+              {[["general", "✨ General"], ["festive", "🪔 Festive offer"], ["discount", "% Discount"], ["new_service", "🆕 New service"], ["winback", "💌 Win-back"]].map(([k, l]) => (
+                <button key={k} onClick={() => setOfferType(k)} data-testid={`wa-offer-${k}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${offerType === k ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>{l}</button>
+              ))}
+              {offerType === "discount" && (
+                <label className="inline-flex items-center gap-1 text-xs text-slate-600 ml-1">Off
+                  <select value={discount} onChange={e => setDiscount(Number(e.target.value))} data-testid="wa-campaign-discount" className="border border-slate-200 rounded-md px-2 py-1 text-xs text-slate-800 bg-white [&_option]:text-slate-800">
+                    {[10, 15, 20, 25, 30, 40, 50].map(v => <option key={v} value={v}>{v}%</option>)}
+                  </select>
+                </label>
+              )}
+            </div>
+            {services.length > 0 && (
+              <div>
+                <label className="text-xs font-semibold text-slate-600">Services to feature <span className="font-normal text-slate-400">(optional, up to 5)</span></label>
+                <div className="flex gap-1.5 flex-wrap mt-1 max-h-20 overflow-y-auto" data-testid="wa-campaign-services">
+                  {services.slice(0, 40).map(sv => {
+                    const on = svcIds.includes(sv.id);
+                    return <button key={sv.id} onClick={() => setSvcIds(p => on ? p.filter(x => x !== sv.id) : p.length < 5 ? [...p, sv.id] : p)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] border ${on ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-slate-600 border-slate-200 hover:border-emerald-400"}`}>{sv.name} · ₹{sv.price}</button>;
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
           <div>
             <label className="text-xs font-semibold text-slate-600">What's the campaign about?</label>
             <div className="flex gap-2 mt-1">

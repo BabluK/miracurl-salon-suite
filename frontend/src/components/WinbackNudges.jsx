@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Send } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -9,6 +10,7 @@ export function WinbackNudges() {
   const [data, setData] = useState(null);
   const [auto, setAuto] = useState(null);
 
+  const [sendingAll, setSendingAll] = useState(false);
   const load = () => api.get("/winback/nudges").then(r => setData(r.data)).catch(() => {});
   useEffect(() => {
     load();
@@ -60,6 +62,21 @@ export function WinbackNudges() {
             </p>
           </div>
         </div>
+        {data.total_lapsed > 0 && (
+          <button data-testid="winback-send-all" disabled={sendingAll}
+            onClick={async () => {
+              if (!window.confirm(`Send a win-back WhatsApp to all ${data.total_lapsed} lapsed guests from your salon number? Mira sends one every 30–45s (max daily limit applies).`)) return;
+              setSendingAll(true);
+              try {
+                const { data: r } = await api.post("/winback/blast", { days: data.winback_days || 45, limit: 100 });
+                toast.success(r.queued ? `Queued ${r.queued} win-back messages — sending gradually from your WhatsApp ✦` : `Sent ${r.sent} messages`);
+              } catch (e) { toast.error(e.response?.data?.detail || "Couldn't send"); }
+              finally { setSendingAll(false); }
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50">
+            <Send className="w-3.5 h-3.5" /> {sendingAll ? "Queuing…" : `Send all (${Math.min(100, data.total_lapsed)})`}
+          </button>
+        )}
         {auto !== null && (
           <button onClick={toggleAuto} data-testid="winback-auto-toggle"
             className={`flex items-center gap-2 pl-2.5 pr-3 py-2 rounded-xl border text-left transition-colors ${

@@ -38,7 +38,8 @@ async def _sms_reminder_scheduler() -> None:
     from database import _raw_db
     while True:
         try:
-            if sms_configured():
+            wa_linked = await _raw_db.tenants.count_documents({"wa_gateway.phone": {"$nin": [None, ""]}}, limit=1)
+            if sms_configured() or wa_linked:
                 intl = {t["id"]: t async for t in _raw_db.tenants.find(
                     {}, {"_id": 0, "id": 1, "name": 1})}
                 if intl:
@@ -59,6 +60,24 @@ async def _sms_reminder_scheduler() -> None:
                                            f"{', '.join(a.get('service_names') or ['your appointment'])} tomorrow, {when}. Reply/call to reschedule.",
                                            kind="reminder")
                         await _raw_db.appointments.update_one({"id": a["id"]}, {"$set": {"sms_reminder_sent": True}})
+                    # Mira's 1-hour heads-up (WhatsApp-first when the salon linked its number)
+                    lo1 = (now + timedelta(minutes=45)).isoformat()
+                    hi1 = (now + timedelta(minutes=75)).isoformat()
+                    soon = await _raw_db.appointments.find(
+                        {"tenant_id": {"$in": list(intl)}, "status": {"$in": ["scheduled", "confirmed", "booked"]},
+                         "scheduled_at": {"$gte": lo1, "$lte": hi1}, "hour_reminder_sent": {"$ne": True}},
+                        {"_id": 0}).to_list(200)
+                    for a in soon:
+                        cust = await _raw_db.customers.find_one({"id": a.get("customer_id")}, {"_id": 0, "phone": 1, "name": 1})
+                        if cust and cust.get("phone"):
+                            t = intl[a["tenant_id"]]
+                            first = (cust.get("name") or a.get("customer_name") or "there").split()[0]
+                            await send_tenant_sms(a["tenant_id"], cust["phone"],
+                                           f"Hi {first}! Gentle reminder from {t.get('name') or 'your salon'} — your "
+                                           f"{', '.join(a.get('service_names') or ['appointment'])} is in about 1 hour"
+                                           f"{(' with ' + a['staff_name']) if a.get('staff_name') else ''}. See you soon ✦",
+                                           kind="reminder")
+                        await _raw_db.appointments.update_one({"id": a["id"]}, {"$set": {"hour_reminder_sent": True}})
                 # Low-balance alert: email HQ once per tenant per day when points dip under 20
                 today = datetime.now(timezone.utc).date().isoformat()
                 low = await _raw_db.tenants.find(

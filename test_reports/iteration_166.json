@@ -1,0 +1,30 @@
+{
+  "summary": "Iter 166 — WhatsApp campaign queue + guardrails + branding reception/manager phone bug fix. Backend pytest test_iter166_wa_campaigns.py: 12/12 PASSED (branding PUT+GET+PUT-blank round-trip; /whatsapp-link/usage shape sent/cap/remaining/gap_seconds[30,45]/resets_at; daily-cap 150 round-trip → 200; daily_cap=5 → 422; /campaigns lists 'Festive glow facial test' status=done sent=1; detail returns recipients; unknown id → 404; pause on done → 409; bogus action → 400; compose LLM returns text with '{name}' + '/book/' link + image {id,label,url} + candidates[]; empty customer_ids → 422; text 'hi' → 422). NO real WhatsApp sends were triggered — /campaigns POST was only exercised with invalid payloads. Frontend Playwright: CRM /customers: wa-campaign-btn DISABLED when nothing ticked ✓, crm-select-all + 20 per-row crm-select-<id> checkboxes render ✓, ticking 2 rows enabled button and text became 'WhatsApp campaign (2)' ✓. Modal opens with wa-campaign-modal, header shows 'From your salon number +918217072523' ✓, wa-campaign-usage box '4 / 200' visible ✓, wa-campaign-brief/mira/text/image all render ✓, wa-campaign-send DISABLED while text empty ✓. Typed brief 'Weekend hair spa 15% off' → clicked Mira → in 3 seconds text populated (226 chars, contains '{name}' + spa mention) and image thumbnail loaded + 13 wa-campaign-cand-* candidates rendered ✓ → wa-campaign-send ENABLED (NOT clicked). Clicked wa-campaign-no-image → image box shows 'No image' ✓. Closed via wa-campaign-close ✓. Settings (after Owner PIN 4321 unlock): whatsapp-link-card renders ✓, whatsapp-usage-count = '4 / 200' ✓, whatsapp-daily-cap select value=200 ✓, whatsapp-campaign-list contains 'Festive glow facial test' row with status 'done' ✓. Salon profile settings-reception-phone + settings-manager-phone inputs found, initial values blank (as expected after backend teardown) ✓. Dashboard loads for admin ✓. /staff-portal renders (SPA route). What's-New modal 'Got it' dismissal + Owner PIN gate handled.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Global What's-New modal", "issues": ["Interferes with automation on first login — the backdrop (WhatsNewModal_49_6) blocks all pointer events until dismissed. Cosmetic (users see it once) but flagged for regression consistency."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter166_wa_campaigns.py",
+    "/app/test_reports/pytest/iter166.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes/whatsapp_link.py:campaign_compose — cands can be empty (no offers, no gallery, no curated match for business_type). Then pick=None is returned and frontend renders 'image': null; consider always guaranteeing at least the curated fallback (currently 'curated:dining' is only picked when business_type == 'restaurant', so a fresh salon with 0 gallery items and 0 offers gets 4 non-dining curated items — OK, but tighter typing would help).",
+    "routes/whatsapp_link.py:campaign_action — POST /campaigns/{cid}/pause on a non-existent campaign silently returns 409 'Campaign already finished' rather than 404. camp.set_status can't distinguish 'no match because unknown id' from 'no match because already terminal'. Consider a 404 + separate 409 to make the API less confusing (frontend currently only surfaces the toast).",
+    "routes/tenant_settings.py:get_branding correctly returns reception_phone and manager_phone now (bug fix verified) — but body BrandingIn should also strip whitespace / normalize the phone to a stable format so PUT '+91 98765 11111' + GET returns the same canonical form regardless of how the user typed it.",
+    "components/crm/WaCampaignModal.jsx — send() posts image_url as image?.url which is a fully-qualified public URL for gallery/offer items but a relative '/assets/offers/*.jpg' path for the CURATED fallbacks. Backend has the ' if img.startswith(\"/\") ' rewrite, but if the frontend later runs on a different origin the curated relative path could break; consider always resolving to absolute on the server side of compose (already returns c.url as-is)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter166_wa_campaigns.py"],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "100%"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (Owner PIN 4321, X-Tenant-Slug miracurl-marathahalli), priya.staff@miracurl.com / Staff@5678",
+  "seed_data_creation": "None. Branding reception_phone/manager_phone were PUT to test values inside a try/finally and restored to blank as required by the review request. Daily cap was toggled 200→150→200. Compose was called (LLM cost only, no send).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "OpenWA gateway still LIVE-linked to +918217072523 on miracurl-marathahalli. Today's WhatsApp usage was at 4/200 during this iteration (no new real sends triggered). Existing 'Festive glow facial test' campaign remains status=done sent=1. DO NOT click wa-campaign-send / whatsapp-link-unlink / any pause-resume-cancel on live campaigns / winback blast without dry_run / reviews blast-send with valid target. Branding phones (reception_phone/manager_phone) confirmed round-trip through GET after prior main-agent bug fix in tenant_settings.py:get_branding.",
+  "rca of the issue": "N/A — no bugs found this iteration. The reception_phone/manager_phone bug fix (adding both keys to get_branding response) is verified end-to-end: PUT persists → GET returns exact values → subsequent PUT '' + GET returns ''."
+}

@@ -150,7 +150,9 @@ async def winback_blast_preview(days: int = BLAST_DAYS, admin=Depends(require_te
     book_url = f"{base}/book/{t.get('slug', '')}" if base and t.get("slug") else ""
     sample = leads[0] if leads else {"name": "Priya", "last_visit": ""}
     fresh = await _raw_db.tenants.find_one({"id": t["id"]}, {"_id": 0, "wa_points": 1})
-    return {"eligible": len(leads), "days": days, "credits": int((fresh or {}).get("wa_points") or 0),
+    from services import whatsapp_gateway as gw
+    own_number = bool(await gw.tenant_connected(t["id"]))
+    return {"eligible": len(leads), "days": days, "credits": int((fresh or {}).get("wa_points") or 0), "own_number": own_number,
             "whatsapp_enabled": features_of(t)["whatsapp"], "template": bool(os.environ.get("WHATSAPP_WINBACK_TEMPLATE")),
             "sample_message": _nudge_message(t, (sample.get("name") or "there").split()[0], days, book_url),
             "guests": [{"id": ld["id"], "name": ld["name"], "last_visit": ld["last_visit"]} for ld in leads[:8]]}
@@ -167,6 +169,23 @@ async def winback_blast(body: BlastIn, admin=Depends(require_tenant_admin), t=De
     leads = [ld for ld in await _find_winback_leads(t["id"], days) if _wa_number(ld.get("phone"))][:max(1, min(body.limit, BLAST_LIMIT))]
     if body.dry_run:
         return {"eligible": len(leads), "sent": 0, "failed": 0, "skipped_no_credits": 0, "dry_run": True}
+    from services import whatsapp_gateway as gw
+    if await gw.tenant_connected(t["id"]):
+        # Own WhatsApp number → safe throttled queue (30–45s apart, daily cap) instead of a burst
+        from services import wa_campaigns as camp
+        base_q = os.environ.get("APP_PUBLIC_URL", "")
+        book_q = f"{base_q}/book/{t.get('slug', '')}" if base_q and t.get("slug") else ""
+        doc = await camp.create_campaign(
+            t, name=f"Win-back · {days}+ days", text=_nudge_message(t, "{name}", days, book_q), image_url=None,
+            recipients=[{"customer_id": ld["id"], "name": ld["name"], "phone": ld["phone"]} for ld in leads],
+            created_by=admin["id"], source="winback")
+        now_iso = datetime.now(timezone.utc).isoformat()
+        if leads:
+            await _raw_db.lead_outreach.insert_many([{"id": str(uuid.uuid4()), "tenant_id": t["id"], "customer_id": ld["id"], "name": ld["name"],
+                                                      "channel": "whatsapp", "to": _wa_number(ld["phone"]), "last_visit": ld.get("last_visit"),
+                                                      "by": admin["id"], "source": "mira_blast", "created_at": now_iso} for ld in leads])
+        return {"eligible": len(leads), "queued": len(leads), "sent": 0, "failed": 0, "skipped_no_credits": 0,
+                "campaign_id": doc["id"], "own_number": True}
     base = os.environ.get("APP_PUBLIC_URL", "")
     book_url = f"{base}/book/{t.get('slug', '')}" if base and t.get("slug") else ""
     from services import whatsapp_gateway as gw

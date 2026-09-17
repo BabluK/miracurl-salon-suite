@@ -137,6 +137,9 @@ async def link_daily_cap(body: CapIn, user=Depends(require_tenant_admin), t=Depe
 class ComposeIn(BaseModel):
     customer_ids: list[str] = Field(..., min_length=1, max_length=500)
     brief: str = Field("", max_length=600)
+    offer_type: str = Field("general", pattern="^(general|festive|discount|new_service|winback)$")
+    service_ids: list[str] = Field(default_factory=list, max_length=10)
+    discount_pct: Optional[int] = Field(None, ge=5, le=70)
 
 
 @router.post("/campaigns/compose")
@@ -147,7 +150,23 @@ async def campaign_compose(body: ComposeIn, request: Request, user=Depends(requi
     custs = await _raw_db.customers.find({"tenant_id": t["id"], "id": {"$in": body.customer_ids}},
                                          {"_id": 0, "name": 1, "gender": 1, "visits": 1, "total_spent": 1}).to_list(500)
     base = public_base_url(request)
+    svcs = await _raw_db.services.find({"tenant_id": t["id"], "id": {"$in": body.service_ids}},
+                                       {"_id": 0, "name": 1, "price": 1}).to_list(10) if body.service_ids else []
+    from datetime import date as _date
+    from festivals import festival_today, next_festival
+    fest = festival_today(_date.today()) or next_festival(_date.today(), window=30)
+    offer_line = {
+        "festive": f"FESTIVE OFFER — theme it around {fest['emoji'] + ' ' + fest['name'] if fest else 'the upcoming festival season'}"
+                   f"{(' (in ' + str(fest['days_away']) + ' days)') if fest and fest.get('days_away') else ''}.",
+        "discount": f"DISCOUNT OFFER — exactly {body.discount_pct or 15}% off; show original → offer price for each service.",
+        "new_service": "NEW / FEATURED SERVICE announcement — make guests curious to try it.",
+        "winback": "WIN-BACK — warm 'we miss you' tone with a small comeback perk.",
+        "general": "General campaign.",
+    }[body.offer_type]
+    svc_line = (" Services to feature (real catalogue, use these exact names & prices): "
+                + ", ".join(f"{x['name']} ₹{int(x.get('price') or 0)}" for x in svcs)) if svcs else ""
     prompt = (f"Business: {t.get('name')} ({t.get('business_type') or 'salon'}), {t.get('location') or ''}. "
+              f"{offer_line}{svc_line} "
               f"Audience: {len(custs)} selected guests — genders {sorted({(c.get('gender') or '?') for c in custs})}, "
               f"avg visits {round(sum(c.get('visits') or 0 for c in custs) / max(1, len(custs)), 1)}. "
               f"Owner's brief: {body.brief or 'a warm offer / campaign message to bring these guests back'}. "

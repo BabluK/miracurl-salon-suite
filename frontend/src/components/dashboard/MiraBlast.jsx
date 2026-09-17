@@ -15,12 +15,13 @@ export function WinbackBlastModal({ onClose, onDone }) {
     try {
       const { data } = await api.post("/winback/blast", { days: 30, limit: 100 });
       setResult(data);
-      if (data.sent) toast.success(`Mira sent ${data.sent} win-back message${data.sent === 1 ? "" : "s"} ✦`);
+      if (data.queued) toast.success(`Mira queued ${data.queued} win-back message${data.queued === 1 ? "" : "s"} — sending one every 30–45s from your salon WhatsApp ✦`);
+      else if (data.sent) toast.success(`Mira sent ${data.sent} win-back message${data.sent === 1 ? "" : "s"} ✦`);
       else toast.info("No messages went out — see details");
       onDone?.(data);
     } catch (e) { toast.error(e?.response?.data?.detail || "Couldn't send"); } finally { setBusy(false); }
   };
-  const can = p && !p.error && p.whatsapp_enabled && p.eligible > 0 && p.credits > 0;
+  const can = p && !p.error && p.whatsapp_enabled && p.eligible > 0 && (p.credits > 0 || p.own_number);
   return (
     <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose} data-testid="winback-blast-modal">
       <div className="w-full max-w-lg rounded-3xl bg-[#0f0e0b] text-white border border-[#e8c56a]/25 shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -36,7 +37,7 @@ export function WinbackBlastModal({ onClose, onDone }) {
             <div className="rounded-2xl bg-white/[.06] border border-[#e8c56a]/25 p-5" data-testid="winback-blast-result">
               <div className="font-playfair text-xl">Done ✦</div>
               <div className="grid grid-cols-3 gap-3 mt-3 text-center">
-                {[["Sent", result.sent, "text-emerald-300"], ["Failed", result.failed, "text-rose-300"], ["No credits", result.skipped_no_credits, "text-amber-300"]].map(([l, v, c]) => (
+                {[[result.queued ? "Queued" : "Sent", result.queued || result.sent, "text-emerald-300"], ["Failed", result.failed, "text-rose-300"], ["No credits", result.skipped_no_credits, "text-amber-300"]].map(([l, v, c]) => (
                   <div key={l} className="rounded-xl bg-black/30 p-3"><div className={`text-2xl font-bold ${c}`}>{v}</div><div className="text-[11px] text-white/60 uppercase tracking-wide">{l}</div></div>
                 ))}
               </div>
