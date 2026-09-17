@@ -453,6 +453,8 @@ async def sms_pack_verify(body: SmsPackVerifyIn, user=Depends(require_tenant_adm
         "payment_ref": body.razorpay_payment_id, "amount": pending["amount"],
         "credited_by": user.get("email"), "at": now.isoformat()})
     await _notify_hq_pack_paid(t, ch, {**pending, "razorpay_payment_id": body.razorpay_payment_id})
+    from routes.hq_credit_wallet import record_tenant_purchase
+    await record_tenant_purchase(ch["key"], pts, t["id"], int(pending.get("amount") or 0), body.razorpay_payment_id)
     fresh = await db.tenants.find_one({"id": t["id"]}, {"_id": 0, "sms_points": 1, "wa_points": 1})
     return {"ok": True, "points_added": pts, "channel": ch["key"],
             "sms_points": int((fresh or {}).get("sms_points") or 0), "wa_points": int((fresh or {}).get("wa_points") or 0),

@@ -3370,3 +3370,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Frontend: Settings card = "WhatsApp messaging" (credits, usage, cap, templates); campaign page passes festival/offer/valid_till/offer_type; test-send uses template.
 - Meta: WABA 1627056435755219 (INR, verified, Visa), phone_number_id 1327822217077398 (+91 91802 61256) — **OTP verification pending** (Meta request_code cooldown; then POST /verify_code {code}, then POST /register {messaging_product:"whatsapp", pin:"6-digit"}). Old WABA 1583… removed from portfolio. Templates all APPROVED on 1627.
 - Pending: MSG91 setup by user (SMS fallback), credits top-up flow (HQ already sells wa_points via SmsPacksCard/ HQ credit grants).
+
+## 2026-09-17 — HQ Credit Wallet + packs (self-tested)
+- `routes/hq_credit_wallet.py`: hq_wallet doc {sms_stock, whatsapp_stock, *_revenue_paise, *_cost_paise}; ledger hq_wallet_ledger. Tenant Razorpay pack purchase (subscriptions.verify) → `record_tenant_purchase` deducts HQ stock + books revenue. Endpoints: GET /super-admin/credit-wallet, POST .../topup, POST .../sync (pulls live MSG91 balance → sms_stock), POST /super-admin/tenants/{tid}/grant-credits (409 if HQ stock short). WhatsApp = Meta postpaid → stock is a budget figure.
+- WA_PACKS now 100/₹149, 500/₹649, 1000/₹1199; SmsPacksCard embedded (embedded prop) in WhatsAppLinkCard with defaultChannel whatsapp. HQ card `CreditWalletCard.jsx` in BillingPanel.
+- Phone OTP for +91 91802 61256 still Meta-cooldown at 16:52 IST — user must NOT press Verify in Meta UI; retry request_code later.
