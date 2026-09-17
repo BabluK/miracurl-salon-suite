@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import WaCampaignModal from "@/components/crm/WaCampaignModal";
+import WaCampaignPage from "@/components/crm/WaCampaignPage";
 import { ImportCustomersModal } from "@/components/customers/ImportCustomersModal";
 import api from "@/lib/api";
 import { Plus, X, Search, Edit3, Trash2, Mail, Award, Download, Upload, Wallet, History, GitMerge, RefreshCw, Users, Star, IndianRupee, Heart, MessageCircle, CalendarDays, Clock3, ArrowUpDown, Crown } from "lucide-react";
@@ -24,6 +25,7 @@ export default function Customers() {
   const [importOpen, setImportOpen] = useState(false);
   const [selected, setSelected] = useState(() => new Set());
   const [campaignOpen, setCampaignOpen] = useState(false);
+  const [view, setView] = useState("crm");
   const toggleSel = (id) => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [dateFilter, setDateFilter] = useState("all"); // all | today | yesterday | week
   const [sort, setSort] = useState({ key: "created_at", dir: "desc" });
@@ -133,8 +135,29 @@ export default function Customers() {
     newMonth: list.filter(c => new Date(c.created_at) >= monthStart).length,
   };
 
+  const flip = (
+    <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm" data-testid="crm-view-flip">
+      {[["crm", "Customer Relationships"], ["campaign", "WhatsApp Campaign"]].map(([k, l]) => (
+        <button key={k} onClick={() => setView(k)} data-testid={`crm-view-${k}`}
+          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${view === k ? (k === "campaign" ? "bg-emerald-600 text-white" : "bg-slate-800 text-white") : "text-slate-600 hover:bg-slate-50"}`}>
+          {k === "campaign" && <span className="mr-1.5">💬</span>}{l}{k === "campaign" && selected.size > 0 && <span className="ml-1.5 text-[10px] bg-white/25 rounded-full px-1.5">{selected.size}</span>}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (view === "campaign") {
+    return (
+      <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-5">
+        <div className="flex justify-end">{flip}</div>
+        <WaCampaignPage selectedCustomers={list.filter(c => selected.has(c.id))} onViewCustomers={() => setView("crm")} />
+      </div>
+    );
+  }
+
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6">
+      <div className="flex justify-end -mb-2">{flip}</div>
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-start gap-5">
           <div>
@@ -152,7 +175,7 @@ export default function Customers() {
               <Icon className="w-4 h-4" /> {label}
             </button>
           ))}
-          <button data-testid="wa-campaign-btn" onClick={() => setCampaignOpen(true)} disabled={selected.size === 0}
+          <button data-testid="wa-campaign-btn" onClick={() => setView("campaign")} disabled={selected.size === 0}
             title={selected.size ? "Send a WhatsApp campaign to the ticked guests" : "Tick guests in the list first"}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold shadow-sm hover:bg-emerald-700 disabled:opacity-40 transition-colors">
             <MessageCircle className="w-4 h-4" /> WhatsApp campaign{selected.size ? ` (${selected.size})` : ""}

@@ -134,8 +134,26 @@ async def link_daily_cap(body: CapIn, user=Depends(require_tenant_admin), t=Depe
     return {"ok": True, "daily_cap": body.daily_cap}
 
 
+async def _audience_ids(t: dict, audience: str, ids: list[str]) -> list[str]:
+    if audience == "all":
+        rows = await _raw_db.customers.find({"tenant_id": t["id"], "phone": {"$nin": [None, ""]}}, {"_id": 0, "id": 1}).sort("last_visit", -1).to_list(500)
+    elif audience == "loyal":
+        rows = await _raw_db.customers.find({"tenant_id": t["id"], "phone": {"$nin": [None, ""]}, "visits": {"$gte": 3}}, {"_id": 0, "id": 1}).sort("visits", -1).to_list(500)
+    else:
+        return ids
+    return [r["id"] for r in rows]
+
+
+@router.get("/audience-counts")
+async def audience_counts(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    base = {"tenant_id": t["id"], "phone": {"$nin": [None, ""]}}
+    return {"all": min(500, await _raw_db.customers.count_documents(base)),
+            "loyal": min(500, await _raw_db.customers.count_documents({**base, "visits": {"$gte": 3}}))}
+
+
 class ComposeIn(BaseModel):
-    customer_ids: list[str] = Field(..., min_length=1, max_length=500)
+    audience: str = Field("selected", pattern="^(selected|all|loyal)$")
+    customer_ids: list[str] = Field(default_factory=list, max_length=500)
     brief: str = Field("", max_length=600)
     offer_type: str = Field("general", pattern="^(general|festive|discount|new_service|winback)$")
     service_ids: list[str] = Field(default_factory=list, max_length=10)
@@ -147,7 +165,10 @@ async def campaign_compose(body: ComposeIn, request: Request, user=Depends(requi
     """Mira writes the WhatsApp caption and picks the best image from the salon's own flyers/photos."""
     from routes.mira_common import _ask_json
     cands = await _image_candidates(t)
-    custs = await _raw_db.customers.find({"tenant_id": t["id"], "id": {"$in": body.customer_ids}},
+    ids = await _audience_ids(t, body.audience, body.customer_ids)
+    if not ids:
+        raise HTTPException(400, "Pick at least one guest")
+    custs = await _raw_db.customers.find({"tenant_id": t["id"], "id": {"$in": ids}},
                                          {"_id": 0, "name": 1, "gender": 1, "visits": 1, "total_spent": 1}).to_list(500)
     base = public_base_url(request)
     svcs = await _raw_db.services.find({"tenant_id": t["id"], "id": {"$in": body.service_ids}},
@@ -180,17 +201,22 @@ async def campaign_compose(body: ComposeIn, request: Request, user=Depends(requi
 
 
 class CampaignIn(BaseModel):
-    customer_ids: list[str] = Field(..., min_length=1, max_length=500)
+    audience: str = Field("selected", pattern="^(selected|all|loyal)$")
+    customer_ids: list[str] = Field(default_factory=list, max_length=500)
     text: str = Field(..., min_length=5, max_length=1000)
     image_url: Optional[str] = Field(None, max_length=600)
     name: str = Field("CRM campaign", max_length=80)
+    scheduled_at: Optional[str] = Field(None, max_length=40)
 
 
 @router.post("/campaigns")
 async def campaign_create(body: CampaignIn, request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     if not await gw.tenant_connected(t["id"]):
         raise HTTPException(409, "Link your salon WhatsApp in Settings first")
-    custs = await _raw_db.customers.find({"tenant_id": t["id"], "id": {"$in": body.customer_ids}},
+    ids = await _audience_ids(t, body.audience, body.customer_ids)
+    if not ids:
+        raise HTTPException(400, "Pick at least one guest")
+    custs = await _raw_db.customers.find({"tenant_id": t["id"], "id": {"$in": ids}},
                                          {"_id": 0, "id": 1, "name": 1, "phone": 1}).to_list(500)
     rcps = [{"customer_id": c["id"], "name": c.get("name") or "", "phone": c["phone"]}
             for c in custs if len(re.sub(r"\D", "", c.get("phone") or "")) >= 10]
@@ -199,7 +225,14 @@ async def campaign_create(body: CampaignIn, request: Request, user=Depends(requi
     img = body.image_url
     if img and img.startswith("/"):
         img = f"{public_base_url(request)}{img}"
-    doc = await camp.create_campaign(t, name=body.name, text=body.text, image_url=img, recipients=rcps, created_by=user["id"])
+    sched = None
+    if body.scheduled_at:
+        from datetime import datetime as _dt, timezone as _tz
+        try:
+            sched = _dt.fromisoformat(body.scheduled_at.replace("Z", "+00:00")).astimezone(_tz.utc).isoformat()
+        except ValueError:
+            raise HTTPException(400, "Bad schedule time")
+    doc = await camp.create_campaign(t, name=body.name, text=body.text, image_url=img, recipients=rcps, created_by=user["id"], scheduled_at=sched)
     use = await camp.usage_today(t)
     doc.pop("recipients", None)
     return {**doc, "skipped_no_phone": len(custs) - len(rcps), "usage": use}

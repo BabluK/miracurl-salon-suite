@@ -39,9 +39,9 @@ async def usage_today(tenant: dict) -> dict:
 
 
 async def create_campaign(tenant: dict, *, name: str, text: str, image_url: str | None, recipients: list[dict],
-                          created_by: str, source: str = "crm") -> dict:
+                          created_by: str, source: str = "crm", scheduled_at: str | None = None) -> dict:
     doc = {"id": str(uuid.uuid4()), "tenant_id": tenant["id"], "name": name[:80], "text": text, "image_url": image_url,
-           "source": source, "status": "queued", "created_by": created_by, "created_at": _now(),
+           "source": source, "status": "queued", "created_by": created_by, "created_at": _now(), "scheduled_at": scheduled_at,
            "recipients": [{**r, "status": "pending"} for r in recipients],
            "total": len(recipients), "sent": 0, "failed": 0}
     await _raw_db.wa_campaigns.insert_one({**doc})
@@ -131,7 +131,8 @@ async def worker_loop() -> None:
     while True:
         try:
             if gw.gateway_available():
-                camps = await _raw_db.wa_campaigns.find({"status": {"$in": ["queued", "running", "capped"]}}, {"_id": 0}).to_list(200)
+                camps = await _raw_db.wa_campaigns.find({"status": {"$in": ["queued", "running", "capped"]},
+                                                         "$or": [{"scheduled_at": None}, {"scheduled_at": {"$lte": _now()}}]}, {"_id": 0}).to_list(200)
                 seen: set[str] = set()
                 for c in camps:
                     if c["tenant_id"] in seen:

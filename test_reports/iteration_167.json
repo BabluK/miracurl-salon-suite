@@ -1,0 +1,32 @@
+{
+  "summary": "Iter 167 — WhatsApp campaign Offer chips (5) + services chips + discount %, winback blast queue path (own_number), and 1-hour reminder scheduler. Backend pytest test_iter167_offers_and_winback_queue.py: 6/6 PASSED — (1) GET /winback/blast/preview?days=45 → own_number:true, whatsapp_enabled:true, eligible>0 ✓; (2) POST /winback/blast dry_run:true → sent=0, dry_run:true AND campaigns list length unchanged before/after (verified no queue side-effect) ✓; (3) POST /whatsapp-link/campaigns/compose {offer_type:'festive', service_ids:[svc]} → 200 with text containing the real service name ('Bridal Makeup') and festive framing ✓; (4) offer_type:'discount', discount_pct:20 → text contains '20' ✓; (5) offer_type:'bogus' → 422 ✓; (6) discount_pct:3 → 422 ✓. Scheduler code path: /app/backend/schedulers.py:_sms_reminder_scheduler has 1-hour block (lines 64-80) that flips hour_reminder_sent — no tracebacks / no scheduler-related errors in /var/log/supervisor/backend.err.log (only PREVIEW-env 'schedulers disabled' warning, which prevents actual outbound sends in this env — expected). Frontend Playwright: logged in admin, PIN 4321 unlocked; Dashboard winback-nudges-card visible, winback-send-all shows text 'Send all (95)' enabled — NOT clicked (per instructions) ✓. CRM /customers: ticked 2 guests → WhatsApp campaign opened wa-campaign-modal ✓. All 5 offer chips present (wa-offer-general/festive/discount/new_service/winback) ✓. Clicking wa-offer-discount revealed wa-campaign-discount select ✓. wa-campaign-services rendered 40 chips; selecting first turned it green (emerald-600) ✓. Switched to festive, typed brief 'Diwali special glow package', clicked wa-campaign-mira → text populated in ~1s (285 chars, contains {name} placeholder, mentions Ganesh Chaturthi festival + 'Bridal Makeup' service + booking) and image loaded in wa-campaign-image ✓. wa-campaign-send visible/enabled but NOT clicked. wa-campaign-close dismissed modal ✓. Settings after PIN 4321 unlock: whatsapp-link-card present, 'Linked' text confirmed, whatsapp-usage-count present ✓. /staff-portal SPA route loads (admin session shows 'not linked to staff' — route rendering fine).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "wa-campaign modal", "issues": ["React DOM console error: 'In HTML, <span> cannot be a child of <option>' — the wa-campaign-discount <select> renders <span>%</span> inside <option>. Cosmetic hydration warning only; UI works. Consider putting the % directly in option text (e.g. {v}%) without nesting a span."]},
+      {"screen": "What's-New modal", "issues": ["Backdrop re-appears on route change and blocks pointer events until dismissed again (blocked automation on second nav to /settings until manually re-dismissed). Users see it once per session in normal use."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter167_offers_and_winback_queue.py",
+    "/app/test_reports/pytest/iter167.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes/whatsapp_link.py:ComposeIn — offer_type default is 'general' and pattern enforces enum, good; discount_pct is Optional[int] but the LLM prompt substitutes `body.discount_pct or 15` on 'discount' path (line 161). If offer_type='discount' with no discount_pct sent, the API silently uses 15% — consider validating that discount_pct is required when offer_type=='discount' (a model_validator).",
+    "routes/winback.py:winback_blast queue path — when own_number is true it inserts BOTH a wa_campaign doc AND per-guest lead_outreach 'whatsapp' rows immediately (before actual delivery). If the campaign is paused/cancelled before dispatch, those outreach rows will still block the 30-day cooldown for guests who never actually received a message. Consider inserting outreach rows only after the throttler dispatches each message.",
+    "components/crm/WaCampaignModal.jsx:33 — sends `discount_pct: offerType==='discount' ? discount : null` but the backend model has discount_pct ge=5. If a user picks 5% via UI it's fine (min is 10 in the UI); but if they somehow pick a different offer_type + edit discount_pct, backend still ignores it — align UI/backend so discount select is only sent for the discount offer_type (already correct here). No action needed.",
+    "components/crm/WaCampaignModal.jsx:84 — <select> option children include a nested <span> tag (from Tailwind [&_option] class utilities). This produces a React hydration warning ('<span> cannot be a child of <option>'). Non-blocking but flagged for cleanup.",
+    "schedulers.py:_sms_reminder_scheduler — the 1-hour heads-up loop uses the SAME 30-minute cadence as the 24h reminder; a booking made 65 minutes ahead may miss the window (45–75 min). Consider shorter cadence (e.g., every 10-15 min) for the 1h block, or widen the window to 30–90 min."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter167_offers_and_winback_queue.py"],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (all UI checks passed)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (Owner PIN 4321, X-Tenant-Slug miracurl-marathahalli); priya.staff@miracurl.com / Staff@5678",
+  "seed_data_creation": "None. Only dry_run + LLM compose calls executed. NO real WhatsApp messages sent, NO winback blast queued (dry_run confirmed by unchanged campaign count), NO test-send, NO Unlink.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "OpenWA gateway remains LIVE-linked to +918217072523 on miracurl-marathahalli. Preview env has 30 outbound schedulers disabled (scheduler code paths still parse and start cleanly, but no real sends occur here — hour_reminder branch is code-verified only). Dashboard winback-nudges-card currently shows 95 lapsed guests → 'Send all (95)' button; DO NOT CLICK. /winback/blast without dry_run WILL create a real throttled campaign that queues 95 real WhatsApp messages via the salon's own number. wa-campaign-send in WaCampaignModal is ENABLED post-compose; do not click. Existing campaign 'Festive glow facial test' (status=done, sent=1) still present.",
+  "rca of the issue": "N/A — no bugs found this iteration. All new features (Offer chips, discount select, services chips, festive-aware Mira compose, winback queue-with-own-number, hour_reminder scheduler code) are working as specified."
+}
