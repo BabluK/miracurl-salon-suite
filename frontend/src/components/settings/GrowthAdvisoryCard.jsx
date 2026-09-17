@@ -58,7 +58,8 @@ export function GrowthAdvisoryCard() {
       const { data: order } = await api.post("/settings/growth-advisory/order", { tier: tier.id, goal });
       new window.Razorpay({
         key: order.key_id, amount: order.amount, currency: order.currency, order_id: order.order_id,
-        name: "Miracurl Growth Advisory", description: order.label, prefill: order.prefill, theme: { color: "#b08d3f" },
+        name: "Miracurl AI Salon Suite", description: `Growth Advisory — ${order.label}`, image: `${window.location.origin}/assets/brand/ms-logo-dark.png`,
+        prefill: order.prefill, notes: { kind: "growth_advisory" }, theme: { color: "#b08d3f" },
         handler: async (rzp) => {
           try {
             await api.post("/settings/growth-advisory/verify", {

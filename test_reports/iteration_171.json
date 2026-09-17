@@ -1,0 +1,29 @@
+{
+  "summary": "Iter 171 verified: (1) Replies inbox GET /api/whatsapp-link/inbox returns 200 {linked:true, replies:[], unread:0} — no replies in last 7 days, all reply invariants would be validated (phone digits ≤15, non-empty body, name, at, salon phone 8217072523 excluded); (2) inbox?days=1 also 200 linked; (3) POST /campaigns/does-not-exist-xyz-123/approve → 409 'Not a pending draft'; (4) POST /campaigns/{Festive glow facial test id}/approve → 409 (non-draft correctly rejected); (5) POST /campaigns/does-not-exist-xyz-456/cancel → 409. No wa_campaigns / festival_draft_loop tracebacks in /var/log/supervisor/backend.err.log. Frontend /customers → crm-view-campaign: wa-campaign-inbox-btn present with text 'Replies', wa-campaign-history-btn functional, NO wa-mira-drafts banner (correct — no drafts exist). Clicking Replies shows wa-inbox-empty ('No guest replies in the last 7 days.'). Clicked wa-campaign-paint ONCE (single paid call total for iter171 — backend poster test skipped via POSTER_SKIP=1): server returned /api/files/8a985a8b-a39d-4f84-ba88-1db9067401ae; opened directly, natural dims 1024x1536, PNG. Screenshot confirms crisp real text overlay: 'FLAT 20% OFF' rose pill badge top-right, gold headline 'Happy Ganesh Chaturthi', subline 'Hair · Skin · Nails · Spa', gold script salon name 'Miracurl Unisex Family Salon', round MiraCurl logo watermark bottom-right. Model + festive marigold garland + red drape scene generated text-free by AI, text overlaid by services/poster_text.py — legible and premium. Staff regression: priya.staff@miracurl.com/Staff@5678 → /staff-portal loads (Priya Sharma dashboard, attendance, bank details). NO real WhatsApp sends: never clicked wa-campaign-send / wa-test-send / wa-draft-approve / wa-approve; never POSTed valid /campaigns, /test-send, or /campaigns/{id}/approve on a real draft. Paid image generations this iter: exactly 1 (poster paint via UI).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter171_wa_inbox_poster_approve.py",
+    "/app/test_reports/pytest/iter171.xml",
+    "/app/test_reports/iter171_poster_full.png"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "whatsapp_link.py:341 campaign_action('cancel') — for a status=='draft' campaign, services.wa_campaigns.set_status should allow cancel. Task says 'cancel allowed for drafts'. Currently untested against a real draft (no drafts exist); ensure set_status treats 'draft' as a cancellable state alongside 'queued'/'paused' to avoid a stuck-draft footgun.",
+    "whatsapp_link.py:376 inbox self-filter compares last 10 digits of salon's phone to sender — safe for Indian numbers but if salon phone stored with a shorter local format (<10 digits) it would over-filter guests whose number ends with the same suffix. Consider anchoring on exact digit match >= 10 digits.",
+    "whatsapp_link.py:352 GET /inbox — no cache/ETag; each open re-fetches up to 500 messages from gateway (20s timeout). If owners toggle Replies repeatedly, this hammers the gateway. Consider 30s in-memory cache per tenant.",
+    "poster_text.py — headline/salon/subline font size is baked; a very long tenant name may overflow the lower band. Add auto-shrink or ellipsis for names >30 chars.",
+    "WaCampaignBits.jsx MiraDrafts approve button lacks confirm dialog — one accidental tap on 'Approve & send' fires 50-1000 WhatsApp messages. Given LIVE gateway, wrap in a confirm modal or two-tap (Preview → Confirm)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter171_wa_inbox_poster_approve.py",
+    "/app/test_reports/iteration_171.json"
+  ],
+  "success_rate": {"backend": "100% (5/5 executed; poster test skipped by design in favor of UI paint)", "frontend": "100% (all acceptance items verified incl. legible poster text)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (PIN 4321, X-Tenant-Slug miracurl-marathahalli); priya.staff@miracurl.com / Staff@5678",
+  "seed_data_creation": "None. No campaigns posted, no drafts created (per rule: don't create real festival drafts). One poster image file cached at /api/files/8a985a8b-a39d-4f84-ba88-1db9067401ae.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter 171 focus: (a) Replies inbox (GET /api/whatsapp-link/inbox — currently empty for tenant; wa-inbox-empty shown), (b) poster text overlay pipeline (services/poster_text.py — Ganesh Chaturthi poster renders headline+subline+salon+badge cleanly at 1024x1536), (c) draft approve/cancel 409 paths only. Existing 'Festive glow facial test' (done) still in history — safe to approve-check for 409. NO draft campaigns exist; do NOT create real festival drafts to test approve success (would generate real sends when queue drains). MiraDrafts banner (wa-mira-drafts) will appear if wa_campaigns.draft_festival_campaigns creates any — do NOT click wa-draft-approve-*. Poster paint costs money — coordinate with UI: max 1 call/iteration. WA gateway remains live (tenant miracurl-marathahalli ↔ +918217072523).",
+  "rca of the issue": "N/A — all requested features working."
+}
