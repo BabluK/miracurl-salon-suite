@@ -13,7 +13,21 @@ export const WhatsAppLinkCard = () => {
   const [text, setText] = useState("");
   const [pairPhone, setPairPhone] = useState("");
   const [pairCode, setPairCode] = useState(null);
+  const [camps, setCamps] = useState(null);
   const timer = useRef(null);
+
+  const loadCamps = () => api.get("/whatsapp-link/campaigns").then(r => setCamps(r.data)).catch(() => {});
+  useEffect(() => {
+    if (!st?.connected) return;
+    loadCamps();
+    const id = setInterval(loadCamps, 15000);
+    return () => clearInterval(id);
+  }, [st?.connected]);
+
+  const saveCap = async (v) => {
+    try { await api.put("/whatsapp-link/daily-cap", { daily_cap: v }); toast.success(`Daily limit set to ${v}`); loadCamps(); }
+    catch (e) { toast.error(e.response?.data?.detail || "Couldn't save limit"); }
+  };
 
   const getCode = async () => {
     setBusy("code");
@@ -149,6 +163,32 @@ export const WhatsAppLinkCard = () => {
               {busy === "send" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Send test
             </button>
           </div>
+          {camps?.usage && (
+            <div className="rounded-xl border border-slate-200 p-3" data-testid="whatsapp-usage-box">
+              <div className="flex items-center justify-between text-xs text-slate-600 flex-wrap gap-2">
+                <span>Today's sends <b className="text-slate-800" data-testid="whatsapp-usage-count">{camps.usage.sent} / {camps.usage.cap}</b> · one message every 30–45 s</span>
+                <label className="inline-flex items-center gap-1.5">Daily limit
+                  <select defaultValue={camps.usage.cap} onChange={e => saveCap(Number(e.target.value))} data-testid="whatsapp-daily-cap" className="border border-slate-200 rounded-md px-2 py-1 text-xs text-slate-800 bg-white [&_option]:text-slate-800">
+                    {[50, 100, 150, 200, 300, 500].map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="h-1.5 rounded-full bg-slate-200 mt-2 overflow-hidden"><div className="h-full bg-emerald-500" style={{ width: `${Math.min(100, (camps.usage.sent / camps.usage.cap) * 100)}%` }} /></div>
+              {camps.campaigns?.length > 0 && (
+                <ul className="mt-3 divide-y divide-slate-100 text-xs" data-testid="whatsapp-campaign-list">
+                  {camps.campaigns.slice(0, 5).map(c => (
+                    <li key={c.id} className="py-1.5 flex items-center gap-2" data-testid={`whatsapp-campaign-${c.id}`}>
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${c.status === "done" ? "bg-emerald-100 text-emerald-700" : c.status === "running" || c.status === "queued" ? "bg-sky-100 text-sky-700" : c.status === "capped" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>{c.status === "capped" ? "waiting · daily limit" : c.status}</span>
+                      <span className="font-medium text-slate-800 truncate flex-1">{c.name}</span>
+                      <span className="text-slate-500 shrink-0">{c.sent}/{c.total} sent{c.failed ? ` · ${c.failed} failed` : ""}</span>
+                      {["queued", "running", "capped"].includes(c.status) && <button onClick={() => api.post(`/whatsapp-link/campaigns/${c.id}/pause`).then(loadCamps)} className="text-[10px] text-slate-500 hover:text-slate-800">Pause</button>}
+                      {c.status === "paused" && <button onClick={() => api.post(`/whatsapp-link/campaigns/${c.id}/resume`).then(loadCamps)} className="text-[10px] text-emerald-700 hover:underline">Resume</button>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           <button onClick={unlink} disabled={!!busy} data-testid="whatsapp-link-unlink" className="inline-flex items-center gap-1.5 text-xs text-rose-600 hover:underline"><Unlink className="w-3.5 h-3.5" /> Unlink this number</button>
         </div>
       )}

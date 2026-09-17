@@ -682,6 +682,8 @@ async def get_branding(user=Depends(require_admin), t=Depends(current_tenant)):
         "hero_image": t.get("hero_image") or "",
         "instagram_url": t.get("instagram_url") or "",
         "whatsapp_number": t.get("whatsapp_number") or "",
+        "reception_phone": t.get("reception_phone") or "",
+        "manager_phone": t.get("manager_phone") or "",
         "salon_email": t.get("salon_email") or "",
         "book_bg": t.get("book_bg") or "",
         "logo_shape": t.get("logo_shape") or "",

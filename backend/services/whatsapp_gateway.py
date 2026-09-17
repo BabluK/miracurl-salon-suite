@@ -24,7 +24,7 @@ def gateway_available() -> bool:
 
 
 def wa_chat_id(phone: str) -> str:
-    digits = re.sub(r"\D", "", phone or "")
+    digits = re.sub(r"\D", "", phone or "").lstrip("0")
     if len(digits) == 10:
         digits = "91" + digits
     return f"{digits}@c.us"

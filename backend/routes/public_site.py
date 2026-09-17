@@ -501,10 +501,10 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
         total = total - coupon_discount
 
     # SMS confirmation for every salon (fire-and-forget, burns 1 sms_point)
-    t_doc = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "currency": 1, "gift_cards": 1})
+    t_doc = await _raw_db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1, "name": 1, "currency": 1, "gift_cards": 1, "wa_gateway": 1})
     if t_doc:
         from sms_service import send_tenant_sms, sms_configured
-        if sms_configured():
+        if sms_configured() or (t_doc.get("wa_gateway") or {}).get("phone"):
             when = appt["scheduled_at"][:16].replace("T", " at ")
             asyncio.create_task(send_tenant_sms(
                 t_doc["id"], body.customer_phone,

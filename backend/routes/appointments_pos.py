@@ -116,9 +116,10 @@ def _ist_when(raw) -> str:
 
 async def _tenant_for_sms(user: dict):
     from sms_service import sms_configured
-    if not sms_configured():
+    t = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0, "id": 1, "name": 1, "wa_gateway": 1})
+    if not t or not (sms_configured() or (t.get("wa_gateway") or {}).get("phone")):
         return None
-    return await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0, "id": 1, "name": 1})
+    return t
 
 
 def _queue_sms(t: dict, phone: str, text: str, kind: str) -> None:

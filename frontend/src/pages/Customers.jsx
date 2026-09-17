@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import WaCampaignModal from "@/components/crm/WaCampaignModal";
 import { ImportCustomersModal } from "@/components/customers/ImportCustomersModal";
 import api from "@/lib/api";
 import { Plus, X, Search, Edit3, Trash2, Mail, Award, Download, Upload, Wallet, History, GitMerge, RefreshCw, Users, Star, IndianRupee, Heart, MessageCircle, CalendarDays, Clock3, ArrowUpDown, Crown } from "lucide-react";
@@ -21,6 +22,9 @@ export default function Customers() {
   const [historyFor, setHistoryFor] = useState(null);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [selected, setSelected] = useState(() => new Set());
+  const [campaignOpen, setCampaignOpen] = useState(false);
+  const toggleSel = (id) => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [dateFilter, setDateFilter] = useState("all"); // all | today | yesterday | week
   const [sort, setSort] = useState({ key: "created_at", dir: "desc" });
   const [page, setPage] = useState(1);
@@ -148,6 +152,11 @@ export default function Customers() {
               <Icon className="w-4 h-4" /> {label}
             </button>
           ))}
+          <button data-testid="wa-campaign-btn" onClick={() => setCampaignOpen(true)} disabled={selected.size === 0}
+            title={selected.size ? "Send a WhatsApp campaign to the ticked guests" : "Tick guests in the list first"}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold shadow-sm hover:bg-emerald-700 disabled:opacity-40 transition-colors">
+            <MessageCircle className="w-4 h-4" /> WhatsApp campaign{selected.size ? ` (${selected.size})` : ""}
+          </button>
           <button data-testid="add-customer-btn" onClick={startNew} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#7f2d3f] to-[#a83d54] text-white text-sm font-semibold shadow-[0_10px_24px_-10px_rgba(155,58,78,.7)] hover:brightness-110 transition-[filter]">
             <Users className="w-4 h-4" /> Add Customer
           </button>
@@ -182,6 +191,11 @@ export default function Customers() {
         <table className="w-full min-w-[900px] text-sm">
           <thead>
             <tr className="text-[10px] uppercase tracking-[0.2em] text-slate-500 border-b border-slate-100">
+              <th className="px-3 py-3.5 w-8">
+                <input type="checkbox" data-testid="crm-select-all" className="w-4 h-4 accent-emerald-600" title="Select all on this page"
+                  checked={paged.length > 0 && paged.every(c => selected.has(c.id))}
+                  onChange={e => setSelected(prev => { const n = new Set(prev); paged.forEach(c => e.target.checked ? n.add(c.id) : n.delete(c.id)); return n; })} />
+              </th>
               {[["name", "Customer"], ["phone", "Contact"], ["created_at", "Added"], ["gender", "Gender"], ["visits", "Visits"], ["total_spent", "Spent"], ["loyalty_points", "Loyalty"], ["wallet_balance", "Wallet"]].map(([k, l]) => (
                 <th key={k} className="text-left font-semibold px-4 py-3.5 whitespace-nowrap">
                   <button onClick={() => setSort(sv => ({ key: k, dir: sv.key === k && sv.dir === "asc" ? "desc" : "asc" }))} data-testid={`crm-sort-${k}`} className={`inline-flex items-center gap-1 hover:text-[#7f2d3f] ${sort.key === k ? "text-[#7f2d3f]" : ""}`}>
@@ -198,7 +212,8 @@ export default function Customers() {
               const isVip = (c.total_spent || 0) >= 5000 || (c.visits || 0) >= 8;
               const pd = phoneDisplay(c);
               return (
-                <tr key={c.id} data-testid={`customer-row-${c.id}`} className="border-b border-slate-50 hover:bg-[#fdf6f7] transition-colors">
+                <tr key={c.id} data-testid={`customer-row-${c.id}`} className={`border-b border-slate-50 hover:bg-[#fdf6f7] transition-colors ${selected.has(c.id) ? "bg-emerald-50/60" : ""}`}>
+                  <td className="px-3 py-3"><input type="checkbox" data-testid={`crm-select-${c.id}`} className="w-4 h-4 accent-emerald-600" checked={selected.has(c.id)} onChange={() => toggleSel(c.id)} /></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-[#eef2ff] text-[#4f5fd8] flex items-center justify-center font-semibold">{(c.name || "?").charAt(0).toUpperCase()}</div>
@@ -237,7 +252,7 @@ export default function Customers() {
               );
             })}
             {paged.length === 0 && (
-              <tr><td colSpan="9" className="text-center text-slate-500 py-12">{list.length ? "No customers in this date range." : "No customers yet. Add your first one!"}</td></tr>
+              <tr><td colSpan="10" className="text-center text-slate-500 py-12">{list.length ? "No customers in this date range." : "No customers yet. Add your first one!"}</td></tr>
             )}
           </tbody>
         </table>
@@ -249,6 +264,7 @@ export default function Customers() {
       {walletFor && <WalletDialog customer={walletFor} onClose={() => setWalletFor(null)} onChanged={load} />}
       {historyFor && <CustomerHistoryModal customer={historyFor} onClose={() => setHistoryFor(null)} />}
       {mergeOpen && <MergeDuplicatesModal onClose={() => setMergeOpen(false)} onMerged={load} />}
+      {campaignOpen && <WaCampaignModal customers={list.filter(c => selected.has(c.id))} onClose={() => setCampaignOpen(false)} onQueued={() => setSelected(new Set())} />}
       {importOpen && <ImportCustomersModal onClose={() => setImportOpen(false)} onDone={load} />}
 
       {open && (

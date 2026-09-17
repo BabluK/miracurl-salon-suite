@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-18.273"
-BUILD_TIME = "18 Sep 2026, 06:00 PM IST"
+BUILD = "2026-09-18.274"
+BUILD_TIME = "18 Sep 2026, 08:00 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-18.274", "note": "Fix: Salon profile Receptionist/Manager numbers were saved but not read back (GET /settings/branding omitted them → fields looked blank after reload). Self-hosted WhatsApp gateway (OpenWA): Settings → Link your WhatsApp (QR / pairing code), own-number routing for confirmations, reminders, win-back, review requests, Mira replies; CRM WhatsApp campaigns (select guests → Mira writes text + picks image) with guardrails: 30–45s spacing, 200/day cap"},
     {"build": "2026-09-18.273", "note": "Staff Dashboard redesigned: salon-photo hero with gold-ring avatar, whole-salon KPI strip (cash/UPI/card/bookings/bills vs yesterday via GET /staff/me/salon-today), Monthly Business Goal, Today's Attendance + Bank Details (masked, copy) side by side, own Serve Notice Period card; bank details gain account_number"},
     {"build": "2026-09-18.272", "note": "Notice countdown: 'Serving notice · X days left' ribbon on staff cards (red ≤7 days) + countdown banner at the top of the staff portal; HQ Email delivery log gets Clear log (DELETE /super-admin/email-log)"},
     {"build": "2026-09-18.271", "note": "Staff portal: target/salary month uses IST boundaries; attendance 10/page + full-month PDF (GET /staff/me/attendance.pdf?month=); new pages /notice-period (planned leave, leave history, week-off) and /my-profile (profile settings) + nav; notice period: resignation date ≥ today, last day auto = +notice days, validated server-side, departed staff auto-hidden on every Staff list load (shown in Settings → Previous staff); resume download via axios blob + new-tab fallback"},
@@ -78,6 +79,9 @@ RELEASES = [
     {
         "date": "2026-09-16 (Editorial redesign, Mira on WhatsApp & HQ support 💬)",
         "changes": [
+            "🛠 Salon profile: Receptionist and Manager numbers now show correctly after saving (they were saved but not displayed)",
+            "💬 Link your WhatsApp: pair your salon's own WhatsApp number in Settings (QR or code) — booking confirmations, reminders, review requests, win-back nudges and Mira replies go out from your number, no Meta approval needed",
+            "📣 CRM campaigns: tick guests → WhatsApp campaign → Mira writes the message and picks the best flyer/photo; sent safely one every 30–45s, max 200/day",
             "💎 Staff Dashboard, redesigned: salon-photo hero, today's salon totals (Cash · UPI · Card · Bookings · Bills vs yesterday), Monthly Business Goal, attendance + bank details side by side, and your own notice-period card",
             "⏳ Notice countdown: staff serving notice show \"X days left\" on their card (turns red in the final week) and see a countdown banner on their own portal",
             "👩‍💼 Staff portal: new \"Serve Notice Period\" and \"Profile Settings\" pages; attendance now 10 days per page with a full-month PDF; monthly target counts this month exactly (salon time)",

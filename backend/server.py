@@ -147,6 +147,12 @@ for _r in (
     api.include_router(_r)
 
 @app.on_event("startup")
+async def _boot_wa_campaigns():
+    from services.wa_campaigns import start_worker
+    start_worker()
+
+
+@app.on_event("startup")
 async def on_startup():
     # Image batches run in-process: a redeploy kills them, so flag leftovers as interrupted (owner can resume).
     try:
