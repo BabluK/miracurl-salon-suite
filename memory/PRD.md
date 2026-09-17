@@ -3324,3 +3324,13 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Each tenant links its own WhatsApp from Settings → "Link your WhatsApp" (QR or 8-char pairing code). Linked → send_text routes through the gateway automatically (win-back blasts, Mira replies); wa_points not charged; HQ whatsapp switch bypassed.
 - Verified: gateway up, session create/start, live QR + real pairing codes from WhatsApp servers, status polling, UI card. NOT yet verified: actual phone pairing + message delivery (needs user to scan/enter code); pending test send to +917406869271.
 - Decision by user: if this works → Meta WhatsApp not configured (only MSG91 for SMS).
+
+## 2026-09-17 — WhatsApp campaigns, guardrails, reminders (iterations 166–168 PASS)
+- Guardrails: `services/wa_campaigns.py` queue worker — 1 msg / 30–45s per tenant, daily cap (tenant `wa_gateway.daily_cap`, default 200) → status `capped` auto-resumes next day; images downscaled to ≤1280px JPEG; phone normalisation strips leading 0. Endpoints: GET /whatsapp-link/usage, PUT /daily-cap, POST/GET /campaigns, GET /campaigns/{id}, POST /campaigns/{id}/pause|resume|cancel, POST /campaigns/compose (Mira: text + image pick from day-offer/package flyers, gallery, curated /assets/offers), GET /audience-counts. Campaign fields: audience selected|all|loyal(visits≥3), scheduled_at (worker waits), offer_type general|festive|discount|new_service|winback, service_ids, discount_pct.
+- CRM (/customers): flip toggle Customer Relationships (default) | WhatsApp Campaign → `components/crm/WaCampaignPage.jsx` + `WaCampaignBits.jsx` (Step, PhonePreview, CampaignHistory). Row checkboxes + select-all; header button jumps to campaign view. Old modal `WaCampaignModal.jsx` still exists (unused now).
+- Win-back: POST /winback/blast queues a throttled campaign when own number linked (returns queued/campaign_id); preview has own_number; Dashboard Win-back card "Send all" button; MiraBlast shows Queued.
+- Reminders: schedulers.py sends 1-hour-before reminder (`hour_reminder_sent`) — WhatsApp-first via send_tenant_sms; scheduler now runs if SMS configured OR any tenant linked WA. Booking confirmations (admin + public) fire when WA linked even without SMS config.
+- send_tenant_sms: WhatsApp-first for all customer kinds (except staff_transfer) when tenant linked & prefer_over_sms (toggle in Settings card); falls back to SMS. Review blast: channel "whatsapp" server-side send.
+- Bug fix: GET /settings/branding now returns reception_phone/manager_phone (BUILD 274). BUILD now 2026-09-18.275.
+- Verified live: text + image campaign delivered to +917406869271 from +918217072523.
+- OPEN: production hosting of OpenWA (VPS) — see /app/memory/OPENWA_SETUP.md; CORS MEDIUM finding from audit #4 still pending.

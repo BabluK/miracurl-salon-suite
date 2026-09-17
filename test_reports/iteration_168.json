@@ -1,0 +1,33 @@
+{
+  "summary": "Iter 168 — CRM flip toggle + new full-page WhatsApp Campaign (/customers → wa-campaign-page). Backend pytest test_iter168_wa_campaign_page.py 6/6 PASSED: (1) GET /whatsapp-link/audience-counts → {all:int>0, loyal:int>=0} ✓; (2) POST /campaigns/compose {audience:'loyal',brief,offer_type:'general'} → 200 text contains '{name}' ✓; (3) audience:'selected'+empty ids → 400 'Pick at least one guest' ✓; (4) audience:'vip' → 422 ✓; (5) POST /campaigns {selected,empty ids,valid text} → 400 AND campaign count unchanged (no queue) ✓; (6) scheduled_at:'not-a-date' with empty ids → 400/422 AND count unchanged ✓. NO real WhatsApp messages sent, NO test-send, NO valid campaign posted. Frontend Playwright: logged in admin, PIN 4321, dismissed What's New (needed re-dismissal on route change). crm-view-flip renders; crm-view-crm active by default (bg-slate-800) ✓. Ticked 2 rows → crm-view-campaign → wa-campaign-page renders. KPIs: wa-kpi-recipients='2', wa-kpi-scheduled-time='Now' + 'Sends as soon as you confirm' ✓. Audience radios all 3 present, 'selected' pre-checked ✓. Templates: 5 chips (festive/promo/rebook/loyalty/custom), festive active by default, wa-campaign-discount select visible ✓. Click wa-template-custom → discount select unmounts (count=0), brief empties to '' ✓. Re-click festive → discount reappears ✓. wa-when-later → wa-schedule-at appears; set 2 days out → KPI updates to '19 Sept, 10:00 am' + 'Scheduled for later', send button label becomes 'Schedule Campaign' — NOT CLICKED ✓. Switched back to now. wa-campaign-mira → text populated in ~2s (319 chars, contains {name}, Ganesh Chaturthi framing, Miracurl salon name). wa-preview-text shows first-name-substituted body ('Hi Import! Celebrate Ganesh Chaturthi…' — no literal {name}) ✓. wa-campaign-image renders with img + 13 wa-campaign-cand-* thumbnails + wa-preview-image in phone preview ✓. wa-campaign-no-image clears image ('No image' placeholder) ✓; clicking candidate restores it ✓. wa-campaign-history-btn toggles wa-history showing 'Festive glow facial test done 1/1 sent' ✓. wa-view-all-customers returns to crm view with selections preserved ('WhatsApp campaign (2)') ✓. Input backgrounds: wa-campaign-brief/text/test-phone all rgb(255,255,255) — white ✓. Regression: /dashboard and /settings load without errors ✓. wa-campaign-send was NEVER clicked. wa-test-send was NEVER clicked. No campaign posted with valid payload. No pause/resume/cancel touched.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "wa-campaign-discount select", "issues": ["Persistent React DOM hydration warning 'In HTML, <span> cannot be a child of <option>' (Tailwind [&_option] utility injecting span into <option>). Cosmetic — flagged in iter167 too, still unresolved."]},
+      {"screen": "What's-New modal on route change", "issues": ["Modal re-appears on the WhatsApp Campaign page after navigating from Dashboard→/customers→campaign view. Backdrop can block interactions until dismissed a second time (repro'd — required extra Got-it click before wa-template-custom would register). Users in normal use may hit the same overlay-block."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter168_wa_campaign_page.py",
+    "/app/test_reports/pytest/iter168.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "WaCampaignPage.jsx:55 — `discount_pct: TEMPLATES[tpl].offer_type === 'discount' || tpl === 'festive' ? discount : null` sends discount_pct for BOTH 'festive' and 'discount' offer types, but backend prompt only uses discount_pct on 'discount' branch (line 182). Not a bug, just harmless overshoot — the festive branch ignores it. Minor: consider aligning UI/backend so discount is only sent for offer_type==='discount'.",
+    "WaCampaignPage.jsx:76 — uses window.confirm() blocking browser dialog before queuing. Consider replacing with the existing askConfirm() component to match the rest of the app's design language.",
+    "WaCampaignPage.jsx:82 — `new Date(schedAt).toISOString()` when schedAt is a datetime-local string (no timezone) creates ambiguity across DST/timezones. Better: send the raw local string and let backend parse in the tenant's timezone; or explicitly show the user their IST equivalent.",
+    "whatsapp_link.py:_audience_ids — 'all' audience is capped at .to_list(500), silently truncating tenants with >500 customers. UI shows counts.all min-clipped at 500 too. If growth expected, revisit as a paginated batch job.",
+    "whatsapp_link.py:CampaignIn — scheduled_at is Optional[str] with max_length=40. Consider `Optional[datetime]` with proper validator so bad values fail at 422 before hitting the ids check (currently returns 400 on empty ids first, hiding the 'Bad schedule time' 400 in that combo).",
+    "Customers.jsx:290 — WaCampaignModal is still mounted alongside the new WaCampaignPage. campaignOpen state exists but nothing sets it to true anymore (the old wa-campaign-btn now sets view='campaign'). Dead code — remove WaCampaignModal import and the {campaignOpen && ...} block."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter168_wa_campaign_page.py"],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (all requested checks passed)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (Owner PIN 4321, X-Tenant-Slug miracurl-marathahalli)",
+  "seed_data_creation": "None. Only compose (LLM draft) + audience-count + campaigns GET calls hit. NO POST /campaigns with valid payload, NO /test-send, NO real WhatsApp messages.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "OpenWA gateway remains LIVE-linked to +918217072523. /customers CRM page has a flip toggle (crm-view-flip) between crm and campaign views. WaCampaignPage.jsx is the new full-page campaign UI. Old WaCampaignModal.jsx is now dead code (still imported in Customers.jsx line 290 but never opened). Existing campaign 'Festive glow facial test' (done, 1/1) is still the only history entry. wa-campaign-send is ENABLED post-compose — do NOT click, would queue real messages to 2 real guests. What's-New modal re-pops on route changes and blocks pointer events; always dismiss twice.",
+  "rca of the issue": "N/A — all specified features verified working. Two known-cosmetic issues carried over from iter167: (a) <span> inside <option> hydration warning; (b) What's-New backdrop re-appears on route change."
+}
