@@ -51,6 +51,18 @@ async def link_pairing_code(body: PairIn, user=Depends(require_tenant_admin), t=
         raise HTTPException(502, f"Couldn't get a pairing code — {msg[:200]}")
 
 
+class PrefIn(BaseModel):
+    prefer_over_sms: bool
+
+
+@router.put("/preferences")
+async def link_prefs(body: PrefIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from database import _raw_db
+    await _raw_db.tenants.update_one({"id": t["id"], "wa_gateway": {"$exists": True}},
+                                     {"$set": {"wa_gateway.prefer_over_sms": body.prefer_over_sms}})
+    return {"ok": True, "prefer_over_sms": body.prefer_over_sms}
+
+
 class TestSendIn(BaseModel):
     phone: str = Field(..., min_length=10, max_length=16)
     text: str = Field("", max_length=1000)

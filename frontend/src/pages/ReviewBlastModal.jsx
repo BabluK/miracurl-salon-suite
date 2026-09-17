@@ -22,6 +22,11 @@ export default function ReviewBlastModal({ onClose }) {
   const [targets, setTargets] = useState([]);
   const [sent, setSent] = useState(new Set());
   const [busy, setBusy] = useState("");
+  const [waLinked, setWaLinked] = useState(false);
+
+  useEffect(() => {
+    api.get("/whatsapp-link/status").then(r => setWaLinked(!!r.data?.connected)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -37,6 +42,7 @@ export default function ReviewBlastModal({ onClose }) {
   }, []);
 
   function send(t) {
+    if (waLinked) return sendVia(t, "whatsapp");
     const link = `${window.location.origin}/review/${t.appointment_id}`;
     const firstName = (t.customer_name || "there").split(" ")[0];
     const ok = openWhatsApp(REVIEW_MESSAGE(firstName, link), t.phone.replace(/\D/g, ""));
@@ -49,6 +55,7 @@ export default function ReviewBlastModal({ onClose }) {
       const { data } = await api.post("/reviews/blast-send", { target_id: t.appointment_id, channel });
       toast.success(channel === "sms"
         ? `SMS sent to ${t.customer_name}${data.points_left != null ? ` · ${data.points_left} SMS points left` : ""}`
+        : channel === "whatsapp" ? `WhatsApp sent to ${t.customer_name} from your salon number ✦`
         : `Email sent to ${t.customer_name}`);
       setSent(prev => new Set(prev).add(t.appointment_id));
     } catch (e) {
@@ -60,6 +67,12 @@ export default function ReviewBlastModal({ onClose }) {
     if (isManager) {
       for (const t of targets.slice(0, 10)) {
         if (!sent.has(t.appointment_id)) await sendVia(t, "sms");
+      }
+      return;
+    }
+    if (waLinked) {
+      for (const t of targets.slice(0, 10)) {
+        if (!sent.has(t.appointment_id)) await sendVia(t, "whatsapp");
       }
       return;
     }
@@ -121,9 +134,9 @@ export default function ReviewBlastModal({ onClose }) {
                     >
                       {isSent ? <><CheckCircle2 className="w-3.5 h-3.5" /> Sent</> : <><Send className="w-3.5 h-3.5" /> SMS</>}
                     </button>
-                    {!isManager && (
-                      <button onClick={() => send(t)} disabled={isSent}
-                        data-testid={`review-blast-send-${t.appointment_id}`} title="Open WhatsApp with the review message"
+                    {(!isManager || waLinked) && (
+                      <button onClick={() => send(t)} disabled={isSent || busy === t.appointment_id + "whatsapp"}
+                        data-testid={`review-blast-send-${t.appointment_id}`} title={waLinked ? "Send from your salon's linked WhatsApp" : "Open WhatsApp with the review message"}
                         className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition disabled:opacity-40">
                         <MessageSquare className="w-3.5 h-3.5" /> WhatsApp
                       </button>

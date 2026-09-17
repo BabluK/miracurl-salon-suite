@@ -107,7 +107,8 @@ async def status(tenant: dict) -> dict:
         upd["wa_gateway.phone"] = s["phone"]
         upd["wa_gateway.linked_at"] = g.get("linked_at") or datetime.now(timezone.utc).isoformat()
     await _raw_db.tenants.update_one({"id": tenant["id"]}, {"$set": upd})
-    return {**s, "linked": s["connected"], "qr": qr, "linked_at": g.get("linked_at")}
+    return {**s, "linked": s["connected"], "qr": qr, "linked_at": g.get("linked_at"),
+            "prefer_over_sms": g.get("prefer_over_sms", True) is not False}
 
 
 async def pairing_code(tenant: dict, phone: str) -> dict:
@@ -135,6 +136,12 @@ async def unlink(tenant: dict) -> dict:
             log.info("unlink delete: %s", e)
     await _raw_db.tenants.update_one({"id": tenant["id"]}, {"$unset": {"wa_gateway": ""}})
     return {"ok": True}
+
+
+async def prefer_whatsapp(tenant_id: str) -> bool:
+    """Owner toggle: route customer SMS (confirmations, reminders, review asks) via the linked WhatsApp. Default ON."""
+    g = await tenant_session(tenant_id)
+    return bool(g) and g.get("prefer_over_sms", True) is not False
 
 
 async def tenant_connected(tenant_id: str) -> Optional[str]:

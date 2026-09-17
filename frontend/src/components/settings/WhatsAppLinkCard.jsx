@@ -130,8 +130,18 @@ export const WhatsAppLinkCard = () => {
       {st.connected && (
         <div className="mt-4 space-y-3">
           <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800 flex items-center gap-2" data-testid="whatsapp-link-connected">
-            <CheckCircle2 className="w-4 h-4" /> {st.push_name ? `${st.push_name} · ` : ""}+{st.phone} is linked. Win-back blasts and Mira messages now go out from this number.
+            <CheckCircle2 className="w-4 h-4" /> {st.push_name ? `${st.push_name} · ` : ""}+{st.phone} is linked. Win-back blasts, review requests and Mira messages now go out from this number.
           </div>
+          <label className="flex items-start gap-3 text-sm text-slate-700 cursor-pointer" data-testid="whatsapp-prefer-sms-row">
+            <input type="checkbox" checked={st.prefer_over_sms !== false} data-testid="whatsapp-prefer-toggle"
+              onChange={async e => {
+                const v = e.target.checked;
+                try { await api.put("/whatsapp-link/preferences", { prefer_over_sms: v }); setSt(s => ({ ...s, prefer_over_sms: v })); toast.success(v ? "Customer messages will go via WhatsApp first" : "Customer messages will go by SMS"); }
+                catch { toast.error("Couldn't save"); }
+              }}
+              className="mt-0.5 w-4 h-4 accent-emerald-600" />
+            <span><b>Send booking confirmations, reminders & loyalty messages on WhatsApp instead of SMS</b><br /><span className="text-xs text-slate-500">Free — no SMS points used. Falls back to SMS automatically if WhatsApp is disconnected.</span></span>
+          </label>
           <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr_auto] gap-2 items-start">
             <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="91XXXXXXXXXX" data-testid="whatsapp-test-phone" className={selectCls} />
             <input value={text} onChange={e => setText(e.target.value)} placeholder="Optional test message (default: hello from your salon)" data-testid="whatsapp-test-text" className={selectCls} />

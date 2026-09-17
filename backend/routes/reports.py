@@ -673,7 +673,7 @@ async def reviews_blast_targets(user=Depends(require_admin)):
 
 class BlastSendIn(BaseModel):
     target_id: str = Field(..., max_length=64)
-    channel: str = Field(..., pattern="^(sms|email)$")
+    channel: str = Field(..., pattern="^(sms|email|whatsapp)$")
 
 
 @router.post("/reviews/blast-send")
@@ -688,6 +688,18 @@ async def reviews_blast_send(body: BlastSendIn, user=Depends(require_admin), t=D
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     link = f"{base}/review/{target['appointment_id']}"
     first = (target["customer_name"] or "there").split(" ")[0]
+    if body.channel == "whatsapp":
+        from services import whatsapp_gateway as gw
+        sid = await gw.tenant_connected(t["id"])
+        if not sid:
+            raise HTTPException(409, "Link your salon WhatsApp in Settings first")
+        try:
+            r = await gw.send_text(sid, t["id"], target["phone"],
+                                   f"Hi {first}! Thanks for visiting {t.get('name', 'us')} 💇 "
+                                   f"We'd love your quick rating: {link}")
+        except RuntimeError as e:
+            raise HTTPException(502, f"WhatsApp send failed — {e}")
+        return {"ok": True, "channel": "whatsapp", "message_id": r.get("messageId")}
     if body.channel == "sms":
         from sms_service import send_sms
         res = await send_sms(target["phone"],

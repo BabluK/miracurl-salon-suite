@@ -103,11 +103,24 @@ async def send_tenant_sms(tenant_id: str, to_phone: str, body: str, kind: str = 
         try:
             await _raw_db.sms_log.insert_one({
                 "id": str(uuid.uuid4()), "tenant_id": tenant_id, "phone": to_phone,
-                "kind": kind, "preview": body[:90], "sent": bool(res.get("sent")),
+                "kind": kind, "preview": body[:90], "sent": bool(res.get("sent")), "channel": res.get("channel", "sms"),
                 "error": res.get("error"), "sid": res.get("sid"),
                 "created_at": datetime.now(timezone.utc).isoformat()})
         except Exception as e:  # noqa: BLE001 — logging must never break sending
             log.warning("sms_log write failed: %s", e)
+
+    # Salon linked its own WhatsApp (OpenWA gateway)? Customer messages go there first — free, no SMS point.
+    if kind != "staff_transfer":
+        try:
+            from services import whatsapp_gateway as gw
+            sid = await gw.tenant_connected(tenant_id) if await gw.prefer_whatsapp(tenant_id) else None
+            if sid:
+                r = await gw.send_text(sid, tenant_id, to_phone, body)
+                res = {"sent": True, "channel": "whatsapp", "sid": r.get("messageId")}
+                await _log(res)
+                return res
+        except Exception as e:  # noqa: BLE001 — fall back to SMS
+            log.warning("whatsapp gateway send failed, falling back to SMS: %s", e)
 
     if not sms_configured():
         res = {"sent": False, "error": "not_configured"}
