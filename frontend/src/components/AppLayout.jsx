@@ -5,7 +5,7 @@ import {
   ShoppingCart, BarChart3, LogOut, ChevronDown, Star,
   Settings as SettingsIcon, Menu, X, Gift, Clock, Download, Bot,
   Image as ImageIcon, MessageSquare, BadgePercent, ShieldCheck, Megaphone,
-  Landmark, FileText, Music, Sparkles, Cctv, Briefcase, Activity, Lock, ChefHat, Wallet } from "lucide-react";
+  Landmark, FileText, Music, Sparkles, Cctv, Briefcase, Activity, Lock, ChefHat, Wallet, Headphones } from "lucide-react";
 import { ManagerLockScreen } from "./ManagerLockScreen";
 import { RoleBadge } from "./RoleBadge";
 import { AdminLockScreen } from "./AdminLockScreen";
@@ -30,6 +30,7 @@ const NAV_ADMIN = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
   { to: "/appointments", label: "Appointments", icon: Calendar, testid: "nav-appointments" },
   { to: "/customers", label: "CRM", icon: Users, testid: "nav-customers" },
+  { to: "/receptionist", label: "Mira Receptionist", icon: Headphones, testid: "nav-receptionist" },
   { to: "/staff", label: "Staff", icon: UserCog, testid: "nav-staff" },
   { to: "/registry", label: "Staff Registry", icon: ShieldCheck, testid: "nav-registry" },
   { to: "/attendance", label: "Attendance", icon: Clock, testid: "nav-attendance" },

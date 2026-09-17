@@ -37,6 +37,7 @@ _BOOK_MSGS = {
     "en": {
         "limit": "I'm so sorry — we've reached our online booking limit for now 🙏 Please call the salon directly and the team will reserve your slot right away 💛",
         "confirm": "✅ Done — your appointment is booked! {services} on {when} with {staff}, total {cur}{total}. We can't wait to see you! ✨",
+        "reserve": "✅ Done — your table for {party} is reserved at {name} on {when}. We can't wait to host you! 🍽️",
         "slot_free": "I'm so sorry — {error} 🙏\n\nOpen times on {date}: {slots}.\nShall I book one of these for you? ✨",
         "slot_none": "I'm so sorry — we're fully booked on {date} 🙏 Could we try another day? I'll get you in as soon as possible 💖",
         "generic": "I'm so sorry — I couldn't complete that booking ({error}). Could we go over the details once more? I'll book you right away 💖",
@@ -44,6 +45,7 @@ _BOOK_MSGS = {
     "hi": {
         "limit": "माफ़ कीजिए — अभी हमारी ऑनलाइन बुकिंग की सीमा पूरी हो गई है 🙏 कृपया सैलून को सीधे कॉल करें, टीम तुरंत आपका स्लॉट बुक कर देगी 💛",
         "confirm": "✅ हो गया — आपकी बुकिंग पक्की! {services}, {when}, {staff} के साथ, कुल {cur}{total}। आपसे मिलने का इंतज़ार रहेगा! ✨",
+        "reserve": "✅ हो गया — {name} में {party} लोगों की टेबल {when} के लिए रिज़र्व है। आपका स्वागत करने का इंतज़ार रहेगा! 🍽️",
         "slot_free": "माफ़ कीजिए — वह समय उपलब्ध नहीं है ({error}) 🙏\n\n{date} के खाली समय: {slots}।\nइनमें से कौन सा बुक कर दूँ? ✨",
         "slot_none": "माफ़ कीजिए — {date} को सभी स्लॉट भर चुके हैं 🙏 क्या किसी और दिन कोशिश करें? मैं आपको जल्द से जल्द बुक कर दूँगी 💖",
         "generic": "माफ़ कीजिए — बुकिंग पूरी नहीं हो पाई ({error})। एक बार फिर से details बता दीजिए, मैं तुरंत बुक कर दूँगी 💖",
@@ -51,6 +53,7 @@ _BOOK_MSGS = {
     "kn": {
         "limit": "ಕ್ಷಮಿಸಿ — ಸದ್ಯ ನಮ್ಮ ಆನ್‌ಲೈನ್ ಬುಕಿಂಗ್ ಮಿತಿ ತಲುಪಿದೆ 🙏 ದಯವಿಟ್ಟು ಸಲೂನ್‌ಗೆ ನೇರವಾಗಿ ಕರೆ ಮಾಡಿ, ತಂಡ ತಕ್ಷಣ ನಿಮ್ಮ ಸ್ಲಾಟ್ ಕಾಯ್ದಿರಿಸುತ್ತದೆ 💛",
         "confirm": "✅ ಆಯ್ತು — ನಿಮ್ಮ ಬುಕಿಂಗ್ ಖಚಿತ! {services}, {when}, {staff} ಜೊತೆ, ಒಟ್ಟು {cur}{total}. ನಿಮ್ಮನ್ನು ನೋಡಲು ಕಾಯುತ್ತಿದ್ದೇವೆ! ✨",
+        "reserve": "✅ ಆಯ್ತು — {name} ನಲ್ಲಿ {party} ಜನರಿಗೆ ಟೇಬಲ್ {when} ಕ್ಕೆ ಕಾಯ್ದಿರಿಸಲಾಗಿದೆ. ನಿಮ್ಮನ್ನು ಸ್ವಾಗತಿಸಲು ಕಾಯುತ್ತಿದ್ದೇವೆ! 🍽️",
         "slot_free": "ಕ್ಷಮಿಸಿ — ಆ ಸಮಯ ಲಭ್ಯವಿಲ್ಲ ({error}) 🙏\n\n{date} ರ ಖಾಲಿ ಸಮಯ: {slots}.\nಇವುಗಳಲ್ಲಿ ಯಾವುದನ್ನು ಬುಕ್ ಮಾಡಲಿ? ✨",
         "slot_none": "ಕ್ಷಮಿಸಿ — {date} ರಂದು ಎಲ್ಲ ಸ್ಲಾಟ್‌ಗಳು ಭರ್ತಿಯಾಗಿವೆ 🙏 ಬೇರೆ ದಿನ ಪ್ರಯತ್ನಿಸೋಣವೇ? 💖",
         "generic": "ಕ್ಷಮಿಸಿ — ಬುಕಿಂಗ್ ಪೂರ್ಣಗೊಳ್ಳಲಿಲ್ಲ ({error}). ಇನ್ನೊಮ್ಮೆ ವಿವರ ತಿಳಿಸಿ, ತಕ್ಷಣ ಬುಕ್ ಮಾಡುತ್ತೇನೆ 💖",
@@ -271,25 +274,29 @@ async def _resolve_id_prefixes(collection, ids: list, extra: dict | None = None)
     return out
 
 
-async def _ai_execute_booking(payload: str):
-    """Parse the AI's booking JSON and create a real appointment.
+async def _ai_execute_booking(payload: str, t: dict | None = None):
+    """Parse the AI's booking JSON and create a real appointment (or a table reservation for restaurants).
     Returns (booking, error, requested_date)."""
     import json as _json
     req_date = None
+    is_resto = (t or {}).get("business_type") == "restaurant"
     try:
         data = _json.loads(payload.strip().strip("`").strip())
         req_date = data.get("date")
         scheduled_at = f"{data['date']}T{data['time']}:00+05:30"
         service_ids = await _resolve_id_prefixes(db.services, data.get("service_ids") or [], {"active": True})
-        if not service_ids:
+        party = int(data.get("party_size") or 0) if is_resto else 0
+        if not service_ids and not party:
             logging.getLogger("public_ai").warning(f"ai booking: no services resolved from ids={data.get('service_ids')}")
             return None, "Selected services were not found on the menu", req_date
         staff_ids = await _resolve_id_prefixes(db.staff, [data["staff_id"]], {"active": True}) if data.get("staff_id") else []
+        seating = str(data.get("seating") or "any").lower()
         bk = PublicBookingIn(
             customer_name=data["customer_name"], customer_phone=data["customer_phone"],
             gender=data.get("gender"), service_ids=service_ids,
             staff_id=staff_ids[0] if staff_ids else None, scheduled_at=scheduled_at,
-            notes="Booked via AI advisor chat")
+            party_size=party or None, seating=(seating if seating in ("any", "indoor", "outdoor") else "any") if party else None,
+            notes="Reserved via Mira WhatsApp receptionist" if party else "Booked via AI advisor chat")
     except Exception as e:
         msg = str(e)
         if hasattr(e, "errors"):
@@ -298,18 +305,19 @@ async def _ai_execute_booking(payload: str):
             except Exception:
                 pass
         return None, msg, req_date
-    services = await db.services.find({"id": {"$in": bk.service_ids}, "active": True}, {"_id": 0}).to_list(50)
-    if not services:
+    services = await db.services.find({"id": {"$in": bk.service_ids}, "active": True}, {"_id": 0}).to_list(50) if bk.service_ids else []
+    if not services and not bk.party_size:
         logging.getLogger("public_ai").warning(f"ai booking: services not found for ids={bk.service_ids}")
         return None, "Selected services were not found on the menu", req_date
     try:
-        staff = await _resolve_staff(bk.staff_id, bk.scheduled_at, sum(s["duration_min"] for s in services) or 30)
+        staff = await _resolve_staff(bk.staff_id, bk.scheduled_at, sum(s["duration_min"] for s in services) or (90 if bk.party_size else 30))
         cust, _ = await _resolve_or_create_customer(bk)
         appt, total, duration = await _create_public_appointment(cust, staff, services, bk)
     except HTTPException as e:
         return None, str(e.detail), req_date
     return {"customer_name": cust["name"], "staff_name": staff["name"],
-            "service_names": [s["name"] for s in services], "total": total,
+            "service_names": [s["name"] for s in services] or (["Table reservation"] if bk.party_size else []), "total": total,
+            "party_size": bk.party_size, "seating": bk.seating,
             "duration_min": duration, "scheduled_at": bk.scheduled_at}, None, req_date
 
 async def _free_slots_for(date: str) -> list[str]:
@@ -429,10 +437,17 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
         "GREETING FLOW: at the very start ask the guest's name once ('May I know your name, please?'); when given, welcome them warmly by name "
         f"('Welcome, [Name]! 🍽️ Thank you for choosing {t.get('name', 'our restaurant')}') and ask how you can help. Never ask for the name twice.\n"
         "YOUR JOB: 1) Recommend dishes from the MENU below — ask about veg/non-veg, spice preference and group size, and explain WHY a dish suits them. "
-        "2) Help reserve a table: ask date, time, party size and indoor/outdoor preference, then guide them to the booking form on this page ('Reserve a Table'). "
+        "2) RESERVE TABLES — you can reserve directly. All dates/times are in the restaurant's LOCAL timezone (current local time is given below; resolve 'today'/'tonight'/'tomorrow' correctly). "
+        "Collect ONLY: guest name, phone number (7-15 digits), party size, date & time (only offer times from the OPEN TIME SLOTS list below), and indoor/outdoor preference (optional, default any). "
+        "When you have everything, show a one-line summary (party size, date, time, seating) and ask them to confirm EXACTLY ONCE. "
+        "The moment they confirm (yes / ok / haan / confirm — any language), IMMEDIATELY end your reply with one line in EXACTLY this format (valid JSON, double quotes):\n"
+        f'{_BOOK_MARKER}{{"customer_name":"...","customer_phone":"...","party_size":4,"seating":"any","service_ids":[],"staff_id":null,"date":"YYYY-MM-DD","time":"HH:MM"}}\n'
+        "Never mention the marker or JSON (machine-read); time is 24h; never re-ask details already given; never ask to confirm twice.\n"
         "3) For dine-in ordering, tell them to scan the QR on their table or tap 'Order Food at Your Table'. "
         "4) Mention today's specials or discounts if listed in the menu context. "
-        "Prices are in ₹. NEVER invent dishes that are not on the menu. Stay on dining/restaurant topics only.\n\n" + catalog)
+        "HUMAN HANDOFF: if the guest explicitly asks for a person / manager / staff, or is upset, confirm once ('Shall I connect you with our team?') and when they agree reply with one warm goodbye line ending with the exact token [HANDOFF] (never mention the token).\n"
+        f"BUSINESS HOURS:\n{_hours_table(t)}\nRight now it is {local_now} at the restaurant.\n"
+        "Prices are in ₹. NEVER invent dishes that are not on the menu. Keep replies short and mobile-friendly. Stay on dining/restaurant topics only.\n\n" + catalog)
     chat = LlmChat(
         api_key=key, session_id=f"{sid}-{uuid.uuid4().hex[:8]}",
         system_message=resto_system if t.get("business_type") == "restaurant" else (
@@ -614,7 +629,7 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
             booking_error = "booking_limit_reached"
             reply = L["limit"]
         else:
-            booking, booking_error, req_date = await _ai_execute_booking(payload)
+            booking, booking_error, req_date = await _ai_execute_booking(payload, t)
             if booking:
                 booking["salon_name"] = t.get("name") or "the salon"
                 try:
@@ -622,8 +637,11 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
                 except ValueError:
                     when = booking["scheduled_at"]
                 sym = {"INR": "₹", "USD": "$", "GBP": "£", "EUR": "€", "AED": "AED "}.get(t.get("currency") or "INR", "₹")
-                confirm = L["confirm"].format(services=", ".join(booking["service_names"]), when=when, cur=sym,
-                                              staff=booking["staff_name"], total=f"{booking['total']:g}")
+                if booking.get("party_size"):
+                    confirm = L["reserve"].format(party=booking["party_size"], when=when, name=t.get("name") or "the restaurant")
+                else:
+                    confirm = L["confirm"].format(services=", ".join(booking["service_names"]), when=when, cur=sym,
+                                                  staff=booking["staff_name"], total=f"{booking['total']:g}")
                 reply = (text + "\n\n" + confirm).strip()
             else:
                 # Booking FAILED — never keep the model's premature "confirmed" text.

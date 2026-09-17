@@ -320,3 +320,101 @@ async def link_inbox(days: int = 7, user=Depends(require_tenant_admin), t=Depend
                     "customer_id": c["id"] if c else None, "name": c["name"] if c else "Unknown guest",
                     "visits": (c or {}).get("visits", 0), "last_visit": (c or {}).get("last_visit")})
     return {"replies": out, "linked": True, "unread": len(out)}
+
+
+# ---------------- Mira WhatsApp Receptionist ----------------
+from services import wa_receptionist as rec  # noqa: E402
+
+
+@router.get("/receptionist")
+async def receptionist_status(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from services.tenant_features import features_of
+    from services.whatsapp_cloud import wa_config
+    cfg = wa_config()
+    return {"enabled": t.get("wa_auto_reply") is not False, "feature_on": bool(features_of(t)["whatsapp"]),
+            "channel_ready": bool(cfg["access_token"] and cfg["phone_number_id"] and rec.platform_number()),
+            "platform_number": rec.platform_number(), "invite_link": rec.invite_link(t), "slug": t.get("slug"),
+            "credits": int(t.get("wa_points") or 0), "business_type": t.get("business_type") or "salon",
+            "stats": await rec.stats(t["id"]), "threads": await rec.threads(t["id"])}
+
+
+@router.get("/receptionist/qr.png")
+async def receptionist_qr(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    import io
+    import qrcode
+    from fastapi.responses import Response
+    img = qrcode.make(rec.invite_link(t), box_size=10, border=2)
+    buf = io.BytesIO(); img.save(buf, format="PNG")
+    return Response(buf.getvalue(), media_type="image/png", headers={"Cache-Control": "private, max-age=3600"})
+
+
+def _sim_wa_id(tid: str, session: str) -> str:
+    import hashlib
+    return "999" + str(int(hashlib.sha1(f"{tid}:{session}".encode()).hexdigest()[:9], 16) % 10**9).zfill(9)
+
+
+class SimulateIn(BaseModel):
+    text: str = Field(min_length=1, max_length=1000)
+    session: str = Field("sim", min_length=1, max_length=40, pattern=r"^[a-zA-Z0-9_-]+$")
+
+
+@router.post("/receptionist/simulate")
+async def receptionist_simulate(body: SimulateIn, request: Request, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Owner's test bench: runs the exact WhatsApp pipeline (routing, Mira, live slots, booking) without Meta or credits."""
+    from security import durable_rate_limit
+    await durable_rate_limit(request, f"wa-sim:{t['id']}", limit=40, window_sec=600)
+    wa_id = _sim_wa_id(t["id"], body.session)
+    reply, booking, handoff = await rec.mira_reply_text(t, wa_id, rec.strip_ref(body.text), request=request)
+    return {"reply": reply, "booked": bool(booking), "booking": booking, "handoff": handoff, "wa_id": wa_id}
+
+
+@router.delete("/receptionist/simulate/{session}")
+async def receptionist_simulate_reset(session: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    wa_id = _sim_wa_id(t["id"], session)
+    r = await _raw_db.public_ai_messages.delete_many({"sid": f"pub-{t['id']}-wa-{wa_id}"})
+    return {"ok": True, "cleared": r.deleted_count}
+
+
+@router.get("/receptionist/threads/{wa_id}")
+async def receptionist_thread(wa_id: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    if not re.fullmatch(r"\d{7,15}", wa_id):
+        raise HTTPException(400, "bad wa_id")
+    sess = await rec.get_session(wa_id)
+    return {"wa_id": wa_id, "human": rec.human_active(sess), "human_until": (sess or {}).get("human_until"),
+            "messages": await rec.thread_messages(t["id"], wa_id)}
+
+
+class ReplyIn(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
+
+
+@router.post("/receptionist/threads/{wa_id}/reply")
+async def receptionist_reply(wa_id: str, body: ReplyIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Staff answers the guest directly (inside Meta's 24h service window). Mira stays quiet for 2h."""
+    if not re.fullmatch(r"\d{7,15}", wa_id):
+        raise HTTPException(400, "bad wa_id")
+    from services.whatsapp_cloud import send_text
+    from services.whatsapp_official import credits
+    if await credits(t["id"]) < 1:
+        raise HTTPException(409, "No WhatsApp credits left — top up in Settings → Credits")
+    try:
+        data = await send_text(wa_id, body.text, tenant_id=t["id"])
+    except RuntimeError as e:
+        raise HTTPException(502, str(e))
+    mid = ((data.get("messages") or [{}])[0]).get("id")
+    await _raw_db.tenants.update_one({"id": t["id"]}, {"$inc": {"wa_points": -1}})
+    await _raw_db.whatsapp_messages.update_one({"message_id": mid}, {"$set": {"sent_by": user.get("email") or "staff"}})
+    await rec.set_human_mode(wa_id, t["id"], True, by=user.get("email") or "staff")
+    return {"ok": True, "message_id": mid}
+
+
+class HumanIn(BaseModel):
+    on: bool
+
+
+@router.put("/receptionist/threads/{wa_id}/human")
+async def receptionist_human(wa_id: str, body: HumanIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Take over (Mira pauses for 2h) or hand the chat back to Mira."""
+    if not re.fullmatch(r"\d{7,15}", wa_id):
+        raise HTTPException(400, "bad wa_id")
+    return {"ok": True, **await rec.set_human_mode(wa_id, t["id"], body.on, by=user.get("email") or "staff")}
