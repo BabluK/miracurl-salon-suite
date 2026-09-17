@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-18.275"
-BUILD_TIME = "18 Sep 2026, 09:30 PM IST"
+BUILD = "2026-09-18.276"
+BUILD_TIME = "18 Sep 2026, 11:00 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-18.276", "note": "New two-column login page (Miracurl Suite showcase + Welcome Back card, MS logo); CORS tightened to explicit origins only (audit #4 closed); campaign results (read receipts + bookings) in Campaign History; Mira WhatsApp birthday/anniversary wishes with the salon's treat"},
     {"build": "2026-09-18.275", "note": "CRM flip: Customer Relationships | WhatsApp Campaign full page (recipients All/Loyal/Selected, templates Festival/Promo/Rebooking/Loyalty/Custom, Mira writes + picks image, phone preview, test on my number, Send now / Schedule later, history). Win-back Send all via throttled queue; 1-hour-before WhatsApp reminder; scheduled campaigns"},
     {"build": "2026-09-18.274", "note": "Fix: Salon profile Receptionist/Manager numbers were saved but not read back (GET /settings/branding omitted them → fields looked blank after reload). Self-hosted WhatsApp gateway (OpenWA): Settings → Link your WhatsApp (QR / pairing code), own-number routing for confirmations, reminders, win-back, review requests, Mira replies; CRM WhatsApp campaigns (select guests → Mira writes text + picks image) with guardrails: 30–45s spacing, 200/day cap"},
     {"build": "2026-09-18.273", "note": "Staff Dashboard redesigned: salon-photo hero with gold-ring avatar, whole-salon KPI strip (cash/UPI/card/bookings/bills vs yesterday via GET /staff/me/salon-today), Monthly Business Goal, Today's Attendance + Bank Details (masked, copy) side by side, own Serve Notice Period card; bank details gain account_number"},
@@ -80,6 +81,9 @@ RELEASES = [
     {
         "date": "2026-09-16 (Editorial redesign, Mira on WhatsApp & HQ support 💬)",
         "changes": [
+            "✨ New login page: Miracurl Suite showcase — one platform for salons and restaurants — with the new MS monogram",
+            "📈 Campaign History now shows ✓✓ read, delivered and how many guests booked after each campaign",
+            "🎂 Mira wishes every guest a happy birthday / anniversary on WhatsApp with your treat (Settings → Birthday offer text)",
             "📲 CRM → WhatsApp Campaign page: pick All / Loyal / ticked guests, choose Festival Offer · Promo · Rebooking · Loyalty · Custom, let Mira write the message and pick the flyer, preview it like WhatsApp, test on your number, send now or schedule for later",
             "⏰ Mira sends a 1-hour-before WhatsApp reminder to every booked guest automatically; Win-back card gets \"Send all\" (sent gradually, never a burst)",
             "🛠 Salon profile: Receptionist and Manager numbers now show correctly after saving (they were saved but not displayed)",

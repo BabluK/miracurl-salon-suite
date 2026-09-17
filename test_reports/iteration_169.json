@@ -1,0 +1,32 @@
+{
+  "summary": "Iter 169 verified: (1) two-column Login redesign, (2) CORS tightening, (3) campaign results delivered/read/booked. NO real WhatsApp sends made (no /test-send, no wa-campaign-send click, no valid /campaigns POST, no /crm/send-birthday-wishes). Backend pytest test_iter169_login_cors_campaigns.py 7/7 PASSED: CORS evil origin returns NO Access-Control-Allow-Origin; Origin https://miracurl-suite.com echoes back; preview URL host is accepted at backend directly (localhost:8001 test — the front-ingress strips ACAO for same-origin, which is expected and does not affect browser behavior since same-origin requests need no CORS). Admin login OK, wrong password → 401, staff login OK, GET /api/whatsapp-link/campaigns returns int delivered/read/booked on every campaign; 'Festive glow facial test' has sent=1 and read=1. Frontend Playwright @1440x900: all 19 login testids visible (login-page, login-showcase, login-brand-logo naturalWidth=512, login-showcase-heading contains 'Two Industries', login-modules → 8 tiles, login-trust-strip, login-language-pill, login-heading='Welcome Back', login-ai-tagline='Sign in to manage your salon or restaurant', email/password inputs, login-remember-checkbox, forgot-password-link, login-submit-btn, fingerprint-login-btn visible (passkeys supported in Chromium), link-signup-salon, link-signup-restaurant, show-signup-btn, login-terms-link, login-privacy-link). No horizontal overflow. @390x844 mobile: login-showcase hidden, mobile brand section present, scrollWidth==clientWidth (no overflow). Wrong password shows login-error 'Invalid email or password'. forgot-password-link → heading becomes 'Reset Password', back-to-login-btn returns to 'Welcome Back'. show-signup-btn → 'Create Account'. Admin login → /dashboard success. Campaign History: /customers → crm-view-campaign → wa-campaign-history-btn → wa-history-results-55eb247d-... text: '1/1 sent ✓✓ 1 read · 1 delivered · 0 booked' — contains all three keys. Staff portal login (priya.staff / Staff@5678) → /staff-portal loads with 'Priya Sharma / STAFF' badge and dashboard tiles. Login flow itself proves same-origin frontend still works with the tightened CORS.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "MiraDayOffer <select> / WaCampaignPage discount <select>", "issues": ["Persistent React hydration warning 'In HTML, <span> cannot be a child of <option>'. Same cosmetic warning tracked since iter167 (Tailwind [&_option] utility). Not blocking."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter169_login_cors_campaigns.py",
+    "/app/test_reports/pytest/iter169.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py:432-458 CORS block — implementation is correct: no allow_origin_regex, allow_credentials true only when non-wildcard, www variant auto-added. Preview host is inside CORS_ORIGINS. ✓",
+    "server.py:437 rstrip('/') on every configured origin is good defensive parsing; consider also lower-casing hostnames to match browser normalisation (browsers send Origin lower-case anyway, but env values may be mixed case).",
+    "whatsapp_link.py campaign_list — response fields delivered/read/booked are always integers (test asserts isinstance int) and 0-defaults when gateway has no data yet. ✓",
+    "WaCampaignBits.jsx CampaignHistory — row text uses raw '·' separators; consider adding aria-labels ('1 read, 1 delivered, 0 booked') for screen readers.",
+    "Login.jsx:96-101 auto-registerPasskey on every successful login attempts to register a passkey silently. On shared/kiosk machines this is undesirable — the pk_declined guard only kicks in AFTER first prompt cancellation. Consider requiring an explicit opt-in from Settings instead of an auto-prompt.",
+    "LoginShowcase.jsx renders two large <img> hero assets (hero-salon.jpg, dining.jpg) inside the unauth Login route — this increases first-paint payload for logged-out users; consider `loading=\"lazy\"` + width/height or convert to CSS-background with responsive sizes."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter169_login_cors_campaigns.py", "/app/test_reports/iteration_169.json"],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% (all requested checks passed)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (Owner PIN 4321, X-Tenant-Slug miracurl-marathahalli); priya.staff@miracurl.com / Staff@5678",
+  "seed_data_creation": "None. Only READ endpoints exercised. No campaign posted, no WhatsApp send, no birthday-wishes trigger.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "New Login two-column layout is live (LoginShowcase panel + white card). All 19 testids used by acceptance checklist confirmed. CORS is now strict — CORS_ORIGINS in backend/.env lists the explicit domains + preview URL; ingress strips ACAO on same-origin so any curl against the public URL with Origin=preview URL will NOT echo — hit http://localhost:8001 to observe backend behaviour. Existing campaign 'Festive glow facial test' (id 55eb247d…) is the only campaign in history and shows 1/1 sent, 1 read, 1 delivered, 0 booked. WhatsApp gateway remains LIVE — do not click wa-campaign-send / wa-test-send / winback-send-all, do not POST /whatsapp-link/campaigns with valid payload, do not call /crm/send-birthday-wishes.",
+  "rca of the issue": "N/A — all specified features verified working."
+}

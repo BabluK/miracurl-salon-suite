@@ -3334,3 +3334,10 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Bug fix: GET /settings/branding now returns reception_phone/manager_phone (BUILD 274). BUILD now 2026-09-18.275.
 - Verified live: text + image campaign delivered to +917406869271 from +918217072523.
 - OPEN: production hosting of OpenWA (VPS) — see /app/memory/OPENWA_SETUP.md; CORS MEDIUM finding from audit #4 still pending.
+
+## 2026-09-17 — Login redesign, CORS, campaign results, birthday WhatsApp, VPS guide (iteration_169 PASS)
+- Login: `components/LoginShowcase.jsx` (desktop-only left panel) + Login.jsx two-column grid; logo assets `/assets/brand/ms-logo-dark.png`, `ms-logo-gold.png`. Gold Login button. Mobile keeps BrandMark + card.
+- CORS: `_cors_regex = None` in server.py — only CORS_ORIGINS env list (audit #4 MEDIUM closed). Add any new custom domain to CORS_ORIGINS.
+- Campaign results: `wa_campaigns.refresh_results` (gateway outgoing log → waMessageId status; bookings = appointments by recipients after created_at) returned by GET /whatsapp-link/campaigns; CampaignHistory shows read/delivered/booked.
+- Birthday/anniversary: `_run_birthday_emails` also sends WhatsApp via send_tenant_sms(kind="birthday") when tenant linked; idempotent via customers.wa_dob_wished_on / wa_anniversary_wished_on. Verified live delivery.
+- VPS production guide: /app/memory/OPENWA_VPS_SETUP.md (systemd + nginx + certbot, env OPENWA_BASE_URL/OPENWA_API_KEY on Emergent Deploy). BUILD 2026-09-18.276.
