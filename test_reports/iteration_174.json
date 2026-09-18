@@ -1,0 +1,39 @@
+{
+  "summary": "Pre-deploy regression + security fixes verification for Miracurl (BUILD 2026-09-18.279). Backend: ran test_iter172_whatsapp_official.py + test_iter173_wa_receptionist.py (26+9 = 35 tests) and a new test_iter174_predeploy_smoke.py (9 tests). 33/35 iter172+173 pass + 9/9 iter174 pass = 42/44 total (95%). The 2 failures in iter173 are pre-existing LLM/slot-availability flakes (test_sim_salon_booking_flow, test_sim_restaurant_reservation_flow) — Mira correctly replies 'That time slot is fully booked' because prior test runs already booked the tomorrow-8pm slot; NOT a regression. Frontend smoke passes for salon admin (dashboard KPI tiles, appointments, CRM w/ WhatsApp Campaign toggle, POS, Settings PIN unlock + WhatsAppLinkCard with sender '+91 91802 61256' and 347 credits, Receptionist page with all 3 testids), restaurant admin (dashboard, kitchen, pos, receptionist w/ 'Needs WhatsApp credits' badge), and super admin (HQ Credit Wallet inside Billing & Subscriptions shows SMS 0 + WhatsApp 5000; Deployments panel shows 'MIRA-DEPLOYED-2026-09-18 · build 2026-09-18.279' with Mira Receptionist + Credit wallet release notes). No 500s or tracebacks in backend logs — only the expected Meta 400s ('account is not registered', code 133010) because the WABA number is currently deregistered.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/whatsapp-link/receptionist/simulate (LLM restaurant reservation flow)", "issue": "Flake: test_sim_restaurant_reservation_flow + test_sim_salon_booking_flow fail intermittently once tomorrow's 8pm slot has been booked by earlier runs — Mira correctly replies 'time slot fully booked, please pick another'. Not a bug; needs test seed cleanup or a rolling target time in the test."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Salon /customers, /pos and Restaurant /dashboard,/pos", "issues": ["React DOM warning: 'In HTML, <span> cannot be a child of <option> — will cause a hydration error.' Non-blocking but noisy in console; likely inside a native <select> where a Lucide icon <span> is placed inside an <option>."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter174_predeploy_smoke.py",
+    "/app/backend/tests/test_iter173_wa_receptionist.py",
+    "/app/backend/tests/test_iter172_whatsapp_official.py",
+    "/app/test_reports/pytest/iter174_final.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: harden the two flaky iter173 reservation tests by (a) using a slot >72h out and unique phone, or (b) clearing the day's bookings for the target guest before the flow. Not a deploy blocker.",
+    "OPTIONAL: clean up the '<span> inside <option>' React hydration warning (search JSX for <option> with a nested Lucide icon)."
+  ],
+  "critical_code_review_comments": [
+    "Security fixes (BOLA guard + atomic credit deduction + Meta 502 refund + daily LLM quota) are all covered by iter172/iter173 tests including test_thread_bola_other_tenant_404 and test_reply_meta_failure_not_500 — both pass.",
+    "Sender label is correctly derived from env WHATSAPP_PLATFORM_NUMBER and surfaces on GET /api/whatsapp-link/status as '+91 91802 61256'.",
+    "Deployment history panel is only reachable via Super Admin → All → 'Deployments' (not a top-level tab). Consider surfacing 'Credit Wallet' as its own quick tab too — it currently lives only inside 'Billing & Subscriptions' scroll section (works, but hidden)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter174_predeploy_smoke.py"],
+  "success_rate": {"backend": "95% (42/44)", "frontend": "100% of smoke checks (all pages render, no ErrorBoundary, no 500s)"},
+  "test_credentials": "Used credentials from /app/memory/test_credentials.md: admin@miracurl.com/q6QY@tn3p#9DtL (slug miracurl-marathahalli, PIN 4321); infinity.admin@miracurl.com/Infinity@2026 (infinity-family-restaurant); super@miracurl.com/og9T@41Es#OQb6.",
+  "seed_data_creation": "No net-new persistent seed data. Test suites do their own guest/customer cleanup by phone.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Preview is BUILD 2026-09-18.279; production is still on .273 (seen in super admin 'Deploy pending · live 2026-09-18.273' ribbon and Deployment History). The Meta WhatsApp number is deregistered by design — expect 400 code 133010 on any real send, and the receptionist reply-Meta failure path is protected (credit refunded, no 500). If iter173 reservation flakes reappear, they are LLM slot availability, not code regression. HQ Credit Wallet UI lives inside super-admin → Billing & Subscriptions (not a top-level tab).",
+  "rca of the issue": "iter173 reservation flakes: reservations DB retains prior test runs → the deterministic 'tomorrow 8 pm' slot is already fully booked → Mira answers with 'fully booked' + alternatives. Fix in the test (rotate slot or delete guest's prior booking) rather than in product code."
+}
