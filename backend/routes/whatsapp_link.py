@@ -362,7 +362,7 @@ async def receptionist_qr(user=Depends(require_tenant_admin), t=Depends(current_
 
 def _sim_wa_id(tid: str, session: str) -> str:
     import hashlib
-    return "999" + str(int(hashlib.sha1(f"{tid}:{session}".encode()).hexdigest()[:9], 16) % 10**9).zfill(9)
+    return "999" + str(int(hashlib.sha256(f"{tid}:{session}".encode(), usedforsecurity=False).hexdigest()[:9], 16) % 10**9).zfill(9)
 
 
 class SimulateIn(BaseModel):
