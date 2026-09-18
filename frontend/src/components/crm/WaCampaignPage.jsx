@@ -37,7 +37,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
   useEffect(() => {
     api.get("/whatsapp-link/status").then(r => setStatus(r.data)).catch(() => setStatus({ available: false }));
     api.get("/whatsapp-link/audience-counts").then(r => setCounts(r.data)).catch(() => {});
-    api.get("/whatsapp-link/festivals").then(r => { setFest(r.data); const f = r.data.today || r.data.next; if (f) setFestPick(f.name); }).catch(() => {});
+    api.get("/whatsapp-link/festivals").then(r => { const d = { ...r.data, today: r.data.today && (r.data.today.day || 1) <= 1 ? r.data.today : null }; setFest(d); const f = d.today || d.upcoming?.[0] || d.next; if (f) setFestPick(f.name); }).catch(() => {});
     loadCamps();
     const id = setInterval(loadCamps, 15000);
     return () => clearInterval(id);
@@ -70,6 +70,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
 
   const paintPoster = async () => {
     setBusy("poster");
+    toast.message("Mira is painting your poster ✦", { description: "Takes about 20 seconds — the preview updates automatically." });
     try {
       const { data } = await api.post("/whatsapp-link/campaigns/poster", {
         festival: tpl === "festive" ? festPick : "", offer_type: TEMPLATES[tpl].offer_type,
@@ -201,7 +202,13 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
 
           <Step n={3} title="Add Image / Media (Optional)" right={<button onClick={paintPoster} disabled={!!busy} data-testid="wa-campaign-paint" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#d4af37] to-[#8a6a1c] text-white text-xs font-semibold disabled:opacity-50">{busy === "poster" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />} {busy === "poster" ? "Mira is painting…" : `Paint ${tpl === "festive" && festPick ? festPick : "campaign"} poster`}</button>}>
             <div className="flex gap-3 flex-wrap items-start">
-              {image ? (
+              {busy === "poster" ? (
+                <div className="w-44 h-64 rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-rose-50 flex flex-col items-center justify-center text-center px-3 animate-pulse" data-testid="wa-campaign-painting">
+                  <Loader2 className="w-6 h-6 text-amber-600 animate-spin" />
+                  <div className="text-xs font-semibold text-slate-800 mt-2">Mira is painting your poster…</div>
+                  <div className="text-[11px] text-slate-500 mt-1">Model, festive motifs, your offer & logo — about 20 seconds</div>
+                </div>
+              ) : image ? (
                 <div className="relative w-44 rounded-xl overflow-hidden border border-slate-200 bg-slate-50" data-testid="wa-campaign-image">
                   <img src={image.url} alt="" className="w-full h-auto max-h-64 object-contain" />
                   <button onClick={() => setImage(null)} data-testid="wa-campaign-no-image" className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center"><X className="w-3.5 h-3.5" /></button>
