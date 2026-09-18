@@ -71,6 +71,41 @@ async def sa_get_features(tid: str, user=Depends(require_super_admin)):
     return await _features_payload(await _tenant(tid))
 
 
+@router.get("/super-admin/features/enabled")
+async def sa_features_enabled(user=Depends(require_super_admin)):
+    """Tenants that currently have SMS and/or WhatsApp switched ON (candidates for a bulk reset)."""
+    out = []
+    async for t in _raw_db.tenants.find({"$or": [{"features.sms": True}, {"features.whatsapp": True}]},
+                                        {"_id": 0, "id": 1, "name": 1, "slug": 1, "features": 1, "sms_points": 1, "wa_points": 1, "plan": 1}).sort("name", 1):
+        out.append({"id": t["id"], "name": t.get("name"), "slug": t.get("slug"), "plan": t.get("plan"),
+                    "sms": bool((t.get("features") or {}).get("sms")), "whatsapp": bool((t.get("features") or {}).get("whatsapp")),
+                    "sms_points": int(t.get("sms_points") or 0), "wa_points": int(t.get("wa_points") or 0)})
+    return {"tenants": out}
+
+
+class FeaturesResetIn(BaseModel):
+    keep_tenant_ids: list[str] = Field(default_factory=list, max_length=2000)
+    channels: list[str] = Field(default_factory=lambda: ["sms", "whatsapp"], min_length=1, max_length=2)
+
+
+@router.post("/super-admin/features/reset")
+async def sa_features_reset(body: FeaturesResetIn, user=Depends(require_super_admin)):
+    """Switch SMS/WhatsApp OFF for every tenant except the approved (kept) ones — legacy auto-enabled flags cleanup."""
+    channels = [c for c in body.channels if c in FEATURE_KEYS]
+    if not channels:
+        raise HTTPException(400, "channels must be sms and/or whatsapp")
+    q = {"$or": [{f"features.{c}": True} for c in channels], "id": {"$nin": body.keep_tenant_ids}}
+    affected = await _raw_db.tenants.find(q, {"_id": 0, "id": 1, "name": 1}).to_list(5000)
+    if affected:
+        await _raw_db.tenants.update_many({"id": {"$in": [a["id"] for a in affected]}}, {"$set": {f"features.{c}": False for c in channels}})
+        for a in affected:
+            await log_audit(a["id"], {**user, "name": "Miracurl HQ"}, "features",
+                            "HQ reset: " + ", ".join(f"{c} OFF" for c in channels) + " (bulk approval cleanup)")
+    await _raw_db.hq_audit.insert_one({"id": str(__import__("uuid").uuid4()), "kind": "features_bulk_reset", "by": user.get("email"), "channels": channels,
+                                       "kept": body.keep_tenant_ids, "switched_off": [a["id"] for a in affected], "at": datetime.now(timezone.utc).isoformat()})
+    return {"ok": True, "switched_off": len(affected), "kept": len(body.keep_tenant_ids), "tenants": [a["name"] for a in affected]}
+
+
 @router.put("/super-admin/tenants/{tid}/features")
 async def sa_put_features(tid: str, body: FeaturesIn, user=Depends(require_super_admin)):
     t = await _tenant(tid)

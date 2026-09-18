@@ -1,5 +1,8 @@
 """Signature Loyalty Card: gold stamp card — 1 stamp per visit, reward when full. Salons only."""
+import io
+import os
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -258,124 +261,178 @@ LOYALTY_BGS = {"deco": "loyalty_qr_bg.jpg", "dining": "table_qr_bg.jpg",
                "midnight": "loyalty_bg_midnight.jpg", "lightgold": "loyalty_bg_lightgold.jpg"}
 
 
+@dataclass
+class _Poster:
+    """Mutable drawing context shared by the poster steps (720×1080 canvas, palette, cursor y)."""
+    t: dict
+    base: str
+    cfg: dict
+    design: str
+    logo_shape: str
+    logo_bytes: bytes | None
+    assets_dir: str
+    bg: object = None
+    d: object = None
+    gift: object = None
+    y: int = 44
+    W: int = 720
+    H: int = 1080
+
+    @property
+    def resto(self) -> bool:
+        return self.t.get("business_type") == "restaurant"
+
+    @property
+    def light(self) -> bool:
+        return self.design == "lightgold"
+
+    @property
+    def gold(self):
+        return (146, 106, 38) if self.light else (206, 165, 94)
+
+    @property
+    def soft(self):
+        return (96, 84, 62) if self.light else (232, 224, 210)
+
+    @property
+    def ink(self):
+        return (70, 58, 38) if self.light else (255, 255, 255)
+
+    @property
+    def foot(self):
+        return (120, 106, 80) if self.light else (160, 148, 128)
+
+    def font(self, name: str, size: int):
+        from PIL import ImageFont
+        try:
+            return ImageFont.truetype(os.path.join(self.assets_dir, "fonts", name), size)
+        except Exception:
+            return ImageFont.load_default()
+
+    def center(self, text: str, y: float, f, fill) -> None:
+        self.d.text(((self.W - self.d.textlength(text, font=f)) / 2, y), text, font=f, fill=fill)
+
+
+def _poster_canvas(p: _Poster) -> None:
+    """Cover-fit the design background (or a dark fallback) and load the gift-box sprite."""
+    from PIL import Image, ImageDraw
+    bg_file = LOYALTY_BGS.get(p.design) or LOYALTY_BGS["dining" if p.resto else "deco"]
+    bg_path = os.path.join(p.assets_dir, "posters", bg_file)
+    if os.path.exists(bg_path):
+        bg = Image.open(bg_path).convert("RGB")
+        scale = max(p.W / bg.width, p.H / bg.height)
+        bg = bg.resize((round(bg.width * scale), round(bg.height * scale)))
+        lx, ty = (bg.width - p.W) // 2, (bg.height - p.H) // 2
+        bg = bg.crop((lx, ty, lx + p.W, ty + p.H))
+    else:
+        bg = Image.new("RGB", (p.W, p.H), (18, 16, 13))
+    p.bg, p.d = bg, ImageDraw.Draw(bg)
+    gift_path = os.path.join(p.assets_dir, "posters", "gift_box_gold.png")
+    p.gift = Image.open(gift_path).convert("RGBA") if os.path.exists(gift_path) else None
+
+
+def _poster_header(p: _Poster) -> None:
+    """Logo, auto-shrunk salon name, location line and the diamond-flanked LOYALTY CLUB label."""
+    if p.logo_bytes:
+        shape = p.logo_shape if p.logo_shape in ("circle", "square", "blend") else (p.cfg.get("logo_shape") or "circle")
+        lg = _shaped_logo(p.logo_bytes, 150, shape)
+        if lg is not None:
+            p.bg.paste(lg, ((p.W - lg.width) // 2, p.y), lg)
+            p.y += lg.height + 12
+    name = p.t.get("name") or ("Our Restaurant" if p.resto else "Our Salon")
+    size = 46
+    f = p.font("PlayfairDisplay-Bold.ttf", size)
+    while p.d.textlength(name, font=f) > p.W - 130 and size > 24:
+        size -= 3
+        f = p.font("PlayfairDisplay-Bold.ttf", size)
+    p.center(name, p.y, f, p.gold)
+    p.y += size + 8
+    loc = (p.t.get("location") or "").strip()
+    if loc:
+        p.center(loc[:48].upper(), p.y, p.font("FreeSansBold.ttf", 19), p.soft)
+        p.y += 30
+    else:
+        p.y += 6
+    lbl_f = p.font("FreeSansBold.ttf", 28)
+    lbl = "L O Y A L T Y   C L U B"
+    lw = p.d.textlength(lbl, font=lbl_f)
+    p.center(lbl, p.y, lbl_f, p.soft)
+    for dx in (-lw / 2 - 32, lw / 2 + 32):
+        cx, cy = p.W / 2 + dx, p.y + 16
+        p.d.polygon([(cx, cy - 8), (cx + 6, cy), (cx, cy + 8), (cx - 6, cy)], fill=p.gold)
+    p.y += 48
+
+
+def _poster_stamp_journey(p: _Poster, n: int) -> None:
+    """Row of gold stamp dots ending in a mini gift box."""
+    dot, gap = (34, 10) if n <= 10 else (30, 8)
+    total = n * (dot + gap) - gap
+    sx = (p.W - total) / 2
+    cyy = p.y + dot / 2
+    for i in range(n):
+        x0 = sx + i * (dot + gap)
+        if i == n - 1 and p.gift is not None:
+            gsm = p.gift.resize((dot + 10, dot + 10))
+            p.bg.paste(gsm, (int(x0 - 5), int(cyy - (dot + 10) / 2)), gsm)
+        else:
+            p.d.ellipse([x0, cyy - dot / 2, x0 + dot, cyy + dot / 2], outline=p.gold, width=3)
+            mx, my = x0 + dot / 2, cyy
+            p.d.polygon([(mx, my - 7), (mx + 5, my), (mx, my + 7), (mx - 5, my)], fill=(120, 96, 58))
+    p.y += dot + 26
+
+
+def _poster_qr(p: _Poster) -> None:
+    """Rounded white QR card (gold outline on the light design)."""
+    import qrcode
+    from PIL import Image, ImageDraw
+    qr = qrcode.make(f"{p.base}/loyalty/{p.t.get('slug') or ''}", box_size=10, border=1).convert("RGB")
+    qs, pad = 330, 18
+    qr = qr.resize((qs, qs))
+    box = Image.new("RGB", (qs + pad * 2, qs + pad * 2), (255, 255, 255))
+    box.paste(qr, (pad, pad))
+    m = Image.new("L", box.size, 0)
+    ImageDraw.Draw(m).rounded_rectangle([0, 0, box.width - 1, box.height - 1], radius=26, fill=255)
+    p.bg.paste(box, ((p.W - box.width) // 2, p.y), m)
+    if p.light:
+        bx, by = (p.W - box.width) // 2, p.y
+        p.d.rounded_rectangle([bx, by, bx + box.width - 1, by + box.height - 1], radius=26, outline=p.gold, width=3)
+    p.y += box.height + 16
+
+
+def _poster_gift_block(p: _Poster, n: int) -> None:
+    """Glowing gift box + 'A SURPRISE GIFT awaits at your Nth visit' copy, then the footer URL."""
+    if p.gift is not None:
+        gb = p.gift.resize((190, 190))
+        p.bg.paste(gb, (86, p.y - 8), gb)
+    tx = 292
+    p.d.text((tx, p.y + 28), "A SURPRISE GIFT", font=p.font("FreeSansBold.ttf", 32), fill=p.gold)
+    p.d.text((tx, p.y + 70), f"awaits at your {_ordinal(n)} visit", font=p.font("FreeSansBold.ttf", 22), fill=p.soft)
+    p.d.text((tx, p.y + 104), "Scan · Join in 10 seconds", font=p.font("FreeSansBold.ttf", 20), fill=p.ink)
+    p.d.text((tx, p.y + 132), "Earn a gold stamp every visit", font=p.font("FreeSansBold.ttf", 20), fill=p.ink)
+    p.center(f"{p.base.replace('https://', '')}/loyalty/{p.t.get('slug') or ''}", p.H - 56, p.font("FreeSansBold.ttf", 17), p.foot)
+
+
+def _render_poster(p: _Poster) -> bytes:
+    n = int(p.cfg["stamps_needed"])
+    _poster_canvas(p)
+    _poster_header(p)
+    _poster_stamp_journey(p, n)
+    _poster_qr(p)
+    _poster_gift_block(p, n)
+    out = io.BytesIO()
+    p.bg.save(out, format="JPEG", quality=85)
+    return out.getvalue()
+
+
 async def _loyalty_poster_jpeg(t: dict, origin: str, design: str, logo_shape: str) -> bytes:
     """Polished Loyalty Club QR poster — guests scan to join and start collecting stamps."""
     import asyncio
-    import io
-    import os
     from routes.services_catalog import _tenant_logo_bytes
     base = (origin or os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")).rstrip("/")
     logo_bytes = await _tenant_logo_bytes(t, base)
-    cfg = _cfg(t)
-
-    def _render() -> bytes:
-        import qrcode
-        from PIL import Image, ImageDraw, ImageFont
-        W, H = 720, 1080
-        assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
-        resto = t.get("business_type") == "restaurant"
-        bg_file = LOYALTY_BGS.get(design) or LOYALTY_BGS["dining" if resto else "deco"]
-        bg_path = os.path.join(assets_dir, "posters", bg_file)
-        if os.path.exists(bg_path):
-            bg = Image.open(bg_path).convert("RGB")
-            scale = max(W / bg.width, H / bg.height)
-            bg = bg.resize((round(bg.width * scale), round(bg.height * scale)))
-            lx, ty = (bg.width - W) // 2, (bg.height - H) // 2
-            bg = bg.crop((lx, ty, lx + W, ty + H))
-        else:
-            bg = Image.new("RGB", (W, H), (18, 16, 13))
-        d = ImageDraw.Draw(bg)
-        light = design == "lightgold"
-        GOLD = (146, 106, 38) if light else (206, 165, 94)
-        LIGHT = (96, 84, 62) if light else (232, 224, 210)
-        INK = (70, 58, 38) if light else (255, 255, 255)
-        FOOT = (120, 106, 80) if light else (160, 148, 128)
-        gift_path = os.path.join(assets_dir, "posters", "gift_box_gold.png")
-        gift = Image.open(gift_path).convert("RGBA") if os.path.exists(gift_path) else None
-
-        def _font(name, size):
-            try:
-                return ImageFont.truetype(os.path.join(assets_dir, "fonts", name), size)
-            except Exception:
-                return ImageFont.load_default()
-
-        def center(text, y, f, fill):
-            d.text(((W - d.textlength(text, font=f)) / 2, y), text, font=f, fill=fill)
-
-        y = 44
-        if logo_bytes:
-            shape = logo_shape if logo_shape in ("circle", "square", "blend") else (cfg.get("logo_shape") or "circle")
-            lg = _shaped_logo(logo_bytes, 150, shape)
-            if lg is not None:
-                bg.paste(lg, ((W - lg.width) // 2, y), lg)
-                y += lg.height + 12
-        name = t.get("name") or ("Our Restaurant" if resto else "Our Salon")
-        size = 46
-        f = _font("PlayfairDisplay-Bold.ttf", size)
-        while d.textlength(name, font=f) > W - 130 and size > 24:
-            size -= 3
-            f = _font("PlayfairDisplay-Bold.ttf", size)
-        center(name, y, f, GOLD)
-        y += size + 8
-        loc = (t.get("location") or "").strip()
-        if loc:
-            center(loc[:48].upper(), y, _font("FreeSansBold.ttf", 19), LIGHT)
-            y += 30
-        else:
-            y += 6
-        lbl_f = _font("FreeSansBold.ttf", 28)
-        lbl = "L O Y A L T Y   C L U B"
-        lw = d.textlength(lbl, font=lbl_f)
-        center(lbl, y, lbl_f, LIGHT)
-        for dx in (-lw / 2 - 32, lw / 2 + 32):
-            cx, cy = W / 2 + dx, y + 16
-            d.polygon([(cx, cy - 8), (cx + 6, cy), (cx, cy + 8), (cx - 6, cy)], fill=GOLD)
-        y += 48
-        # Stamp journey: gold stamp dots ending in a mini gift box
-        n = int(cfg["stamps_needed"])
-        dot, gap = (34, 10) if n <= 10 else (30, 8)
-        total = n * (dot + gap) - gap
-        sx = (W - total) / 2
-        cyy = y + dot / 2
-        for i in range(n):
-            x0 = sx + i * (dot + gap)
-            if i == n - 1 and gift is not None:
-                gsm = gift.resize((dot + 10, dot + 10))
-                bg.paste(gsm, (int(x0 - 5), int(cyy - (dot + 10) / 2)), gsm)
-            else:
-                d.ellipse([x0, cyy - dot / 2, x0 + dot, cyy + dot / 2], outline=GOLD, width=3)
-                mx, my = x0 + dot / 2, cyy
-                d.polygon([(mx, my - 7), (mx + 5, my), (mx, my + 7), (mx - 5, my)], fill=(120, 96, 58))
-        y += dot + 26
-        qr = qrcode.make(f"{base}/loyalty/{t.get('slug') or ''}", box_size=10, border=1).convert("RGB")
-        qs = 330
-        qr = qr.resize((qs, qs))
-        pad = 18
-        box = Image.new("RGB", (qs + pad * 2, qs + pad * 2), (255, 255, 255))
-        box.paste(qr, (pad, pad))
-        m = Image.new("L", box.size, 0)
-        ImageDraw.Draw(m).rounded_rectangle([0, 0, box.width - 1, box.height - 1], radius=26, fill=255)
-        bg.paste(box, ((W - box.width) // 2, y), m)
-        if light:
-            bx, by = (W - box.width) // 2, y
-            d.rounded_rectangle([bx, by, bx + box.width - 1, by + box.height - 1],
-                                radius=26, outline=GOLD, width=3)
-        y += box.height + 16
-        # Surprise gift block: glowing gift box + copy
-        if gift is not None:
-            gb = gift.resize((190, 190))
-            bg.paste(gb, (86, y - 8), gb)
-        tx = 292
-        d.text((tx, y + 28), "A SURPRISE GIFT", font=_font("FreeSansBold.ttf", 32), fill=GOLD)
-        d.text((tx, y + 70), f"awaits at your {_ordinal(n)} visit", font=_font("FreeSansBold.ttf", 22), fill=LIGHT)
-        d.text((tx, y + 104), "Scan · Join in 10 seconds", font=_font("FreeSansBold.ttf", 20), fill=INK)
-        d.text((tx, y + 132), "Earn a gold stamp every visit", font=_font("FreeSansBold.ttf", 20), fill=INK)
-        center(f"{base.replace('https://', '')}/loyalty/{t.get('slug') or ''}", H - 56, _font("FreeSansBold.ttf", 17), FOOT)
-        out = io.BytesIO()
-        bg.save(out, format="JPEG", quality=85)
-        return out.getvalue()
-
-    return await asyncio.to_thread(_render)
+    assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
+    p = _Poster(t=t, base=base, cfg=_cfg(t), design=design, logo_shape=logo_shape, logo_bytes=logo_bytes, assets_dir=assets_dir)
+    return await asyncio.to_thread(_render_poster, p)
 
 
 @router.get("/settings/loyalty-qr-poster.png")

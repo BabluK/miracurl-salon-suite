@@ -3429,3 +3429,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Circular import fixed: pack catalogue/pricing moved to `services/pack_pricing.py` (SMS_PACKS, WA_PACKS, CHANNELS, DEFAULT_PRICING, pack_pricing(), channel_cfg(), invalidate_pricing_cache()); hq_credit_wallet no longer imports routes.subscriptions.
 - `_audit_rows` split into `_legit_credits` + `_audit_row` (query limited to tenants with credits).
 - Re-confirmed false positives: security.py:232 is a comment; utils.py:8 uses `in`; ruff F821/F632 = 0 in production code. Skipped by design: `_loyalty_poster_jpeg` (complexity 30, pixel-drawing code — refactor needs visual regression), `public_loyalty_join`, `run_lead_auto_nudge` (live lead flow).
+
+## 2026-09-18 — Poster refactor (pixel-identical) · bulk feature reset
+- `_loyalty_poster_jpeg` → `_Poster` dataclass + steps `_poster_canvas/_poster_header/_poster_stamp_journey/_poster_qr/_poster_gift_block/_render_poster`. Verified byte-identical on 56 variants (logo×resto×7 designs×2 shapes) via `tests/tools/poster_snap.py before|after` (baseline `tests/tools/poster_before.json`). Re-run `after` whenever the poster code changes.
+- Bulk reset: `GET /super-admin/features/enabled` (tenants with sms/whatsapp ON) + `POST /super-admin/features/reset {keep_tenant_ids, channels}` → features OFF for all others, tenant audit + hq_audit features_bulk_reset. UI: Tenants tab → "Reset SMS/WA flags" → `ResetFeaturesModal` (tick approved → "Switch OFF N tenants").

@@ -3,7 +3,7 @@ import log from "@/lib/log";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users, Pencil, Clapperboard, Stethoscope, Eraser, CreditCard, Menu } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users, Pencil, Clapperboard, Stethoscope, Eraser, CreditCard, Menu, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 import { askConfirm } from "@/components/ConfirmDialog";
 import ImportCustomersModal from "./ImportCustomersModal";
@@ -17,6 +17,7 @@ import { SecurityCard } from "@/components/superadmin/SecurityCard";
 import { HqTaxCard } from "@/components/superadmin/HqTaxCard";
 import { PackPricingCard } from "@/components/superadmin/PackPricingCard";
 import { TenantCreditPills } from "@/components/superadmin/TenantCreditPills";
+import { ResetFeaturesModal } from "@/components/superadmin/ResetFeaturesModal";
 import { HqGstRegisterCard } from "@/components/superadmin/HqGstRegisterCard";
 import { EditTenantModal } from "@/components/superadmin/EditTenantModal";
 import { Handshake, ShieldAlert, ToggleRight } from "lucide-react";
@@ -180,7 +181,8 @@ export default function SuperAdmin() {
   const [diagFor, setDiagFor] = useState(null); // tenant being diagnosed
   const [importFor, setImportFor] = useState(null); // tenant being imported into
   const [payLinkFor, setPayLinkFor] = useState(null); // tenant getting a payment link
-  const [smsLogFor, setSmsLogFor] = useState(null); // tenant whose SMS log is open
+  const [smsLogFor, setSmsLogFor] = useState(null);
+  const [resetOpen, setResetOpen] = useState(false); // tenant whose SMS log is open
   const [featuresFor, setFeaturesFor] = useState(null); // tenant whose feature switches are open
   const [cleanFor, setCleanFor] = useState(null); // tenant being cleaned of dummy data
   const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get("tab") || "mira-home");
@@ -560,6 +562,10 @@ export default function SuperAdmin() {
             <p className="text-slate-500 text-sm mt-1">Manage every salon &amp; restaurant on the Miracurl platform.</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap lg:justify-end" data-testid="tenants-toolbar">
+            <button onClick={() => setResetOpen(true)} data-testid="reset-features-open" title="Switch SMS/WhatsApp OFF for all tenants except the ones you approve"
+              className="h-10 px-4 rounded-full border border-rose-300 text-rose-700 text-sm font-semibold inline-flex items-center gap-2 hover:bg-rose-50">
+              <PowerOff className="w-4 h-4" /> Reset SMS/WA flags
+            </button>
             <button
               data-testid="super-weekly-report-btn"
               onClick={sendWeeklyReports}
@@ -812,6 +818,7 @@ export default function SuperAdmin() {
       {payLinkFor && <PayLinkModal tenant={payLinkFor} onClose={() => setPayLinkFor(null)} />}
 
       {smsLogFor && <SmsLogModal tenant={smsLogFor} onClose={() => setSmsLogFor(null)} />}
+      <ResetFeaturesModal open={resetOpen} onClose={() => setResetOpen(false)} onDone={load} />
       {featuresFor && <TenantFeaturesModal tenant={featuresFor} onClose={() => setFeaturesFor(null)} />}
 
       <TenantQuickView tenant={quickFor} onClose={() => setQuickFor(null)} onProfilePdf={profilePdf} />
