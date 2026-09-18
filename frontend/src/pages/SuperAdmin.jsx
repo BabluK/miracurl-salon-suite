@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import log from "@/lib/log";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users, Pencil, Clapperboard, Stethoscope, Eraser, CreditCard, Menu } from "lucide-react";
@@ -124,6 +124,8 @@ const STATUS_BADGE = {
 };
 
 export default function SuperAdmin() {
+  const _loc = useLocation();
+  useEffect(() => { if (_loc.state?.pickTenant) toast.message("Pick a salon first", { description: "Use \"Act as salon\" on a tenant row to open its dashboard, bookings and settings." }); }, [_loc.state]);
   const { user, logout } = useAuth();
   const nav = useNavigate();
   const [overview, setOverview] = useState(null);

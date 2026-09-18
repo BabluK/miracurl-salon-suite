@@ -1,107 +1,31 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
-import { CalendarCheck, Clock, Sparkles, CheckCircle2, User, Send, Loader2, Bot, ClipboardList } from "lucide-react";
+import { CalendarCheck, Sparkles, CheckCircle2, User, ArrowRight, Lock } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import SalesChatWidget from "@/components/SalesChatWidget";
+import { DemoHero } from "@/components/demo/DemoHero";
+import { DemoCalendar, DemoTimes } from "@/components/demo/DemoCalendar";
+import { DemoFeatureRow, DemoTrustRow, DemoField, SectionHead } from "@/components/demo/DemoBits";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const gradBtn = "bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 hover:from-pink-600 hover:via-rose-600 hover:to-amber-600 text-white";
 
-const inputCls = "w-full bg-rose-50/50 border border-rose-100 rounded-xl px-4 py-3 text-base sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-pink-400";
-const gradBtn = "bg-gradient-to-r from-rose-400 via-pink-500 to-amber-500 hover:from-rose-500 hover:via-pink-600 hover:to-amber-600 text-white";
-
-const CHIPS = ["Book me a demo for tomorrow evening", "What can Miracurl do for my salon?", "मुझे कल का डेमो चाहिए"];
-
-function newSid() {
-  return (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`).slice(0, 36);
-}
-
-function TourVideoCard() {
-  const [play, setPlay] = useState(false);
+function DemoSuccess({ done }) {
+  const label = done.purpose === "onboarding" ? "onboarding session" : "demo";
   return (
-    <div className="bg-white rounded-2xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.18)] ring-1 ring-slate-100 overflow-hidden mb-5" data-testid="tour-video-card">
-      {play ? (
-        <video src="/miracurl-full-tour.mp4" controls autoPlay playsInline className="w-full aspect-video bg-black" data-testid="tour-video-player" />
-      ) : (
-        <button onClick={() => setPlay(true)} data-testid="tour-video-play"
-          className="relative w-full aspect-video bg-gradient-to-br from-[#1c1c22] to-[#3b2f4d] flex flex-col items-center justify-center gap-3 group">
-          <span className="text-[#d4af37] font-bold tracking-[0.25em] text-lg">MIRACURL</span>
-          <span className="w-16 h-16 rounded-full bg-white/95 flex items-center justify-center shadow-xl group-hover:scale-110 transition-transform">
-            <span className="ml-1 border-y-[12px] border-y-transparent border-l-[20px] border-l-pink-600" />
-          </span>
-          <span className="text-white/85 text-sm font-medium">▶ Watch the 2-minute tour — every feature, narrated by Mira</span>
-        </button>
+    <div className="bg-white rounded-3xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.18)] ring-1 ring-slate-100 p-10 text-center space-y-4 max-w-lg mx-auto" data-testid="demo-success">
+      <CheckCircle2 className="w-14 h-14 text-emerald-500 mx-auto" />
+      <h1 className="font-serif text-3xl text-slate-800">Your {label} is booked ✦</h1>
+      <p className="text-sm text-slate-500">
+        {new Date(done.slot.date + "T00:00:00").toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} at <b className="text-slate-800">{done.slot.time} IST</b>{done.slot.local_time ? ` (${done.slot.local_time} your time)` : ""} · 20 minutes
+      </p>
+      <p className="text-xs text-slate-400">A confirmation email with the calendar invite is on its way to your inbox. See you there!</p>
+      {done.gcal && (
+        <a href={done.gcal} target="_blank" rel="noreferrer" data-testid="demo-gcal-btn"
+          className={`inline-block ${gradBtn} font-bold text-sm px-8 py-3.5 rounded-full transition-colors`}>
+          📅 Add to Google Calendar
+        </a>
       )}
-    </div>
-  );
-}
-
-function MiraDemoChat({ onBooked }) {
-  const [msgs, setMsgs] = useState([{ role: "ai", text: "Hi, I'm Mira ✦ I can book your free live demo in under a minute — no forms needed.\n\nJust tell me: what day and time suits you, and may I know your name?" }]);
-  const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
-  const sidRef = useRef(newSid());
-  const listRef = useRef(null);
-
-  // Scroll only the chat container — scrollIntoView scrolled the whole page and hid the Mira hero logo.
-  useEffect(() => {
-    const el = listRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [msgs]);
-
-  const send = async (preset) => {
-    const text = (preset ?? input).trim();
-    if (!text || busy) return;
-    setInput("");
-    setMsgs(m => [...m, { role: "user", text }]);
-    setBusy(true);
-    try {
-      const { data } = await axios.post(`${API}/public/demo-chat`, {
-        message: text, session_id: sidRef.current,
-        tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
-      }, { timeout: 90000 });
-      setMsgs(m => [...m, { role: "ai", text: data.reply }]);
-      if (data.booking) setTimeout(() => onBooked({ slot: data.booking, gcal: data.booking.gcal }), 1600);
-    } catch (e) {
-      setMsgs(m => [...m, { role: "ai", text: e.response?.data?.detail || "I hit a snag — please try again, or use the quick form." }]);
-    } finally { setBusy(false); }
-  };
-
-  return (
-    <div className="flex flex-col h-[55vh] min-h-[340px] max-h-[460px]" data-testid="demo-mira-chat">
-      <div ref={listRef} className="flex-1 overflow-y-auto space-y-2.5 pr-1">
-        {msgs.map((m, i) => (
-          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            {m.role === "ai" && (
-              <img src="/assets/mira-ai-logo.png" alt="Mira AI" className="w-8 h-8 rounded-full border-2 border-amber-300/70 bg-white object-cover mr-2 mt-1 flex-shrink-0 shadow-sm" />
-            )}
-            <div className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl text-[13px] leading-relaxed whitespace-pre-wrap ${
-              m.role === "user" ? `${gradBtn} rounded-br-sm` : "bg-slate-100 text-slate-700 rounded-bl-sm"}`}>
-              {m.text}
-            </div>
-          </div>
-        ))}
-        {busy && <div className="flex items-center gap-2 text-slate-400 text-xs pl-10"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Mira is typing…</div>}
-        {msgs.length <= 1 && (
-          <div className="flex flex-wrap gap-1.5 pt-2 pl-10" data-testid="demo-chat-chips">
-            {CHIPS.map(c => (
-              <button key={c} onClick={() => send(c)} data-testid="demo-chat-chip"
-                className="text-[11px] px-3 py-1.5 rounded-full bg-pink-50 border border-pink-200 text-pink-600 hover:bg-pink-100 transition-colors">
-                {c}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-      <div className="flex gap-2 pt-3 border-t border-rose-100 mt-2">
-        <input value={input} onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && send()}
-          placeholder="Tell Mira your preferred day & time…" data-testid="demo-chat-input"
-          className={inputCls + " flex-1"} />
-        <button onClick={() => send()} disabled={busy || !input.trim()} data-testid="demo-chat-send"
-          className={`w-11 h-11 rounded-xl ${gradBtn} flex items-center justify-center disabled:opacity-40 flex-shrink-0 transition-opacity`}>
-          <Send className="w-4 h-4" />
-        </button>
-      </div>
     </div>
   );
 }
@@ -109,161 +33,91 @@ function MiraDemoChat({ onBooked }) {
 export default function PublicDemo() {
   const [slots, setSlots] = useState(null);
   const [form, setForm] = useState({ name: "", salon_name: "", city: "", email: "", phone: "" });
+  const [purpose, setPurpose] = useState("demo");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [done, setDone] = useState(null);
-  const [tab, setTab] = useState("mira");
 
   useEffect(() => {
-    axios.get(`${API}/public/demo/slots`).then(r => setSlots(r.data)).catch(() => setErr("Couldn't load available slots — please refresh."));
+    axios.get(`${API}/public/demo/slots`).then(r => {
+      setSlots(r.data);
+      setDate(r.data.dates[0] || "");
+      setTime(r.data.times[0] || "");
+    }).catch(() => setErr("Couldn't load available slots — please refresh."));
   }, []);
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
-  const canBook = form.name.trim().length >= 2 && /\S+@\S+\.\S+/.test(form.email) && date && time;
+  const canBook = form.name.trim().length >= 2 && form.salon_name.trim().length >= 1 && form.city.trim().length >= 1
+    && /\S+@\S+\.\S+/.test(form.email) && date && time;
 
   const book = async () => {
     setBusy(true);
     setErr("");
     try {
-      const r = await axios.post(`${API}/public/demo/book`, { ...form, date, time, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "" });
-      setDone({ slot: r.data.slot, gcal: r.data.gcal });
+      const r = await axios.post(`${API}/public/demo/book`, { ...form, date, time, purpose, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "" });
+      setDone({ slot: r.data.slot, gcal: r.data.gcal, purpose });
     } catch (e) {
       setErr(e.response?.data?.detail || "Couldn't book the slot — please try again.");
     }
     setBusy(false);
   };
 
-  const pretty = (d) => new Date(d + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
-
   return (
-    <div className="min-h-screen relative overflow-hidden bg-white text-slate-800" data-testid="public-demo-page">
+    <div className="min-h-screen relative overflow-hidden bg-[#fffaf8] text-slate-800" data-testid="public-demo-page">
       <SiteHeader variant="light" />
       <SalesChatWidget />
-      <div className="px-4 py-8">
-      {/* Rose-gold gradient blobs — same brand language as the login page */}
-      <div className="pointer-events-none absolute -right-32 -bottom-32 w-[640px] h-[640px] rounded-full opacity-90"
-        style={{ background: "radial-gradient(circle at 30% 30%, #e8918f 0%, #d4af37 40%, #ec4899 75%, transparent 100%)" }} />
-      <div className="pointer-events-none absolute -left-40 -bottom-44 w-[520px] h-[520px] rounded-full opacity-80"
-        style={{ background: "radial-gradient(circle at 60% 40%, #f5d78e 0%, #e8a0a8 45%, #d4af37 80%, transparent 100%)" }} />
-      <div className="pointer-events-none absolute -right-24 -top-32 w-[420px] h-[420px] rounded-full opacity-60"
-        style={{ background: "radial-gradient(circle at 40% 60%, #f5d78e 0%, #ec4899 60%, transparent 100%)" }} />
+      <div className="pointer-events-none absolute -right-32 -top-24 w-[520px] h-[520px] rounded-full opacity-70"
+        style={{ background: "radial-gradient(circle at 35% 35%, #fde68a 0%, #f9a8d4 45%, #f472b6 70%, transparent 100%)" }} />
+      <div className="pointer-events-none absolute -left-40 top-[40%] w-[520px] h-[520px] rounded-full opacity-60"
+        style={{ background: "radial-gradient(circle at 60% 40%, #fbcfe8 0%, #fde68a 55%, transparent 100%)" }} />
+      <div className="pointer-events-none absolute -right-24 -bottom-40 w-[560px] h-[560px] rounded-full opacity-60"
+        style={{ background: "radial-gradient(circle at 40% 60%, #f9a8d4 0%, #fde68a 55%, transparent 100%)" }} />
 
-      <div className="w-full max-w-lg mx-auto relative z-10 pt-8">
-        {/* Mira AI hero */}
-        <div className="text-center mb-6">
-          <div className="relative inline-block">
-            <img src="/assets/mira-ai-logo.png" alt="Mira AI" data-testid="demo-mira-hero"
-              className="w-28 h-28 sm:w-32 sm:h-32 mx-auto object-contain drop-shadow-[0_12px_30px_rgba(236,72,153,0.35)]" />
-            <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-bold tracking-[2px] px-3 py-1 rounded-full bg-gradient-to-r from-rose-400 via-pink-500 to-amber-500 text-white whitespace-nowrap shadow">MIRA AI</span>
-          </div>
-          <p className="text-[11px] uppercase tracking-[0.25em] mt-5 font-semibold" data-testid="demo-ai-tagline">
-            <span className="brand-ai-tag">✦ AI Powered Salon Suite ✦</span>
-          </p>
-        </div>
+      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-10 pb-12">
+        {done ? <DemoSuccess done={done} /> : (
+          <>
+            <DemoHero purpose={purpose} setPurpose={setPurpose} />
+            <DemoFeatureRow />
 
-        {done && (
-          <div className="bg-white rounded-2xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.18)] ring-1 ring-slate-100 p-8 text-center space-y-4" data-testid="demo-success">
-            <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
-            <h1 className="font-serif text-2xl text-slate-800">Your demo is booked ✦</h1>
-            <p className="text-sm text-slate-500">
-              {new Date(done.slot.date + "T00:00:00").toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} at <b className="text-slate-800">{done.slot.time} IST</b>{done.slot.local_time ? ` (${done.slot.local_time} your time)` : ""} · 20 minutes
-            </p>
-            <p className="text-xs text-slate-400">A confirmation email with the calendar invite is on its way to your inbox. See you there!</p>
-            {done.gcal && (
-              <a href={done.gcal} target="_blank" rel="noreferrer" data-testid="demo-gcal-btn"
-                className={`inline-block ${gradBtn} font-bold text-sm px-8 py-3.5 rounded-full transition-colors`}>
-                📅 Add to Google Calendar
-              </a>
-            )}
-          </div>
-        )}
-
-        {!done && <TourVideoCard />}
-
-        {!done && (
-          <div className="bg-white rounded-2xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.18)] ring-1 ring-slate-100 overflow-hidden">
-            <div className="p-6 pb-0">
-              <h1 className="font-serif text-2xl leading-snug text-slate-800">Book your free live demo ✦</h1>
-              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                A relaxed 20-minute walkthrough of the Miracurl Suite — bookings, POS, staff and your 12-agent AI team. No obligation, ever.
-              </p>
-              <div className="flex gap-1 mt-5 p-1 rounded-full bg-slate-100" data-testid="demo-tabs">
-                <button onClick={() => setTab("mira")} data-testid="demo-tab-mira"
-                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-2.5 rounded-full transition-all ${
-                    tab === "mira" ? "bg-white text-pink-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
-                  <Bot className="w-4 h-4" /> Let Mira book it <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gradient-to-r from-rose-400 to-amber-500 text-white">AI</span>
-                </button>
-                <button onClick={() => setTab("form")} data-testid="demo-tab-form"
-                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-2.5 rounded-full transition-all ${
-                    tab === "form" ? "bg-white text-pink-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
-                  <ClipboardList className="w-4 h-4" /> Quick form
-                </button>
+            <div className="bg-white rounded-3xl shadow-[0_24px_60px_-20px_rgba(236,72,153,0.25)] ring-1 ring-pink-100 p-6 sm:p-8 lg:p-10" data-testid="demo-form-card">
+              <div className="grid lg:grid-cols-2 gap-10 lg:gap-14">
+                <div>
+                  <SectionHead icon={User} title="Your Details" sub={`Let us know a few details to schedule your ${purpose === "onboarding" ? "onboarding session" : "demo"}.`} testid="demo-details-head" />
+                  <div className="space-y-4">
+                    <DemoField k="name" label="Your Name" required form={form} set={set} placeholder="Enter your full name" testid="demo-name-input" />
+                    <DemoField k="salon_name" label="Salon Name" required form={form} set={set} placeholder="Enter your salon name" testid="demo-salon-input" />
+                    <DemoField k="city" label="City" required form={form} set={set} placeholder="Enter your city" testid="demo-city-input" />
+                    <DemoField k="email" label="Email" required type="email" form={form} set={set} placeholder="Enter your email address" testid="demo-email-input" />
+                    <DemoField k="phone" label="Phone (Optional)" form={form} set={set} placeholder="Enter your phone number" testid="demo-phone-input" />
+                  </div>
+                </div>
+                <div>
+                  <SectionHead icon={CalendarCheck} title="Select Date & Time" sub={`Choose a convenient date and time for your ${purpose === "onboarding" ? "session" : "demo"}.`} testid="demo-schedule-head" />
+                  {slots ? (
+                    <div className="space-y-6">
+                      <DemoCalendar dates={slots.dates} value={date} onChange={setDate} />
+                      <DemoTimes times={slots.times} value={time} onChange={setTime} />
+                    </div>
+                  ) : <p className="text-sm text-slate-400" data-testid="demo-slots-loading">Loading available slots…</p>}
+                </div>
               </div>
+
+              <button onClick={book} disabled={!canBook || busy} data-testid="demo-book-btn"
+                className={`w-full mt-10 ${gradBtn} font-bold text-base py-4 rounded-2xl disabled:opacity-40 transition-colors flex items-center justify-center gap-2.5 shadow-lg`}>
+                <Sparkles className="w-5 h-5" /> {busy ? "Booking…" : purpose === "onboarding" ? "Confirm My Onboarding Slot" : "Confirm My Demo Slot"} <ArrowRight className="w-5 h-5" />
+              </button>
+              {err && <p className="text-xs text-rose-500 text-center mt-3" data-testid="demo-error">{err}</p>}
+              <p className="text-xs text-slate-500 text-center mt-4 flex items-center justify-center gap-1.5" data-testid="demo-privacy-note">
+                <Lock className="w-3.5 h-3.5" /> Your information is safe with us. We'll only use it to schedule your {purpose === "onboarding" ? "session" : "demo"}.
+              </p>
             </div>
 
-            {tab === "mira" && (
-              <div className="p-4 sm:p-6 pt-4 sm:pt-4">
-                <MiraDemoChat onBooked={setDone} />
-              </div>
-            )}
-
-            {tab === "form" && (
-              <div className="p-4 sm:p-6 pt-4 sm:pt-4 space-y-6">
-                <div className="space-y-2.5">
-                  <p className="text-[11px] tracking-widest text-pink-500 font-semibold flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> ABOUT YOU</p>
-                  <input value={form.name} onChange={set("name")} maxLength={80} placeholder="Your name *" data-testid="demo-name-input" className={inputCls} />
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <input value={form.salon_name} onChange={set("salon_name")} maxLength={100} placeholder="Salon name" data-testid="demo-salon-input" className={inputCls} />
-                    <input value={form.city} onChange={set("city")} maxLength={60} placeholder="City" data-testid="demo-city-input" className={inputCls} />
-                  </div>
-                  <input value={form.email} onChange={set("email")} maxLength={120} type="email" placeholder="Email * (confirmation goes here)" data-testid="demo-email-input" className={inputCls} />
-                  <input value={form.phone} onChange={set("phone")} maxLength={20} placeholder="Phone (optional)" data-testid="demo-phone-input" className={inputCls} />
-                </div>
-
-                {slots && (
-                  <>
-                    <div>
-                      <p className="text-[11px] tracking-widest text-pink-500 font-semibold mb-2 flex items-center gap-1.5"><CalendarCheck className="w-3.5 h-3.5" /> CHOOSE A DAY</p>
-                      <div className="grid grid-cols-4 gap-2">
-                        {slots.dates.map(d => (
-                          <button key={d} onClick={() => setDate(d)} data-testid={`demo-date-${d}`}
-                            className={`px-2 py-2.5 rounded-xl text-xs font-medium transition-colors ${date === d ? `${gradBtn}` : "bg-white border border-slate-200 text-slate-600 hover:border-pink-300"}`}>
-                            {pretty(d)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-[11px] tracking-widest text-pink-500 font-semibold mb-2 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> CHOOSE A TIME (IST)</p>
-                      <div className="grid grid-cols-4 gap-2">
-                        {slots.times.map(t => (
-                          <button key={t} onClick={() => setTime(t)} data-testid={`demo-time-${t}`}
-                            className={`px-2 py-2.5 rounded-xl text-xs font-medium transition-colors ${time === t ? `${gradBtn}` : "bg-white border border-slate-200 text-slate-600 hover:border-pink-300"}`}>
-                            {t}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                <button onClick={book} disabled={!canBook || busy} data-testid="demo-book-btn"
-                  className={`w-full ${gradBtn} font-bold text-sm py-4 rounded-full disabled:opacity-40 transition-colors flex items-center justify-center gap-2`}>
-                  <Sparkles className="w-4 h-4" /> {busy ? "Booking…" : "Confirm my demo slot"}
-                </button>
-                {err && <p className="text-xs text-rose-500 text-center" data-testid="demo-error">{err}</p>}
-              </div>
-            )}
-          </div>
+            <DemoTrustRow />
+          </>
         )}
-
-        <div className="flex items-center justify-center gap-4 mt-5 text-[10px] text-slate-500 font-medium">
-          <span>✓ 20 minutes</span><span>✓ No obligation</span><span>✓ 7-day free trial after</span>
-        </div>
-        <p className="text-center text-[10px] text-slate-400 mt-4 pb-4">© Miracurl Suite · miracurl-suite.com · <a href="/terms-of-service" className="underline hover:text-slate-600">Terms</a> · <a href="/privacy-policy" className="underline hover:text-slate-600">Privacy</a></p>
-      </div>
+        <p className="text-center text-[10px] text-slate-400 mt-8">© Miracurl Suite · miracurl-suite.com · <a href="/terms-of-service" className="underline hover:text-slate-600">Terms</a> · <a href="/privacy-policy" className="underline hover:text-slate-600">Privacy</a></p>
       </div>
     </div>
   );

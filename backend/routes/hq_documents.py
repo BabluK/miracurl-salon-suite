@@ -1643,20 +1643,22 @@ def _validate_slot(date_s: str, time_s: str):
 
 
 async def _send_slot_confirmations(email: str, name: str, salon_name: str,
-                                   date_s: str, time_s: str, phone: str, city: str = "") -> str:
+                                   date_s: str, time_s: str, phone: str, city: str = "",
+                                   purpose: str = "demo") -> str:
     hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    kind = "onboarding assistance session" if purpose == "onboarding" else "demo"
     gcal = _gcal_link(date_s, time_s)
     ics = _slot_ics(date_s, time_s, email)
     ics_att = [{"filename": "miracurl-demo.ics", "content": base64.b64encode(ics.encode()).decode()}]
     await _send_email([email],
-                      f"Your Miracurl demo is booked — {date_s} at {time_s} IST ✦",
+                      f"Your Miracurl {kind} is booked — {date_s} at {time_s} IST ✦",
                       _slot_confirm_email_html(name, date_s, time_s, gcal, hq_email),
                       attachments=ics_att, reply_to=hq_email)
     pretty = datetime.fromisoformat(date_s).strftime("%a, %d %b %Y")
     await _send_email([hq_email],
-                      f"🔥 Demo booked: {name or email} — {pretty} {time_s} IST",
+                      f"🔥 {kind.capitalize()} booked: {name or email} — {pretty} {time_s} IST",
                       f"""<div style="font-family:Arial,sans-serif;font-size:14px;color:#33333b;line-height:1.7">
-<p><b>{html_lib.escape(name or '')}</b> ({html_lib.escape(email)}) just booked a demo slot.</p>
+<p><b>{html_lib.escape(name or '')}</b> ({html_lib.escape(email)}) just booked a {kind} slot.</p>
 <p>📅 <b>{pretty} at {time_s} IST</b> · 20 min<br>
 📞 Phone: {html_lib.escape(phone.strip() or '—')}<br>
 🏠 Salon: {html_lib.escape(salon_name or '—')}{f" · {html_lib.escape(city)}" if city else ""}</p>
@@ -1702,6 +1704,7 @@ class PublicDemoIn(BaseModel):
     date: str = Field(..., max_length=10)
     time: str = Field(..., max_length=5)
     tz: str = Field(default="", max_length=50)
+    purpose: str = Field(default="demo", pattern="^(demo|onboarding)$")
 
 
 @router.get("/public/demo/slots")
@@ -1767,9 +1770,10 @@ async def _book_open_demo(d: dict) -> dict:
     _validate_slot(date_s, time_s)
     now_iso = datetime.now(timezone.utc).isoformat()
     slot = _demo_slot_dict(date_s, time_s, phone, tz, now_iso)
+    slot["purpose"] = str(d.get("purpose") or "demo")
     await _upsert_demo_invite(email, name, salon_name, city, slot, now_iso)
     await _mark_lead_demo(email, slot, now_iso)
-    gcal = await _send_slot_confirmations(email, name, salon_name, date_s, time_s, phone, city)
+    gcal = await _send_slot_confirmations(email, name, salon_name, date_s, time_s, phone, city, slot["purpose"])
     return {"ok": True, "gcal": gcal, "slot": slot}
 
 

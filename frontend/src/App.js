@@ -162,8 +162,10 @@ function Protected({ children }) {
 
 // Restrict certain routes to admin only — staff visiting these gets bounced to their portal.
 function AdminOnly({ children }) {
-  const { user } = useAuth();
+  const { user, tenant } = useAuth();
   if (user?.role === "staff") return <Navigate to="/staff-portal" replace />;
+  // Super Admin has no salon context until they "Open" one from the HQ panel — tenant pages would 400.
+  if (user?.role === "super_admin" && !tenant && !localStorage.getItem("miracurl_tenant")) return <Navigate to="/super-admin" replace state={{ pickTenant: true }} />;
   return children;
 }
 
