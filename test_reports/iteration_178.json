@@ -1,0 +1,31 @@
+{
+  "summary": "Verified iteration_178 features end-to-end. Backend pytest 5/5 pass (demo-calendar has purpose in {demo,onboarding} with at least one 'onboarding' present; /api/webhooks/whatsapp/health returns phone_number_id_tail (4 chars) + platform_number + last_inbound_at; salon-admin /api/receptionist returns last_inbound key; signed webhook POST with X-Hub-Signature-256 returns 200 {received:true} and backend log confirms 'mira asked 919000000777 which salon (no tenant resolved on platform number)' -> asked_salon status wired correctly; cross-tenant/unknown image_url in /whatsapp-link/campaigns/compose is rejected with 400 'That image isn't in your salon's uploads'). Frontend: (1) SpeedPulse pill 'Loaded in X.Xs' rendered for salon admin — 'Loaded in 0.5s' after SPA login and 'Loaded in 1.6s' after hard reload of /dashboard (< 3s), opacity-100 initially and opacity-0 after ~5.2s. Staff (priya.staff) dashboard: pill absent (owners-only gate works via loadMs=0 in Dashboard.jsx:169). (2) Super-Admin -> Demo Calendar tab shows demo-calendar-panel with purpose-tag-<id> chip 'Onboarding' visible on the 2026-09-21 Priya Sharma card (matches delivered@resend.dev onboarding booking). (3) CRM -> WhatsApp Campaign: uploaded a small JPG containing 'Diwali Special / 30% OFF / Hair & Skin' via wa-campaign-upload-input; upload succeeded, image preview + wa-campaign-mira-from-image button appeared, Mira auto-composed a 259-char message: 'Hi {name}, Diwali Special is here ✨ Enjoy 30% OFF on Hair & Skin services at Miracurl Unisex Family Salon, Marathahalli...' — vision correctly matched all three image tokens (Diwali, 30, OFF). Toast confirmation: 'Mira: Used the owner's uploaded image as required and matched its exact text: Diwali Special, 30% OFF, Hair & Skin'. Injected TEST_ wamid + wa_sessions row cleaned up via motor after test.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AppLayout (all authed pages)", "issues": ["Pre-existing React hydration warning '<span> cannot be a child of <option>' still logs on the branch-switcher select (called out in iter_176/177). Cosmetic; not caused by iteration_178."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter178.py", "/app/test_reports/pytest/iter178.xml"],
+  "action_items": [
+    "Optional: fix the long-standing <span> child of <option> warning in the branch-switcher select to clean up console.",
+    "Optional: Demo Campaign invites list (PurposeTag) lives under Super-Admin 'Lead Generation Email' tab (lead-email) — I did not click through to that tab to visually verify the tag next to the '📅 slot' badge because Demo Calendar already exercises the same PurposeTag component. Main agent can self-verify from a quick screenshot if needed."
+  ],
+  "critical_code_review_comments": [
+    "backend/routes/whatsapp_link.py:162 image_url pattern '^/api/files/[A-Za-z0-9-]{8,64}$' is strict and _own_image_b64 additionally scopes to tenant_id + is_deleted:false — verified rejects other-tenant / random ids with 400. Good.",
+    "backend/routes/whatsapp_webhook.py fail-closes when META_APP_SECRET missing (503) and validates X-Hub-Signature-256 with verify_signature (hmac). Signed body path verified live.",
+    "services/whatsapp_mira.py._platform_fallback correctly sets status=asked_salon + mira_reply. Log line 'mira asked 919000000777 which salon' confirms path.",
+    "hq_documents.py still ~1931 lines (called out in iter_176/177) — splitting demo/onboarding sub-router would help.",
+    "Dashboard.jsx passes loadMs=0 to DashboardHero for non-owners (isOwner ? loadMs : 0) — clean gate; SpeedPulse renders null when ms falsy. Verified staff sees no pill."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter178.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Used credentials from /app/memory/test_credentials.md as-is (admin@miracurl.com / super@miracurl.com / priya.staff@miracurl.com).",
+  "seed_data_creation": "One inbound whatsapp_messages doc (raw.id starting with TEST_) inserted via signed webhook and DELETED via motor after test (net zero). No wa_sessions row was created for the test wa_id.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "META_APP_SECRET and WHATSAPP_PHONE_NUMBER_ID are populated in /app/backend/.env. Signing formula: 'sha256=' + hmac_sha256(META_APP_SECRET, raw_body). For webhook payload, use metadata.phone_number_id = env WHATSAPP_PHONE_NUMBER_ID so services/whatsapp_inbound matches the platform number. Cleanup test docs via motor: db.whatsapp_messages.delete_many({'raw.id':{'$regex':'TEST_'}}); db.wa_sessions.delete_many({'wa_id':'919000000777'}). The Super-Admin Demo Campaign panel is under sidebar item 'Lead Generation Email' (tab id 'lead-email'), not a top-level tab.",
+  "rca of the issue": "N/A — no bugs reproduced."
+}
