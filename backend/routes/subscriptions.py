@@ -6,6 +6,7 @@ import io
 import json
 import logging
 import os
+import asyncio
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -464,6 +465,9 @@ async def sms_pack_verify(body: SmsPackVerifyIn, user=Depends(require_tenant_adm
     from routes.hq_credit_wallet import record_tenant_purchase
     await record_tenant_purchase(ch["key"], pts, t["id"], int(pending.get("amount") or 0), body.razorpay_payment_id)
     fresh = await db.tenants.find_one({"id": t["id"]}, {"_id": 0, "sms_points": 1, "wa_points": 1})
+    if pending.get("id"):
+        from services.tax_invoice import email_invoice
+        asyncio.create_task(email_invoice(t, pending["id"]))
     return {"ok": True, "points_added": pts, "channel": ch["key"],
             "sms_points": int((fresh or {}).get("sms_points") or 0), "wa_points": int((fresh or {}).get("wa_points") or 0),
             "balance": int((fresh or {}).get(ch["field"]) or 0)}
@@ -520,6 +524,7 @@ async def _activate_pending_order(pending_doc: dict, payment_id: str, t: dict, r
         txn_ref=payment_id,
         recorded_by=recorded_by,
         notes=f"Order {pending_doc['razorpay_order_id']}",
+        tax=pending_doc.get("tax"),
     ).model_dump()
     await db.subscription_payments.insert_one(pay)
     await _record_partner_commission(t, pay)
@@ -582,6 +587,10 @@ async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=De
         raise HTTPException(400, "Unknown, already-consumed, or foreign order — please retry from scratch.")
 
     sub, server_plan, target_tids = await _activate_pending_order(pending_doc, body.razorpay_payment_id, t, user["id"], now)
+    paid = await db.subscription_payments.find_one({"tenant_id": t["id"], "txn_ref": body.razorpay_payment_id, "kind": {"$ne": "razorpay_pending"}}, {"_id": 0, "id": 1})
+    if paid:
+        from services.tax_invoice import email_invoice
+        asyncio.create_task(email_invoice(t, paid["id"], PLAN_CATALOG.get(server_plan, {}).get("label", "")))
     return {"ok": True, "subscription_id": sub["id"], "end_date": sub["end_date"],
             "plan": server_plan, "branches": len(target_tids)}
 
@@ -1583,3 +1592,33 @@ async def tenant_tax_profile(user=Depends(require_tenant_admin)):
     from services.hq_tax import get_profile
     p = await get_profile()
     return {k: p.get(k) for k in ("gstin", "msme", "legal_name", "address", "gst_rate_pct", "apply_gst")}
+
+
+# ---------------- Tenant payments + GST tax invoice PDF ----------------
+@router.get("/billing/my-payments")
+async def my_payments(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    excl = {"$nin": ["razorpay_pending", "sms_pack_pending"]}
+    plans = await db.subscription_payments.find({"tenant_id": t["id"], "kind": excl}, {"_id": 0}).sort("paid_at", -1).to_list(100)
+    packs = await db.sms_pack_payments.find({"tenant_id": t["id"], "status": "captured"}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    out = []
+    for p in plans:
+        out.append({"id": p["id"], "kind": "plan", "label": f"{PLAN_CATALOG.get(p.get('plan'), {}).get('label', p.get('plan') or 'Plan')} subscription",
+                    "amount": p.get("amount"), "tax": p.get("tax"), "paid_at": p.get("paid_at") or p.get("created_at"), "invoice_no": p.get("invoice_no")})
+    for p in packs:
+        out.append({"id": p["id"], "kind": "pack", "label": f"{p.get('points')} {'WhatsApp' if p.get('channel') == 'whatsapp' else 'SMS'} credits",
+                    "amount": p.get("amount"), "tax": p.get("tax"), "paid_at": p.get("captured_at") or p.get("created_at"), "invoice_no": p.get("invoice_no")})
+    out.sort(key=lambda x: x.get("paid_at") or "", reverse=True)
+    return out
+
+
+@router.get("/billing/my-payments/{pay_id}/invoice.pdf")
+async def my_payment_invoice(pay_id: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from fastapi.responses import Response
+    from services.tax_invoice import build_invoice_pdf, find_payment
+    pay, coll, kind = await find_payment(t["id"], pay_id)
+    if not pay:
+        raise HTTPException(404, "Payment not found")
+    label = PLAN_CATALOG.get(pay.get("plan"), {}).get("label", "") if kind == "plan" else ""
+    pdf, inv_no = await build_invoice_pdf(t, pay, coll, kind, label)
+    fname = inv_no.replace("/", "-") + ".pdf"
+    return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{fname}"'})

@@ -33,6 +33,8 @@ import { RateMiracurlCard } from "@/components/settings/RateMiracurlCard";
 import { SocialConnectionsCard } from "@/components/settings/SocialConnectionsCard";
 import { WhatsAppLinkCard } from "@/components/settings/WhatsAppLinkCard";
 import { OwnWhatsAppCard } from "@/components/settings/OwnWhatsAppCard";
+import { PaymentsInvoicesCard } from "@/components/settings/PaymentsInvoicesCard";
+import { PasskeyManagerCard } from "@/components/settings/PasskeyManagerCard";
 import { MiracurlProductsCard } from "@/components/settings/MiracurlProductsCard";
 import { LoyaltyStampsCard } from "@/components/settings/LoyaltyStampsCard";
 import { RewardsQrCard } from "@/components/settings/RewardsQrCard";
@@ -97,6 +99,7 @@ export default function Settings() {
             <Lazy eager={eager}><PreviousStaffCard /></Lazy>
             <Lazy eager={eager}><WhatsAppLinkCard /></Lazy>
             <Lazy eager={eager}><OwnWhatsAppCard /></Lazy>
+            <Lazy eager={eager}><PasskeyManagerCard /></Lazy>
             <Lazy eager={eager}><SocialConnectionsCard /></Lazy>
             <Lazy eager={eager}><ReferEarnCard /></Lazy>
             <Lazy eager={eager}><NotifyEmailCard /></Lazy>
@@ -107,6 +110,7 @@ export default function Settings() {
             <Lazy eager={eager}><AffiliateCard /></Lazy>
             <Lazy eager={eager}><StripeSubscriptionCard /></Lazy>
             <Lazy eager={eager}><RazorpayCard /></Lazy>
+            <Lazy eager={eager}><PaymentsInvoicesCard /></Lazy>
             <Lazy eager={eager}><AccountProfileCard tenant={tenant} /></Lazy>
             <div className="bg-white border border-slate-200 rounded-2xl p-6 mt-6 shadow-sm">
               <div className="flex items-start gap-3">

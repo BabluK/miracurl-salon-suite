@@ -178,3 +178,18 @@ async def pk_login_verify(body: CredIn, request: Request, response: Response):
     sid = await start_session(user["id"], user["email"], user.get("tenant_id"), request, method="passkey")
     set_auth_cookies(response, make_access(user["id"], user["email"], sid), make_refresh(user["id"], sid), persistent=True)
     return {"ok": True, "user": {k: user.get(k) for k in ("id", "email", "name", "role", "branch", "tenant_id")}}
+
+
+# ---------------- Passkey manager (Settings) ----------------
+@router.get("/passkeys/mine")
+async def my_passkeys(user=Depends(get_current_user)):
+    rows = await _raw_db.passkeys.find({"user_id": user["id"]}, {"_id": 0, "credential_id": 1, "created_at": 1, "last_used_at": 1, "rp_id": 1, "label": 1}).sort("created_at", -1).to_list(20)
+    return [{"id": r["credential_id"], "label": r.get("label") or "This device", "created_at": r.get("created_at"), "last_used_at": r.get("last_used_at"), "rp_id": r.get("rp_id")} for r in rows]
+
+
+@router.delete("/passkeys/mine/{credential_id}")
+async def revoke_passkey(credential_id: str, user=Depends(get_current_user)):
+    r = await _raw_db.passkeys.delete_one({"user_id": user["id"], "credential_id": credential_id})
+    if not r.deleted_count:
+        raise HTTPException(404, "Passkey not found")
+    return {"ok": True}
