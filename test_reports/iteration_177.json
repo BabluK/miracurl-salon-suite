@@ -1,0 +1,32 @@
+{
+  "summary": "Verified perf changes (2s GET cache + mutation-clear, parallel /auth/me + /tenants/current bootstrap, dashboard SWR paint, App.js idle prefetch, backend uvloop). Backend: 5/5 pytest pass (public demo slots, dashboard, auth/me, tenants/current, super-admin /tenants/current safely non-200, customers CRUD). Frontend: salon admin login works, dashboard renders greeting+KPI cards+Mira card+public booking link, What's New modal dismissed. CRITICAL cache invalidation verified end-to-end in UI: created TEST_UI_<ts> customer via Add Customer form -> row appeared immediately in list (total 109 -> 110); deleted -> row removed immediately (110 -> 109). Nav flow Dashboard -> Appointments -> Customers -> Staff -> Services -> Inventory -> POS -> Dashboard all loaded (~2s each, no 'Couldn't load' toasts, no blank pages). Dashboard reload paints greeting from SWR snapshot then refreshes KPIs (\u20b9 present). Branch switcher present in header. Super-admin /super-admin renders with 0 non-trivial console errors -> parallel bootstrap safely handles /tenants/current 404. Staff portal (priya.staff@miracurl.com + miracurl-marathahalli slug) renders /staff-portal. Logout -> visiting /dashboard redirects to /login?next=%2Fdashboard (proves /auth/me is NOT served from a stale GET cache after logout). Re-login as admin works.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AppLayout (all authed pages)", "issues": ["Pre-existing React hydration warning '<span> cannot be a child of <option>' logged repeatedly from a <select> inside main content. Not caused by iteration_177 perf changes; cosmetic but noisy in devtools."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_perf_iter177.py", "/app/test_reports/pytest/iter177.xml"],
+  "action_items": [
+    "Optional: fix the pre-existing <span> child of <option> hydration warning in AppLayout / branch switcher select to keep console clean.",
+    "Optional: SWR sessionStorage snapshot paint measured ~1.1s in tests. Real paint is likely faster; wait_for_function polling has ~250ms granularity. Consider adding a data-testid on the greeting element and a performance mark so future tests can measure it more precisely."
+  ],
+  "critical_code_review_comments": [
+    "api.js custom adapter is correct: any non-GET calls _recent.clear() BEFORE dispatching, so mutation -> subsequent GET is always fresh. Verified via UI (customer create/delete reflected instantly).",
+    "GET cache key includes tenantSlug which is essential to avoid cross-tenant leaks when super-admin acts-as; good.",
+    "blob/arraybuffer/stream + config.noCache correctly excluded from cache — safe for file downloads.",
+    "AuthContext parallel bootstrap correctly awaits tenantP AFTER /auth/me and skips it for super_admin; verified super-admin path does not break.",
+    "Logout endpoint is a POST which triggers _recent.clear(), so post-logout /auth/me hits network and returns 401 -> redirect to /login works. Verified.",
+    "Non-blocking: hq_documents.py still ~1800 lines (called out in iter_176) — worth splitting into a demo/onboarding sub-router."
+  ],
+  "updated_files": ["/app/backend/tests/test_perf_iter177.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Used credentials from /app/memory/test_credentials.md as-is. Left one TEST_ customer created and then deleted (net zero).",
+  "seed_data_creation": "One TEST_UI_<timestamp> customer created and deleted during UI cache-invalidation test (net zero). Backend pytest also created+deleted one TEST_perf_<timestamp> customer.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Login button label is 'Login' (not 'Sign in'). Sidebar has 'Sign Out' button as bottom item. Owner PIN 4321 was NOT prompted during customer create/delete in this run because owner-mode was already unlocked / not required for CRM by the current tenant config. Public /demo booking rate-limit still shares 5/10min per IP — skip repeated bookings unless waiting. Do not remeasure SWR under 1s with wait_for_function; use performance.mark instead.",
+  "rca of the issue": "N/A — no bugs reproduced. Perf changes work as designed: cache TTL 2s, mutation invalidation instant, parallel bootstrap safe for super-admin, SWR paints greeting/KPIs from sessionStorage snapshot then refreshes, logout properly redirects unauthenticated /dashboard visits to /login."
+}
