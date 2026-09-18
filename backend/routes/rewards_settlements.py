@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from database import _raw_db
 from email_service import _inboxes_for_login, _is_login_only, _send_email, hq_notify_emails
-from routes.rewards_campaign import _tenant_eligible, get_campaign, get_campaign_for
+from services.rewards_core import _tenant_eligible, get_campaign, get_campaign_for
 from security import require_super_admin
 
 router = APIRouter()

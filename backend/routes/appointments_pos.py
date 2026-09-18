@@ -285,12 +285,10 @@ async def del_appointment(aid: str, user=Depends(get_current_user)):
 
 
 # ---------------- Invoices / POS ----------------
-@router.get("/invoices")
-async def list_invoices(status: Optional[str] = None, q: Optional[str] = None, date: Optional[str] = None,
-                        month: Optional[int] = None, limit: int = 500,
-                        user=Depends(get_current_user), t=Depends(current_tenant)):
-    flt: dict = {"status": status} if status else {}
+def _invoice_period_filter(t: dict, date: Optional[str], month: Optional[int]) -> dict:
+    """created_at window for a local day and/or the current local month."""
     from routes.reports import _tenant_tz, _local_day_window
+    flt: dict = {}
     if date:
         _, day_start, day_end = _local_day_window(_tenant_tz(t), date)
         flt["created_at"] = {"$gte": day_start, "$lte": day_end}
@@ -301,22 +299,39 @@ async def list_invoices(status: Optional[str] = None, q: Optional[str] = None, d
         cur = dict(flt.get("created_at") or {})
         cur["$gte"] = max(str(cur.get("$gte") or ""), m_start)
         flt["created_at"] = cur
-    if q and q.strip():
-        qq = q.strip()
-        rx = {"$regex": re.escape(qq), "$options": "i"}
-        ors = [{"invoice_no": rx}, {"id": rx}, {"customer_name": rx}]
-        digits = re.sub(r"[^0-9]", "", qq)
-        if len(digits) >= 4:
-            cust = await db.customers.find({"phone": {"$regex": digits}}, {"_id": 0, "id": 1}).to_list(50)
-            if cust:
-                ors.append({"customer_id": {"$in": [c["id"] for c in cust]}})
-        flt["$or"] = ors
-    rows = await db.invoices.find(flt, {"_id": 0}).sort("created_at", -1).to_list(min(max(limit, 1), 500))
+    return flt
+
+
+async def _invoice_search_filter(q: str) -> list[dict]:
+    """$or clauses matching invoice no / id / guest name, plus guests whose phone contains the digits typed."""
+    rx = {"$regex": re.escape(q), "$options": "i"}
+    ors = [{"invoice_no": rx}, {"id": rx}, {"customer_name": rx}]
+    digits = re.sub(r"[^0-9]", "", q)
+    if len(digits) >= 4:
+        cust = await db.customers.find({"phone": {"$regex": digits}}, {"_id": 0, "id": 1}).to_list(50)
+        if cust:
+            ors.append({"customer_id": {"$in": [c["id"] for c in cust]}})
+    return ors
+
+
+async def _attach_customer_phones(rows: list[dict]) -> list[dict]:
     cids = list({r.get("customer_id") for r in rows if r.get("customer_id")})
     phones = {c["id"]: c.get("phone") async for c in db.customers.find({"id": {"$in": cids}}, {"_id": 0, "id": 1, "phone": 1})} if cids else {}
     for r in rows:
         r.setdefault("customer_phone", phones.get(r.get("customer_id")) or "")
     return rows
+
+
+@router.get("/invoices")
+async def list_invoices(status: Optional[str] = None, q: Optional[str] = None, date: Optional[str] = None,
+                        month: Optional[int] = None, limit: int = 500,
+                        user=Depends(get_current_user), t=Depends(current_tenant)):
+    flt: dict = {"status": status} if status else {}
+    flt.update(_invoice_period_filter(t, date, month))
+    if q and q.strip():
+        flt["$or"] = await _invoice_search_filter(q.strip())
+    rows = await db.invoices.find(flt, {"_id": 0}).sort("created_at", -1).to_list(min(max(limit, 1), 500))
+    return await _attach_customer_phones(rows)
 
 
 class LoyaltySettingsIn(BaseModel):

@@ -13,7 +13,8 @@ from fastapi import APIRouter, BackgroundTasks, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
-from services.whatsapp_cloud import GRAPH_API_VERSION, process_webhook_payload, verify_signature, wa_config
+from services.whatsapp_cloud import GRAPH_API_VERSION, verify_signature, wa_config
+from services.whatsapp_inbound import process_webhook_payload
 
 router = APIRouter()
 log = logging.getLogger("whatsapp")

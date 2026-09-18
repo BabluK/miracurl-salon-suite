@@ -180,6 +180,32 @@ async def team_delete(tid: str, admin=Depends(require_super_admin)):
     return {"ok": True}
 
 
+def _read_asset(path: str) -> bytes | None:
+    try:
+        with open(path, "rb") as f:
+            return f.read()
+    except Exception:  # noqa: BLE001 — brand assets are decorative
+        return None
+
+
+def _opt(v) -> str | None:
+    return (v or "").strip() or None
+
+
+def _hq_card_data(m: dict, photo: bytes) -> dict:
+    """Render payload for a Miracurl HQ team ID card (brand assets + HQ contact from env)."""
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com").rstrip("/")
+    return {
+        "name": m["name"], "role": m.get("designation") or "Team", "id_number": m["member_code"],
+        "email": _opt(m.get("email")), "phone": _opt(m.get("phone")), "blood_group": _opt(m.get("blood_group")),
+        "photo_bytes": photo, "logo_bytes": _read_asset(_MIRACURL_LOGO),
+        "emblem_bytes": _read_asset(_MS_EMBLEM), "lockup_bytes": _read_asset(_GOLD_LOCKUP),
+        "brand_name": "Miracurl", "website": _site_host(), "qr_url": base, "qr_label": "SCAN • CONNECT", "accent": ROSE_GOLD,
+        "hq_email": os.environ.get("SUPPORT_REPLY_TO") or os.environ.get("HQ_EMAIL") or "",
+        "hq_phone": os.environ.get("HQ_PHONE", ""), "hq_instagram": os.environ.get("HQ_INSTAGRAM", ""),
+    }
+
+
 @router.get("/super/team/{tid}/id-card.pdf")
 async def team_id_card(tid: str, admin=Depends(require_super_admin)):
     m = await _raw_db.hq_team.find_one({"id": tid}, {"_id": 0})
@@ -188,37 +214,6 @@ async def team_id_card(tid: str, admin=Depends(require_super_admin)):
     photo = await _img_bytes(m.get("photo_url"))
     if not photo:
         raise HTTPException(400, f"Add a photo for {m['name']} first — Miracurl ID cards always carry the person's photo, never a monogram.")
-    try:
-        with open(_MIRACURL_LOGO, "rb") as f:
-            logo = f.read()
-    except Exception:
-        logo = None
-    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com").rstrip("/")
-    data = {
-        "name": m["name"], "role": m.get("designation") or "Team",
-        "id_number": m["member_code"],
-        "email": (m.get("email") or "").strip() or None,
-        "phone": (m.get("phone") or "").strip() or None,
-        "blood_group": (m.get("blood_group") or "").strip() or None,
-        "photo_bytes": photo, "logo_bytes": logo,
-        "brand_name": "Miracurl", "website": _site_host(),
-        "qr_url": base, "qr_label": "SCAN - MIRACURL",
-        "accent": ROSE_GOLD,
-    }
-    data["qr_label"] = "SCAN • CONNECT"
-    try:
-        with open(_MS_EMBLEM, "rb") as f:
-            data["emblem_bytes"] = f.read()
-    except Exception:  # noqa: BLE001
-        data["emblem_bytes"] = None
-    try:
-        with open(_GOLD_LOCKUP, "rb") as f:
-            data["lockup_bytes"] = f.read()
-    except Exception:  # noqa: BLE001
-        data["lockup_bytes"] = None
-    data["hq_email"] = os.environ.get("SUPPORT_REPLY_TO") or os.environ.get("HQ_EMAIL") or ""
-    data["hq_phone"] = os.environ.get("HQ_PHONE", "")
-    data["hq_instagram"] = os.environ.get("HQ_INSTAGRAM", "")
     from services.id_card_luxe import render_luxe_id_card
-    pdf_bytes = await asyncio.to_thread(render_luxe_id_card, data)
+    pdf_bytes = await asyncio.to_thread(render_luxe_id_card, _hq_card_data(m, photo))
     return _card_response(pdf_bytes, m["name"])

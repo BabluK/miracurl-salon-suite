@@ -121,3 +121,13 @@
 - Note: handoff only triggers inside business hours (existing OUTSIDE-HOURS rule) — out of hours Mira takes a request instead.
 - Tests: `/app/backend/tests/test_iter173_wa_receptionist.py` (10 pass) + Playwright UI pass — `/app/test_reports/iteration_173.json`. BUILD 2026-09-18.279.
 - Still BLOCKED: Meta phone OTP registration (+91 91802 61256) — user will say "send code"; MSG91_FLOW_ID not available yet.
+
+## 2026-09-18 — Security audit + code-review fixes (pre-deploy)
+- SEC-001 (HIGH, BOLA): receptionist threads/{wa_id} GET/human/reply now require `wa_receptionist.tenant_owns_thread` (session tenant == caller, or caller has messages with that wa_id) → 404 otherwise. Test `test_thread_bola_other_tenant_404`.
+- SEC-002: staff reply deducts credit atomically (`wa_points >= 1` guard) and refunds on Meta failure. Simulate has `ai_daily_quota(wa_receptionist_sim, 150)`.
+- Circular imports broken: `services/whatsapp_inbound.py` now owns handle_inbound_message/handle_status_update/process_webhook_payload (cloud ⇄ mira cycle gone); `rewards_settlements` imports from `services.rewards_core` directly.
+- Complexity refactors (behaviour-preserving, curl-verified): customers.import_customers (→ _import_row_fields/_import_fill_existing/_import_new_customer), appointments_pos.list_invoices (→ _invoice_period_filter/_invoice_search_filter/_attach_customer_phones), hq_notifications._public_page_payload (→ _fields/_public_page_links), email_service.trial_ending_email_html (→ _trial_ending_vars), id_cards.team_id_card (→ _read_asset/_opt/_hq_card_data).
+- False positives from the review tool (verified with ruff F821/F632: 0 findings): "92 undefined variables", "`is` literal comparisons", "security.py:232 hardcoded secret" (it's a comment; CSRF key derives from JWT_SECRET env).
+- Deferred (too risky pre-deploy, no behaviour value): splitting lead_gen.py / hair_colors.py / auth.py by import count.
+- Sender label in /whatsapp-link/status now derives from WHATSAPP_PLATFORM_NUMBER. WA number +91 91802 61256 DEREGISTERED from Cloud API on user request (kept for WhatsApp Business app / lead gen); new SIM pending for Mira.
+- Pre-existing test-infra failures (not regressions): test_iter140 expects PNG for table QR (endpoint serves JPEG since a later iteration); test_invoice_edits imports `_PW_ADMIN` removed from tests/_creds.py.

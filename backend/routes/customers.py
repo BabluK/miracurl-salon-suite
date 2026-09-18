@@ -395,17 +395,44 @@ def _norm_gender(g: Optional[str]) -> str:
     return "Other"
 
 
+def _import_row_fields(r) -> tuple[str, str, str | None]:
+    """Normalise one import row → (10-digit phone or '', clean name, valid email or None)."""
+    digits = re.sub(r"\D", "", r.phone or "")
+    if len(digits) > 10 and digits.startswith("91"):
+        digits = digits[-10:]
+    name = re.sub(r"\s+", " ", (r.name or "")).strip()[:120]
+    email = (r.email or "").strip().lower() or None
+    if email and not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        email = None
+    return (digits if len(digits) == 10 else ""), name, email
+
+
+async def _import_fill_existing(existing: dict, r, name: str, email: str | None) -> bool:
+    """Fill only blank fields on an existing guest; returns True when something changed."""
+    patch = {k: v for k, v in (("email", email), ("gender", _norm_gender(r.gender) if r.gender else None)) if v and not existing.get(k)}
+    if not existing.get("name") and name:
+        patch["name"] = name
+    if not patch:
+        return False
+    await db.customers.update_one({"id": existing["id"]}, {"$set": patch})
+    return True
+
+
+async def _import_new_customer(r, digits: str, name: str, email: str | None) -> None:
+    c = Customer(name=name, phone=digits, email=email, gender=_norm_gender(r.gender)).model_dump()
+    c["source"] = "import"
+    c["crm_status"] = "active"
+    await db.customers.insert_one(c)
+
+
 @router.post("/customers/import-rows")
 async def import_customers(body: ImportIn, user=Depends(require_admin)):
     """Bulk add/update guests by phone. Existing guests only get blank fields filled (never overwrite spend/points)."""
     out = {"added": 0, "updated": 0, "skipped": 0, "errors": []}
     seen: set = set()
     for i, r in enumerate(body.rows):
-        digits = re.sub(r"\D", "", r.phone or "")
-        if len(digits) > 10 and digits.startswith("91"):
-            digits = digits[-10:]
-        name = re.sub(r"\s+", " ", (r.name or "")).strip()[:120]
-        if len(digits) != 10 or not name:
+        digits, name, email = _import_row_fields(r)
+        if not digits or not name:
             out["skipped"] += 1
             if len(out["errors"]) < 20:
                 out["errors"].append({"row": i + 1, "reason": "needs a name and a 10-digit number"})
@@ -414,24 +441,13 @@ async def import_customers(body: ImportIn, user=Depends(require_admin)):
             out["skipped"] += 1
             continue
         seen.add(digits)
-        email = (r.email or "").strip().lower() or None
-        if email and not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
-            email = None
         existing = await _find_by_phone(digits)
         if existing:
-            if body.update_existing:
-                patch = {k: v for k, v in (("email", email), ("gender", _norm_gender(r.gender) if r.gender else None)) if v and not existing.get(k)}
-                if not existing.get("name") and name:
-                    patch["name"] = name
-                if patch:
-                    await db.customers.update_one({"id": existing["id"]}, {"$set": patch})
-                    out["updated"] += 1
-                    continue
-            out["skipped"] += 1
+            if body.update_existing and await _import_fill_existing(existing, r, name, email):
+                out["updated"] += 1
+            else:
+                out["skipped"] += 1
             continue
-        c = Customer(name=name, phone=digits, email=email, gender=_norm_gender(r.gender)).model_dump()
-        c["source"] = "import"
-        c["crm_status"] = "active"
-        await db.customers.insert_one(c)
+        await _import_new_customer(r, digits, name, email)
         out["added"] += 1
     return out

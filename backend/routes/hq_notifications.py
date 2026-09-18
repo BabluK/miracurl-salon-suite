@@ -210,20 +210,26 @@ def _rating_summary(reviews: list) -> tuple[float | None, int]:
     return (round(sum(ratings) / len(ratings), 1) if ratings else None), len(ratings)
 
 
+def _fields(t: dict, keys: tuple, default: str = "") -> dict:
+    return {k: t.get(k) or default for k in keys}
+
+
+def _public_page_links(t: dict) -> dict:
+    return {**_fields(t, ("maps_url", "instagram_url", "facebook_url", "youtube_url", "whatsapp_number")),
+            "hero_image": t.get("hero_image") or t.get("book_bg") or "", "hours": t.get("hours") or "",
+            "open_time": t.get("open_time") or "10:00", "close_time": t.get("close_time") or "21:00"}
+
+
 def _public_page_payload(t: dict, s: str, services: list, reviews: list, extra: dict | None = None) -> dict:
     avg, count = _rating_summary(reviews)
     return {
-        "name": t.get("name"), "slug": s, "location": t.get("location") or "",
-        "business_type": t.get("business_type") or "salon", "phone": t.get("phone") or "", "about": t.get("about") or "",
-        "gallery": [p["url"] for p in (t.get("gallery") or [])][:6], "logo_url": t.get("logo_url") or "",
+        **_fields(t, ("name", "location", "phone", "about", "logo_url")),
+        "slug": s, "business_type": t.get("business_type") or "salon",
+        "gallery": [p["url"] for p in (t.get("gallery") or [])][:6],
         "avg_rating": avg, "reviews_count": count, "services": services,
         "reviews": [r for r in reviews if (r.get("comment") or "").strip()][:6], "book_url": f"/book/{s}",
-        "hero_image": t.get("hero_image") or t.get("book_bg") or "", "hours": t.get("hours") or "",
-        "open_time": t.get("open_time") or "10:00", "close_time": t.get("close_time") or "21:00",
-        "maps_url": t.get("maps_url") or "", "instagram_url": t.get("instagram_url") or "",
-        "facebook_url": t.get("facebook_url") or "", "youtube_url": t.get("youtube_url") or "",
-        "whatsapp_number": t.get("whatsapp_number") or "",
         "branches": [b.get("name") for b in (t.get("branches") or []) if b.get("name")],
+        **_public_page_links(t),
         **(extra or {}),
     }
 

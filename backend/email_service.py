@@ -489,21 +489,38 @@ def _trial_offer_block(offer: dict | None, price_str: str) -> str:
             f"<div style='font-size:12px;color:#bbb;margin-top:6px'>Offer valid until <b style='color:#fff'>{e(until_s)}</b> · built into your one-tap link below</div></div>")
 
 
+_TRIAL_KEEPS = {
+    True: "QR table ordering, kitchen tickets, POS billing, staff payroll and Mira AI",
+    False: "online bookings, POS billing, staff payroll, WhatsApp reminders and Mira AI",
+}
+
+
+def _trial_ending_vars(t: dict, nudge: dict) -> dict:
+    """Pre-computed copy fragments for the trial-ending email (keeps the template itself branch-free)."""
+    e = html_lib.escape
+    days_left, offer = int(nudge["days_left"]), nudge.get("offer")
+    resto = t.get("business_type") == "restaurant"
+    plural = "" if days_left == 1 else "s"
+    return {
+        "days_left": days_left, "offer": offer, "price_str": nudge["price_str"],
+        "noun": "restaurant" if resto else "salon",
+        "hq_email": os.environ.get("HQ_EMAIL", "admin@miracurl.com"),
+        "when": "ends <b>tomorrow</b>" if days_left == 1 else f"ends in <b>{days_left} days</b>",
+        "days_label": f"{days_left} day{plural} left",
+        "owner": e(t.get("owner_name") or t.get("name") or "there"),
+        "keeps": _TRIAL_KEEPS[resto],
+        "stat_rows": "".join(f"<div style='padding:4px 0'>{x}</div>" for x in nudge.get("stats") or []),
+        "strike": f" <span style='font-size:16px;color:#999;text-decoration:line-through'>{e(offer['original'])}</span>" if offer else "",
+    }
+
+
 def trial_ending_email_html(t: dict, nudge: dict) -> str:
     """Friendly 'your free trial ends in N days' email with a one-tap upgrade CTA.
     nudge = {days_left, end_date, plan_label, price_str, pay_url, stats: [str], offer: {label, original, expires_at} | None}."""
     e = html_lib.escape
-    days_left, offer, price_str = int(nudge["days_left"]), nudge.get("offer"), nudge["price_str"]
-    resto = t.get("business_type") == "restaurant"
-    noun = "restaurant" if resto else "salon"
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
-    when = "ends <b>tomorrow</b>" if days_left == 1 else f"ends in <b>{days_left} days</b>"
-    days_label = f"{days_left} day{'s' if days_left != 1 else ''} left"
-    owner = e(t.get('owner_name') or t.get('name') or 'there')
-    keeps = ("QR table ordering, kitchen tickets, POS billing, staff payroll and Mira AI"
-             if resto else "online bookings, POS billing, staff payroll, WhatsApp reminders and Mira AI")
-    stat_rows = "".join(f"<div style='padding:4px 0'>{s}</div>" for s in nudge.get("stats") or [])
-    strike = f" <span style='font-size:16px;color:#999;text-decoration:line-through'>{e(offer['original'])}</span>" if offer else ""
+    v = _trial_ending_vars(t, nudge)
+    days_left, offer, price_str, noun, hq_email, when, days_label, owner, keeps, stat_rows, strike = (
+        v["days_left"], v["offer"], v["price_str"], v["noun"], v["hq_email"], v["when"], v["days_label"], v["owner"], v["keeps"], v["stat_rows"], v["strike"])
     return f"""
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
       <div style="background:#1c1c22;padding:28px 30px;text-align:center">
