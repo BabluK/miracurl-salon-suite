@@ -125,6 +125,57 @@ async def mira_reply_text(t: dict, wa_id: str, text: str, request=None) -> tuple
         _current_tenant_id.reset(token)
 
 
+def split_ui_markers(body: str) -> tuple[str, str | None, bool]:
+    """Strip Mira's WhatsApp UI tokens → (clean text, slots date or None, wants confirm buttons)."""
+    import json as _json
+    from routes.public_chat import _CONFIRM_MARKER, _SLOTS_MARKER
+    date = None
+    m = re.search(re.escape(_SLOTS_MARKER) + r"\s*(\{.*?\})", body, re.S)
+    if m:
+        try:
+            d = str(_json.loads(m.group(1)).get("date") or "")
+            date = d if re.fullmatch(r"\d{4}-\d{2}-\d{2}", d) else None
+        except ValueError:
+            date = None
+        body = body[:m.start()] + body[m.end():]
+    body = body.replace(_SLOTS_MARKER, "")
+    confirm = _CONFIRM_MARKER in body
+    body = body.replace(_CONFIRM_MARKER, "")
+    return re.sub(r"\n{3,}", "\n\n", body).strip(), date, confirm
+
+
+async def deliver_reply(t: dict, wa_id: str, body: str) -> str:
+    """Send Mira's reply as text + tappable slot list / confirm buttons where she asked for them. Returns the text sent."""
+    from routes.public_chat import _free_slots_for
+    from services.whatsapp_cloud import confirm_buttons_interactive, send_interactive, send_text, slot_list_interactive
+    clean, date, confirm = split_ui_markers(body)
+    if confirm and clean:
+        try:
+            await send_interactive(wa_id, confirm_buttons_interactive(clean), clean, tenant_id=t["id"])
+            return clean
+        except RuntimeError:
+            log.warning("confirm buttons failed, falling back to text")
+    slots = []
+    if date:
+        tok = _current_tenant_id.set(t["id"])
+        try:
+            slots = await _free_slots_for(date)
+        finally:
+            _current_tenant_id.reset(tok)
+    if slots:
+        label = datetime.fromisoformat(date).strftime("%a %d %b")
+        try:
+            await send_interactive(wa_id, slot_list_interactive(clean or f"Available times on {label} 👇", label, slots), clean, tenant_id=t["id"])
+            return clean
+        except RuntimeError:
+            log.warning("slot list failed, falling back to text")
+        clean = (clean + "\n\n" if clean else "") + f"Available on {label}: " + ", ".join(slots[:12])
+    elif date and clean:
+        clean += "\n\nThat day looks fully booked — shall I check another date? 🗓️"
+    await send_text(wa_id, clean or "…", tenant_id=t["id"])
+    return clean
+
+
 async def stats(tenant_id: str, days: int = 30) -> dict:
     since = (_now() - timedelta(days=days)).isoformat()
     base = {"tenant_id": tenant_id, "created_at": {"$gte": since}}

@@ -43,7 +43,6 @@ async def mira_whatsapp_reply(doc: dict, tenant: dict | None) -> str | None:
     own = own_channel(t) is not None
     if not own and not await _reserve_credit(t, doc):
         return None
-    from services.whatsapp_cloud import send_text
     text = rec.strip_ref(doc["text"])
     body, booking, handoff = await rec.mira_reply_text(t, wa_id, text)
     if not body:
@@ -51,7 +50,7 @@ async def mira_whatsapp_reply(doc: dict, tenant: dict | None) -> str | None:
             await _refund_credit(t, doc)
         return None
     try:
-        await send_text(wa_id, body, tenant_id=t["id"])
+        body = await rec.deliver_reply(t, wa_id, body)
     except Exception:
         if not own:
             await _refund_credit(t, doc)

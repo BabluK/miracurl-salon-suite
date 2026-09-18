@@ -372,7 +372,18 @@ async def receptionist_simulate(body: SimulateIn, request: Request, user=Depends
     await ai_daily_quota(t["id"], "wa_receptionist_sim", 150)
     wa_id = _sim_wa_id(t["id"], body.session)
     reply, booking, handoff = await rec.mira_reply_text(t, wa_id, rec.strip_ref(body.text), request=request)
-    return {"reply": reply, "booked": bool(booking), "booking": booking, "handoff": handoff, "wa_id": wa_id}
+    clean, date, confirm = rec.split_ui_markers(reply)
+    slots: list[str] = []
+    if date:
+        from database import _current_tenant_id
+        from routes.public_chat import _free_slots_for
+        tok = _current_tenant_id.set(t["id"])
+        try:
+            slots = await _free_slots_for(date)
+        finally:
+            _current_tenant_id.reset(tok)
+    return {"reply": clean, "booked": bool(booking), "booking": booking, "handoff": handoff, "wa_id": wa_id,
+            "slots": slots[:30], "slots_date": date, "buttons": ["✅ Confirm", "✏️ Change time"] if confirm else []}
 
 
 @router.delete("/receptionist/simulate/{session}")

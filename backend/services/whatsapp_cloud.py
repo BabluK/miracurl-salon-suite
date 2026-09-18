@@ -86,6 +86,40 @@ async def channel_for(tenant_id: str | None) -> dict:
     return {"phone_number_id": cfg["phone_number_id"], "token": cfg["access_token"], "own": False}
 
 
+async def send_interactive(to: str, interactive: dict, text_for_log: str, tenant_id: str | None = None) -> dict[str, Any]:
+    """Interactive message (tap-to-pick list / reply buttons) inside the 24h service window."""
+    ch = await channel_for(tenant_id)
+    if not ch["token"] or not ch["phone_number_id"]:
+        raise RuntimeError("WhatsApp Cloud API not configured")
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{ch['phone_number_id']}/messages"
+    payload = {"messaging_product": "whatsapp", "recipient_type": "individual", "to": to, "type": "interactive", "interactive": interactive}
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        r = await client.post(url, json=payload, headers={"Authorization": f"Bearer {ch['token']}"})
+    if r.is_error:
+        log.warning("whatsapp interactive send failed %s: %.300s", r.status_code, r.text)
+        raise RuntimeError(f"Meta API {r.status_code}: {r.text[:300]}")
+    data = r.json()
+    mid = ((data.get("messages") or [{}])[0]).get("id")
+    await _raw_db.whatsapp_messages.insert_one({
+        "direction": "outbound", "message_id": mid, "wa_id": to, "type": "interactive", "text": text_for_log,
+        "phone_number_id": ch["phone_number_id"], "own_number": ch["own"], "tenant_id": tenant_id, "status": "accepted", "created_at": _now()})
+    return data
+
+
+def slot_list_interactive(body: str, date_label: str, slots: list[str]) -> dict:
+    """WhatsApp list: up to 10 rows per section, max 3 sections → up to 30 times."""
+    rows = [{"id": f"slot:{s}", "title": s[:24]} for s in slots[:30]]
+    sections = [{"title": (f"{date_label} · {i // 10 + 1}" if len(rows) > 10 else date_label)[:24], "rows": rows[i:i + 10]} for i in range(0, len(rows), 10)]
+    return {"type": "list", "body": {"text": body[:1024]}, "footer": {"text": "Tap a time to choose it"},
+            "action": {"button": "Pick a time 🕐", "sections": sections}}
+
+
+def confirm_buttons_interactive(body: str) -> dict:
+    return {"type": "button", "body": {"text": body[:1024]},
+            "action": {"buttons": [{"type": "reply", "reply": {"id": "confirm_yes", "title": "✅ Confirm"}},
+                                   {"type": "reply", "reply": {"id": "confirm_change", "title": "✏️ Change time"}}]}}
+
+
 async def send_template(to: str, name: str, params: list[str], tenant_id: str | None = None, lang: str = "en") -> dict[str, Any]:
     """Business-initiated message via an approved Meta template (required outside the 24h service window)."""
     ch = await channel_for(tenant_id)

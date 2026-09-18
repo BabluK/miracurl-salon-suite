@@ -30,6 +30,14 @@ from routes.briefings import _tts_cached_speech
 
 # ---------------- Public AI Beauty Advisor (recommends + books) ----------------
 _BOOK_MARKER = "[[BOOK]]"
+_SLOTS_MARKER = "[[SLOTS]]"
+_CONFIRM_MARKER = "[[CONFIRM]]"
+_WA_ADDENDUM = (
+    "\n\nCHANNEL: WhatsApp (the guest taps buttons). RULES: (a) When you offer available times for a specific date, do NOT list the times in text — "
+    "say something like 'Pick a time below 👇' and end your reply with one line EXACTLY like [[SLOTS]]{\"date\":\"YYYY-MM-DD\"} (the guest gets tappable time buttons for that date). "
+    "(b) When you show the booking summary and ask the guest to confirm, end your reply with the exact token [[CONFIRM]] (they get Confirm / Change buttons). "
+    "(c) A guest message that is just a time like '10:30 AM' is their chosen slot; '✅ Confirm' means yes; '✏️ Change time' means they want another slot. Never mention these tokens."
+)
 _INQ_MARKER = "[[MIRA_INQUIRY]]"
 
 # Server-generated booking messages, localized — Mira must never break language mid-chat.
@@ -582,6 +590,8 @@ async def _public_ai_reply(t, session_id: str, message: str, voice: bool = False
                        f"Customer's new message: {message}")
     else:
         prompt_text = message
+    if str(session_id).startswith("wa-"):
+        prompt_text += _WA_ADDENDUM
     try:
         resp = await chat.send_message(UserMessage(text=prompt_text))
         reply = resp if isinstance(resp, str) else str(resp)

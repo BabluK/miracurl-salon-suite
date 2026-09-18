@@ -21,7 +21,7 @@ export const ReceptionistSim = ({ resto }) => {
     setMsgs(m => [...m, { dir: "in", text: body }]);
     try {
       const r = await api.post("/whatsapp-link/receptionist/simulate", { text: body, session: SESSION });
-      setMsgs(m => [...m, { dir: "out", text: r.data.reply, booked: r.data.booked, handoff: r.data.handoff }]);
+      setMsgs(m => [...m, { dir: "out", text: r.data.reply, booked: r.data.booked, handoff: r.data.handoff, slots: r.data.slots || [], buttons: r.data.buttons || [], slotsDate: r.data.slots_date }]);
     } catch (e) { toast.error(e.response?.data?.detail || "Mira couldn't reply"); }
     finally { setBusy(false); }
   };
@@ -51,6 +51,16 @@ export const ReceptionistSim = ({ resto }) => {
               {m.text}
               {m.booked && <div className="mt-1.5 text-[11px] font-semibold text-emerald-700 inline-flex items-center gap-1" data-testid="sim-booked-badge"><CalendarCheck className="w-3.5 h-3.5" /> Real {resto ? "reservation" : "appointment"} created in your calendar</div>}
               {m.handoff && <div className="mt-1.5 text-[11px] font-semibold text-amber-700 inline-flex items-center gap-1" data-testid="sim-handoff-badge"><Hand className="w-3.5 h-3.5" /> Handed to your team — Mira pauses</div>}
+              {i === msgs.length - 1 && !busy && (m.slots?.length > 0 || m.buttons?.length > 0) && (
+                <div className="mt-2 pt-2 border-t border-slate-100" data-testid="sim-tap-options">
+                  {m.slots?.length > 0 && <div className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mb-1">Tap a time · {m.slotsDate}</div>}
+                  <div className="flex flex-wrap gap-1.5">
+                    {(m.slots?.length ? m.slots : m.buttons).map(o => (
+                      <button key={o} onClick={() => send(o)} className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors" data-testid="sim-tap-option">{o}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ))}
