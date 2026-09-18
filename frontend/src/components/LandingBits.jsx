@@ -8,9 +8,9 @@ export const FB_URL = "https://www.facebook.com/profile.php?id=61593610030812";
 export const IG_URL = "https://www.instagram.com/miracurl.ai/";
 export const WA_DEMO_URL = "https://wa.me/919180261256?text=" + encodeURIComponent("Hi Miracurl! I'd like a demo of Miracurl Suite for my business.");
 
-export function SparkleLogo({ className = "w-12 h-12" }) {
+export function SparkleLogo({ className = "w-12 h-12", testid = "brand-logo-sparkle" }) {
   return (
-    <span className="ms-logo-sparkle" data-testid="brand-logo-sparkle">
+    <span className="ms-logo-sparkle" data-testid={testid}>
       <img src="/assets/brand/ms-logo-dark.png" alt="Miracurl" className={`${className} rounded-full shadow-md ring-2 ring-[#d4af37]/60`} />
       <span className="ms-star s1" /><span className="ms-star s2" /><span className="ms-star s3" />
     </span>
@@ -19,11 +19,8 @@ export function SparkleLogo({ className = "w-12 h-12" }) {
 
 export function LandingNav() {
   return (
-    <header className="relative z-20 max-w-[1640px] mx-auto flex items-center justify-between gap-4 px-4 sm:px-8 pt-5 sm:pr-36 xl:pr-40" data-testid="landing-nav">
-      <a href="/" className="flex items-center gap-3 shrink-0" data-testid="landing-logo">
-        <SparkleLogo />
-        <div className="leading-tight"><div className="font-playfair text-lg tracking-wide text-[#8a6a1c]">MIRACURL SUITE</div><div className="text-[9px] uppercase tracking-[0.22em] text-slate-600 font-semibold">AI-Powered Business Management Platform</div></div>
-      </a>
+    <header className="relative z-20 max-w-[1640px] mx-auto flex items-center justify-end gap-6 px-4 sm:px-8 pt-4 sm:pr-36 xl:pr-40" data-testid="landing-nav">
+      <div className="flex-1" />
       <nav className="hidden md:flex items-center gap-7 text-sm font-semibold text-slate-700">
         {NAV.map(n => <a key={n.href} href={n.href} className="hover:text-[#b58a2c] transition-colors" data-testid={`landing-nav-${n.label.toLowerCase().replace(/ /g, "-")}`}>{n.label}</a>)}
       </nav>
@@ -37,8 +34,8 @@ export function LandingNav() {
 
 export function LandingFooter() {
   return (
-    <footer className="relative z-10 max-w-[1640px] mx-auto px-4 sm:px-8 pb-8" data-testid="landing-footer">
-      <div className="rounded-2xl bg-white/80 backdrop-blur border border-white shadow-lg shadow-slate-200/60 px-6 py-5 flex flex-col md:flex-row items-center justify-between gap-4">
+    <footer className="relative z-10 max-w-[1640px] mx-auto px-4 sm:px-8 pb-4" data-testid="landing-footer">
+      <div className="rounded-2xl bg-white/80 backdrop-blur border border-white shadow-lg shadow-slate-200/60 px-6 py-3 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <SparkleLogo />
           <div className="leading-tight"><div className="font-playfair text-base tracking-wide text-slate-900">MIRACURL SUITE</div><div className="text-[9px] uppercase tracking-[0.22em] text-slate-600 font-semibold">AI-Powered Business Management Platform</div></div>

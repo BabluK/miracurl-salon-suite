@@ -782,9 +782,9 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 .ms-logo-sparkle::before { content: ""; position: absolute; inset: 0; border-radius: 9999px; overflow: hidden; z-index: 2; pointer-events: none;
   background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.55) 50%, transparent 60%); mask: radial-gradient(circle, #000 68%, transparent 70%); -webkit-mask: radial-gradient(circle, #000 68%, transparent 70%);
   animation: ms-shine 3.2s ease-in-out infinite; }
-.ms-logo-sparkle .ms-star { position: absolute; z-index: 3; width: 10px; height: 10px; pointer-events: none; color: #fff3c4; filter: drop-shadow(0 0 4px #ffd75e);
+.ms-logo-sparkle .ms-star { position: absolute; z-index: 3; width: 14px; height: 14px; pointer-events: none; color: #fff3c4; filter: drop-shadow(0 0 4px #ffd75e);
   animation: ms-sparkle 2.4s ease-in-out infinite; }
-.ms-logo-sparkle .ms-star::before { content: "✦"; font-size: 10px; line-height: 10px; display: block; }
+.ms-logo-sparkle .ms-star::before { content: "✦"; font-size: 14px; line-height: 14px; display: block; }
 .ms-logo-sparkle .s1 { top: -3px; right: 2px; animation-delay: 0s; }
 .ms-logo-sparkle .s2 { bottom: 0; left: -3px; animation-delay: 0.8s; width: 8px; height: 8px; }
 .ms-logo-sparkle .s3 { top: 45%; right: -5px; animation-delay: 1.5s; width: 7px; height: 7px; }

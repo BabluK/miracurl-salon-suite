@@ -157,7 +157,7 @@ export default function Login() {
 
       <LandingNav />
       <WhatsAppFloat />
-      <div className="relative z-10 max-w-[1640px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_500px] gap-8 xl:gap-14 items-center px-4 sm:px-8 py-6 lg:py-8">
+      <div className="relative z-10 max-w-[1640px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_500px] gap-8 xl:gap-14 items-center px-4 sm:px-8 py-4 lg:py-3">
         <LoginShowcase />
         <div className="relative w-full max-w-lg mx-auto lg:mx-0">
           <div className="hidden xl:block absolute -right-16 top-1/2 -translate-y-1/2 font-playfair italic text-[#b58a2c] text-lg leading-snug text-center">Dream<br />Build<br />Serve<br />Grow<br />Together<br />♡</div>
