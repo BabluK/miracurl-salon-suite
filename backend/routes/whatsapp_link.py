@@ -42,6 +42,10 @@ async def _image_candidates(t: dict) -> list[dict]:
     for g in gal:
         if g.get("url"):
             out.append({"id": f"gallery:{g['url']}", "label": f"Gallery photo — {g.get('caption') or g.get('kind') or 'salon work'}", "url": g["url"]})
+    # drop flyers whose upload record no longer exists (deleted / other environment) so the picker never shows broken tiles
+    fids = [c["url"].rsplit("/", 1)[-1] for c in out if c["url"].startswith("/api/files/")]
+    alive = {u["id"] async for u in _raw_db.uploads.find({"id": {"$in": fids}, "is_deleted": False}, {"_id": 0, "id": 1})} if fids else set()
+    out = [c for c in out if not c["url"].startswith("/api/files/") or c["url"].rsplit("/", 1)[-1] in alive]
     resto = t.get("business_type") == "restaurant"
     out += [c for c in CURATED if (c["id"] == "curated:dining") == resto]
     return out

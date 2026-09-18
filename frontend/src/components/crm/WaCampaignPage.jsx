@@ -210,7 +210,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
                 <div className="w-36 h-36 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 text-xs" data-testid="wa-campaign-image"><ImageIcon className="w-6 h-6 mb-1" />No image<span className="text-[10px]">Mira picks one, or choose →</span></div>
               )}
               <div className="flex gap-2 flex-wrap max-w-md">
-                {cands.map(c => <button key={c.id} onClick={() => setImage(c)} title={c.label} data-testid={`wa-campaign-cand-${c.id.split(":")[0]}`} className={`w-16 h-16 rounded-lg overflow-hidden border-2 ${image?.id === c.id ? "border-emerald-500" : "border-transparent hover:border-slate-300"}`}><img src={c.url} alt="" className="w-full h-full object-cover" /></button>)}
+                {cands.map(c => <button key={c.id} onClick={() => setImage(c)} title={c.label} data-testid={`wa-campaign-cand-${c.id.split(":")[0]}`} className={`w-16 h-16 rounded-lg overflow-hidden border-2 ${image?.id === c.id ? "border-emerald-500" : "border-transparent hover:border-slate-300"}`}><img src={c.url} alt="" className="w-full h-full object-cover" onError={() => { setCands(cs => cs.filter(x => x.id !== c.id)); setImage(im => (im?.id === c.id ? null : im)); }} /></button>)}
               </div>
             </div>
           </Step>

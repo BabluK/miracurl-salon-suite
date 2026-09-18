@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { confirmAsync } from "@/components/ConfirmDialog";
 import { MessageSquare, Check, CheckCheck, Send, X } from "lucide-react";
 
 const KIND_LABEL = { confirmation: "Booking Confirmation", reminder: "Reminder", review: "Review Request" };
@@ -44,7 +45,7 @@ export const WhatsAppApprovals = () => {
   }
 
   async function approveAll() {
-    if (!window.confirm(`Approve all ${items.length} messages? You'll then tap each one to send it on WhatsApp.`)) return;
+    if (!await confirmAsync(`Approve all ${items.length} pending messages? You'll then tap each one to send it on WhatsApp.`, { title: "Approve all messages", confirmLabel: `Approve ${items.length}` })) return;
     setBusy(true);
     try {
       const { data } = await api.post("/whatsapp-requests/approve-all");
@@ -56,7 +57,7 @@ export const WhatsAppApprovals = () => {
   }
 
   async function rejectAll() {
-    if (!window.confirm(`Reject all ${items.length} pending messages?`)) return;
+    if (!await confirmAsync(`Reject all ${items.length} pending messages? Your staff will need to request them again.`, { title: "Reject all messages", confirmLabel: "Reject all", danger: true })) return;
     setBusy(true);
     try {
       const { data } = await api.post("/whatsapp-requests/reject-all");

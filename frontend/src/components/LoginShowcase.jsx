@@ -7,12 +7,12 @@ const COUNTRIES = ["🇺🇸 US", "🇬🇧 UK", "🇦🇪 UAE", "🇮🇳 India
 
 export function LoginShowcase() {
   return (
-    <div className="hidden lg:flex flex-col gap-4 min-w-0" data-testid="login-showcase">
+    <div className="hidden lg:flex flex-col gap-5 min-w-0" data-testid="login-showcase">
       <div className="flex items-start justify-between gap-6">
         <div className="flex items-center gap-4">
-          <img src="/assets/brand/ms-logo-dark.png" alt="Miracurl Suite" className="w-20 h-20 rounded-full shadow-xl shadow-amber-900/25 ring-2 ring-[#d4af37]/70" data-testid="login-brand-logo" />
+          <img src="/assets/brand/ms-logo-dark.png" alt="Miracurl Suite" className="w-28 h-28 rounded-full shadow-xl shadow-amber-900/25 ring-2 ring-[#d4af37]/70" data-testid="login-brand-logo" />
           <div>
-            <div className="font-playfair text-[1.75rem] leading-none tracking-wide text-[#8a6a1c]">MIRACURL SUITE</div>
+            <div className="font-playfair text-[2rem] leading-none tracking-wide text-[#8a6a1c]">MIRACURL SUITE</div>
             <div className="text-[11px] tracking-[0.22em] font-semibold text-slate-700 mt-1.5">AI-POWERED BUSINESS MANAGEMENT PLATFORM</div>
             <div className="mt-3 pt-2 border-t border-slate-400/50 text-[11px] tracking-[0.25em] font-semibold text-slate-800">SALONS &nbsp;|&nbsp; RESTAURANTS &nbsp;|&nbsp; AND BEYOND</div>
           </div>
@@ -21,15 +21,15 @@ export function LoginShowcase() {
       </div>
 
       <div>
-        <h1 className="font-playfair text-3xl xl:text-[2.6rem] leading-[1.08] text-slate-900 drop-shadow-sm" data-testid="login-showcase-heading">
+        <h1 className="font-playfair text-4xl xl:text-[3.6rem] leading-[1.08] text-slate-900 drop-shadow-sm" data-testid="login-showcase-heading">
           One Platform.<br /><span className="text-[#b58a2c]">Two Industries.</span> Endless Possibilities.
         </h1>
-        <p className="text-lg font-semibold text-slate-800 mt-2">Manage. Automate. Grow.</p>
+        <p className="text-xl font-semibold text-slate-800 mt-3">Manage. Automate. Grow.</p>
         <p className="text-slate-700 text-sm mt-1">Everything you need to run your salon or restaurant — in one powerful platform.</p>
       </div>
 
       <div className="grid grid-cols-2 rounded-[2rem] overflow-hidden shadow-2xl shadow-rose-900/15 ring-1 ring-white/60">
-        <div className="relative min-h-[290px] bg-[#f6dfe6]" data-testid="login-salon-card">
+        <div className="relative min-h-[370px] bg-[#f6dfe6]" data-testid="login-salon-card">
           <img src="/assets/login/salon-people.jpg" alt="Stylist with a happy client" className="absolute inset-y-0 left-0 w-[52%] h-full object-cover object-[35%_20%]" style={{ WebkitMaskImage: "linear-gradient(90deg, #000 70%, transparent)", maskImage: "linear-gradient(90deg, #000 70%, transparent)" }} />
           <div className="relative ml-[50%] p-5 pl-3">
             <div className="flex items-center gap-2 text-rose-600 font-bold tracking-[0.2em] text-sm mb-3"><Scissors className="w-5 h-5" /> SALONS</div>
@@ -37,7 +37,7 @@ export function LoginShowcase() {
             <div className="font-playfair italic text-rose-500 text-lg mt-4 leading-tight -rotate-6 origin-left">Beautiful<br />Businesses<br />Grow Here ♡</div>
           </div>
         </div>
-        <div className="relative min-h-[290px] bg-[#1d140a] text-white" data-testid="login-restaurant-card">
+        <div className="relative min-h-[370px] bg-[#1d140a] text-white" data-testid="login-restaurant-card">
           <img src="/assets/login/restaurant.jpg" alt="Restaurant table" className="absolute inset-y-0 right-0 w-[48%] h-full object-cover" style={{ WebkitMaskImage: "linear-gradient(270deg, #000 60%, transparent)", maskImage: "linear-gradient(270deg, #000 60%, transparent)" }} />
           <div className="relative mr-[42%] p-5">
             <div className="flex items-center gap-2 text-[#f0d27a] font-bold tracking-[0.2em] text-sm mb-3"><Utensils className="w-5 h-5" /> RESTAURANTS</div>

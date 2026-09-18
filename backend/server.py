@@ -224,12 +224,13 @@ async def on_startup():
     async def _ensure_indexes():
         await db.users.create_index("email", unique=True)
         await db.tenants.create_index("slug", unique=True)
-        try:
-            purged = await _raw_db.tenant_notices.delete_many({"kind": "color_pick"})
-            if purged.deleted_count:
-                logging.info(f"purged {purged.deleted_count} retired color_pick notices")
-        except Exception as e:  # noqa: BLE001
-            logging.warning(f"color_pick purge: {e}")
+        if not await _raw_db.app_migrations.find_one({"key": "retire_color_pick_notices"}):
+            try:
+                purged = await _raw_db.tenant_notices.delete_many({"kind": "color_pick"})
+                await _raw_db.app_migrations.insert_one({"key": "retire_color_pick_notices", "at": datetime.now(timezone.utc).isoformat(), "deleted": purged.deleted_count})
+                logging.info(f"purged {purged.deleted_count} retired color_pick notices (one-time)")
+            except Exception as e:  # noqa: BLE001
+                logging.warning(f"color_pick purge: {e}")
         try:
             from routes.rewards_campaign import ensure_rewards_indexes
             await ensure_rewards_indexes()

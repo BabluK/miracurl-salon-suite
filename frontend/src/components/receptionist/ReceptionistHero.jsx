@@ -88,8 +88,8 @@ export const ReceptionistHero = ({ data, resto, onChange }) => {
           </div>
           <div className="flex items-center gap-2 md:pl-3">
             <span className="text-xs font-semibold text-emerald-100">Active</span>
-            <button onClick={toggle} disabled={busy} className={`relative w-14 h-8 rounded-full transition-colors ${data.enabled ? "bg-emerald-400" : "bg-slate-500"}`} aria-pressed={data.enabled} data-testid="receptionist-toggle">
-              <span className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-transform ${data.enabled ? "translate-x-7" : "translate-x-1"}`} />
+            <button onClick={toggle} disabled={busy} className={`relative shrink-0 w-14 h-8 rounded-full transition-colors ${data.enabled ? "bg-emerald-400" : "bg-slate-500"}`} aria-pressed={data.enabled} data-testid="receptionist-toggle">
+              <span className={`absolute top-1 left-0 w-6 h-6 rounded-full bg-white shadow transition-transform ${data.enabled ? "translate-x-7" : "translate-x-1"}`} />
             </button>
           </div>
         </div>
