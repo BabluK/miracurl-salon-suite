@@ -1622,3 +1622,30 @@ async def my_payment_invoice(pay_id: str, user=Depends(require_tenant_admin), t=
     pdf, inv_no = await build_invoice_pdf(t, pay, coll, kind, label)
     fname = inv_no.replace("/", "-") + ".pdf"
     return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{fname}"'})
+
+
+# ---------------- HQ GST register (Super Admin) ----------------
+@router.get("/hq/gst-register")
+async def hq_gst_register(month: Optional[str] = None, admin=Depends(require_super_admin)):
+    import re as _re
+    from services.gst_register import month_summary, register_rows
+    if month and not _re.fullmatch(r"\d{4}-\d{2}", month):
+        raise HTTPException(400, "month must be YYYY-MM")
+    rows = await register_rows(month)
+    all_rows = rows if not month else await register_rows(None)
+    return {"month": month, "rows": rows, "summary": month_summary(all_rows),
+            "totals": {k: round(sum(r[k] for r in rows), 2) for k in ("taxable", "cgst", "sgst", "igst", "total")}, "count": len(rows)}
+
+
+@router.get("/hq/gst-register.xlsx")
+async def hq_gst_register_xlsx(month: Optional[str] = None, admin=Depends(require_super_admin)):
+    import re as _re
+    from fastapi.responses import Response
+    from services.gst_register import register_rows, to_xlsx
+    from services.hq_tax import get_profile
+    if month and not _re.fullmatch(r"\d{4}-\d{2}", month):
+        raise HTTPException(400, "month must be YYYY-MM")
+    data = to_xlsx(await register_rows(month), month, await get_profile())
+    fname = f"miracurl-gst-register-{month or 'all'}.xlsx"
+    return Response(data, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
