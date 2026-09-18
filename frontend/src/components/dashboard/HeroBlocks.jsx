@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { MiraAvatar } from "@/components/mira/MiraAvatar";
 import { WinbackBlastModal } from "@/components/dashboard/MiraBlast";
+import { SpeedPulse } from "@/components/dashboard/SpeedPulse";
 import { Quote, Copy, ExternalLink, Sparkles, CalendarClock, UserPlus, Tag, MessageCircle, Calendar, Footprints, Users, Receipt, Crown, ArrowRight, AlertTriangle, Lightbulb, Play, Pause } from "lucide-react";
 
 const QUOTES = [
@@ -16,7 +17,7 @@ const QUOTES = [
 
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good Morning" : h < 17 ? "Good Afternoon" : "Good Evening"; };
 
-export function DashboardHero({ user, tenant, data, bookingUrl, onCopy, inr }) {
+export function DashboardHero({ user, tenant, data, bookingUrl, onCopy, inr, loadMs }) {
   const salonUrl = `${window.location.origin}/salon/${tenant?.slug || ""}`;
   const copySalon = () => navigator.clipboard?.writeText(salonUrl).then(() => toast.success("Salon page link copied ✦")).catch(() => toast.error("Couldn't copy — long-press the link"));
   const [q, by] = QUOTES[new Date().getDate() % QUOTES.length];
@@ -29,7 +30,7 @@ export function DashboardHero({ user, tenant, data, bookingUrl, onCopy, inr }) {
       <div className="absolute inset-0 bg-gradient-to-t from-[#0b0a08]/70 via-transparent to-transparent" />
       <div className="relative p-6 sm:p-8 grid lg:grid-cols-[1.4fr_.8fr] gap-6 items-end">
         <div>
-          <div className="font-playfair text-2xl sm:text-3xl text-[#f3e5ab]/90">{greeting()},</div>
+          <div className="font-playfair text-2xl sm:text-3xl text-[#f3e5ab]/90">{greeting()},<SpeedPulse ms={loadMs} /></div>
           <h1 className="font-playfair text-4xl sm:text-5xl lg:text-6xl leading-[1.02] mt-1" data-testid="dashboard-welcome-heading">
             {(user?.name || "Salon Admin").split(" ").slice(0, 2).join(" ")} <span className="text-[#e8c56a]">✦</span>
           </h1>

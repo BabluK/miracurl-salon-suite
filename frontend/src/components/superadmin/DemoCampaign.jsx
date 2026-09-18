@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
+import { PurposeTag } from "./DemoCalendar";
 import { toast } from "sonner";
 import { Mail, Send, Plus, X, Sparkles, History, BellRing, CheckCircle2, Trash2, RotateCw, Eye } from "lucide-react";
 import { confirmAsync } from "@/components/ConfirmDialog";
@@ -293,6 +294,7 @@ export function DemoCampaign() {
                   {inv.opened && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-sky-400/15 text-sky-300 text-[10px] font-semibold" title={`Opened ${(inv.opened_at || "").slice(0, 16).replace("T", " ")} — note: can be triggered by the recipient's email scanner`}>👀 Opened</span>}
                   {inv.clicked && !inv.preferred_slot?.date && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-indigo-400/15 text-indigo-300 text-[10px] font-semibold" title={`Link fetched ${(inv.clicked_at || "").slice(0, 16).replace("T", " ")} — may be their email security scanner, not a person`}>🔗 Clicked</span>}
                   {inv.preferred_slot?.date && <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-violet-400/15 text-violet-300 text-[10px] font-semibold" title={`Phone: ${inv.preferred_slot.phone || "—"}`}>📅 {inv.preferred_slot.date} {inv.preferred_slot.time} IST{inv.preferred_slot.local_time ? ` · ${inv.preferred_slot.local_time} theirs` : ""}</span>}
+                  {inv.preferred_slot?.date && <PurposeTag purpose={inv.preferred_slot.purpose} id={inv.id} dark />}
                   {inv.signup && (
                     <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-violet-400/15 text-violet-300 text-[10px] font-semibold"
                       data-testid={`demo-invite-signup-${inv.email}`}

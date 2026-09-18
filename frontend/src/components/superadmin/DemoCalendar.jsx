@@ -3,6 +3,16 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { CalendarCheck, Clock, Phone, Mail, MapPin, CheckCircle2, ExternalLink, MessageCircle, History } from "lucide-react";
 
+export const PURPOSE_TAG = {
+  demo: { label: "Live demo", cls: "bg-pink-50 text-pink-700 border-pink-200" },
+  onboarding: { label: "Onboarding", cls: "bg-violet-50 text-violet-700 border-violet-200" },
+};
+export const PurposeTag = ({ purpose, id, dark }) => {
+  const p = PURPOSE_TAG[purpose] || PURPOSE_TAG.demo;
+  const cls = dark ? (purpose === "onboarding" ? "bg-violet-400/15 text-violet-300" : "bg-pink-400/15 text-pink-300") : `border ${p.cls}`;
+  return <span data-testid={`purpose-tag-${id}`} className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full font-semibold ${cls}`}>{p.label}</span>;
+};
+
 const SOURCE_BADGE = {
   public_demo_page: { label: "Booked via /demo", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   invite: { label: "Email invite", cls: "bg-sky-50 text-sky-700 border-sky-200" },
@@ -34,6 +44,7 @@ function DemoCard({ demo, isToday, onDone }) {
           {demo.phone && <span className="inline-flex items-center gap-0.5"><Phone className="w-3 h-3" />{demo.phone}</span>}
         </p>
       </div>
+      <PurposeTag purpose={demo.purpose} id={demo.id} />
       <span className={`text-[10px] px-2 py-1 rounded-full border font-semibold ${badge.cls}`}>{badge.label}</span>
       <div className="flex items-center gap-1.5">
         {waNum && (
@@ -116,6 +127,7 @@ export function DemoCalendar() {
                 <div key={d.id} className="bg-slate-50 rounded-xl border border-slate-200 px-4 py-2.5 text-xs text-slate-500 flex flex-wrap gap-x-4 gap-y-1 items-center" data-testid={`demo-cal-past-${d.id}`}>
                   <b className="text-slate-700">{d.date} · {d.time}</b>
                   <span>{d.name || d.email}</span>
+                  <PurposeTag purpose={d.purpose} id={`past-${d.id}`} />
                   {d.salon_name && <span>{d.salon_name}</span>}
                   {d.done ? <span className="text-emerald-600 font-semibold">✓ completed</span>
                     : <button onClick={() => markDone(d.id)} className="text-emerald-600 underline">mark done</button>}

@@ -159,6 +159,21 @@ class ComposeIn(BaseModel):
     offer_type: str = Field("general", pattern="^(general|festive|discount|new_service|winback)$")
     service_ids: list[str] = Field(default_factory=list, max_length=10)
     discount_pct: Optional[int] = Field(None, ge=5, le=70)
+    image_url: Optional[str] = Field(None, max_length=200, pattern=r"^/api/files/[A-Za-z0-9-]{8,64}$")
+
+
+async def _own_image_b64(t: dict, url: str | None) -> str | None:
+    """Owner-uploaded campaign image (must belong to this tenant) as base64 for Mira's vision pass."""
+    if not url:
+        return None
+    fid = url.rsplit("/", 1)[-1]
+    rec = await _raw_db.uploads.find_one({"id": fid, "tenant_id": t["id"], "is_deleted": False}, {"_id": 0, "id": 1})
+    if not rec:
+        raise HTTPException(400, "That image isn't in your salon's uploads")
+    payload = await camp._image_payload(url)
+    if not payload:
+        raise HTTPException(400, "Couldn't read the uploaded image")
+    return payload["base64"]
 
 
 @router.post("/campaigns/compose")
@@ -166,6 +181,9 @@ async def campaign_compose(body: ComposeIn, request: Request, user=Depends(requi
     """Mira writes the WhatsApp caption and picks the best image from the salon's own flyers/photos."""
     from routes.mira_common import _ask_json
     cands = await _image_candidates(t)
+    own_b64 = await _own_image_b64(t, body.image_url)
+    if own_b64:
+        cands = [{"id": f"upload:{body.image_url}", "label": "Owner's uploaded image (attached)", "url": body.image_url}] + cands
     ids = await _audience_ids(t, body.audience, body.customer_ids)
     if not ids:
         raise HTTPException(400, "Pick at least one guest")
@@ -195,12 +213,16 @@ async def campaign_compose(body: ComposeIn, request: Request, user=Depends(requi
               f"Owner's brief: {body.brief or 'a warm offer / campaign message to bring these guests back'}. "
               f"Booking link: {base}/book/{t.get('slug', '')}. "
               f"Image options (pick exactly one id): {[{'id': c['id'], 'label': c['label']} for c in cands]}. "
-              "Write a WhatsApp message under 380 characters: friendly, Indian salon tone, 1-2 emojis max, use {name} as the "
+              + ("The owner UPLOADED THEIR OWN IMAGE (attached). Look at it carefully: read any text, offer, prices, dates, festival or service shown, "
+                 "and write the message so it matches the image exactly (same offer/occasion/services); pick image_id 'upload:" + (body.image_url or "") + "'. "
+                 if own_b64 else "")
+              + "Write a WhatsApp message under 380 characters: friendly, Indian salon tone, 1-2 emojis max, use {name} as the "
               "greeting placeholder, include the booking link once, no hashtags. Also give: offer (one line ≤120 chars, e.g. 'Flat 20% off on all hair & skin services'), "
               "festival (the festival name if festive, else a short theme like 'Weekend Glow'), valid_till (like '12 Nov', within 10 days). "
               "Return {\"text\": str, \"image_id\": str, \"why\": str, \"offer\": str, \"festival\": str, \"valid_till\": str}.")
-    out = await _ask_json("You are Mira, the marketing assistant for a salon/restaurant SaaS.", prompt, model="gpt-5.4")
-    pick = next((c for c in cands if c["id"] == out.get("image_id")), cands[-1] if cands else None)
+    out = await _ask_json("You are Mira, the marketing assistant for a salon/restaurant SaaS.", prompt, model="gpt-5.4",
+                          images_b64=[own_b64] if own_b64 else None)
+    pick = next((c for c in cands if c["id"] == out.get("image_id")), cands[0] if own_b64 else (cands[-1] if cands else None))
     return {"text": (out.get("text") or "").strip(), "image": pick, "why": out.get("why", ""), "candidates": cands,
             "offer": (out.get("offer") or "")[:160], "festival": (out.get("festival") or (fest or {}).get("name") or "")[:60],
             "valid_till": (out.get("valid_till") or "")[:30]}
@@ -347,7 +369,23 @@ async def receptionist_status(user=Depends(require_tenant_admin), t=Depends(curr
             "own_number": bool(own), "display_number": own.get("display_phone_number") or _sender_label(),
             "platform_number": rec.platform_number(), "invite_link": rec.invite_link(t), "slug": t.get("slug"),
             "credits": int(t.get("wa_points") or 0), "business_type": t.get("business_type") or "salon",
+            "last_inbound": await _last_inbound(t["id"]),
             "stats": await rec.stats(t["id"]), "threads": await rec.threads(t["id"])}
+
+
+_SKIP_LABEL = {"no_credits": "skipped — no WhatsApp credits", "skipped_auto_reply_off": "skipped — Mira paused",
+               "skipped_whatsapp_feature_off": "skipped — WhatsApp not enabled", "skipped_suspended": "skipped — account suspended",
+               "human_queue": "waiting for you (human mode)", "replied": "Mira replied", "received": "processing…"}
+
+
+async def _last_inbound(tenant_id: str) -> dict | None:
+    """Most recent guest message + what happened to it — lets the owner see at a glance why Mira did/didn't answer."""
+    m = await _raw_db.whatsapp_messages.find_one({"tenant_id": tenant_id, "direction": "inbound", "raw.id": {"$not": {"$regex": "TEST|LOCAL"}}},
+                                                 {"_id": 0, "created_at": 1, "text": 1, "status": 1, "profile_name": 1, "wa_id": 1}, sort=[("created_at", -1)])
+    if not m:
+        return None
+    return {"at": m.get("created_at"), "text": (m.get("text") or "")[:80], "from": m.get("profile_name") or f"+{m.get('wa_id', '')}",
+            "status": m.get("status"), "label": _SKIP_LABEL.get(m.get("status") or "", m.get("status") or "")}
 
 
 @router.get("/receptionist/qr.png")

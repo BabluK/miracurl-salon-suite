@@ -20,6 +20,51 @@ def _to_whatsapp_text(reply: str) -> str:
     return out.strip()[:4000]
 
 
+_STOP = {"hi", "hello", "hey", "namaste", "salon", "the", "and", "for", "book", "booking", "appointment", "please", "want", "need", "at", "in", "to", "a", "i"}
+
+
+async def _match_tenant_by_name(text: str) -> dict | None:
+    """Best-effort salon lookup from free text ('hi glow studio koramangala') — needs ≥1 distinctive word to match."""
+    words = [w for w in re.findall(r"[a-z0-9]{3,}", (text or "").lower()) if w not in _STOP]
+    if not words:
+        return None
+    best, best_score = None, 0
+    async for t in _raw_db.tenants.find({"status": {"$ne": "suspended"}}, {"_id": 0, "id": 1, "name": 1, "slug": 1, "location": 1}):
+        hay = f"{t.get('name', '')} {t.get('slug', '')} {t.get('location', '')}".lower()
+        score = sum(1 for w in words if w in hay)
+        if score > best_score:
+            best, best_score = t, score
+    if best and best_score >= 1 and any(w in (best.get("name") or "").lower() for w in words):
+        return await _raw_db.tenants.find_one({"id": best["id"]}, {"_id": 0})
+    return None
+
+
+async def _platform_fallback(doc: dict, tenant: dict | None) -> str | None:
+    """Shared Miracurl number, no salon resolved: try matching the salon name, else ask which salon (HQ pays, no credits)."""
+    from services import wa_receptionist as rec
+    from services.whatsapp_cloud import send_text, wa_config
+    pid = wa_config()["phone_number_id"]
+    if tenant or (doc.get("phone_number_id") and pid and doc["phone_number_id"] != pid):
+        log.warning("whatsapp inbound on unknown phone_number_id %s (platform is …%s) — no reply", doc.get("phone_number_id"), pid[-4:])
+        await _raw_db.whatsapp_messages.update_one({"message_id": doc.get("message_id")}, {"$set": {"status": "skipped_unknown_number"}})
+        return None
+    wa_id = doc["wa_id"]
+    t = await _match_tenant_by_name(doc.get("text") or "")
+    if t:
+        await rec.touch_session(wa_id, t["id"])
+        await _raw_db.whatsapp_messages.update_one({"message_id": doc.get("message_id")}, {"$set": {"tenant_id": t["id"]}})
+        await send_text(wa_id, f"Connecting you to *{t.get('name')}* ✦")
+        return await mira_whatsapp_reply({**doc, "tenant_id": t["id"], "_fb": True}, None)
+    body = ("Hi! I'm Mira ✦ the AI receptionist for salons on Miracurl.\n\n"
+            "Which salon would you like to reach? Reply with the *salon name* (and area), or tap the salon's own WhatsApp link / QR "
+            "and I'll take it from there 💛")
+    await send_text(wa_id, body)
+    await _raw_db.whatsapp_messages.update_one({"message_id": doc.get("message_id")}, {"$set": {"status": "asked_salon", "mira_reply": body}})
+    log.info("mira asked %s which salon (no tenant resolved on platform number)", wa_id)
+    return body
+
+
+
 async def mira_whatsapp_reply(doc: dict, tenant: dict | None) -> str | None:
     """Generate + send Mira's reply for one stored inbound message. Returns the reply text (or None if skipped)."""
     if doc.get("type") not in _TEXT_TYPES or not (doc.get("text") or "").strip():
@@ -28,8 +73,13 @@ async def mira_whatsapp_reply(doc: dict, tenant: dict | None) -> str | None:
     t = await rec.resolve_inbound_tenant(doc, tenant)
     if t and not doc.get("tenant_id"):
         await _raw_db.whatsapp_messages.update_one({"message_id": doc.get("message_id")}, {"$set": {"tenant_id": t["id"]}})
+    if not t:
+        return None if doc.get("_fb") else await _platform_fallback(doc, tenant)
     from services.tenant_features import features_of
-    if not t or t.get("status") == "suspended" or t.get("wa_auto_reply") is False or not features_of(t)["whatsapp"]:
+    if t.get("status") == "suspended" or t.get("wa_auto_reply") is False or not features_of(t)["whatsapp"]:
+        reason = "suspended" if t.get("status") == "suspended" else "auto_reply_off" if t.get("wa_auto_reply") is False else "whatsapp_feature_off"
+        await _raw_db.whatsapp_messages.update_one({"message_id": doc.get("message_id")}, {"$set": {"status": f"skipped_{reason}"}})
+        log.warning("whatsapp auto-reply skipped for %s — %s", t.get("slug"), reason)
         return None
     wa_id = doc["wa_id"]
     session = await rec.get_session(wa_id)

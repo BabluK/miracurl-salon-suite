@@ -38,8 +38,14 @@ class WhatsAppWebhookPayload(BaseModel):
 @router.get("/webhooks/whatsapp/health")
 async def whatsapp_health():
     cfg = wa_config()
+    import os
+    from database import _raw_db
+    subs = await _raw_db.whatsapp_messages.find_one({"direction": "inbound", "raw.id": {"$not": {"$regex": "TEST"}}}, {"_id": 0, "created_at": 1}, sort=[("created_at", -1)])
     return {"status": "ok", "graph_api": GRAPH_API_VERSION,
-            "configured": {k: bool(v) for k, v in cfg.items() if k != "app_id"}}
+            "configured": {k: bool(v) for k, v in cfg.items() if k != "app_id"},
+            "phone_number_id_tail": (cfg["phone_number_id"] or "")[-4:],
+            "platform_number": os.environ.get("WHATSAPP_PLATFORM_NUMBER", ""),
+            "last_inbound_at": (subs or {}).get("created_at")}
 
 
 @router.get("/webhooks/whatsapp", response_class=PlainTextResponse)

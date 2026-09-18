@@ -976,6 +976,7 @@ async def demo_calendar(user=Depends(require_super_admin)):
                 "phone": slot.get("phone") or inv.get("phone", ""),
                 "date": slot["date"], "time": slot.get("time", ""),
                 "source": inv.get("source", "invite"), "booked_at": slot.get("booked_at", ""),
+                "purpose": slot.get("purpose") or "demo",
                 "gcal": _gcal_link(slot["date"], slot.get("time") or "11:00"),
                 "done": bool(inv.get("demo_done"))}
         slot_dt = f"{slot['date']}T{slot.get('time') or '00:00'}"

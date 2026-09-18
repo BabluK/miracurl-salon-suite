@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { MessageCircle, Users, Mail, Send, Clock, Sparkles, ImageIcon, X, ArrowRight, History, Loader2 } from "lucide-react";
+import { MessageCircle, Users, Mail, Send, Clock, Sparkles, ImageIcon, X, ArrowRight, History, Loader2, Upload } from "lucide-react";
 import { PhonePreview, CampaignHistory, Step, MiraDrafts, RepliesInbox } from "./WaCampaignBits";
 
 const TEMPLATES = {
@@ -51,21 +51,44 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
 
   const pickTemplate = (k) => { setTpl(k); setBrief(TEMPLATES[k].brief); };
 
-  const compose = async () => {
+  const compose = async (uploaded) => {
     if (!recipients) return toast.error("Pick recipients first");
+    const own = uploaded || (image?.id?.startsWith("upload:") ? image : null);
     setBusy("mira");
+    if (own) toast.message("Mira is reading your image ✦", { description: "She'll write the message to match what's in it." });
     try {
       const { data } = await api.post("/whatsapp-link/campaigns/compose", {
         audience, customer_ids: selectedCustomers.map(c => c.id), brief: tpl === "festive" && festPick ? `${brief} — festival: ${festPick}` : brief,
         offer_type: TEMPLATES[tpl].offer_type, discount_pct: TEMPLATES[tpl].offer_type === "discount" || tpl === "festive" ? discount : null,
+        image_url: own?.url || undefined,
       });
       setText(data.text);
       setMeta({ festival: data.festival || "", offer: data.offer || "", valid_till: data.valid_till || "" });
-      setCands(c => [...c.filter(x => x.id.startsWith("mira:")), ...(data.candidates || [])]);
-      if (!image?.id?.startsWith("mira:")) setImage(data.image); // keep a painted poster
+      setCands(c => [...c.filter(x => x.id.startsWith("mira:") || x.id.startsWith("upload:")), ...(data.candidates || []).filter(x => !x.id.startsWith("upload:"))]);
+      if (own) setImage(own); else if (!image?.id?.startsWith("mira:")) setImage(data.image); // keep uploads / painted posters
       toast.success(data.why ? `Mira: ${data.why}` : "Mira drafted your campaign ✦");
     } catch (e) { toast.error(e.response?.data?.detail || "Mira couldn't draft this"); }
     finally { setBusy(""); }
+  };
+
+  const fileRef = useRef(null);
+  const uploadOwn = async (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    if (f.size > 3 * 1024 * 1024) return toast.error("Image too large — max 3 MB");
+    setBusy("upload");
+    try {
+      const fd = new FormData();
+      fd.append("file", f);
+      const { data } = await api.post("/uploads/image?kind=promo", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const own = { id: `upload:${data.url}`, label: "Your uploaded image", url: data.url };
+      setCands(c => [own, ...c.filter(x => x.id !== own.id)]);
+      setImage(own);
+      toast.success("Image uploaded ✦");
+      if (recipients) await compose(own);
+    } catch (err) { toast.error(err.response?.data?.detail || "Upload failed"); }
+    finally { setBusy(b => (b === "upload" ? "" : b)); }
   };
 
   const paintPoster = async () => {
@@ -173,7 +196,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
             )}
           </Step>
 
-          <Step n={2} title="Choose Template or Create Message" right={<button onClick={compose} disabled={!!busy || !linked || !recipients} data-testid="wa-campaign-mira" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold hover:bg-rose-700 disabled:opacity-50">{busy === "mira" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Let Mira write it</button>}>
+          <Step n={2} title="Choose Template or Create Message" right={<button onClick={() => compose()} disabled={!!busy || !linked || !recipients} data-testid="wa-campaign-mira" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold hover:bg-rose-700 disabled:opacity-50">{busy === "mira" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Let Mira write it</button>}>
             {fest && (fest.today || fest.upcoming?.length > 0) && (
               <div className="rounded-xl bg-gradient-to-r from-amber-50 via-rose-50 to-amber-50 border border-amber-200 px-3 py-2 mb-3 flex items-center gap-3 flex-wrap text-xs" data-testid="wa-festival-radar">
                 <span className="font-semibold text-amber-800 inline-flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> Mira's festival radar</span>
@@ -200,7 +223,11 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
             </div>
           </Step>
 
-          <Step n={3} title="Add Image / Media (Optional)" right={<button onClick={paintPoster} disabled={!!busy} data-testid="wa-campaign-paint" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#d4af37] to-[#8a6a1c] text-white text-xs font-semibold disabled:opacity-50">{busy === "poster" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />} {busy === "poster" ? "Mira is painting…" : `Paint ${tpl === "festive" && festPick ? festPick : "campaign"} poster`}</button>}>
+          <Step n={3} title="Add Image / Media (Optional)" right={<div className="flex items-center gap-2 flex-wrap justify-end">
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={uploadOwn} data-testid="wa-campaign-upload-input" />
+            <button onClick={() => fileRef.current?.click()} disabled={!!busy} data-testid="wa-campaign-upload" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 text-xs font-semibold hover:border-emerald-400 disabled:opacity-50">{busy === "upload" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} {busy === "upload" ? "Uploading…" : "Upload your image"}</button>
+            <button onClick={paintPoster} disabled={!!busy} data-testid="wa-campaign-paint" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#d4af37] to-[#8a6a1c] text-white text-xs font-semibold disabled:opacity-50">{busy === "poster" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />} {busy === "poster" ? "Mira is painting…" : `Paint ${tpl === "festive" && festPick ? festPick : "campaign"} poster`}</button>
+          </div>}>
             <div className="flex gap-3 flex-wrap items-start">
               {busy === "poster" ? (
                 <div className="w-44 h-64 rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-rose-50 flex flex-col items-center justify-center text-center px-3 animate-pulse" data-testid="wa-campaign-painting">
@@ -212,9 +239,14 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
                 <div className="relative w-44 rounded-xl overflow-hidden border border-slate-200 bg-slate-50" data-testid="wa-campaign-image">
                   <img src={image.url} alt="" className="w-full h-auto max-h-64 object-contain" />
                   <button onClick={() => setImage(null)} data-testid="wa-campaign-no-image" className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center"><X className="w-3.5 h-3.5" /></button>
+                  {image.id.startsWith("upload:") && (
+                    <button onClick={() => compose(image)} disabled={!!busy} data-testid="wa-campaign-mira-from-image" className="w-full py-1.5 text-[11px] font-semibold bg-emerald-600 text-white inline-flex items-center justify-center gap-1 disabled:opacity-50">
+                      {busy === "mira" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Let Mira write from this image
+                    </button>
+                  )}
                 </div>
               ) : (
-                <div className="w-36 h-36 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 text-xs" data-testid="wa-campaign-image"><ImageIcon className="w-6 h-6 mb-1" />No image<span className="text-[10px]">Mira picks one, or choose →</span></div>
+                <div className="w-36 h-36 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 text-xs" data-testid="wa-campaign-image"><ImageIcon className="w-6 h-6 mb-1" />No image<span className="text-[10px] text-center px-2">Upload yours, let Mira paint, or choose →</span></div>
               )}
               <div className="flex gap-2 flex-wrap max-w-md">
                 {cands.map(c => <button key={c.id} onClick={() => setImage(c)} title={c.label} data-testid={`wa-campaign-cand-${c.id.split(":")[0]}`} className={`w-16 h-16 rounded-lg overflow-hidden border-2 ${image?.id === c.id ? "border-emerald-500" : "border-transparent hover:border-slate-300"}`}><img src={c.url} alt="" className="w-full h-full object-cover" onError={() => { setCands(cs => cs.filter(x => x.id !== c.id)); setImage(im => (im?.id === c.id ? null : im)); }} /></button>)}

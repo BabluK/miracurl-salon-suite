@@ -85,11 +85,14 @@ function Stat({ icon: Icon, label, value, hint, testid, color = "sky", action, n
 
 const dashCacheKey = (tenantId, b) => `mc_dash:${tenantId || ""}:${b || ""}`;
 const readDashCache = (k) => { try { return JSON.parse(sessionStorage.getItem(k) || "null"); } catch { return null; } };
+let _dashPaintedOnce = false; // first mount after a hard load measures from navigation start
+const _hardLoadedHere = /^\/(dashboard)?$/.test(window.location.pathname);
 
 export default function Dashboard() {
   const { tenant, user } = useAuth();
   // Perf: paint the last snapshot instantly (stale-while-revalidate), then refresh from the server.
   const [data, setData] = useState(() => readDashCache(dashCacheKey(tenant?.id, getSelectedBranch())));
+  const [loadMs, setLoadMs] = useState(0);
   const [showMonth, setShowMonth] = useState(false);
   const [blastOpen, setBlastOpen] = useState(false);
   const [reminders, setReminders] = useState({ count: 0, items: [] });
@@ -100,9 +103,12 @@ export default function Dashboard() {
     const fetchDash = () => {
       const b = getSelectedBranch();
       const key = dashCacheKey(tenant?.id, b);
+      const t0 = !_dashPaintedOnce && _hardLoadedHere ? 0 : performance.now();
       api.get("/reports/dashboard", { params: b ? { branch: b } : {} })
         .then(r => {
           setData(r.data);
+          setLoadMs(Math.max(50, Math.round(performance.now() - t0)));
+          _dashPaintedOnce = true;
           try { sessionStorage.setItem(key, JSON.stringify(r.data)); } catch { /* quota */ }
         })
         .catch(e => toast.error(`Couldn't load dashboard: ${e?.message || "network error"}`));
@@ -160,7 +166,7 @@ export default function Dashboard() {
   return (
     <div className="app-canvas relative isolate overflow-hidden -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="dashboard-page">
       <DashboardAurora />
-      <DashboardHero user={user} tenant={tenant} data={data} bookingUrl={bookingUrl} onCopy={copyLink} inr={inr} />
+      <DashboardHero user={user} tenant={tenant} data={data} bookingUrl={bookingUrl} onCopy={copyLink} inr={inr} loadMs={isOwner ? loadMs : 0} />
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

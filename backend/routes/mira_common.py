@@ -9,7 +9,7 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
 
 from database import _raw_db
 from services.storage import _put_object, _get_object, APP_NAME
@@ -36,7 +36,7 @@ def _llm_retryable(e: Exception) -> bool:
                                 "timed out", "temporarily", "connection", "502", "503"))
 
 
-async def _ask(system: str, prompt: str, *, model: str = "gpt-4o-mini", session: str = "") -> str:
+async def _ask(system: str, prompt: str, *, model: str = "gpt-4o-mini", session: str = "", images_b64: list | None = None) -> str:
     for attempt in range(4):
         try:
             async with _LLM_SEM:
@@ -45,7 +45,8 @@ async def _ask(system: str, prompt: str, *, model: str = "gpt-4o-mini", session:
                     session_id=session or f"mira-studio-{uuid.uuid4().hex[:10]}",
                     system_message=system,
                 ).with_model("openai", model)
-                resp = await chat.send_message(UserMessage(text=prompt))
+                msg = UserMessage(text=prompt, file_contents=[ImageContent(image_base64=b) for b in images_b64]) if images_b64 else UserMessage(text=prompt)
+                resp = await chat.send_message(msg)
             return (resp or "").strip()
         except Exception as e:
             if attempt == 3 or not _llm_retryable(e):
@@ -55,10 +56,10 @@ async def _ask(system: str, prompt: str, *, model: str = "gpt-4o-mini", session:
             await asyncio.sleep(wait)
 
 
-async def _ask_json(system: str, prompt: str, *, model: str = "gpt-4o-mini") -> dict:
+async def _ask_json(system: str, prompt: str, *, model: str = "gpt-4o-mini", images_b64: list | None = None) -> dict:
     sys = system + " Reply with ONLY valid minified JSON, no markdown, no prose."
     for attempt in range(2):
-        raw = await _ask(sys, prompt, model=model)
+        raw = await _ask(sys, prompt, model=model, images_b64=images_b64)
         raw = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
         try:
             return json.loads(raw)

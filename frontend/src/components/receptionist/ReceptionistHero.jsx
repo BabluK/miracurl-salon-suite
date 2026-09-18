@@ -28,6 +28,11 @@ const Stat = ({ icon: Icon, label, value, tone, testid, bar }) => (
   </div>
 );
 
+const timeAgo = (iso) => {
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
+};
+
 export const ReceptionistHero = ({ data, resto, onChange }) => {
   const [busy, setBusy] = useState(false);
   const [showQr, setShowQr] = useState(true);
@@ -83,6 +88,11 @@ export const ReceptionistHero = ({ data, resto, onChange }) => {
             <span className={`w-2 h-2 rounded-full ${live ? "bg-white animate-pulse" : "bg-amber-900/60"}`} />
           </span>
           <span className="text-sm text-emerald-100">Number: <b className="text-white">{number}</b>{own && <span className="ml-2 text-[11px] bg-white/15 rounded-full px-2 py-0.5">your own number</span>}</span>
+          {data.last_inbound && (
+            <span className="text-[11px] text-emerald-100/90 bg-white/10 rounded-full px-3 py-1" data-testid="receptionist-last-inbound" title={data.last_inbound.text}>
+              Last guest message {timeAgo(data.last_inbound.at)} · <b className={data.last_inbound.status === "replied" ? "text-emerald-300" : "text-amber-300"}>{data.last_inbound.label}</b>
+            </span>
+          )}
           <div className="md:ml-auto flex items-center gap-3 text-xs text-emerald-100">Share your WhatsApp link
             <span className="text-emerald-300 text-xl leading-none">↷</span>
           </div>
