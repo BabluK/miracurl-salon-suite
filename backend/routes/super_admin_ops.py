@@ -25,6 +25,7 @@ from models import (
     Tenant, Customer,
 )
 from email_service import (
+    hq_inbox,
     _send_email, _welcome_email_html, _credentials_email_html, _monthly_report_html,
     _weekly_report_html, _platform_digest_html,
 )
@@ -651,7 +652,7 @@ async def contact_hq(
 <p style="font-size:12px;color:#888;margin-top:14px">Attachments: {html_lib.escape(', '.join(names)) or 'none'} · Sent via Miracurl Contact HQ</p>
 </div>"""
     status = await _send_email(
-        [os.environ.get("HQ_EMAIL", "admin@miracurl.com")],
+        [hq_inbox("support")],
         f"[Miracurl HQ] {subject} — {t['name']}", html, attachments=attachments or None)
     await _raw_db.hq_messages.insert_one({
         "id": str(uuid.uuid4()), "tenant_id": t["id"], "tenant_name": t["name"],
@@ -1201,9 +1202,7 @@ async def super_admin_overview(user=Depends(require_super_admin)):
     }
 async def _run_platform_digest() -> dict:
     """Monday HQ email: platform pulse — salons, leads, expiring trials, open tickets, revenue."""
-    hq = os.environ.get("HQ_EMAIL")
-    if not hq:
-        return {"sent": 0, "error": "HQ_EMAIL not set"}
+    hq = hq_inbox("admin")
     now = datetime.now(timezone.utc)
     week_ago = (now - timedelta(days=7)).isoformat()
     week_ahead = (now + timedelta(days=7)).isoformat()

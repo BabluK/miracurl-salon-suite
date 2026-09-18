@@ -116,6 +116,6 @@ async def build_invoice_pdf(t: dict, pay: dict, coll, kind: str, label: str = ""
     c.drawString(40, y - 4, f"Payment: Razorpay {pay.get('razorpay_payment_id') or pay.get('payment_id') or ''}".strip())
     c.drawString(40, 60, "Place of supply: Karnataka (29)" if same_state else "Place of supply: recipient's state · IGST")
     c.drawString(40, 48, "This is a computer-generated invoice and does not require a signature. Reverse charge: No.")
-    c.drawRightString(W - 40, 48, "miracurl-suite.com · admin@miracurl.com")
+    c.drawRightString(W - 40, 48, "miracurl-suite.com · billing@miracurl-suite.com")
     c.showPage(); c.save()
     return buf.getvalue(), inv_no

@@ -62,6 +62,11 @@ def hq_notify_emails(kind: str = "admin") -> list:
     return [override or _HQ_ALIASES.get(kind) or _HQ_ALIASES["admin"]]
 
 
+def hq_inbox(kind: str = "admin") -> str:
+    """Single HQ alias address (support@, booking@, billing@ …) — HQ_EMAIL is a tenant mailbox, never use it here."""
+    return hq_notify_emails(kind)[0]
+
+
 def _resend_config_error() -> dict | None:
     if not os.environ.get("RESEND_API_KEY"):
         return {"sent": False, "error": "Email not configured (RESEND_API_KEY missing)"}
@@ -278,7 +283,7 @@ def salon_welcome_email_html(salon_name: str, owner_name: str, owner_email: str,
         html_lib.escape(salon_name or "your salon"), html_lib.escape(owner_name or "there"),
         html_lib.escape(owner_email or ""), html_lib.escape(password or ""))
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("support")
     return f"""
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
       {_welcome_poster_row(poster_url)}
@@ -317,7 +322,7 @@ def restaurant_welcome_email_html(restaurant_name: str, owner_name: str, owner_e
         html_lib.escape(restaurant_name or "your restaurant"), html_lib.escape(owner_name or "there"),
         html_lib.escape(owner_email or ""), html_lib.escape(password or ""))
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("support")
     return f"""
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
       {_welcome_poster_row(poster_url)}
@@ -354,7 +359,7 @@ def _credentials_email_html(salon_name: str, owner_email: str, temp_pw: str) -> 
                                         html_lib.escape(owner_email or ""),
                                         html_lib.escape(temp_pw or ""))
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("support")
     return f"""
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
       <div style="background:#1c1c22;padding:26px 30px">
@@ -408,7 +413,7 @@ def renewal_reminder_email_html(salon_name: str, days_left: int, end_date: str,
                                 plan_label: str, price: float, credits: float) -> str:
     """15/7/1-day subscription renewal reminder with in-app Razorpay pay CTA."""
     renew_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/settings"
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("billing")
     when = "ends <b>tomorrow</b>" if days_left == 1 else f"ends in <b>{days_left} days</b>"
     credit_row = (f'<p style="margin:12px 0 0;font-size:13px;color:#1f7a4d;font-family:Arial,sans-serif">'
                   f'🎁 You have <b>₹{credits:,.0f}</b> referral credits — they\'ll be auto-applied as a discount at checkout.</p>') if credits > 0 else ""
@@ -504,7 +509,7 @@ def _trial_ending_vars(t: dict, nudge: dict) -> dict:
     return {
         "days_left": days_left, "offer": offer, "price_str": nudge["price_str"],
         "noun": "restaurant" if resto else "salon",
-        "hq_email": os.environ.get("HQ_EMAIL", "admin@miracurl.com"),
+        "hq_email": hq_inbox("support"),
         "when": "ends <b>tomorrow</b>" if days_left == 1 else f"ends in <b>{days_left} days</b>",
         "days_label": f"{days_left} day{plural} left",
         "owner": e(t.get("owner_name") or t.get("name") or "there"),
@@ -554,7 +559,7 @@ def trial_extended_email_html(t: dict, info: dict) -> str:
     """HQ extended / reset the free trial: new end date, what it means, thank-you note. info = {label, end_date, days_left, previous_end}."""
     e = html_lib.escape
     noun = "restaurant" if t.get("business_type") == "restaurant" else "salon"
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("billing")
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     row = lambda k, v: f"<tr><td style='padding:7px 0;color:#777;font-size:13px'>{k}</td><td style='padding:7px 0;text-align:right;font-weight:bold;font-size:13px'>{v}</td></tr>"
     prev = f"{row('Previous end date', e(info['previous_end']))}" if info.get("previous_end") else ""
@@ -591,7 +596,7 @@ def refund_notice_email_html(t: dict, info: dict) -> str:
     """Refund processed: what changed (access), refund reference, and a one-tap reactivation link."""
     e = html_lib.escape
     noun = "restaurant" if t.get("business_type") == "restaurant" else "salon"
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("refunds")
     row = lambda k, v: f"<tr><td style='padding:7px 0;color:#777;font-size:13px'>{k}</td><td style='padding:7px 0;text-align:right;font-weight:bold;font-size:13px'>{v}</td></tr>"
     access = (f"Your access now continues until <b>{e(str(info['access_until'])[:10])}</b> (from an earlier active plan)."
               if info.get("access_until") else
@@ -630,7 +635,7 @@ def refund_notice_email_html(t: dict, info: dict) -> str:
 def renewal_reminder_email_intl_html(salon_name: str, days_left: int, end_date: str,
                                      plan_label: str, price_usd: float, pay_url: str) -> str:
     """USD renewal reminder with a one-click Stripe pay link (international salons)."""
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("billing")
     demo_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/demo"
     when = "ends <b>tomorrow</b>" if days_left == 1 else f"ends in <b>{days_left} days</b>"
     price_row = f' · ${price_usd:,.0f}' if price_usd else ""
@@ -668,7 +673,7 @@ def restaurant_trial_reminder_email_html(restaurant_name: str, days_left: int, e
                                          source: str, credits: float) -> str:
     """Friendly trial/renewal reminder — restaurant vertical only."""
     renew_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/settings"
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("billing")
     ending = "free month ends" if source == "trial" else "subscription ends"
     when = f"{ending} <b>tomorrow</b>" if days_left == 1 else f"{ending} in <b>{days_left} days</b>"
     credit_row = (f'<p style="margin:12px 0 0;font-size:13px;color:#1f7a4d;font-family:Arial,sans-serif">'
@@ -705,7 +710,7 @@ def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_
                         business_type: str = "salon") -> str:
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
     img = poster_url or os.environ.get("WELCOME_IMAGE_URL", "")
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("support")
     is_resto = business_type == "restaurant"
     journey = "Your restaurant's digital journey begins today 🎉" if is_resto else "Your salon's digital journey begins today 🎉"
     suite_line = ("Your complete restaurant management suite is ready — QR table ordering, live kitchen tickets, "
@@ -866,7 +871,7 @@ def _attendance_month_html(t: dict, month_label: str, rows: list) -> str:
 
 
 def _monthly_report_html(t: dict, month_label: str, stats: dict, tip: str = "") -> str:
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("support")
     chip = _growth_chip(stats["revenue"], float(stats.get("prev_revenue") or 0), "previous month")
     chart = _bar_chart_block(stats.get("weekly") or [], ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"],
                              "📊 Weekly collection", label_w=64, bar_h=16, row_pad=4, skip_last_if_zero=True)
@@ -924,7 +929,7 @@ def _weekly_tip_block(tip: str, label: str = "💡 Mira's tip for this week") ->
 
 
 def _weekly_report_html(t: dict, week_label: str, stats: dict, tip: str = "") -> str:
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("support")
     chip = _growth_chip(stats["revenue"], float(stats.get("prev_revenue") or 0), "last week")
     chart = _bar_chart_block(stats.get("daily") or [], ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
                              "📊 Day by day", label_w=44, bar_h=14, row_pad=3)

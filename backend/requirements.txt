@@ -58,6 +58,7 @@ h11==0.16.0
 hf-xet==1.5.1
 httpcore==1.0.9
 httplib2==0.32.0
+httptools==0.8.0
 httpx==0.28.1
 huggingface_hub==1.21.0
 idna==3.18
@@ -161,6 +162,7 @@ tzdata==2026.2
 uritemplate==4.2.0
 urllib3==2.7.0
 uvicorn==0.25.0
+uvloop==0.22.1
 watchfiles==1.2.0
 webauthn==2.2.0
 webencodings==0.6.1

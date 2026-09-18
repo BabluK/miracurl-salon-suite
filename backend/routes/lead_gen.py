@@ -1773,7 +1773,8 @@ async def lead_meet_invite(lid: str, body: LeadMeetInviteIn, user=Depends(requir
     start_utc = (ist_dt - timedelta(hours=5, minutes=30)).replace(tzinfo=timezone.utc)
     end_utc = start_utc + timedelta(minutes=body.duration_min)
     first = (lead.get("owner_name") or lead.get("name") or "there").split()[0].title()
-    hq_email = os.environ.get("HQ_EMAIL", "hello@miracurl.com")
+    from email_service import hq_inbox
+    hq_email = hq_inbox("booking")
     pretty = ist_dt.strftime("%A, %d %B %Y at %I:%M %p IST")
     link_line = f"\nJoin here: {body.meet_link}" if body.meet_link else ""
     ics = _build_ics(lid, start_utc, end_utc, f"Miracurl Salon Suite demo — {lead.get('name', '')}",

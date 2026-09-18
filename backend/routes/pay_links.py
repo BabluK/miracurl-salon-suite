@@ -458,10 +458,8 @@ async def _thank_you_email(link: dict, end_date: str) -> None:
 
 async def _hq_paid_alert_email(link: dict, end_date: str, payment_id: str) -> None:
     """The moment a salon pays through a link, HQ gets an instant email."""
-    from email_service import _send_email
-    hq = os.environ.get("HQ_EMAIL")
-    if not hq:
-        return
+    from email_service import _send_email, hq_inbox
+    hq = hq_inbox("payments")
     salon = html_lib.escape(link["salon_name"])
     await _send_email(
         [hq], f"💰 {salon} just paid {_fmt_amt(link)} via your payment link!",

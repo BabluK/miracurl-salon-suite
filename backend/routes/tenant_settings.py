@@ -21,6 +21,7 @@ from security import (
     require_owner_pin,
 )
 from email_service import (
+    hq_inbox,
     _send_email,
 )
 from services.storage import _put_object, _get_object, APP_NAME
@@ -339,7 +340,7 @@ async def request_more_branches(body: BranchRequestIn, user=Depends(require_admi
         "created_at": datetime.now(timezone.utc).isoformat()})
     try:
         await _send_email(
-            [os.environ.get("HQ_EMAIL", "admin@miracurl.com")],
+            [hq_inbox("support")],
             f"[Miracurl HQ] {subject}",
             f"""<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#333">
             <h2 style="color:#1a1a2e">🏢 New branch request</h2>

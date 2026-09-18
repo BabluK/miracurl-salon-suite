@@ -83,20 +83,28 @@ function Stat({ icon: Icon, label, value, hint, testid, color = "sky", action, n
   );
 }
 
+const dashCacheKey = (tenantId, b) => `mc_dash:${tenantId || ""}:${b || ""}`;
+const readDashCache = (k) => { try { return JSON.parse(sessionStorage.getItem(k) || "null"); } catch { return null; } };
+
 export default function Dashboard() {
-  const [data, setData] = useState(null);
+  const { tenant, user } = useAuth();
+  // Perf: paint the last snapshot instantly (stale-while-revalidate), then refresh from the server.
+  const [data, setData] = useState(() => readDashCache(dashCacheKey(tenant?.id, getSelectedBranch())));
   const [showMonth, setShowMonth] = useState(false);
   const [blastOpen, setBlastOpen] = useState(false);
   const [reminders, setReminders] = useState({ count: 0, items: [] });
   const [subStatus, setSubStatus] = useState(null);
-  const { tenant, user } = useAuth();
   const isOwner = user?.role === "admin" || user?.role === "super_admin";
 
   useEffect(() => {
     const fetchDash = () => {
       const b = getSelectedBranch();
+      const key = dashCacheKey(tenant?.id, b);
       api.get("/reports/dashboard", { params: b ? { branch: b } : {} })
-        .then(r => setData(r.data))
+        .then(r => {
+          setData(r.data);
+          try { sessionStorage.setItem(key, JSON.stringify(r.data)); } catch { /* quota */ }
+        })
         .catch(e => toast.error(`Couldn't load dashboard: ${e?.message || "network error"}`));
     };
     fetchDash();
@@ -106,7 +114,7 @@ export default function Dashboard() {
       api.get("/billing/subscription-status").then(r => setSubStatus(r.data)).catch(() => {});
     }
     return () => window.removeEventListener("branch-changed", fetchDash);
-  }, [isOwner]);
+  }, [isOwner, tenant?.id]);
 
   const isAdmin = user?.role === "admin" || user?.role === "super_admin";
   const monthMasked = !!data && ((data.month_revenue_locked && !(isAdmin && showMonth)) || (data.month_revenue_hidden_for_staff && !showMonth));

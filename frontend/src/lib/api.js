@@ -13,6 +13,34 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// Perf: identical GETs fired within a couple of seconds (StrictMode, sibling
+// widgets, polling overlap) share one network round-trip. Any mutation wipes
+// the cache so a POST → GET sequence always sees fresh data.
+const GET_TTL_MS = 2000;
+const _inflight = new Map();
+const _recent = new Map();
+const _getKey = (c) => `${tenantSlug || ""}|${c.baseURL || ""}${c.url}|${JSON.stringify(c.params || {})}`;
+const _baseAdapter = axios.getAdapter(axios.defaults.adapter);
+const _share = (res, config) => ({ ...res, config, data: typeof structuredClone === "function" ? structuredClone(res.data) : res.data });
+api.defaults.adapter = (config) => {
+  const method = (config.method || "get").toLowerCase();
+  if (method !== "get" || ["blob", "arraybuffer", "stream"].includes(config.responseType) || config.noCache) {
+    if (method !== "get") { _recent.clear(); }
+    return _baseAdapter(config);
+  }
+  const key = _getKey(config);
+  const hit = _recent.get(key);
+  if (hit && Date.now() - hit.at < GET_TTL_MS) return Promise.resolve(_share(hit.res, config));
+  if (_inflight.has(key)) return _inflight.get(key).then((res) => _share(res, config));
+  const p = _baseAdapter(config).then((res) => {
+    _recent.set(key, { at: Date.now(), res });
+    return res;
+  }).finally(() => _inflight.delete(key));
+  _inflight.set(key, p);
+  return p;
+};
+export function invalidateGetCache() { _recent.clear(); }
+
 // Auth is carried ONLY by the HttpOnly `access_token` cookie the server sets on
 // login (sent automatically thanks to withCredentials). The JWT never touches
 // JavaScript, so an XSS payload cannot read or exfiltrate it.

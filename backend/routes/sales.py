@@ -16,7 +16,7 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 from database import _raw_db
 from security import public_rate_limit, require_super_admin, require_tenant_admin, current_tenant, require_owner_pin
-from email_service import _send_email, _lead_alert_email_html
+from email_service import hq_inbox, _send_email, _lead_alert_email_html
 
 router = APIRouter()
 
@@ -234,7 +234,7 @@ async def success_stats():
 
 async def _send_lead_alert(inq: dict, question: str):
     """Fire-and-forget hot-lead alert to HQ the moment a prospect asks their first question."""
-    hq = os.environ.get("HQ_EMAIL")
+    hq = hq_inbox("sales")
     if not hq:
         return
     try:
@@ -385,7 +385,7 @@ async def inquiry_send_thankyou(iid: str, user=Depends(require_super_admin)):
     if last and (datetime.now(timezone.utc) - datetime.fromisoformat(last)).total_seconds() < 300:
         raise HTTPException(429, "Brochure was sent moments ago — wait a few minutes before resending")
     first = inq["name"].split()[0].title()
-    hq_email = os.environ.get("HQ_EMAIL", "")
+    hq_email = hq_inbox("booking")
     hq_phone = os.environ.get("HQ_PHONE", "")
     contact = " · ".join(x for x in (hq_phone, hq_email) if x)
     body_text = (
@@ -449,7 +449,7 @@ async def inquiry_send_invite(iid: str, body: MeetInviteIn, user=Depends(require
     start_utc = (ist_dt - timedelta(hours=5, minutes=30)).replace(tzinfo=timezone.utc)
     end_utc = start_utc + timedelta(minutes=body.duration_min)
     first = inq["name"].split()[0].title()
-    hq_email = os.environ.get("HQ_EMAIL", "hello@miracurl.com")
+    hq_email = hq_inbox("booking")
     pretty = ist_dt.strftime("%A, %d %B %Y at %I:%M %p IST")
     link_line = f"\nJoin here: {body.meet_link}" if body.meet_link else ""
     ics = _build_ics(iid, start_utc, end_utc, f"Miracurl Salon Suite demo — {inq['name']}",

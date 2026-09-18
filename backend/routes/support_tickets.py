@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from database import _raw_db
-from email_service import _send_email
+from email_service import hq_inbox, _send_email
 from security import current_tenant, public_rate_limit, require_admin, require_super_admin
 from services.tenant_notices import notify_tenant
 
@@ -45,7 +45,7 @@ async def create_fix_request(body: FixRequestIn, request: Request, user=Depends(
     from services.hq_emails import fix_request_hq_email, fix_request_owner_email
     try:
         subj, html = fix_request_hq_email(t, no, page, body.page_title, body.issue, user.get("email") or "")
-        await _send_email([os.environ.get("HQ_EMAIL", "admin@miracurl.com")], subj, html, book_url=f"{base}/super-admin", book_label="Open Super Admin ✦",
+        await _send_email([hq_inbox("support")], subj, html, book_url=f"{base}/super-admin", book_label="Open Super Admin ✦",
                           reply_to=user.get("email"))
         from routes.rewards_settlements import _real_email
         em = await _real_email(t)

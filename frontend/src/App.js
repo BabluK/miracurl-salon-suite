@@ -227,6 +227,17 @@ function ContentGuard() {
 function TenantKeyedRoutes({ children }) {
   const { user } = useAuth();
   const location = useLocation();
+  // Perf: once signed in, warm the most-used route chunks while the browser is idle → instant navigation.
+  useEffect(() => {
+    if (!user || user.role === "super_admin") return undefined;
+    const warm = () => { [
+      () => import("@/pages/Appointments"), () => import("@/pages/POS"), () => import("@/pages/Customers"),
+      () => import("@/pages/Staff"), () => import("@/pages/Services"), () => import("@/pages/Inventory"),
+    ].forEach((f) => f().catch(() => {})); };
+    const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 2500));
+    const id = idle(warm, { timeout: 6000 });
+    return () => (window.cancelIdleCallback || clearTimeout)(id);
+  }, [user]);
   if (location.hash?.includes("session_id=")) return <GoogleAuthCallback />;
   return <Routes key={user?.tenant_id || user?.active_tenant_id || "anon"}>{children}</Routes>;
 }

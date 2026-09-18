@@ -15,7 +15,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 
 from database import _raw_db
-from email_service import _send_email, platform_brand_mark
+from email_service import hq_inbox, hq_notify_emails, _send_email, platform_brand_mark
 from security import public_base_url, public_rate_limit, require_super_admin
 
 router = APIRouter()
@@ -672,7 +672,7 @@ async def _send_demo_invite(em: str, name: str, salon: str, ctx: _DemoSendCtx, c
 @router.post("/super-admin/demo-campaign/send")
 async def demo_campaign_send(body: DemoCampaignIn, request: Request, user=Depends(require_super_admin)):
     targets = _dedupe_recipients(body.recipients)
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("booking")
     resto = body.vertical == "restaurant"
     founder = body.template == "founder"
     from routes.subscriptions import get_trial_days
@@ -730,7 +730,7 @@ async def demo_campaign_preview(template: str = "demo", vertical: str = "salon",
         return _founder_expiry_html(name, salon_name, "04 March 2027", 4000, 20000, "glow-studio")
     from routes.subscriptions import get_trial_days
     vert = "restaurant" if vertical == "restaurant" else "salon"
-    return _demo_email_html(name, salon_name, note, os.environ.get("HQ_EMAIL", "admin@miracurl.com"),
+    return _demo_email_html(name, salon_name, note, hq_inbox("booking"),
                             DemoEmailOpts(plans=await _live_plans(), vertical=vert, trial_days=await get_trial_days(),
                                           currency="USD" if currency == "USD" else "INR"))
 
@@ -859,7 +859,7 @@ async def run_demo_followups() -> dict:
     """One gentle reminder per invitee, 5+ days after the invite, unless replied/converted.
     Founder-letter recipients get their own 7-day nudge (only if they opened the letter)."""
     cutoff = (datetime.now(timezone.utc) - timedelta(days=FOLLOWUP_AFTER_DAYS)).isoformat()
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("booking")
     tenant_emails = set(await _raw_db.tenants.distinct("owner_email"))
     salon_attachments = await asyncio.to_thread(_all_doc_attachments, "salon")
     resto_attachments = await asyncio.to_thread(_all_doc_attachments, "restaurant")
@@ -892,7 +892,7 @@ async def run_demo_followups() -> dict:
 
 async def _send_slot_picker_email(inv: dict, base: str) -> dict:
     link = f"{base}/demo-slot/{inv['id']}"
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("booking")
     name = html_lib.escape(inv.get("name") or "there")
     salon = html_lib.escape(inv.get("salon_name") or "your salon")
     html = f"""
@@ -1080,7 +1080,7 @@ async def _owner_has_logged_in(owner_email: str) -> bool:
 async def run_founder_setup_nudges() -> dict:
     """Founder-offer salons created 3+ days ago whose owner never logged in → one nudge in Bablu's voice."""
     cutoff = (datetime.now(timezone.utc) - timedelta(days=FOUNDER_NUDGE_AFTER_DAYS)).isoformat()
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("booking")
     sent = failed = logged_in = 0
     async for t in _raw_db.tenants.find(
             {"signup_offer": "founder_6m", "founder_nudge_sent_at": {"$exists": False},
@@ -1161,7 +1161,7 @@ def _founder_feedback_html(owner_name: str, salon_name: str, base: str, token: s
 async def run_founder_feedback_asks() -> dict:
     """Founder-offer salons 30+ days old → one 'how is it going?' note with one-tap rating links."""
     cutoff = (datetime.now(timezone.utc) - timedelta(days=FOUNDER_FEEDBACK_AFTER_DAYS)).isoformat()
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("booking")
     base = os.environ.get("APP_PUBLIC_URL", FOUNDER["url"]).rstrip("/")
     sent = failed = 0
     async for t in _raw_db.tenants.find(
@@ -1292,7 +1292,7 @@ async def run_founder_expiry_offers() -> dict:
     """Founder-offer salons whose free 6 months end within 30 days → founding-member credit + Bablu's note (once)."""
     today = datetime.now(timezone.utc).date().isoformat()
     horizon = (datetime.now(timezone.utc) + timedelta(days=FOUNDER_EXPIRY_DAYS_BEFORE)).date().isoformat()
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("booking")
     sent = failed = 0
     async for t in _raw_db.tenants.find(
             {"signup_offer": "founder_6m", "status": "trial", "founder_expiry_offer_sent_at": {"$exists": False},
@@ -1479,7 +1479,7 @@ async def demo_invite_resend(iid: str, request: Request, user=Depends(require_su
         raise HTTPException(404, "Invite not found")
     if inv["email"] in set(await _raw_db.tenants.distinct("owner_email")):
         raise HTTPException(400, "Already a Miracurl partner")
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq_email = hq_inbox("booking")
     track_base = public_base_url(request) or inv.get("track_base") or ""
     status = await _send_invite_email(inv, track_base, hq_email)
     if not status.get("sent"):
@@ -1537,7 +1537,7 @@ def _slot_ics(date_str: str, time_str: str, attendee_email: str) -> str:
     start = _slot_utc(date_str, time_str)
     end = start + timedelta(minutes=30)
     fmt = "%Y%m%dT%H%M%SZ"
-    hq = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+    hq = hq_inbox("booking")
     return ("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Miracurl Suite//Demo//EN\r\nMETHOD:REQUEST\r\n"
             "BEGIN:VEVENT\r\n"
             f"UID:{uuid.uuid4()}@miracurl-suite.com\r\n"
@@ -1642,29 +1642,87 @@ def _validate_slot(date_s: str, time_s: str):
         raise HTTPException(400, "Invalid time slot")
 
 
+def _hq_slot_alert_html(d: dict) -> str:
+    """Polished HQ alert for a demo / onboarding booking (to support@)."""
+    e = html_lib.escape
+    onboarding = d["purpose"] == "onboarding"
+    label = "ONBOARDING ASSISTANCE" if onboarding else "LIVE DEMO"
+    badge_bg, badge_fg = ("#e0f2ea", "#1f7a4d") if onboarding else ("#fdeef4", "#c2185b")
+    local = f" · {e(d['local_time'])} local ({e(d['tz'])})" if d.get("local_time") else ""
+    row = lambda k, v: (f"<tr><td style='padding:9px 0;font-size:12px;letter-spacing:1.2px;color:#9a8f6d;font-weight:bold;width:34%;border-bottom:1px solid #f0ece2'>{k}</td>"
+                        f"<td style='padding:9px 0;font-size:14px;color:#1d1d24;border-bottom:1px solid #f0ece2'>{v}</td></tr>")
+    mailto = f"mailto:{e(d['email'])}?subject=Your%20Miracurl%20{'onboarding%20session' if onboarding else 'demo'}%20%E2%80%94%20{e(d['date'])}%20{e(d['time'])}%20IST"
+    return f"""<!doctype html><html><body style="margin:0;padding:0;background:#f2f0eb">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f0eb;padding:28px 12px"><tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:18px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,.08)">
+  <tr><td style="background:#15151b;padding:28px 36px 24px">
+    {platform_brand_mark(24)}
+    <div style="height:2px;width:56px;background:#d4af37;margin-top:12px"></div>
+    <div style="font-size:11px;letter-spacing:2.5px;color:#d4af37;font-weight:bold;margin-top:16px">MIRACURL HQ · NEW REQUEST</div>
+    <div style="font-family:Georgia,serif;color:#f4f1e8;font-size:21px;margin-top:8px;line-height:1.4">
+      {e(d['name'] or d['email'])} booked {'an onboarding session' if onboarding else 'a live demo'} ✦</div>
+  </td></tr>
+  <tr><td style="padding:24px 36px 4px">
+    <span style="display:inline-block;background:{badge_bg};color:{badge_fg};font-size:11px;font-weight:bold;letter-spacing:1.8px;padding:6px 14px;border-radius:999px">{label}</span>
+  </td></tr>
+  <tr><td style="padding:14px 36px 6px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fdf8ec;border:1px solid #ecdcae;border-radius:14px">
+      <tr><td style="padding:20px 24px">
+        <div style="font-size:11px;letter-spacing:2px;color:#9a8f6d;font-weight:bold">SCHEDULED SLOT</div>
+        <div style="font-family:Georgia,serif;font-size:24px;color:#1d1d24;margin-top:8px">{e(d['pretty'])}</div>
+        <div style="font-size:16px;color:#55555f;margin-top:4px"><b>{e(d['time'])} IST</b> · 20 minutes{local}</div>
+      </td></tr>
+    </table>
+  </td></tr>
+  <tr><td style="padding:18px 36px 6px">
+    <div style="font-size:11px;letter-spacing:2px;color:#9a8f6d;font-weight:bold;margin-bottom:6px">PROSPECT DETAILS</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      {row("NAME", e(d['name'] or '—'))}
+      {row("EMAIL", f"<a href='mailto:{e(d['email'])}' style='color:#b08d3f;text-decoration:none'>{e(d['email'])}</a>")}
+      {row("PHONE", e(d['phone'] or '—'))}
+      {row("SALON", e(d['salon_name'] or '—'))}
+      {row("CITY", e(d['city'] or '—'))}
+    </table>
+  </td></tr>
+  <tr><td align="center" style="padding:24px 36px 8px">
+    <a href="{d['gcal']}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:14px;font-weight:bold;text-decoration:none;padding:13px 30px;border-radius:999px;margin:4px">📅 Add to Google Calendar</a>
+    <a href="{mailto}" style="display:inline-block;background:#15151b;color:#e8c37f;font-size:14px;font-weight:bold;text-decoration:none;padding:13px 30px;border-radius:999px;margin:4px">✉ Reply to {e((d['name'] or 'prospect').split()[0])}</a>
+    <div style="font-size:12px;color:#8f8798;margin-top:12px">The prospect has received a confirmation with the same calendar invite (.ics attached here too).</div>
+  </td></tr>
+  <tr><td style="padding:14px 36px 26px">
+    <p style="font-size:12px;color:#8f8798;line-height:1.7;margin:0">Replying to this email goes straight to the prospect. Manage all requests in
+      <a href="{e(d['admin_url'])}" style="color:#b08d3f;text-decoration:none">Super Admin → Demo calendar</a>.</p>
+  </td></tr>
+  <tr><td style="background:#15151b;padding:14px 36px;text-align:center">
+    <span style="font-size:11px;color:#8f8798;letter-spacing:1px">MIRACURL SUITE · HQ NOTIFICATIONS · {e(hq_inbox('support'))}</span></td></tr>
+</table></td></tr></table></body></html>"""
+
+
 async def _send_slot_confirmations(email: str, name: str, salon_name: str,
                                    date_s: str, time_s: str, phone: str, city: str = "",
-                                   purpose: str = "demo") -> str:
-    hq_email = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+                                   purpose: str = "demo", local: dict | None = None) -> str:
+    booking_inbox = hq_inbox("booking")
     kind = "onboarding assistance session" if purpose == "onboarding" else "demo"
     gcal = _gcal_link(date_s, time_s)
     ics = _slot_ics(date_s, time_s, email)
     ics_att = [{"filename": "miracurl-demo.ics", "content": base64.b64encode(ics.encode()).decode()}]
     await _send_email([email],
                       f"Your Miracurl {kind} is booked — {date_s} at {time_s} IST ✦",
-                      _slot_confirm_email_html(name, date_s, time_s, gcal, hq_email),
-                      attachments=ics_att, reply_to=hq_email)
+                      _slot_confirm_email_html(name, date_s, time_s, gcal, booking_inbox),
+                      attachments=ics_att, reply_to=booking_inbox)
     pretty = datetime.fromisoformat(date_s).strftime("%a, %d %b %Y")
-    await _send_email([hq_email],
-                      f"🔥 {kind.capitalize()} booked: {name or email} — {pretty} {time_s} IST",
-                      f"""<div style="font-family:Arial,sans-serif;font-size:14px;color:#33333b;line-height:1.7">
-<p><b>{html_lib.escape(name or '')}</b> ({html_lib.escape(email)}) just booked a {kind} slot.</p>
-<p>📅 <b>{pretty} at {time_s} IST</b> · 20 min<br>
-📞 Phone: {html_lib.escape(phone.strip() or '—')}<br>
-🏠 Salon: {html_lib.escape(salon_name or '—')}{f" · {html_lib.escape(city)}" if city else ""}</p>
-<p><a href="{gcal}">Add to your Google Calendar</a> — the prospect received a confirmation with the same invite.</p></div>""",
-                      attachments=ics_att)
+    admin_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com').rstrip('/')}/super-admin"
+    ctx = {"name": name, "email": email, "phone": (phone or "").strip(), "salon_name": salon_name, "city": city,
+           "date": date_s, "time": time_s, "pretty": datetime.fromisoformat(date_s).strftime("%A, %d %B %Y"),
+           "purpose": purpose, "gcal": gcal, "admin_url": admin_url, **(local or {})}
+    await _send_email(hq_notify_emails("support"),
+                      f"{'🧭 Onboarding session' if purpose == 'onboarding' else '🔥 Live demo'} booked · {name or email} — {pretty} {time_s} IST",
+                      _hq_slot_alert_html(ctx), attachments=ics_att, reply_to=email,
+                      book_url=admin_url, book_label="Open Super Admin ✦")
     return gcal
+
+
+
 
 
 @router.post("/public/demo-slot/{iid}")
@@ -1773,7 +1831,8 @@ async def _book_open_demo(d: dict) -> dict:
     slot["purpose"] = str(d.get("purpose") or "demo")
     await _upsert_demo_invite(email, name, salon_name, city, slot, now_iso)
     await _mark_lead_demo(email, slot, now_iso)
-    gcal = await _send_slot_confirmations(email, name, salon_name, date_s, time_s, phone, city, slot["purpose"])
+    gcal = await _send_slot_confirmations(email, name, salon_name, date_s, time_s, phone, city, slot["purpose"],
+                                          {k: slot[k] for k in ("tz", "local_time") if k in slot})
     return {"ok": True, "gcal": gcal, "slot": slot}
 
 

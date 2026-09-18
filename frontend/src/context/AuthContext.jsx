@@ -56,12 +56,14 @@ export function AuthProvider({ children }) {
     }
     (async () => {
       try {
+        // Perf: fetch the session and the tenant in one parallel wave (was two sequential round-trips).
+        const tenantP = fetchCurrentTenant().catch(() => null);
         const { data } = await api.get("/auth/me");
         if (cancelled) return;
         setUser(data);
         if (data.role === "manager" && data.branch) setSelectedBranch(data.branch);
         if (data.role === "super_admin") return;
-        const t = await fetchCurrentTenant();
+        const t = await tenantP;
         if (cancelled || !t) return;
         setTenant(t);
         persistTenant(t);

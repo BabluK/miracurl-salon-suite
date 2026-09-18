@@ -365,8 +365,8 @@ def _channel(name: str | None) -> dict:
 async def _notify_hq_pack_paid(t: dict, ch: dict, pending: dict) -> None:
     """HQ gets a mail for every tenant top-up so it can keep the MSG91 / Meta pool topped up."""
     try:
-        from email_service import _send_email
-        hq = os.environ.get("HQ_EMAIL", "admin@miracurl.com")
+        from email_service import hq_inbox, _send_email
+        hq = hq_inbox("payments")
         await _send_email([hq], f"💳 {t.get('name')} bought {pending['points']} {ch['label']} credits (₹{pending['amount']})",
                           f"<p><b>{t.get('name')}</b> ({t.get('slug')}) paid <b>₹{pending['amount']}</b> via Razorpay for "
                           f"<b>{pending['points']} {ch['label']} messages</b>.<br/>Payment: {pending.get('razorpay_payment_id')}<br/>"

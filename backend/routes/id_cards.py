@@ -201,7 +201,7 @@ def _hq_card_data(m: dict, photo: bytes) -> dict:
         "photo_bytes": photo, "logo_bytes": _read_asset(_MIRACURL_LOGO),
         "emblem_bytes": _read_asset(_MS_EMBLEM), "lockup_bytes": _read_asset(_GOLD_LOCKUP),
         "brand_name": "Miracurl", "website": _site_host(), "qr_url": base, "qr_label": "SCAN • CONNECT", "accent": ROSE_GOLD,
-        "hq_email": os.environ.get("SUPPORT_REPLY_TO") or os.environ.get("HQ_EMAIL") or "",
+        "hq_email": os.environ.get("SUPPORT_REPLY_TO") or "support@miracurl-suite.com",
         "hq_phone": os.environ.get("HQ_PHONE", ""), "hq_instagram": os.environ.get("HQ_INSTAGRAM", ""),
     }
 
