@@ -3,6 +3,7 @@ import asyncio
 import logging
 import os
 import uuid
+import html as html_lib
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -230,6 +231,48 @@ async def hq_set_trial(tid: str, body: TrialSetIn, user=Depends(require_super_ad
                                        "email_sent": bool(email_status.get("sent")), "email_error": email_status.get("error")})
     return {"ok": True, "trial_end_date": end.isoformat(), "days_left": days_left, "label": label,
             "status": upd.get("status", t.get("status")), "email": {"sent": bool(email_status.get("sent")), "to": t.get("owner_email"), "error": email_status.get("error")}}
+
+
+class PlanExtendIn(BaseModel):
+    months: int = Field(..., ge=1, le=3)
+    notify: bool = True
+    note: str = Field("", max_length=200)
+
+
+@router.post("/super-admin/tenants/{tid}/extend-plan")
+async def hq_extend_paid_plan(tid: str, body: PlanExtendIn, user=Depends(require_super_admin)):
+    """Goodwill extension of a PAID subscription by 1–3 months (on tenant request). Trial dates are untouched."""
+    from dateutil.relativedelta import relativedelta
+    t = await _raw_db.tenants.find_one({"id": tid}, {"_id": 0})
+    if not t:
+        raise HTTPException(404, "Tenant not found")
+    if not t.get("subscription_end_date"):
+        raise HTTPException(409, "This tenant is not on a paid plan — use the free-trial controls instead")
+    now = datetime.now(timezone.utc)
+    cur = datetime.fromisoformat(str(t["subscription_end_date"]).replace("Z", "+00:00"))
+    if cur.tzinfo is None:
+        cur = cur.replace(tzinfo=timezone.utc)
+    base = cur if cur > now else now
+    end = base + relativedelta(months=body.months)
+    await _raw_db.tenants.update_one({"id": tid}, {"$set": {"subscription_end_date": end.isoformat(), "status": "active",
+                                                            "plan_extended_by": user.get("email"), "plan_extended_at": now.isoformat()},
+                                                   "$inc": {"plan_extension_months": body.months}})
+    label = f"{body.months} month{'s' if body.months > 1 else ''}"
+    email_status = {"sent": False, "error": "no owner email"}
+    if body.notify and t.get("owner_email"):
+        from email_service import _send_email
+        email_status = await _send_email(
+            [t["owner_email"]], f"🎁 {t.get('name') or t['slug']} — your Miracurl plan now runs until {end.strftime('%d %b %Y')}",
+            f"<div style='font-family:Arial,sans-serif;font-size:14px;color:#33333b;line-height:1.7'><p>Hi {html_lib.escape(t.get('owner_name') or 'there')},</p>"
+            f"<p>As requested, we've extended your <b>{html_lib.escape(str(t.get('plan') or 'paid'))}</b> plan by <b>{label}</b> — free of charge. "
+            f"Your access now runs until <b>{end.strftime('%d %b %Y')}</b>.</p>{('<p>' + html_lib.escape(body.note) + '</p>') if body.note else ''}"
+            f"<p>Thank you for growing with Miracurl ✦</p></div>")
+    from services.tenant_notices import notify_tenant
+    await notify_tenant(tid, "billing", f"🎁 Plan extended — {label}", f"Your paid plan now runs until {end.strftime('%d %b %Y')}", "/settings")
+    await _raw_db.hq_audit.insert_one({"id": str(uuid.uuid4()), "kind": "plan_extended", "tenant_id": tid, "slug": t["slug"], "by": user.get("email"),
+                                       "months": body.months, "from": cur.isoformat(), "end": end.isoformat(), "at": now.isoformat(), "note": body.note})
+    return {"ok": True, "subscription_end_date": end.isoformat(), "label": label, "days_left": (end.date() - now.date()).days,
+            "email": {"sent": bool(email_status.get("sent")), "to": t.get("owner_email"), "error": email_status.get("error")}}
 
 
 class TenantNoteIn(BaseModel):

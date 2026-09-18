@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { X, Save, KeyRound, Mail, Copy, Link2, Unlink, Store, Loader2, Fingerprint, CreditCard } from "lucide-react";
 import { confirmAsync } from "@/components/ConfirmDialog";
 import { TrialControlCard } from "@/components/superadmin/TrialControlCard";
+import { PaidPlanCard } from "./PaidPlanCard";
 
 const inputCls = "mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200";
 
@@ -160,7 +161,7 @@ export function EditTenantModal({ tenant, onClose, onSaved, onRefresh }) {
         {/* Scrollable body */}
         <div className="p-4 sm:p-5 space-y-5 overflow-y-auto">
 
-        <TrialControlCard tenant={tenant} onChanged={() => onRefresh?.()} />
+        {tenant.subscription_end_date ? <PaidPlanCard tenant={tenant} onChanged={() => onRefresh?.()} /> : <TrialControlCard tenant={tenant} onChanged={() => onRefresh?.()} />}
 
         {/* Details form */}
         <form onSubmit={save} className="space-y-3">

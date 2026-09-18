@@ -355,11 +355,30 @@ CHANNELS = {"sms": {"packs": SMS_PACKS, "field": "sms_points", "label": "SMS"},
             "whatsapp": {"packs": WA_PACKS, "field": "wa_points", "label": "WhatsApp"}}
 
 
-def _channel(name: str | None) -> dict:
-    ch = CHANNELS.get((name or "sms").lower())
+# HQ cost per message (paise) — what MSG91 / Meta charge us. Margin floor the Boss wants on top: SMS +10p, WA +15p.
+DEFAULT_PRICING = {"sms_cost_paise": 25, "whatsapp_cost_paise": 93, "min_margin_paise": {"sms": 10, "whatsapp": 15}}
+_pricing_cache: dict = {"at": 0.0, "doc": None}
+
+
+async def pack_pricing() -> dict:
+    """Editable pack catalogue + HQ unit costs (platform_settings.pack_pricing), defaults from code. Cached 30s."""
+    import time
+    if _pricing_cache["doc"] and time.time() - _pricing_cache["at"] < 30:
+        return _pricing_cache["doc"]
+    doc = await _raw_db.platform_settings.find_one({"key": "pack_pricing"}, {"_id": 0}) or {}
+    merged = {**DEFAULT_PRICING, **{k: v for k, v in doc.items() if k in ("sms_cost_paise", "whatsapp_cost_paise")},
+              "packs": {"sms": doc.get("packs", {}).get("sms") or SMS_PACKS, "whatsapp": doc.get("packs", {}).get("whatsapp") or WA_PACKS}}
+    _pricing_cache.update(at=time.time(), doc=merged)
+    return merged
+
+
+def _channel(name: str | None, pricing: dict | None = None) -> dict:
+    key = (name or "sms").lower()
+    ch = CHANNELS.get(key)
     if not ch:
         raise HTTPException(400, "channel must be 'sms' or 'whatsapp'")
-    return {"key": (name or "sms").lower(), **ch}
+    packs = (pricing or {}).get("packs", {}).get(key) or ch["packs"]
+    return {"key": key, **ch, "packs": packs}
 
 
 async def _notify_hq_pack_paid(t: dict, ch: dict, pending: dict) -> None:
@@ -390,7 +409,7 @@ class SmsPackVerifyIn(BaseModel):
 
 @router.get("/sms-packs")
 async def sms_packs(channel: str = "sms", user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    ch = _channel(channel)
+    ch = _channel(channel, await pack_pricing())
     since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
     auto_replies = await _raw_db.sms_credit_log.count_documents(
         {"tenant_id": t["id"], "source": "mira_auto_reply", "at": {"$gte": since}})
@@ -424,7 +443,7 @@ async def sms_pack_order(body: SmsPackOrderIn, user=Depends(require_tenant_admin
     rzp = _rzp_client()
     if not rzp:
         raise HTTPException(503, "Razorpay is not configured. Ask HQ to credit SMS points manually.")
-    ch = _channel(body.channel)
+    ch = _channel(body.channel, await pack_pricing())
     pack = ch["packs"].get(body.pack)
     if not pack:
         raise HTTPException(400, "Unknown pack")
@@ -1651,3 +1670,54 @@ async def hq_gst_register_xlsx(month: Optional[str] = None, admin=Depends(requir
     fname = f"miracurl-gst-register-{month or 'all'}.xlsx"
     return Response(data, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+# ---------------- HQ pack pricing (Super Admin) ----------------
+class PackIn(BaseModel):
+    key: str = Field(..., min_length=2, max_length=30, pattern=r"^[a-z0-9_]+$")
+    label: str = Field(..., min_length=1, max_length=30)
+    price: int = Field(..., ge=1, le=100000)
+    points: int = Field(..., ge=1, le=1000000)
+
+
+class PackPricingIn(BaseModel):
+    sms_cost_paise: int = Field(..., ge=1, le=1000)
+    whatsapp_cost_paise: int = Field(..., ge=1, le=1000)
+    sms: list[PackIn] = Field(..., min_length=1, max_length=6)
+    whatsapp: list[PackIn] = Field(..., min_length=1, max_length=6)
+
+
+def _pricing_view(pr: dict) -> dict:
+    out = {"sms_cost_paise": pr["sms_cost_paise"], "whatsapp_cost_paise": pr["whatsapp_cost_paise"], "min_margin_paise": pr["min_margin_paise"], "packs": {}}
+    for ch in ("sms", "whatsapp"):
+        cost = pr[f"{ch}_cost_paise"]
+        rows = []
+        for k, v in pr["packs"][ch].items():
+            per = round(v["price"] * 100 / v["points"])  # paise per message
+            rows.append({"key": k, **v, "per_msg_paise": per, "margin_paise": per - cost, "pack_margin_rupees": round((per - cost) * v["points"] / 100),
+                         "below_floor": per - cost < pr["min_margin_paise"][ch]})
+        out["packs"][ch] = rows
+    return out
+
+
+@router.get("/super-admin/pack-pricing")
+async def hq_pack_pricing_get(user=Depends(require_super_admin)):
+    return _pricing_view(await pack_pricing())
+
+
+@router.put("/super-admin/pack-pricing")
+async def hq_pack_pricing_put(body: PackPricingIn, user=Depends(require_super_admin)):
+    """Boss sets what tenants pay per pack and what HQ pays per message; margin per message is enforced ≥ floor (SMS 10p, WA 15p)."""
+    floors = DEFAULT_PRICING["min_margin_paise"]
+    for ch, cost in (("sms", body.sms_cost_paise), ("whatsapp", body.whatsapp_cost_paise)):
+        for pk in getattr(body, ch):
+            per = pk.price * 100 / pk.points
+            if per - cost < floors[ch]:
+                raise HTTPException(400, f"{ch.upper()} pack '{pk.label}' earns only {per - cost:.0f}p per message — minimum margin is {floors[ch]}p over cost. "
+                                         f"Raise the price to at least ₹{((cost + floors[ch]) * pk.points / 100):.0f}.")
+    doc = {"key": "pack_pricing", "sms_cost_paise": body.sms_cost_paise, "whatsapp_cost_paise": body.whatsapp_cost_paise,
+           "packs": {ch: {pk.key: {"price": pk.price, "points": pk.points, "label": pk.label} for pk in getattr(body, ch)} for ch in ("sms", "whatsapp")},
+           "updated_by": user.get("email"), "updated_at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.platform_settings.update_one({"key": "pack_pricing"}, {"$set": doc}, upsert=True)
+    _pricing_cache["doc"] = None
+    return _pricing_view(await pack_pricing())

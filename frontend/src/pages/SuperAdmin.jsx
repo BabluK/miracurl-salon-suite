@@ -15,6 +15,7 @@ import { DummyCleanupModal } from "@/components/superadmin/DummyCleanupModal";
 import { PartnersPanel } from "@/components/superadmin/PartnersPanel";
 import { SecurityCard } from "@/components/superadmin/SecurityCard";
 import { HqTaxCard } from "@/components/superadmin/HqTaxCard";
+import { PackPricingCard } from "@/components/superadmin/PackPricingCard";
 import { HqGstRegisterCard } from "@/components/superadmin/HqGstRegisterCard";
 import { EditTenantModal } from "@/components/superadmin/EditTenantModal";
 import { Handshake, ShieldAlert, ToggleRight } from "lucide-react";
@@ -507,7 +508,7 @@ export default function SuperAdmin() {
             pipeline: <FollowUpPipeline onGoTab={setTab} />,
             notifications: <NotificationsPanel feed={notifFeed} onGoTab={setTab} onRefresh={() => api.get("/super-admin/notifications").then(r => setNotifFeed(r.data)).catch(() => {})} />,
             "platform-map": <div className="space-y-6"><PlatformOverview onGoTab={setTab} /><PlatformOrbitMap onGoTab={setTab} /></div>,
-            billing: <div className="space-y-6"><HqTaxCard /><HqGstRegisterCard /><MessageCreditsCard tenants={tenants} /><StripePaymentsPanel /><BillingPanel tenants={tenants} /></div>,
+            billing: <div className="space-y-6"><HqTaxCard /><PackPricingCard /><HqGstRegisterCard /><MessageCreditsCard tenants={tenants} /><StripePaymentsPanel /><BillingPanel tenants={tenants} /></div>,
             partners: <PartnersPanel />,
             leaderboard: <LeaderboardPanel />,
             "growth-advisory": <GrowthAdvisoryPanel />,

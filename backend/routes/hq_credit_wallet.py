@@ -123,7 +123,17 @@ async def hq_wallet_view(admin=Depends(require_super_admin)):
     for r in ledger:
         r["tenant_name"] = names.get(r.get("tenant_id"), "")
     low = {ch: int(w.get(f"{ch}_stock") or 0) < LOW_STOCK for ch in FIELD}
-    return {**w, "ledger": ledger, "low_stock": low, "low_threshold": LOW_STOCK, "mira_note": low_stock_line(w)}
+    # Margin so far = what tenants paid − (messages sold × HQ unit cost)
+    from routes.subscriptions import pack_pricing
+    pr = await pack_pricing()
+    margin = {}
+    for ch in FIELD:
+        sold = 0
+        async for r in _raw_db.hq_wallet_ledger.find({"channel": ch, "kind": "tenant_purchase"}, {"_id": 0, "delta": 1}):
+            sold += abs(int(r.get("delta") or 0))
+        margin[ch] = {"sold": sold, "revenue_paise": int(w.get(f"{ch}_revenue_paise") or 0), "cost_paise": sold * pr[f"{ch}_cost_paise"],
+                      "margin_paise": int(w.get(f"{ch}_revenue_paise") or 0) - sold * pr[f"{ch}_cost_paise"], "unit_cost_paise": pr[f"{ch}_cost_paise"]}
+    return {**w, "ledger": ledger, "low_stock": low, "low_threshold": LOW_STOCK, "mira_note": low_stock_line(w), "margin": margin}
 
 
 class TopupIn(BaseModel):

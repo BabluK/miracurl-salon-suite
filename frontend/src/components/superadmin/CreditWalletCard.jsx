@@ -63,13 +63,13 @@ export default function CreditWalletCard() {
         <div className={`rounded-xl border p-4 ${w.low_stock?.sms ? "border-rose-300 bg-rose-50" : "border-slate-200"}`} data-testid="hq-sms-stock">
           <div className="text-xs text-slate-500 flex items-center gap-1"><MessageSquare className="w-3.5 h-3.5" /> SMS stock to assign (MSG91)</div>
           <div className={`text-3xl font-bold ${w.low_stock?.sms ? "text-rose-700" : "text-slate-800"}`}>{w.sms_stock?.toLocaleString("en-IN")}</div>
-          <div className="text-[11px] text-slate-500 mt-1">Alert below {w.low_threshold} · Revenue from tenants {inr(w.sms_revenue_paise)}</div>
+          <div className="text-[11px] text-slate-500 mt-1">Alert below {w.low_threshold} · Revenue {inr(w.sms_revenue_paise)} · <span className="text-emerald-700 font-semibold" data-testid="hq-sms-margin">Margin {inr(w.margin?.sms?.margin_paise)}</span> <span className="text-slate-400">({w.margin?.sms?.sold ?? 0} sold @ {w.margin?.sms?.unit_cost_paise}p cost)</span></div>
           <button onClick={() => topup("sms")} className="mt-2 text-xs text-[#b58a2c] font-semibold hover:underline">+ Add stock manually</button>
         </div>
         <div className={`rounded-xl border p-4 ${w.low_stock?.whatsapp ? "border-rose-300 bg-rose-50" : "border-slate-200"}`} data-testid="hq-wa-stock">
           <div className="text-xs text-slate-500 flex items-center gap-1"><MessageCircle className="w-3.5 h-3.5" /> WhatsApp credits to assign (Meta postpaid)</div>
           <div className={`text-3xl font-bold ${w.low_stock?.whatsapp ? "text-rose-700" : "text-slate-800"}`}>{w.whatsapp_stock?.toLocaleString("en-IN")}</div>
-          <div className="text-[11px] text-slate-500 mt-1">Meta bills ≈₹0.93/marketing · ₹0.14/utility msg to your card · Revenue {inr(w.whatsapp_revenue_paise)}</div>
+          <div className="text-[11px] text-slate-500 mt-1">Revenue {inr(w.whatsapp_revenue_paise)} · <span className="text-emerald-700 font-semibold" data-testid="hq-wa-margin">Margin {inr(w.margin?.whatsapp?.margin_paise)}</span> <span className="text-slate-400">({w.margin?.whatsapp?.sold ?? 0} sold @ {w.margin?.whatsapp?.unit_cost_paise}p Meta cost)</span></div>
           <button onClick={() => topup("whatsapp")} className="mt-2 text-xs text-[#b58a2c] font-semibold hover:underline">+ Set budget stock</button>
         </div>
       </div>
