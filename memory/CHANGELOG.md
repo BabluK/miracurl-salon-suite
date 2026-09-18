@@ -131,3 +131,13 @@
 - Deferred (too risky pre-deploy, no behaviour value): splitting lead_gen.py / hair_colors.py / auth.py by import count.
 - Sender label in /whatsapp-link/status now derives from WHATSAPP_PLATFORM_NUMBER. WA number +91 91802 61256 DEREGISTERED from Cloud API on user request (kept for WhatsApp Business app / lead gen); new SIM pending for Mira.
 - Pre-existing test-infra failures (not regressions): test_iter140 expects PNG for table QR (endpoint serves JPEG since a later iteration); test_invoice_edits imports `_PW_ADMIN` removed from tests/_creds.py.
+
+## 2026-09-18 — Bring-your-own WhatsApp (Meta Coexistence) — iter 175
+- `services/wa_coexist.py` + `routes/wa_coexist.py` (`/api/whatsapp-own/status|connect|disconnect|refresh`, `/hq/webhook-fields`). Tenant doc: `own_whatsapp{status,waba_id,phone_number_id,display_phone_number,verified_name,token_enc(Fernet from JWT_SECRET),syncs,templates}`, plus `whatsapp_phone_number_id` (existing inbound routing hook) and `features.whatsapp=true`.
+- `whatsapp_cloud.channel_for(tenant_id)` → own phone/token when connected else platform; used by send_text/send_template/whatsapp_official.send. Own-number sends never deduct wa_points (Meta bills tenant). Mira auto-reply skips credit reserve for own-number tenants.
+- Inbound: `smb_message_echoes` mirrored as outbound `sent_by:"app"` + sets human mode 2h; `history`/`smb_app_state_sync`/`account_update` archived in whatsapp_events. Meta app subscription now: messages,account_update,history,smb_app_state_sync,smb_message_echoes (callback → production).
+- Templates: on connect, background clone of our APPROVED `miracurl_*` templates to the tenant WABA (status shown in card; Refresh re-syncs).
+- Frontend: `components/settings/OwnWhatsAppCard.jsx` (FB JS SDK lazy-load, FB.login config_id + featureType whatsapp_business_app_onboarding, sessionInfoVersion 3, posts code+waba_id+phone_number_id). Disabled with HQ note until `META_LOGIN_CONFIG_ID` is set in backend/.env (NO Graph API exists to create it — must be done in App Dashboard → Facebook Login for Business → Configurations).
+- Receptionist invite link uses the tenant's own number (no #slug) when connected.
+- Tests: tests/test_iter175_wa_coexist.py (4) + mocked-Graph e2e script verified connect→route→reply(0 credits)→echo→disconnect. BUILD 2026-09-18.280.
+- TODO when user provides config id: set META_LOGIN_CONFIG_ID, restart, test with a real WhatsApp Business app number (must be on app v2.24.17+).

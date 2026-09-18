@@ -39,18 +39,22 @@ async def mira_whatsapp_reply(doc: dict, tenant: dict | None) -> str | None:
         await notify_tenant(t["id"], "wa_human_msg", f"New WhatsApp message from {doc.get('profile_name') or '+' + wa_id}",
                             (doc["text"] or "")[:90], "/receptionist", f"wa_human_msg:{wa_id}:{doc.get('message_id')}")
         return None
-    if not await _reserve_credit(t, doc):
+    from services.wa_coexist import own_channel
+    own = own_channel(t) is not None
+    if not own and not await _reserve_credit(t, doc):
         return None
     from services.whatsapp_cloud import send_text
     text = rec.strip_ref(doc["text"])
     body, booking, handoff = await rec.mira_reply_text(t, wa_id, text)
     if not body:
-        await _refund_credit(t, doc)
+        if not own:
+            await _refund_credit(t, doc)
         return None
     try:
         await send_text(wa_id, body, tenant_id=t["id"])
     except Exception:
-        await _refund_credit(t, doc)
+        if not own:
+            await _refund_credit(t, doc)
         raise
     await rec.touch_session(wa_id, t["id"])
     if handoff:
@@ -58,7 +62,7 @@ async def mira_whatsapp_reply(doc: dict, tenant: dict | None) -> str | None:
         await rec.notify_handoff(t, wa_id, doc.get("profile_name") or "", text)
     await _raw_db.whatsapp_messages.update_one(
         {"message_id": doc.get("message_id")},
-        {"$set": {"status": "replied", "mira_reply": body, "mira_booked": bool(booking), "handoff": bool(handoff), "credits_used": 1}})
+        {"$set": {"status": "replied", "mira_reply": body, "mira_booked": bool(booking), "handoff": bool(handoff), "credits_used": 0 if own else 1}})
     log.info("mira replied on whatsapp to %s (%s)%s", wa_id, t.get("slug"), " [booked]" if booking else "")
     return body
 

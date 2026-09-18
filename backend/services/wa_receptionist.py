@@ -24,6 +24,10 @@ def platform_number() -> str:
 def invite_link(t: dict) -> str:
     """wa.me deep link with a pre-filled greeting that carries the tenant's #slug so routing is exact."""
     from urllib.parse import quote
+    own = (t.get("own_whatsapp") or {})
+    if own.get("status") == "connected" and own.get("display_phone_number"):
+        num = re.sub(r"\D", "", own["display_phone_number"])
+        return f"https://wa.me/{num}?text={quote('Hi ' + (t.get('name') or '') + '!')}"
     text = f"Hi {t.get('name', '')}! #{t.get('slug', '')}".strip()
     return f"https://wa.me/{platform_number()}?text={quote(text)}"
 

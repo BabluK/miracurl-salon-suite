@@ -10,6 +10,8 @@ def features_of(t: dict | None) -> dict:
     out = {k: bool(f.get(k)) for k in FEATURE_KEYS}
     if int((t or {}).get("wa_points") or 0) > 0:
         out["whatsapp"] = True  # tenant holds WhatsApp credits for Miracurl's official channel
+    if ((t or {}).get("own_whatsapp") or {}).get("status") == "connected":
+        out["whatsapp"] = True  # tenant brought its own WhatsApp Business number (coexistence)
     return out
 
 

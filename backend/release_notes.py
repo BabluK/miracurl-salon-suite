@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-18.279"
+BUILD = "2026-09-18.280"
 BUILD_TIME = "18 Sep 2026, 11:00 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-18.280", "note": "Bring-your-own WhatsApp (Meta Coexistence): Settings → Connect your WhatsApp Business app (Embedded Signup, featureType whatsapp_business_app_onboarding); backend services/wa_coexist.py + routes/wa_coexist.py (/whatsapp-own/*): code exchange, ownership check, subscribed_apps, smb_app_data syncs, Fernet-encrypted business token, template cloning to tenant WABA; channel_for() routes send_text/send_template/official.send through the tenant number with no credits; inbound routed via whatsapp_phone_number_id; smb_message_echoes mirrored + 2h Mira pause; webhook fields extended. Security audit fixes (BOLA on receptionist threads, atomic credits) + code-review refactors"},
     {"build": "2026-09-18.279", "note": "Mira WhatsApp Receptionist (/receptionist): per-business wa.me invite link + QR (#slug routing on Miracurl's shared number, sticky wa_sessions, campaign-reply routing), restaurant table reservations via chat ([[BOOK]] with party_size), human handoff → 2h takeover (Mira pauses, bell notice), staff reply from the app (1 credit), owner test-bench simulator (no Meta/credits), 30-day stats + live conversation threads; HQ Credit Wallet (super-admin bulk SMS/WA stock, tenant pack purchases deduct stock, Razorpay); Meta number registration flow (request_code/verify/register + 2FA PIN in .env WHATSAPP_2FA_PIN)"},
     {"build": "2026-09-18.278", "note": "Official Meta WhatsApp channel (WABA 1627056435755219, +91 91802 61256, 6 approved templates) replaces the unofficial OpenWA gateway; every send costs 1 WhatsApp credit (wa_points); booking confirmations, 1h reminders, review requests, birthday wishes, win-back and CRM campaigns all use branded templates (tenant name + poster/logo header); Settings card = WhatsApp messaging + credits; Growth Advisory Razorpay checkout branded Miracurl AI Salon Suite"},
     {"build": "2026-09-18.277", "note": "WhatsApp Campaign: Mira festival radar (today + next 60 days), Paint <festival> poster (gpt-image-1/Gemini via _gen_image), compose on gpt-5.4 keeps painted poster, uncropped previews, test-send includes image; CRM view toggle keeps both panes mounted (instant switch); login page with real photography, no emoji footer, countries trust strip, partner badge"},
@@ -84,6 +85,7 @@ RELEASES = [
     {
         "date": "2026-09-18 (Mira answers your WhatsApp 24×7 🎧)",
         "changes": [
+            "📱 Bring your own WhatsApp: Settings → Connect your WhatsApp Business app — keep chatting from the app on your phone while Mira answers, books and sends confirmations from the SAME number; Meta bills you directly, no Miracurl credits needed (rolling out — HQ enables it)",
             "🎧 NEW · Mira Receptionist: guests message your WhatsApp and Mira replies in seconds — English, Hindi, Kannada or Hinglish — with your real prices, timings and open slots, and books the appointment (or reserves the table) herself",
             "🔗 Your own WhatsApp link + QR (Mira Receptionist page): share on Instagram, Google, bills and posters — every guest lands with YOUR business, even on Miracurl's shared number",
             "🙋 Human handoff: when a guest asks for a person, Mira pauses for 2 hours, rings your bell, and your team replies right from the app",

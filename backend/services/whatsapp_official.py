@@ -39,14 +39,17 @@ async def credits(tenant_id: str) -> int:
 
 async def send(kind: str, t: dict, to: str, params: list[str], image_url: str | None = None, lang: str = "en") -> dict:
     """Send Miracurl template <kind> to <to> on behalf of tenant t. Deducts 1 wa_point; raises RuntimeError on failure/no credits."""
-    from services.whatsapp_cloud import wa_config, GRAPH_API_VERSION, _now
+    from services.whatsapp_cloud import GRAPH_API_VERSION, _now
     import httpx
-    cfg = wa_config()
+    from services.whatsapp_cloud import channel_for
+    ch = await channel_for(t["id"])
+    cfg = {"access_token": ch["token"], "phone_number_id": ch["phone_number_id"]}
     if not cfg["access_token"] or not cfg["phone_number_id"]:
         raise RuntimeError("Official WhatsApp channel not configured")
-    r = await _raw_db.tenants.update_one({"id": t["id"], "wa_points": {"$gte": 1}}, {"$inc": {"wa_points": -1}})
-    if not r.modified_count:
-        raise RuntimeError("No WhatsApp credits left — top up in Settings → Credits")
+    if not ch["own"]:  # own-number tenants are billed by Meta directly — no Miracurl credit
+        r = await _raw_db.tenants.update_one({"id": t["id"], "wa_points": {"$gte": 1}}, {"$inc": {"wa_points": -1}})
+        if not r.modified_count:
+            raise RuntimeError("No WhatsApp credits left — top up in Settings → Credits")
     components = [
         {"type": "header", "parameters": [{"type": "image", "image": {"link": await tenant_header_image(t, image_url)}}]},
         {"type": "body", "parameters": [{"type": "text", "text": str(p)[:1024]} for p in params]},
@@ -63,14 +66,17 @@ async def send(kind: str, t: dict, to: str, params: list[str], image_url: str | 
         resp = await client.post(f"https://graph.facebook.com/{GRAPH_API_VERSION}/{cfg['phone_number_id']}/messages",
                                  json=payload, headers={"Authorization": f"Bearer {cfg['access_token']}"})
     if resp.is_error:
-        await _raw_db.tenants.update_one({"id": t["id"]}, {"$inc": {"wa_points": 1}})  # refund
+        if not ch["own"]:
+            await _raw_db.tenants.update_one({"id": t["id"]}, {"$inc": {"wa_points": 1}})  # refund
         log.warning("official send failed %s: %.300s", resp.status_code, resp.text)
         raise RuntimeError(f"Meta API {resp.status_code}")
     mid = ((resp.json().get("messages") or [{}])[0]).get("id")
     await _raw_db.whatsapp_messages.insert_one({
         "direction": "outbound", "provider": "meta", "message_id": mid, "wa_id": digits, "type": "template", "template": TEMPLATES[kind],
-        "kind": kind, "text": " | ".join(map(str, params)), "phone_number_id": cfg["phone_number_id"], "tenant_id": t["id"],
+        "kind": kind, "text": " | ".join(map(str, params)), "phone_number_id": cfg["phone_number_id"], "own_number": ch["own"], "tenant_id": t["id"],
         "status": "accepted", "created_at": _now()})
+    if ch["own"]:
+        return {"ok": True, "message_id": mid, "channel": "whatsapp", "own_number": True}
     await _raw_db.sms_credit_log.insert_one({"id": mid or datetime.now(timezone.utc).isoformat(), "tenant_id": t["id"], "points": -1,
                                              "source": f"whatsapp_{kind}", "channel": "whatsapp", "created_at": _now()})
     return {"ok": True, "message_id": mid, "channel": "whatsapp"}
