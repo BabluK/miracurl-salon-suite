@@ -16,22 +16,26 @@ export function WaCreditsBanner() {
     api.get("/sms-packs?channel=whatsapp").then(r => setCfg(r.data)).catch(() => setCfg(null));
   }, [open]);
 
-  if (!cfg || hidden || (cfg.features && !cfg.features.whatsapp) || cfg.balance >= WA_LOW_THRESHOLD) return null;
+  if (!cfg || cfg.own_connected || cfg.balance >= WA_LOW_THRESHOLD) return null;
   const empty = cfg.balance <= 0;
+  // At zero the WhatsApp feature flag turns off — still shout if this salon ever used Mira on WhatsApp or guests are being missed.
+  if (empty ? !(cfg.wa_ever_used || cfg.wa_missed_24h > 0) : (hidden || (cfg.features && !cfg.features.whatsapp))) return null;
   const tone = empty ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200";
 
   return (
     <>
-      <div data-testid="wa-low-credit-banner" className={`flex flex-wrap items-center gap-3 rounded-2xl border px-5 py-3.5 shadow-sm ${tone}`}>
+      <div data-testid="wa-low-credit-banner" className={`flex flex-wrap items-center gap-3 rounded-2xl border px-5 py-3.5 shadow-sm ${tone} ${empty ? "border-2 animate-[pulse_2.4s_ease-in-out_3]" : ""}`}>
         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${empty ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-600"}`}>
           <Bot className="w-4.5 h-4.5" />
         </div>
         <div className="flex-1 min-w-[200px]">
           <div className="text-sm font-semibold text-slate-800" data-testid="wa-low-credit-text">
-            {empty ? "WhatsApp credits exhausted — Mira has gone silent" : `Only ${cfg.balance} WhatsApp credits left`}
+            {empty ? "🔴 WhatsApp credits are at zero — Mira has gone silent" : `Only ${cfg.balance} WhatsApp credits left`}
           </div>
-          <div className="text-xs text-slate-600">
-            {empty ? "Customers messaging you on WhatsApp are not getting replies or bookings right now."
+          <div className="text-xs text-slate-600" data-testid="wa-low-credit-sub">
+            {empty ? (cfg.wa_missed_24h > 0
+              ? `${cfg.wa_missed_24h} guest message${cfg.wa_missed_24h === 1 ? "" : "s"} went unanswered in the last 24 hours. Top up to resume replies and bookings.`
+              : "Guests messaging you on WhatsApp are not getting replies or bookings right now.")
               : "Each Mira WhatsApp reply uses 1 credit. Top up now so auto-replies and bookings never stop."}
           </div>
         </div>

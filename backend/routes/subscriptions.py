@@ -394,7 +394,13 @@ async def sms_packs(channel: str = "sms", user=Depends(require_tenant_admin), t=
     since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
     auto_replies = await _raw_db.sms_credit_log.count_documents(
         {"tenant_id": t["id"], "source": "mira_auto_reply", "at": {"$gte": since}})
+    day_ago = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    missed = await _raw_db.whatsapp_messages.count_documents(
+        {"tenant_id": t["id"], "direction": "inbound", "status": "no_credits", "created_at": {"$gte": day_ago}})
+    ever_used = bool(auto_replies) or await _raw_db.sms_credit_log.find_one({"tenant_id": t["id"], "channel": "whatsapp"}, {"_id": 1}) is not None
     return {"enabled": bool(RAZORPAY_KEY_ID), "test_mode": RAZORPAY_KEY_ID.startswith("rzp_test_"), "channel": ch["key"],
+            "wa_missed_24h": missed, "wa_ever_used": ever_used,
+            "own_connected": ((t.get("own_whatsapp") or {}).get("status") == "connected"),
             "packs": [{"key": k, **v} for k, v in ch["packs"].items()],
             "balance": int(t.get(ch["field"]) or 0),
             "balances": {"sms": int(t.get("sms_points") or 0), "whatsapp": int(t.get("wa_points") or 0)},

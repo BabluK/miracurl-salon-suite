@@ -167,6 +167,7 @@ export default function Dashboard() {
     <div className="app-canvas relative isolate overflow-hidden -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="dashboard-page">
       <DashboardAurora />
       <DashboardHero user={user} tenant={tenant} data={data} bookingUrl={bookingUrl} onCopy={copyLink} inr={inr} loadMs={isOwner ? loadMs : 0} />
+      {isOwner && <WaCreditsBanner />}
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -208,7 +209,6 @@ export default function Dashboard() {
       {(isOwner || user?.role === "manager") && <MorningBriefing />}
       {isOwner && <MiracurlUpdates />}
       {isOwner && <SetupBanner />}
-      {isOwner && <WaCreditsBanner />}
       {isOwner && <SmsPointsWidget />}
       {isOwner && <MiraSocialNudge />}
       {isOwner && <MiraDayOffer />}

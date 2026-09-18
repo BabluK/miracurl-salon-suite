@@ -39,6 +39,27 @@ async def _match_tenant_by_name(text: str) -> dict | None:
     return None
 
 
+async def _pickable_salons(limit: int = 10) -> list[dict]:
+    """Salons a guest can pick on the shared number: live WhatsApp (credits or own number), most recently active first."""
+    from services.tenant_features import features_of
+    out = []
+    cands = await _raw_db.tenants.find({"status": {"$ne": "suspended"}, "wa_auto_reply": {"$ne": False}},
+                                       {"_id": 0, "id": 1, "name": 1, "slug": 1, "location": 1, "wa_points": 1, "own_whatsapp": 1, "created_at": 1},
+                                       sort=[("created_at", -1)]).to_list(200)
+    for t in cands:
+        if t.get("name") and t.get("slug") and features_of(t)["whatsapp"]:
+            out.append(t)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def salon_list_interactive(body: str, salons: list[dict]) -> dict:
+    rows = [{"id": f"salon:{t['slug']}"[:200], "title": t["name"][:24], **({"description": t["location"][:72]} if t.get("location") else {})} for t in salons[:10]]
+    return {"type": "list", "body": {"text": body[:1024]}, "footer": {"text": "Salons on Miracurl"},
+            "action": {"button": "Pick a salon 💇", "sections": [{"title": "Choose your salon", "rows": rows}]}}
+
+
 async def _platform_fallback(doc: dict, tenant: dict | None) -> str | None:
     """Shared Miracurl number, no salon resolved: try matching the salon name, else ask which salon (HQ pays, no credits)."""
     from services import wa_receptionist as rec
@@ -49,16 +70,27 @@ async def _platform_fallback(doc: dict, tenant: dict | None) -> str | None:
         await _raw_db.whatsapp_messages.update_one({"message_id": doc.get("message_id")}, {"$set": {"status": "skipped_unknown_number"}})
         return None
     wa_id = doc["wa_id"]
-    t = await _match_tenant_by_name(doc.get("text") or "")
+    picked = ((doc.get("raw") or {}).get("interactive") or {}).get("list_reply", {}).get("id", "")
+    t = await _raw_db.tenants.find_one({"slug": picked[6:], "status": {"$ne": "suspended"}}, {"_id": 0}) if picked.startswith("salon:") else None
+    t = t or await _match_tenant_by_name(doc.get("text") or "")
     if t:
         await rec.touch_session(wa_id, t["id"])
         await _raw_db.whatsapp_messages.update_one({"message_id": doc.get("message_id")}, {"$set": {"tenant_id": t["id"]}})
         await send_text(wa_id, f"Connecting you to *{t.get('name')}* ✦")
-        return await mira_whatsapp_reply({**doc, "tenant_id": t["id"], "_fb": True}, None)
+        # the salon name / list pick is routing, not a question — greet the guest instead of parroting it back
+        return await mira_whatsapp_reply({**doc, "tenant_id": t["id"], "_fb": True, "type": "text", "text": "Hi"}, None)
     body = ("Hi! I'm Mira ✦ the AI receptionist for salons on Miracurl.\n\n"
-            "Which salon would you like to reach? Reply with the *salon name* (and area), or tap the salon's own WhatsApp link / QR "
-            "and I'll take it from there 💛")
-    await send_text(wa_id, body)
+            "Which salon would you like to reach? Tap *Pick a salon* below, or reply with the *salon name* (and area) 💛")
+    salons = await _pickable_salons()
+    if salons:
+        from services.whatsapp_cloud import send_interactive
+        try:
+            await send_interactive(wa_id, salon_list_interactive(body, salons), body)
+        except Exception:  # noqa: BLE001 — list failed (e.g. outside 24h window) → plain text still goes out
+            log.warning("salon picker list failed for %s — sending text", wa_id)
+            await send_text(wa_id, body)
+    else:
+        await send_text(wa_id, body)
     await _raw_db.whatsapp_messages.update_one({"message_id": doc.get("message_id")}, {"$set": {"status": "asked_salon", "mira_reply": body}})
     log.info("mira asked %s which salon (no tenant resolved on platform number)", wa_id)
     return body
