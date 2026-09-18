@@ -148,16 +148,16 @@ export default function Login() {
       </div>
 
       <InstallAppPrompt variant="app" />
-      <div className="hidden xl:flex absolute -right-6 -bottom-8 z-10 w-44 h-44 rounded-full bg-[#14100a] text-[#e8c56a] items-center justify-center text-center font-playfair italic text-lg leading-snug shadow-2xl ring-4 ring-[#d4af37]/40 -rotate-12 p-6" data-testid="login-partner-badge">
+      <div className="hidden xl:flex fixed right-6 bottom-6 z-10 w-40 h-40 rounded-full bg-[#14100a] text-[#e8c56a] items-center justify-center text-center font-playfair italic text-base leading-snug shadow-2xl ring-4 ring-[#d4af37]/40 -rotate-12 p-5" data-testid="login-partner-badge">
         More<br />Than Software<br />A Partner in<br />Your Growth
       </div>
 
-      <div className="relative z-10 min-h-screen max-w-[1380px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-8 xl:gap-12 items-center px-4 sm:px-8 py-8 lg:py-6">
+      <div className="relative z-10 min-h-screen max-w-[1380px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-8 xl:gap-12 items-center px-4 sm:px-8 py-8 lg:py-5">
         <LoginShowcase />
-        <div className="relative w-full max-w-md mx-auto lg:mx-0">
-          <div className="hidden xl:block absolute -right-16 top-1/2 -translate-y-1/2 font-playfair italic text-[#b58a2c] text-lg leading-snug text-center">Dream<br />Build<br />Serve<br />Grow<br />Together<br />♡</div>
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.18)] ring-1 ring-slate-100 p-7 sm:p-8 animate-fade-up">
-          <h1 className="text-center font-playfair text-4xl sm:text-[2.6rem] font-semibold text-slate-900 tracking-tight" data-testid="login-heading">
+        <div className="relative w-full max-w-md mx-auto lg:mx-0 lg:sticky lg:top-5">
+          <div className="hidden 2xl:block absolute -right-20 top-1/2 -translate-y-1/2 font-playfair italic text-[#b58a2c] text-lg leading-snug text-center">Dream<br />Build<br />Serve<br />Grow<br />Together<br />♡</div>
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.18)] ring-1 ring-slate-100 p-6 sm:p-7 animate-fade-up">
+          <h1 className="text-center font-playfair text-3xl sm:text-[2.25rem] font-semibold text-slate-900 tracking-tight" data-testid="login-heading">
             {heading}
           </h1>
           {mode === "login" && <p className="text-center text-lg text-slate-700 -mt-0.5">to <span className="text-[#b58a2c] font-semibold">Miracurl Suite</span></p>}
@@ -165,7 +165,7 @@ export default function Login() {
             {mode === "login" ? "Sign in to manage your salon or restaurant" : mode === "signup" ? "Create your staff account" : "We'll send a reset link to your email"}
           </p>
 
-          <form onSubmit={submit} className="mt-6 space-y-4">
+          <form onSubmit={submit} className="mt-5 space-y-3.5">
             {mode === "signup" && (
               <Field
                 label="Full Name"
