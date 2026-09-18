@@ -16,6 +16,8 @@ function loadRazorpayScript() {
 
 export function SmsPacksCard({ defaultChannel = "sms", embedded = false }) {
   const [cfg, setCfg] = useState(null);
+  const [gstPct, setGstPct] = useState(18);
+  useEffect(() => { api.get("/billing/tax-profile").then(r => setGstPct(r.data.apply_gst === false ? 0 : Number(r.data.gst_rate_pct ?? 18))).catch(() => {}); }, []);
   const [busy, setBusy] = useState("");
   const [channel, setChannel] = useState(defaultChannel);
   const isWA = channel === "whatsapp";
@@ -132,6 +134,7 @@ export function SmsPacksCard({ defaultChannel = "sms", embedded = false }) {
                 {busy === p.key && <Loader2 className="w-3 h-3 animate-spin ml-1" />}
               </div>
               <div className="text-[10px] text-slate-400 mt-1">≈ ₹{(p.price / p.points).toFixed(2)} / {unit}</div>
+              {gstPct > 0 && <div className="text-[10px] text-slate-500 mt-0.5" data-testid="pack-gst-note">+{gstPct}% GST · pay ₹{(p.price * (1 + gstPct / 100)).toFixed(0)}</div>}
             </button>
           ))}
         </div>

@@ -294,8 +294,11 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
 
     credits = float(t.get("affiliate_credits") or 0)
     price = float(plan["price"])
-    payable = max(price - credits, 1)  # Razorpay min amount is ₹1 (100 paise)
-    credits_used = round(price - payable, 2) if credits > 0 else 0.0
+    net = max(price - credits, 1)  # Razorpay min amount is ₹1 (100 paise)
+    credits_used = round(price - net, 2) if credits > 0 else 0.0
+    from services.hq_tax import get_profile, tax_breakdown
+    tax = tax_breakdown(net, await get_profile())
+    payable = tax["total"]  # GST added on top — HQ profile (Super Admin → Billing & Tax)
 
     receipt = f"tnt_{t['slug'][:20]}_{int(datetime.now(timezone.utc).timestamp())}"[:40]
     order = rzp.order.create({
@@ -307,6 +310,7 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
             "tenant_slug": t["slug"],
             "plan": body.plan,
             "credits_applied_inr": str(credits_used),
+            "gst_pct": str(tax["gst_rate_pct"]), "gst_inr": str(tax["gst"]), "gstin": tax["gstin"],
         },
     })
     # Track pending order server-side so we can reconcile on verify
@@ -317,7 +321,7 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
         "tenant_id": t["id"],
         "plan": body.plan,
         "branch_tenant_ids": branch_ids or None,
-        "amount": payable,
+        "amount": payable, "tax": tax,
         "credits_applied": credits_used,
         "status": "created",
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -331,6 +335,7 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
         "credits_applied": credits_used,
         "payable_inr": payable,
         "full_price_inr": price,
+        "tax": tax,
     }
 
 
@@ -417,16 +422,19 @@ async def sms_pack_order(body: SmsPackOrderIn, user=Depends(require_tenant_admin
     if not pack:
         raise HTTPException(400, "Unknown pack")
     receipt = f"{ch['key'][:3]}_{t['slug'][:18]}_{int(datetime.now(timezone.utc).timestamp())}"[:40]
+    from services.hq_tax import get_profile, tax_breakdown
+    tax = tax_breakdown(float(pack["price"]), await get_profile())
     order = rzp.order.create({
-        "amount": int(pack["price"]) * 100, "currency": "INR", "receipt": receipt,
-        "notes": {"kind": "sms_pack", "channel": ch["key"], "tenant_id": t["id"], "pack": body.pack}})
+        "amount": int(round(tax["total"] * 100)), "currency": "INR", "receipt": receipt,
+        "notes": {"kind": "sms_pack", "channel": ch["key"], "tenant_id": t["id"], "pack": body.pack,
+                  "gst_pct": str(tax["gst_rate_pct"]), "gst_inr": str(tax["gst"]), "gstin": tax["gstin"]}})
     await db.sms_pack_payments.insert_one({
         "id": str(uuid.uuid4()), "kind": "sms_pack_pending", "razorpay_order_id": order["id"], "channel": ch["key"],
-        "tenant_id": t["id"], "pack": body.pack, "points": pack["points"], "amount": pack["price"],
+        "tenant_id": t["id"], "pack": body.pack, "points": pack["points"], "amount": tax["total"], "tax": tax,
         "status": "created", "created_at": datetime.now(timezone.utc).isoformat()})
     return {"order_id": order["id"], "amount": order["amount"], "currency": order["currency"],
             "key_id": RAZORPAY_KEY_ID, "pack_label": f"{pack['points']} {ch['label']} messages",
-            "points": pack["points"], "channel": ch["key"]}
+            "points": pack["points"], "channel": ch["key"], "tax": tax}
 
 
 @router.post("/sms-packs/verify")
@@ -1536,3 +1544,42 @@ async def _record_partner_commission(t: dict, pay: dict) -> None:
             "payment_id": pay.get("id"), "payment_amount": amt,
             "commission": round(amt * 0.20, 2), "status": "pending",
             "created_at": datetime.now(timezone.utc).isoformat()})
+
+
+
+# ---------------- HQ tax profile (GST / MSME) ----------------
+class HqTaxIn(BaseModel):
+    gstin: str = Field("", max_length=15)
+    msme: str = Field("", max_length=30)
+    legal_name: str = Field("Miracurl Studio", max_length=120)
+    address: str = Field("", max_length=300)
+    state_code: str = Field("29", max_length=2)
+    gst_rate_pct: float = Field(18.0, ge=0, le=28)
+    apply_gst: bool = True
+
+
+@router.get("/hq/tax-profile")
+async def hq_tax_get(admin=Depends(require_super_admin)):
+    from services.hq_tax import get_profile
+    return await get_profile()
+
+
+@router.put("/hq/tax-profile")
+async def hq_tax_put(body: HqTaxIn, admin=Depends(require_super_admin)):
+    import re as _re
+    from services.hq_tax import save_profile
+    gstin = body.gstin.strip().upper()
+    if gstin and not _re.fullmatch(r"\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]", gstin):
+        raise HTTPException(400, "GSTIN format looks wrong (15 chars, e.g. 29ABCDE1234F1Z5)")
+    msme = body.msme.strip().upper()
+    if msme and not _re.fullmatch(r"UDYAM-[A-Z]{2}-\d{2}-\d{7}", msme):
+        raise HTTPException(400, "MSME / Udyam number format: UDYAM-KR-03-0012345")
+    return await save_profile({**body.model_dump(), "gstin": gstin, "msme": msme, "state_code": gstin[:2] if gstin else body.state_code})
+
+
+@router.get("/billing/tax-profile")
+async def tenant_tax_profile(user=Depends(require_tenant_admin)):
+    """Public-safe subset for tenant checkout screens and receipts."""
+    from services.hq_tax import get_profile
+    p = await get_profile()
+    return {k: p.get(k) for k in ("gstin", "msme", "legal_name", "address", "gst_rate_pct", "apply_gst")}

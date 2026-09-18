@@ -27,12 +27,16 @@ export function RazorpayCard() {
   const salons = user?.salons || [];
   const ownedCount = Math.max(salons.length, 1);
 
+  const [tax, setTax] = useState(null);
+  const gstPct = tax?.apply_gst === false ? 0 : Number(tax?.gst_rate_pct ?? 18);
+  const withGst = (p) => Math.round(Number(p) * (1 + gstPct / 100));
   useEffect(() => {
     api.get("/billing/razorpay/config").then(r => {
       setCfg(r.data);
       if (r.data.plans?.length) setSelected(r.data.plans[0].key);
     }).catch(() => setCfg({ enabled: false }));
     api.get("/tenants/current").then(r => setTenant(r.data)).catch(() => {});
+    api.get("/billing/tax-profile").then(r => setTax(r.data)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -227,9 +231,16 @@ export function RazorpayCard() {
           className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-semibold text-sm hover:from-indigo-600 hover:to-blue-700 shadow-sm disabled:opacity-60"
         >
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-          {busy ? "Opening…" : chosen ? `Pay ₹${Number(chosen.price).toLocaleString("en-IN")}` : "Choose a plan"}
+          {busy ? "Opening…" : chosen ? `Pay ₹${withGst(chosen.price).toLocaleString("en-IN")}` : "Choose a plan"}
         </button>
       </div>
+      {chosen && gstPct > 0 && (
+        <div className="mt-2 text-xs text-slate-500 text-right" data-testid="plan-gst-note">
+          ₹{Number(chosen.price).toLocaleString("en-IN")} + {gstPct}% GST ₹{(withGst(chosen.price) - Number(chosen.price)).toLocaleString("en-IN")}
+          {tax?.gstin ? ` · GSTIN ${tax.gstin}` : " · tax invoice issued by " + (tax?.legal_name || "Miracurl Studio")}
+          {tax?.msme ? ` · MSME ${tax.msme}` : ""}
+        </div>
+      )}
     </div>
   );
 }
