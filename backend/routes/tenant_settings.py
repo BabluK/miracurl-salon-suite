@@ -699,9 +699,10 @@ async def update_branding(body: BrandingIn, user=Depends(require_tenant_admin), 
     if not update:
         return {"ok": True}
     if update.get("maps_url"):
+        # Geocoding is best-effort: never let a slow/failed Google lookup block saving the profile.
         try:
-            found = await _resolve_maps_input(update["maps_url"])
-        except HTTPException:
+            found = await asyncio.wait_for(_resolve_maps_input(update["maps_url"]), timeout=6)
+        except Exception:  # noqa: BLE001 — HTTPException, timeout, network
             found = None
         if found:
             update["latitude"], update["longitude"] = found[0], found[1]
