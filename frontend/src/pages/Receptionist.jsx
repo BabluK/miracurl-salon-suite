@@ -16,18 +16,18 @@ export default function Receptionist() {
   return (
     <div className="app-canvas -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="receptionist-page">
       <div className="max-w-[1500px] space-y-6">
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.25em] text-emerald-700 font-semibold">WhatsApp · 24×7</div>
-          <h1 className="font-playfair text-3xl sm:text-4xl text-slate-900 mt-1">Mira Receptionist</h1>
-          <p className="text-sm text-slate-500 mt-1 max-w-2xl">
-            Guests message your WhatsApp; Mira answers in seconds — in English, Hindi, Kannada or Hinglish — with your real {resto ? "menu, timings and live tables, and reserves the table" : "prices, timings and open slots, and books the appointment"} herself. No staff needed.
-          </p>
-        </div>
         {err && <div className="rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm p-3" data-testid="receptionist-error">{err}</div>}
         {data && <ReceptionistHero data={data} resto={resto} onChange={load} />}
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 items-start">
           <div className="xl:col-span-2"><ReceptionistSim resto={resto} /></div>
           <div className="xl:col-span-3"><ReceptionistThreads threads={data?.threads || []} onChange={load} /></div>
+        </div>
+        <div className="mt-6 rounded-2xl bg-white border border-slate-100 px-5 py-4 flex items-center justify-between gap-4" data-testid="receptionist-footer">
+          <div className="flex items-center gap-3">
+            <img src="/assets/brand/ms-logo-gold.png" alt="" className="w-9 h-9 rounded-full" onError={e => { e.currentTarget.style.display = "none"; }} />
+            <div><div className="text-sm font-bold text-slate-900">Miracurl AI {resto ? "Restaurant" : "Salon"} Suite</div><div className="text-xs text-slate-500">Smarter {resto ? "Restaurants" : "Salons"}. Happier Customers.</div></div>
+          </div>
+          <div className="font-playfair italic text-slate-500 text-base hidden sm:block">{resto ? "Dining" : "Beauty"} Conversations, Automated ♡</div>
         </div>
       </div>
     </div>

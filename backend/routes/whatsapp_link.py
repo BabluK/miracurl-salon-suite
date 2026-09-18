@@ -337,8 +337,10 @@ async def receptionist_status(user=Depends(require_tenant_admin), t=Depends(curr
     from services.tenant_features import features_of
     from services.whatsapp_cloud import wa_config
     cfg = wa_config()
+    own = (t.get("own_whatsapp") or {}) if (t.get("own_whatsapp") or {}).get("status") == "connected" else {}
     return {"enabled": t.get("wa_auto_reply") is not False, "feature_on": bool(features_of(t)["whatsapp"]),
-            "channel_ready": bool(cfg["access_token"] and cfg["phone_number_id"] and rec.platform_number()),
+            "channel_ready": bool(own) or bool(cfg["access_token"] and cfg["phone_number_id"] and rec.platform_number()),
+            "own_number": bool(own), "display_number": own.get("display_phone_number") or _sender_label(),
             "platform_number": rec.platform_number(), "invite_link": rec.invite_link(t), "slug": t.get("slug"),
             "credits": int(t.get("wa_points") or 0), "business_type": t.get("business_type") or "salon",
             "stats": await rec.stats(t["id"]), "threads": await rec.threads(t["id"])}
