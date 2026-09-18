@@ -41,8 +41,11 @@ def _apex(host: str) -> str:
 
 
 def _rp(request: Request) -> tuple:
-    src = request.headers.get("origin") or request.headers.get("referer") or ""
-    host = urlparse(src).hostname or request.url.hostname
+    """RP id must equal (or be a suffix of) the domain the browser is on. Behind the ingress the
+    request host is an internal cluster name, so trust Origin/Referer, then X-Forwarded-Host, last the URL."""
+    fwd = (request.headers.get("x-forwarded-host") or "").split(",")[0].strip()
+    src = request.headers.get("referer") or request.headers.get("origin") or ""  # the ingress rewrites Origin to the internal host
+    host = fwd or urlparse(src).hostname or request.url.hostname
     return _apex(host), f"https://{host}"
 
 

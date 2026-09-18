@@ -18,6 +18,7 @@ import BrandMark from "./BrandMark";
 import TenantBrandMark from "./TenantBrandMark";
 import { TenantMiraAssistant } from "./TenantMiraAssistant";
 import InstallAppPrompt from "./InstallAppPrompt";
+import { PasskeyNudge } from "./PasskeyNudge";
 import TrialReminder from "./TrialReminder";
 import ActAsBanner from "./ActAsBanner";
 import { useNewBookingNotifier, NotifBell } from "./NewBookingNotifier";
@@ -353,6 +354,7 @@ export default function AppLayout() {
       {/* PWA install banner — auto-shown when installable, or on demand via
           the "Install app" menu item. Copy tuned for the logged-in salon app. */}
       <InstallAppPrompt variant="app" />
+      <PasskeyNudge />
 
       {/* Act-as-salon banner for super-admin */}
       {user?.role === "super_admin" && <ActAsBanner tenant={tenant} />}

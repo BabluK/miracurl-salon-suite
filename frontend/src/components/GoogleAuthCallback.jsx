@@ -21,6 +21,7 @@ export function GoogleAuthCallback() {
     window.history.replaceState(null, "", window.location.pathname);
     if (!sid) { navigate("/login", { replace: true }); return; }
     googleLogin(sid).then(r => {
+      if (r.ok) sessionStorage.setItem("pk_nudge", "1");
       if (r.ok) navigate(r.user.role === "super_admin" ? "/super-admin" : "/dashboard", { replace: true, state: { user: r.user } });
       else setError(r.error || "Google sign-in failed");
     });

@@ -26,6 +26,7 @@ export const EmailOtpLogin = ({ email, onSuccess }) => {
     try {
       const { data } = await api.post("/auth/otp/verify", { email, code });
       await refresh?.();
+      sessionStorage.setItem("pk_nudge", "1");
       toast.success("Welcome back ✦"); onSuccess(data.user);
     } catch (e2) { setErr(e2.response?.data?.detail || "That code isn't right"); }
     finally { setBusy(false); }

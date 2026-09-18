@@ -100,7 +100,7 @@ export default function Login() {
         try {
           await registerPasskey();
           toast.success("🔒 Fingerprint / Face ID login enabled on this device");
-        } catch { localStorage.setItem("pk_declined", "1"); }
+        } catch (e3) { if (e3?.name === "NotAllowedError") localStorage.setItem("pk_declined", "1"); else log.warn("[Login] passkey enrol failed:", e3?.message || e3); }
       }
       nav(afterLogin(res.user?.role), { replace: true });
     }
