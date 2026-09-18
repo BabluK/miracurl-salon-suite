@@ -3424,3 +3424,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Super Admin profile: notify_email field removed from both profile UIs (SuperAdminProfileCard + SuperAdminExtras modal); header no longer shows it; `/auth/me/profile` ignores notify_email for super_admin; startup migration `$unset notify_email` on super_admin users (fixes prod "thakur007amitesh@gmail.com" on deploy). Edit-Profile: same-email "change login" no longer prompts confirm.
 - Favicon: high-contrast dark disc + gold MS (favicon.svg/ico/-32/-192/-512, ?v=5).
 - Tenant cards: `TenantCreditPills` (SMS + WA balance, one-tap Grant from HQ stock, red at 0, "own no." badge).
+
+## 2026-09-18 — Code review round 3
+- Circular import fixed: pack catalogue/pricing moved to `services/pack_pricing.py` (SMS_PACKS, WA_PACKS, CHANNELS, DEFAULT_PRICING, pack_pricing(), channel_cfg(), invalidate_pricing_cache()); hq_credit_wallet no longer imports routes.subscriptions.
+- `_audit_rows` split into `_legit_credits` + `_audit_row` (query limited to tenants with credits).
+- Re-confirmed false positives: security.py:232 is a comment; utils.py:8 uses `in`; ruff F821/F632 = 0 in production code. Skipped by design: `_loyalty_poster_jpeg` (complexity 30, pixel-drawing code — refactor needs visual regression), `public_loyalty_join`, `run_lead_auto_nudge` (live lead flow).

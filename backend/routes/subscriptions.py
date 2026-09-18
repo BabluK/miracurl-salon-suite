@@ -341,44 +341,15 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
 
 
 # ---------------- SMS Point Packs (self-serve Razorpay top-up) ----------------
-SMS_PACKS = {
-    "pack_199": {"price": 199, "points": 250, "label": "Starter"},
-    "pack_499": {"price": 499, "points": 700, "label": "Growth"},
-    "pack_999": {"price": 999, "points": 1500, "label": "Pro"},
-}
-WA_PACKS = {  # Meta marketing ≈ ₹0.88/msg + platform margin
-    "wa_100": {"price": 149, "points": 100, "label": "Starter"},
-    "wa_500": {"price": 649, "points": 500, "label": "Growth"},
-    "wa_1000": {"price": 1199, "points": 1000, "label": "Pro"},
-}
-CHANNELS = {"sms": {"packs": SMS_PACKS, "field": "sms_points", "label": "SMS"},
-            "whatsapp": {"packs": WA_PACKS, "field": "wa_points", "label": "WhatsApp"}}
-
-
-# HQ cost per message (paise) — what MSG91 / Meta charge us. Margin floor the Boss wants on top: SMS +10p, WA +15p.
-DEFAULT_PRICING = {"sms_cost_paise": 25, "whatsapp_cost_paise": 93, "min_margin_paise": {"sms": 10, "whatsapp": 15}}
-_pricing_cache: dict = {"at": 0.0, "doc": None}
-
-
-async def pack_pricing() -> dict:
-    """Editable pack catalogue + HQ unit costs (platform_settings.pack_pricing), defaults from code. Cached 30s."""
-    import time
-    if _pricing_cache["doc"] and time.time() - _pricing_cache["at"] < 30:
-        return _pricing_cache["doc"]
-    doc = await _raw_db.platform_settings.find_one({"key": "pack_pricing"}, {"_id": 0}) or {}
-    merged = {**DEFAULT_PRICING, **{k: v for k, v in doc.items() if k in ("sms_cost_paise", "whatsapp_cost_paise")},
-              "packs": {"sms": doc.get("packs", {}).get("sms") or SMS_PACKS, "whatsapp": doc.get("packs", {}).get("whatsapp") or WA_PACKS}}
-    _pricing_cache.update(at=time.time(), doc=merged)
-    return merged
+from services.pack_pricing import (CHANNELS, DEFAULT_PRICING, SMS_PACKS, WA_PACKS, channel_cfg,  # noqa: E402,F401
+                                   invalidate_pricing_cache, pack_pricing)
 
 
 def _channel(name: str | None, pricing: dict | None = None) -> dict:
-    key = (name or "sms").lower()
-    ch = CHANNELS.get(key)
+    ch = channel_cfg(name, pricing)
     if not ch:
         raise HTTPException(400, "channel must be 'sms' or 'whatsapp'")
-    packs = (pricing or {}).get("packs", {}).get(key) or ch["packs"]
-    return {"key": key, **ch, "packs": packs}
+    return ch
 
 
 async def _notify_hq_pack_paid(t: dict, ch: dict, pending: dict) -> None:
@@ -1719,5 +1690,5 @@ async def hq_pack_pricing_put(body: PackPricingIn, user=Depends(require_super_ad
            "packs": {ch: {pk.key: {"price": pk.price, "points": pk.points, "label": pk.label} for pk in getattr(body, ch)} for ch in ("sms", "whatsapp")},
            "updated_by": user.get("email"), "updated_at": datetime.now(timezone.utc).isoformat()}
     await _raw_db.platform_settings.update_one({"key": "pack_pricing"}, {"$set": doc}, upsert=True)
-    _pricing_cache["doc"] = None
+    invalidate_pricing_cache()
     return _pricing_view(await pack_pricing())

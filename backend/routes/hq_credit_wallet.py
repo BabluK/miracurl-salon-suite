@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from database import _raw_db
+from services.pack_pricing import pack_pricing
 from security import require_super_admin
 
 router = APIRouter()
@@ -124,7 +125,6 @@ async def hq_wallet_view(admin=Depends(require_super_admin)):
         r["tenant_name"] = names.get(r.get("tenant_id"), "")
     low = {ch: int(w.get(f"{ch}_stock") or 0) < LOW_STOCK for ch in FIELD}
     # Margin so far = what tenants paid − (messages sold × HQ unit cost)
-    from routes.subscriptions import pack_pricing
     pr = await pack_pricing()
     margin = {}
     for ch in FIELD:
@@ -185,23 +185,30 @@ async def hq_grant_credits(tid: str, body: GrantIn, admin=Depends(require_super_
 LEGIT_SOURCES = ("razorpay", "hq_grant", "purchase", "pack_purchase")
 
 
+async def _legit_credits(tenant_id: str) -> dict:
+    """Credits HQ actually sold/granted, per channel. Ledger and credit-log describe the same grants → max, never sum."""
+    from_ledger, from_log = {"sms": 0, "whatsapp": 0}, {"sms": 0, "whatsapp": 0}
+    async for l in _raw_db.hq_wallet_ledger.find({"tenant_id": tenant_id, "kind": {"$in": ["tenant_purchase", "hq_grant"]}}, {"_id": 0, "channel": 1, "delta": 1}):
+        from_ledger[l["channel"]] = from_ledger.get(l["channel"], 0) + abs(int(l.get("delta") or 0))
+    async for l in _raw_db.sms_credit_log.find({"tenant_id": tenant_id, "source": {"$in": list(LEGIT_SOURCES)}, "points": {"$gt": 0}}, {"_id": 0, "channel": 1, "points": 1}):
+        ch = l.get("channel") or "sms"
+        from_log[ch] = from_log.get(ch, 0) + int(l.get("points") or 0)
+    return {ch: max(from_ledger.get(ch, 0), from_log.get(ch, 0)) for ch in FIELD}
+
+
+def _audit_row(t: dict, legit: dict) -> dict:
+    sms, wa = int(t.get("sms_points") or 0), int(t.get("wa_points") or 0)
+    dummy = {"sms": sms > 0 and legit["sms"] == 0, "whatsapp": wa > 0 and legit["whatsapp"] == 0}
+    return {"tenant_id": t["id"], "name": t.get("name"), "slug": t.get("slug"), "sms_points": sms, "wa_points": wa,
+            "legit_sms": legit["sms"], "legit_whatsapp": legit["whatsapp"], "dummy": dummy, "has_dummy": dummy["sms"] or dummy["whatsapp"]}
+
+
 async def _audit_rows() -> list[dict]:
-    """Per tenant: current credits vs. what HQ actually sold/granted. No legit source + points > 0 ⇒ dummy (dev/test) credits."""
+    """Per tenant with any credits: current balance vs. what HQ sold/granted. No legit source + points > 0 ⇒ dummy (dev/test) credits."""
     rows = []
-    async for t in _raw_db.tenants.find({}, {"_id": 0, "id": 1, "name": 1, "slug": 1, "sms_points": 1, "wa_points": 1}).sort("created_at", 1):
-        sms, wa = int(t.get("sms_points") or 0), int(t.get("wa_points") or 0)
-        from_ledger, from_log = {"sms": 0, "whatsapp": 0}, {"sms": 0, "whatsapp": 0}
-        async for l in _raw_db.hq_wallet_ledger.find({"tenant_id": t["id"], "kind": {"$in": ["tenant_purchase", "hq_grant"]}}, {"_id": 0, "channel": 1, "delta": 1}):
-            from_ledger[l["channel"]] = from_ledger.get(l["channel"], 0) + abs(int(l.get("delta") or 0))
-        async for l in _raw_db.sms_credit_log.find({"tenant_id": t["id"], "source": {"$in": list(LEGIT_SOURCES)}, "points": {"$gt": 0}}, {"_id": 0, "channel": 1, "points": 1}):
-            from_log[l.get("channel") or "sms"] = from_log.get(l.get("channel") or "sms", 0) + int(l.get("points") or 0)
-        # both records describe the same grants (ledger is newer) — take the larger, never the sum
-        legit = {ch: max(from_ledger.get(ch, 0), from_log.get(ch, 0)) for ch in FIELD}
-        dummy = {"sms": sms > 0 and legit["sms"] == 0, "whatsapp": wa > 0 and legit["whatsapp"] == 0}
-        if sms or wa:
-            rows.append({"tenant_id": t["id"], "name": t.get("name"), "slug": t.get("slug"), "sms_points": sms, "wa_points": wa,
-                         "legit_sms": legit["sms"], "legit_whatsapp": legit["whatsapp"], "dummy": dummy,
-                         "has_dummy": dummy["sms"] or dummy["whatsapp"]})
+    async for t in _raw_db.tenants.find({"$or": [{"sms_points": {"$gt": 0}}, {"wa_points": {"$gt": 0}}]},
+                                        {"_id": 0, "id": 1, "name": 1, "slug": 1, "sms_points": 1, "wa_points": 1}).sort("created_at", 1):
+        rows.append(_audit_row(t, await _legit_credits(t["id"])))
     return rows
 
 
