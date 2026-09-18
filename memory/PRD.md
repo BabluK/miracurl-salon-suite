@@ -3375,3 +3375,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - `routes/hq_credit_wallet.py`: hq_wallet doc {sms_stock, whatsapp_stock, *_revenue_paise, *_cost_paise}; ledger hq_wallet_ledger. Tenant Razorpay pack purchase (subscriptions.verify) → `record_tenant_purchase` deducts HQ stock + books revenue. Endpoints: GET /super-admin/credit-wallet, POST .../topup, POST .../sync (pulls live MSG91 balance → sms_stock), POST /super-admin/tenants/{tid}/grant-credits (409 if HQ stock short). WhatsApp = Meta postpaid → stock is a budget figure.
 - WA_PACKS now 100/₹149, 500/₹649, 1000/₹1199; SmsPacksCard embedded (embedded prop) in WhatsAppLinkCard with defaultChannel whatsapp. HQ card `CreditWalletCard.jsx` in BillingPanel.
 - Phone OTP for +91 91802 61256 still Meta-cooldown at 16:52 IST — user must NOT press Verify in Meta UI; retry request_code later.
+
+## 2026-09-18 — /demo page redesign: single form (iteration_176 PASS)
+- Dashboard/Booking 404 hotfix re-verified (login → /dashboard → /appointments → reload OK; miracurl_tenant persisted).
+- `pages/PublicDemo.jsx` rewritten to match user mockup: hero (headline + purpose toggle demo|onboarding, Mira avatar + quote), feature icon row, 2-column card (Your Details with labelled icon inputs; month calendar `components/demo/DemoCalendar.jsx` enabling only API `dates`, time grid), full-width Confirm button, trust row. Components in `components/demo/` (DemoHero, DemoCalendar, DemoBits). Mira chat tab + tour video removed from /demo (demo-chat API still exists for other callers).
+- Backend: `PublicDemoIn.purpose` ("demo"|"onboarding", pattern-validated) → stored on `preferred_slot.purpose`, email subjects say "onboarding assistance session" for onboarding.

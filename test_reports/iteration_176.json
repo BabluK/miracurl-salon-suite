@@ -1,0 +1,25 @@
+{
+  "summary": "Tested the redesigned public /demo page (single-form layout) end-to-end on desktop + mobile plus backend endpoints. All specified requirements verified: page renders hero+toggle+feature row+form card+trust row, no auto-scroll (scrollY=0), first date preselected (2026-09-19), 11:00 preselected, purpose toggle updates headline/button text correctly, calendar nav (prev/next) changes month label, 35 of 42 cells disabled outside 7-day window, only 7 enabled data-testid=demo-date-* cells, book flow succeeds using delivered@resend.dev with onboarding purpose showing 'Your onboarding session is booked' heading and demo-gcal-btn with valid Google Calendar link. Mobile 390px: Mira panel hidden, single column (310px), button full-width. Backend: GET /api/public/demo/slots returns dates=7, times=8; POST /api/public/demo/book accepts purpose 'onboarding' (returns slot.purpose='onboarding'); rejects purpose 'bad' with 422. Only used 2 of 5 booking rate-limit slots (1 curl + 1 UI).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/demo (all viewports)", "issues": ["Multiple 401 console errors on page load (probably from SiteHeader auth-me probe on a public page). Cosmetic only — page functions perfectly. Consider suppressing/guarding the auth ping on public routes."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PublicDemo.jsx cleanly delegates to demo/* components; good separation.",
+    "Non-blocking: SiteHeader triggers auth calls returning 401 on public routes — spams console; consider skipping when unauthenticated.",
+    "hq_documents.py is ~1871 lines — over the 700-line guideline; consider splitting demo/onboarding router into its own module."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "None needed (public page). Booking email used: delivered@resend.dev",
+  "seed_data_creation": "2 demo_invites rows created for delivered@resend.dev (curl + UI onboarding booking on 2026-09-20 15:00).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Rate limit on /api/public/demo/book is 5/10min per IP; 2 bookings already used from the shared test IP within the current window. If retesting, wait or use different IP. All frontend data-testids verified working: public-demo-page, demo-hero, demo-headline, demo-blurb, demo-purpose-toggle, demo-purpose-demo, demo-purpose-onboarding, demo-mira-panel, demo-feature-row, demo-form-card, demo-name-input, demo-salon-input, demo-city-input, demo-email-input, demo-phone-input, demo-calendar, demo-cal-prev, demo-cal-next, demo-cal-month, demo-date-YYYY-MM-DD, demo-times, demo-time-HH:MM, demo-book-btn, demo-success, demo-gcal-btn, demo-trust-row."
+}
