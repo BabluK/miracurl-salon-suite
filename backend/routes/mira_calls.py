@@ -923,8 +923,11 @@ async def mira_briefing(user=Depends(require_super_admin)):
             heat_note += (f" I've already queued morning calls to {', '.join(rd['auto_called'])} — "
                           f"watch the call history for results.")
         await _raw_db.platform_settings.update_one({"key": "lead_heat_risers"}, {"$set": {"announced": True}})
+    from routes.hq_credit_wallet import _wallet as _hq_wallet, low_stock_line
+    stock_note = low_stock_line(await _hq_wallet())
     text = (f"Hey Miracurl! {_tod_greeting()}! {summary}.{call_report}{heat_note}{suggestion} "
-            f"How may I help you today — what details do you want me to show?")
+            + (f"{stock_note} " if stock_note else "")
+            + "How may I help you today — what details do you want me to show?")
     health, orphans, alerts = await _system_health()
     if alerts:
         text += " One more thing, Boss — we have some system health items that need your attention: " + "; ".join(alerts[:2]) + "."

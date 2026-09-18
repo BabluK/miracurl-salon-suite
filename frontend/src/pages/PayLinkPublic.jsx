@@ -32,6 +32,13 @@ const BENEFITS = [
   "💛 Priority onboarding support from the Miracurl team",
 ];
 
+const Shell = ({ children }) => (
+  <div className="min-h-screen bg-[#080809] text-white flex items-center justify-center p-5" data-testid="pay-link-page">
+    <Toaster theme="dark" position="top-center" />
+    <div className="w-full max-w-lg">{children}</div>
+  </div>
+);
+
 export default function PayLinkPublic() {
   const { token } = useParams();
   const API = useMemo(() => axios.create({ baseURL: `${BACKEND_URL}/api/public/pay-link` }), []);
@@ -95,13 +102,6 @@ export default function PayLinkPublic() {
   };
 
   const daysLeft = link ? Math.max(0, Math.ceil((new Date(link.expires_at) - Date.now()) / 86400000)) : 0;
-
-  const Shell = ({ children }) => (
-    <div className="min-h-screen bg-[#080809] text-white flex items-center justify-center p-5" data-testid="pay-link-page">
-      <Toaster theme="dark" position="top-center" />
-      <div className="w-full max-w-lg">{children}</div>
-    </div>
-  );
 
   if (error) return (
     <Shell><div className="text-center bg-white/5 border border-white/10 rounded-3xl p-10" data-testid="pay-link-error">

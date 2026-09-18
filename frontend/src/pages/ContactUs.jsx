@@ -16,6 +16,10 @@ const Field = ({ label, value, onChange, placeholder, type = "text", testid }) =
   </label>
 );
 
+const Card = ({ children }) => (
+  <div className="rounded-3xl border border-[#e9d9ae] bg-white/80 backdrop-blur p-8 shadow-[0_20px_60px_-30px_rgba(184,134,59,0.35)]">{children}</div>
+);
+
 export default function ContactUs() {
   const [site, setSite] = useState(null);
   const [form, setForm] = useState({ name: "", email: "", phone: "", salon_name: "", city: "" });
@@ -41,10 +45,6 @@ export default function ContactUs() {
       toast.error(e.response?.data?.detail?.[0]?.msg || e.response?.data?.detail || "Couldn't send — please email us instead");
     } finally { setBusy(false); }
   };
-
-  const Card = ({ children }) => (
-    <div className="rounded-3xl border border-[#e9d9ae] bg-white/80 backdrop-blur p-8 shadow-[0_20px_60px_-30px_rgba(184,134,59,0.35)]">{children}</div>
-  );
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-white text-slate-800 font-outfit" data-testid="contact-us-page">

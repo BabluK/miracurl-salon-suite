@@ -122,7 +122,32 @@ async def _send_one(t: dict, camp: dict, rcp: dict) -> dict:
     first = (rcp.get("name") or "there").split()[0]
     kind, params = _campaign_params(camp, t, first)
     r = await official.send(kind, t, rcp["phone"], params, image_url=camp.get("image_url"))
-    return {"messageId": r.get("message_id")}
+    return {"messageId": r.get("message_id"), "channel": "whatsapp"}
+
+
+def _sms_campaign_vars(camp: dict, first: str) -> tuple[str, list[str]]:
+    """DLT SMS twin of the WhatsApp campaign: festival → (name, festival, offer); anything else → special (name, offer, valid_till)."""
+    offer = camp.get("offer") or camp.get("headline") or camp.get("text", "")[:60]
+    if camp.get("festival"):
+        return "festival", [first, camp["festival"], offer]
+    valid = camp.get("valid_till") or (datetime.now(timezone.utc) + timedelta(days=7)).strftime("%d %b")
+    return "special", [first, offer, valid]
+
+
+async def _sms_fallback_ready(t: dict) -> bool:
+    from sms_service import _provider, sms_configured
+    from services.tenant_features import feature_on
+    return sms_configured() and _provider() == "msg91" and int(t.get("sms_points") or 0) >= 1 and await feature_on(t["id"], "sms")
+
+
+async def _send_one_sms(t: dict, camp: dict, rcp: dict) -> dict:
+    from sms_service import send_tenant_sms
+    first = (rcp.get("name") or "there").split()[0]
+    kind, values = _sms_campaign_vars(camp, first)
+    r = await send_tenant_sms(t["id"], rcp["phone"], camp.get("text") or "", kind=kind, sms_vars=values)
+    if not r.get("sent"):
+        raise RuntimeError(f"sms: {r.get('error') or 'failed'}")
+    return {"messageId": r.get("sid"), "channel": "sms"}
 
 
 async def _tick_tenant(camp: dict) -> None:
@@ -136,9 +161,12 @@ async def _tick_tenant(camp: dict) -> None:
     if use["remaining"] <= 0:
         await _raw_db.wa_campaigns.update_one({"id": camp["id"]}, {"$set": {"status": "capped", "updated_at": _now()}})
         return
+    via_sms = False
     if int(t.get("wa_points") or 0) < 1:
-        await _raw_db.wa_campaigns.update_one({"id": camp["id"]}, {"$set": {"status": "paused", "error": "No WhatsApp credits — top up in Settings", "updated_at": _now()}})
-        return
+        via_sms = await _sms_fallback_ready(t)  # out of WhatsApp credits → DLT SMS keeps the campaign moving
+        if not via_sms:
+            await _raw_db.wa_campaigns.update_one({"id": camp["id"]}, {"$set": {"status": "paused", "error": "No WhatsApp or SMS credits — top up in Settings", "updated_at": _now()}})
+            return
     idx = next((i for i, r in enumerate(camp["recipients"]) if r["status"] == "pending"), None)
     if idx is None:
         await _raw_db.wa_campaigns.update_one({"id": camp["id"]}, {"$set": {"status": "done", "finished_at": _now()}})
@@ -146,9 +174,10 @@ async def _tick_tenant(camp: dict) -> None:
     rcp = camp["recipients"][idx]
     _last_sent[t["id"]] = asyncio.get_event_loop().time()
     try:
-        data = await _send_one(t, camp, rcp)
-        upd = {f"recipients.{idx}.status": "sent", f"recipients.{idx}.message_id": data.get("messageId"), f"recipients.{idx}.sent_at": _now()}
-        inc = {"sent": 1}
+        data = await (_send_one_sms if via_sms else _send_one)(t, camp, rcp)
+        upd = {f"recipients.{idx}.status": "sent", f"recipients.{idx}.message_id": data.get("messageId"), f"recipients.{idx}.sent_at": _now(),
+               f"recipients.{idx}.channel": data["channel"]}
+        inc = {"sent": 1, **({"sent_sms": 1} if via_sms else {})}
     except Exception as e:  # noqa: BLE001
         upd = {f"recipients.{idx}.status": "failed", f"recipients.{idx}.error": str(e)[:200]}
         inc = {"failed": 1}
@@ -212,7 +241,7 @@ async def draft_festival_campaigns() -> int:
     from routes.mira_common import _ask_json
     from services.day_window import _tenant_tz
     made = 0
-    async for t in _raw_db.tenants.find({"wa_points": {"$gt": 0}}, {"_id": 0}):
+    async for t in _raw_db.tenants.find({"$or": [{"wa_points": {"$gt": 0}}, {"sms_points": {"$gt": 0}}]}, {"_id": 0}):
         today = datetime.now(_tenant_tz(t)).date()
         for iso, (name, emoji, span) in FESTIVALS.items():
             if (_date.fromisoformat(iso) - today).days != 5:

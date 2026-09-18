@@ -85,6 +85,8 @@ async def _sms_reminder_scheduler() -> None:
                                            wa={"kind": "reminder", "params": [first, svc, t.get("name") or "your salon", at_time]},
                                            sms_vars=[first, f"today {at_time}", svc, t.get("reception_phone") or t.get("phone") or "the salon"])
                         await _raw_db.appointments.update_one({"id": a["id"]}, {"$set": {"hour_reminder_sent": True}})
+                from routes.hq_credit_wallet import check_low_stock
+                await check_low_stock()  # HQ pool under 200 → Mira "Hey Boss" (once per channel per day)
                 # Low-balance alert: email HQ once per tenant per day when points dip under 20
                 today = datetime.now(timezone.utc).date().isoformat()
                 low = await _raw_db.tenants.find(

@@ -11,6 +11,8 @@ from security import require_super_admin
 router = APIRouter()
 WALLET_ID = "hq_credit_wallet"
 FIELD = {"sms": "sms_points", "whatsapp": "wa_points"}
+LOW_STOCK = 200  # Mira nags the Boss below this many unassigned credits
+LABEL = {"sms": "SMS", "whatsapp": "WhatsApp"}
 
 
 def _now() -> str:
@@ -38,6 +40,43 @@ async def record_tenant_purchase(channel: str, points: int, tenant_id: str, amou
     await _raw_db.hq_wallet.update_one({"id": WALLET_ID}, {"$inc": {f"{channel}_stock": -points, f"{channel}_revenue_paise": amount_paise},
                                                           "$set": {"updated_at": _now()}})
     await _ledger(channel, -points, "tenant_purchase", tenant_id, amount_paise, "razorpay", payment_ref)
+    await check_low_stock()
+
+
+def low_stock_line(w: dict) -> str:
+    """Mira's one-liner for the Boss when HQ stock is thin (empty string when all good)."""
+    low = [(ch, int(w.get(f"{ch}_stock") or 0)) for ch in FIELD if int(w.get(f"{ch}_stock") or 0) < LOW_STOCK]
+    if not low:
+        return ""
+    parts = " and ".join(f"{n:,} {LABEL[ch]}" for ch, n in low)
+    where = " / ".join("MSG91" if ch == "sms" else "Meta" for ch, _ in low)
+    return (f"Hey Boss 👋 HQ has only {parts} credits left to assign. Please top up {where} so every tenant "
+            f"who purchases a pack gets their credits instantly.")
+
+
+async def check_low_stock() -> list[str]:
+    """Below LOW_STOCK on any channel → one Mira alert per channel per day (HQ feed + email to admin@)."""
+    w = await _wallet()
+    today = datetime.now(timezone.utc).date().isoformat()
+    fired = []
+    for ch in FIELD:
+        stock = int(w.get(f"{ch}_stock") or 0)
+        if stock >= LOW_STOCK or w.get(f"{ch}_low_alert_date") == today:
+            continue
+        await _raw_db.hq_wallet.update_one({"id": WALLET_ID}, {"$set": {f"{ch}_low_alert_date": today}})
+        await _raw_db.hq_wallet_alerts.insert_one({"id": f"wallet-low-{ch}-{today}", "channel": ch, "stock": stock, "at": _now()})
+        fired.append(ch)
+    if fired:
+        from email_service import _send_email, hq_inbox
+        line = low_stock_line(w)
+        rows = "".join(f"<li><b>{LABEL[ch]}</b>: {int(w.get(f'{ch}_stock') or 0):,} credits left (alert below {LOW_STOCK})</li>" for ch in fired)
+        try:
+            await _send_email([hq_inbox("admin")], "🔔 Mira: HQ credit stock is running low",
+                              f"<div style='font-family:Arial,sans-serif;font-size:14px;color:#33333b;line-height:1.7'><p>{line}</p><ul>{rows}</ul>"
+                              f"<p>Top up MSG91 (SMS) or set the Meta budget (WhatsApp), then record it in Super Admin → HQ Credit Wallet.</p></div>")
+        except Exception:  # noqa: BLE001 — email is best-effort
+            pass
+    return fired
 
 
 async def _msg91_balance() -> int | None:
@@ -62,6 +101,9 @@ async def hq_wallet_sync(admin=Depends(require_super_admin)):
     bal = await _msg91_balance()
     if bal is None:
         raise HTTPException(502, "MSG91 not reachable — check MSG91_AUTHKEY")
+    if bal == 0:
+        raise HTTPException(409, "MSG91 reports 0 on the SMS route — your account uses the ₹ wallet, which MSG91 doesn't expose via API. "
+                                 "Use 'Record MSG91 wallet' and enter the ₹ balance + price per SMS.")
     w = await _wallet()
     delta = bal - int(w.get("sms_stock") or 0)
     await _raw_db.hq_wallet.update_one({"id": WALLET_ID}, {"$set": {"sms_stock": bal, "sms_synced_at": _now(), "updated_at": _now()}})
@@ -80,24 +122,29 @@ async def hq_wallet_view(admin=Depends(require_super_admin)):
     names = {t["id"]: t["name"] async for t in _raw_db.tenants.find({"id": {"$in": tids}}, {"_id": 0, "id": 1, "name": 1})} if tids else {}
     for r in ledger:
         r["tenant_name"] = names.get(r.get("tenant_id"), "")
-    low = {ch: w.get(f"{ch}_stock", 0) < 500 for ch in FIELD}
-    return {**w, "ledger": ledger, "low_stock": low}
+    low = {ch: int(w.get(f"{ch}_stock") or 0) < LOW_STOCK for ch in FIELD}
+    return {**w, "ledger": ledger, "low_stock": low, "low_threshold": LOW_STOCK, "mira_note": low_stock_line(w)}
 
 
 class TopupIn(BaseModel):
     channel: str = Field(..., pattern="^(sms|whatsapp)$")
-    points: int = Field(..., ge=1, le=1_000_000)
+    points: int = Field(..., ge=0, le=1_000_000)
     cost_paise: int = Field(0, ge=0)
     note: str = Field("", max_length=200)
+    mode: str = Field("add", pattern="^(add|set)$")  # set = "this is my current MSG91/Meta stock"
 
 
 @router.post("/super-admin/credit-wallet/topup")
 async def hq_wallet_topup(body: TopupIn, admin=Depends(require_super_admin)):
-    """HQ bought stock from Meta / MSG91 (or sets an opening balance)."""
-    await _wallet()
-    await _raw_db.hq_wallet.update_one({"id": WALLET_ID}, {"$inc": {f"{body.channel}_stock": body.points, f"{body.channel}_cost_paise": body.cost_paise},
+    """HQ bought stock from Meta / MSG91 (add), or records the current balance (set) — e.g. MSG91 ₹ wallet ÷ price per SMS."""
+    w = await _wallet()
+    cur = int(w.get(f"{body.channel}_stock") or 0)
+    delta = body.points if body.mode == "add" else body.points - cur
+    await _raw_db.hq_wallet.update_one({"id": WALLET_ID}, {"$inc": {f"{body.channel}_stock": delta, f"{body.channel}_cost_paise": body.cost_paise},
                                                           "$set": {"updated_at": _now()}})
-    await _ledger(body.channel, body.points, "hq_topup", None, body.cost_paise, admin.get("email"), body.note)
+    if delta:
+        await _ledger(body.channel, delta, "hq_topup" if body.mode == "add" else "hq_set_balance", None, body.cost_paise, admin.get("email"), body.note)
+    await check_low_stock()
     return {"ok": True, **(await _wallet())}
 
 
@@ -121,4 +168,5 @@ async def hq_grant_credits(tid: str, body: GrantIn, admin=Depends(require_super_
     await _raw_db.sms_credit_log.insert_one({"id": str(uuid.uuid4()), "tenant_id": tid, "points": body.points, "source": "hq_grant",
                                              "channel": body.channel, "credited_by": admin.get("email"), "at": _now(), "note": body.note})
     await _ledger(body.channel, -body.points, "hq_grant", tid, 0, admin.get("email"), body.note)
+    await check_low_stock()
     return {"ok": True, **(await _wallet())}

@@ -3,6 +3,14 @@ import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { Wand2, Loader2 } from "lucide-react";
 
+// Module-level so inputs keep focus while typing (an inline component would remount on every keystroke).
+const Num = ({ k, label, step = 1, value, onChange }) => (
+  <label className="text-xs text-slate-600">{label}
+    <input type="number" min="0" step={step} value={value} onChange={onChange} data-testid={`auto-colour-${k}`}
+      className="mt-0.5 w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-white text-slate-800" />
+  </label>
+);
+
 export const AutoColourServices = ({ onDone, linkedCount, total }) => {
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ women_price: 2499, men_price: 799, women_duration: 120, men_duration: 45, fashion_extra: 1000, technique_extra: 1500, overwrite: false });
@@ -19,12 +27,7 @@ export const AutoColourServices = ({ onDone, linkedCount, total }) => {
     } catch (e) { toast.error(formatApiError(e.response?.data?.detail)); }
     finally { setBusy(false); }
   };
-  const Num = ({ k, label, step = 1 }) => (
-    <label className="text-xs text-slate-600">{label}
-      <input type="number" min="0" step={step} value={f[k]} onChange={e => setF({ ...f, [k]: Number(e.target.value) })} data-testid={`auto-colour-${k}`}
-        className="mt-0.5 w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-white text-slate-800" />
-    </label>
-  );
+  const num = (k) => ({ k, value: f[k], onChange: e => setF({ ...f, [k]: Number(e.target.value) }) });
   return (
     <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/40 p-3" data-testid="auto-colour-services">
       <div className="flex items-center gap-2 flex-wrap">
@@ -36,14 +39,14 @@ export const AutoColourServices = ({ onDone, linkedCount, total }) => {
       {open && (
         <div className="mt-3 space-y-2">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <Num k="women_price" label="Women's price ₹" step={50} />
-            <Num k="women_duration" label="Women's mins" step={15} />
-            <Num k="men_price" label="Men's price ₹" step={50} />
-            <Num k="men_duration" label="Men's mins" step={15} />
+            <Num {...num("women_price")} label="Women's price ₹" step={50} />
+            <Num {...num("women_duration")} label="Women's mins" step={15} />
+            <Num {...num("men_price")} label="Men's price ₹" step={50} />
+            <Num {...num("men_duration")} label="Men's mins" step={15} />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <Num k="fashion_extra" label="+ ₹ for fashion shades (pastels, platinum, greys — pre-lightening)" step={100} />
-            <Num k="technique_extra" label="+ ₹ for techniques (balayage, ombré, money piece)" step={100} />
+            <Num {...num("fashion_extra")} label="+ ₹ for fashion shades (pastels, platinum, greys — pre-lightening)" step={100} />
+            <Num {...num("technique_extra")} label="+ ₹ for techniques (balayage, ombré, money piece)" step={100} />
           </div>
           <p className="text-[11px] text-slate-500">Creates: Women's / Men's Global Colour · Women's / Men's Fashion Colour (pre-lightened, +₹{f.fashion_extra}) · Balayage / Ombré / Money Piece (+₹{f.technique_extra}).</p>
           <label className="flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" checked={f.overwrite} onChange={e => setF({ ...f, overwrite: e.target.checked })} data-testid="auto-colour-overwrite" /> Also relink shades already linked to another service</label>

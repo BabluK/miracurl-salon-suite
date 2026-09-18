@@ -144,12 +144,22 @@ async def _verify_items(since: str) -> list:
     return items
 
 
+async def _wallet_items(since: str) -> list:
+    from routes.hq_credit_wallet import LABEL, LOW_STOCK
+    out = []
+    async for a in _raw_db.hq_wallet_alerts.find({"at": {"$gte": since}}, {"_id": 0}).sort("at", -1).limit(10):
+        out.append({"id": a["id"], "type": "wallet", "icon": "🔔", "unread": True, "at": a["at"], "tab": "billing",
+                    "title": f"Hey Boss — only {a['stock']:,} {LABEL.get(a['channel'], a['channel'])} credits left to assign",
+                    "body": f"HQ stock dropped under {LOW_STOCK}. Top up {'MSG91' if a['channel'] == 'sms' else 'Meta'} and record it in HQ Credit Wallet."})
+    return out
+
+
 @router.get("/super-admin/notifications")
 async def hq_notifications(user=Depends(require_super_admin)):
     """Everything the super admin should know about, in one feed (last 30 days)."""
     since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
     items = ((await _hiring_items(since)) + (await _message_items(since)) + (await _tenant_items(since))
-             + (await _fee_items(since)) + (await _demo_items(since)) + (await _verify_items(since)))
+             + (await _fee_items(since)) + (await _demo_items(since)) + (await _verify_items(since)) + (await _wallet_items(since)))
     reads = {r["id"]: r async for r in _raw_db.hq_notification_reads.find({}, {"_id": 0})}
     items = [i for i in items if not (reads.get(i["id"]) or {}).get("dismissed")]
     for i in items:
