@@ -1,13 +1,25 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Wallet, RefreshCw, MessageCircle, MessageSquare, IndianRupee, AlertTriangle } from "lucide-react";
+import { Wallet, RefreshCw, MessageCircle, MessageSquare, IndianRupee, AlertTriangle, SearchCheck, Trash2 } from "lucide-react";
 
 const inr = (p) => `₹${Math.round((p || 0) / 100).toLocaleString("en-IN")}`;
 
 export default function CreditWalletCard() {
   const [w, setW] = useState(null);
   const [busy, setBusy] = useState("");
+  const [audit, setAudit] = useState(null);
+  const runAudit = async () => {
+    setBusy("audit");
+    try { const { data } = await api.get("/super-admin/credit-wallet/audit"); setAudit(data); if (!data.dummy_count) toast.success("All tenant credits are legit — nothing to remove"); }
+    catch (e) { toast.error(e.response?.data?.detail || "Audit failed"); } finally { setBusy(""); }
+  };
+  const removeDummy = async () => {
+    if (!window.confirm(`Remove dummy credits from ${audit.dummy_count} tenant(s)? Only credits never sold/granted from HQ stock are zeroed.`)) return;
+    setBusy("remove");
+    try { const { data } = await api.post("/super-admin/credit-wallet/audit/remove-dummy"); toast.success(`Removed dummy credits from ${data.removed.length} tenant(s)`); setAudit(null); load(); }
+    catch (e) { toast.error(e.response?.data?.detail || "Failed"); } finally { setBusy(""); }
+  };
   const load = () => api.get("/super-admin/credit-wallet").then(r => setW(r.data)).catch(() => {});
   useEffect(() => { load(); }, []);
   const sync = async () => {
@@ -61,6 +73,21 @@ export default function CreditWalletCard() {
           <button onClick={() => topup("whatsapp")} className="mt-2 text-xs text-[#b58a2c] font-semibold hover:underline">+ Set budget stock</button>
         </div>
       </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={runAudit} disabled={!!busy} data-testid="hq-wallet-audit" className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50"><SearchCheck className="w-3.5 h-3.5" /> Audit tenant credits</button>
+        {audit?.dummy_count > 0 && <button onClick={removeDummy} disabled={!!busy} data-testid="hq-wallet-remove-dummy" className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rose-600 text-white font-semibold hover:bg-rose-700"><Trash2 className="w-3.5 h-3.5" /> Remove dummy credits ({audit.dummy_count})</button>}
+      </div>
+      {audit?.tenants?.length > 0 && (
+        <ul className="divide-y divide-slate-100 text-xs" data-testid="hq-wallet-audit-list">
+          {audit.tenants.map(r => (
+            <li key={r.tenant_id} className="py-1.5 flex items-center gap-3">
+              <span className="text-slate-800 font-medium flex-1 truncate">{r.name}</span>
+              <span className={r.dummy.sms ? "text-rose-600 font-semibold" : "text-slate-600"}>SMS {r.sms_points}{r.dummy.sms ? " · dummy" : ` · legit ${r.legit_sms}`}</span>
+              <span className={r.dummy.whatsapp ? "text-rose-600 font-semibold" : "text-slate-600"}>WA {r.wa_points}{r.dummy.whatsapp ? " · dummy" : ` · legit ${r.legit_whatsapp}`}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       {w.ledger?.length > 0 && (
         <ul className="divide-y divide-slate-100 text-xs max-h-48 overflow-y-auto" data-testid="hq-wallet-ledger">
           {w.ledger.slice(0, 12).map(r => (

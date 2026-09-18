@@ -170,3 +170,55 @@ async def hq_grant_credits(tid: str, body: GrantIn, admin=Depends(require_super_
     await _ledger(body.channel, -body.points, "hq_grant", tid, 0, admin.get("email"), body.note)
     await check_low_stock()
     return {"ok": True, **(await _wallet())}
+
+
+LEGIT_SOURCES = ("razorpay", "hq_grant", "purchase", "pack_purchase")
+
+
+async def _audit_rows() -> list[dict]:
+    """Per tenant: current credits vs. what HQ actually sold/granted. No legit source + points > 0 ⇒ dummy (dev/test) credits."""
+    rows = []
+    async for t in _raw_db.tenants.find({}, {"_id": 0, "id": 1, "name": 1, "slug": 1, "sms_points": 1, "wa_points": 1}).sort("created_at", 1):
+        sms, wa = int(t.get("sms_points") or 0), int(t.get("wa_points") or 0)
+        from_ledger, from_log = {"sms": 0, "whatsapp": 0}, {"sms": 0, "whatsapp": 0}
+        async for l in _raw_db.hq_wallet_ledger.find({"tenant_id": t["id"], "kind": {"$in": ["tenant_purchase", "hq_grant"]}}, {"_id": 0, "channel": 1, "delta": 1}):
+            from_ledger[l["channel"]] = from_ledger.get(l["channel"], 0) + abs(int(l.get("delta") or 0))
+        async for l in _raw_db.sms_credit_log.find({"tenant_id": t["id"], "source": {"$in": list(LEGIT_SOURCES)}, "points": {"$gt": 0}}, {"_id": 0, "channel": 1, "points": 1}):
+            from_log[l.get("channel") or "sms"] = from_log.get(l.get("channel") or "sms", 0) + int(l.get("points") or 0)
+        # both records describe the same grants (ledger is newer) — take the larger, never the sum
+        legit = {ch: max(from_ledger.get(ch, 0), from_log.get(ch, 0)) for ch in FIELD}
+        dummy = {"sms": sms > 0 and legit["sms"] == 0, "whatsapp": wa > 0 and legit["whatsapp"] == 0}
+        if sms or wa:
+            rows.append({"tenant_id": t["id"], "name": t.get("name"), "slug": t.get("slug"), "sms_points": sms, "wa_points": wa,
+                         "legit_sms": legit["sms"], "legit_whatsapp": legit["whatsapp"], "dummy": dummy,
+                         "has_dummy": dummy["sms"] or dummy["whatsapp"]})
+    return rows
+
+
+@router.get("/super-admin/credit-wallet/audit")
+async def hq_credit_audit(admin=Depends(require_super_admin)):
+    rows = await _audit_rows()
+    return {"tenants": rows, "dummy_count": sum(1 for r in rows if r["has_dummy"])}
+
+
+@router.post("/super-admin/credit-wallet/audit/remove-dummy")
+async def hq_credit_remove_dummy(admin=Depends(require_super_admin)):
+    """Zero out credits that were never sold or granted from HQ stock (old dev/test seeds). Legit balances are untouched."""
+    removed = []
+    for r in await _audit_rows():
+        unset = {}
+        if r["dummy"]["sms"]:
+            unset["sms_points"] = 0
+        if r["dummy"]["whatsapp"]:
+            unset["wa_points"] = 0
+        if not unset:
+            continue
+        await _raw_db.tenants.update_one({"id": r["tenant_id"]}, {"$set": unset})
+        for ch, field in FIELD.items():
+            if field in unset:
+                await _raw_db.sms_credit_log.insert_one({"id": str(uuid.uuid4()), "tenant_id": r["tenant_id"], "channel": ch,
+                                                         "points": -(r["sms_points"] if ch == "sms" else r["wa_points"]), "source": "dummy_reset",
+                                                         "credited_by": admin.get("email"), "at": _now(), "note": "never sold/granted from HQ stock"})
+        removed.append({"name": r["name"], "sms_removed": r["sms_points"] if "sms_points" in unset else 0,
+                        "wa_removed": r["wa_points"] if "wa_points" in unset else 0})
+    return {"ok": True, "removed": removed}

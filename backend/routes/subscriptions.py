@@ -1471,13 +1471,9 @@ async def sms_delivery_log(tenant_id: str = "", user=Depends(require_super_admin
 async def credit_sms_points(tid: str, body: SmsPointsIn, channel: str = "sms", user=Depends(require_super_admin)):
     """Super-admin distributes SMS / WhatsApp credits to a tenant from the platform pool (1 point = 1 message)."""
     ch = _channel(channel)
-    t = await db.tenants.find_one({"id": tid}, {"_id": 0, "id": 1})
-    if not t:
-        raise HTTPException(404, "Tenant not found")
-    await db.tenants.update_one({"id": tid}, {"$inc": {ch["field"]: int(body.points)}})
-    await _raw_db.sms_credit_log.insert_one({
-        "id": str(uuid.uuid4()), "tenant_id": tid, "points": int(body.points), "source": "manual", "channel": ch["key"],
-        "credited_by": user.get("email"), "at": datetime.now(timezone.utc).isoformat()})
+    # Every grant comes out of HQ stock (ledgered) — no more untracked "manual" credits.
+    from routes.hq_credit_wallet import GrantIn, hq_grant_credits
+    await hq_grant_credits(tid, GrantIn(channel=ch["key"], points=int(body.points), note="granted from tenant card"), admin=user)
     fresh = await db.tenants.find_one({"id": tid}, {"_id": 0, "sms_points": 1, "wa_points": 1})
     return {"ok": True, "channel": ch["key"], "sms_points": int((fresh or {}).get("sms_points") or 0),
             "wa_points": int((fresh or {}).get("wa_points") or 0), "balance": int((fresh or {}).get(ch["field"]) or 0)}
