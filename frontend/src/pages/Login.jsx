@@ -8,6 +8,8 @@ import BrandMark from "@/components/BrandMark";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import { passkeySupported, registerPasskey, loginWithPasskey } from "@/lib/webauthn";
 import { LoginShowcase } from "@/components/LoginShowcase";
+import { LandingNav, LandingFooter, WhatsAppFloat, GoogleButton } from "@/components/LandingBits";
+import { startGoogleLogin } from "@/components/GoogleAuthCallback";
 import { SubscriptionBlockModal } from "@/components/SubscriptionBlockModal";
 
 const FOOTER_FEATURES = [
@@ -152,7 +154,9 @@ export default function Login() {
         More<br />Than Software<br />A Partner in<br />Your Growth
       </div>
 
-      <div className="relative z-10 min-h-screen max-w-[1640px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_500px] gap-8 xl:gap-14 items-center px-4 sm:px-8 py-8 lg:py-6">
+      <LandingNav />
+      <WhatsAppFloat />
+      <div className="relative z-10 max-w-[1640px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_500px] gap-8 xl:gap-14 items-center px-4 sm:px-8 py-6 lg:py-8">
         <LoginShowcase />
         <div className="relative w-full max-w-lg mx-auto lg:mx-0">
           <div className="hidden xl:block absolute -right-16 top-1/2 -translate-y-1/2 font-playfair italic text-[#b58a2c] text-lg leading-snug text-center">Dream<br />Build<br />Serve<br />Grow<br />Together<br />♡</div>
@@ -267,6 +271,7 @@ export default function Login() {
               {busy ? "Please wait..." : <>{SUBMIT_LABELS[mode] || "Login"}{mode === "login" && <span className="ml-2">→</span>}</>}
             </button>
           </form>
+          {mode === "login" && <GoogleButton onClick={startGoogleLogin} />}
 
           {mode === "login" && passkeySupported() && (
             <button
@@ -332,6 +337,7 @@ export default function Login() {
         </div>
         </div>
       </div>
+      <LandingFooter />
     </div>
   );
 }

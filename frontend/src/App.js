@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { GoogleAuthCallback } from "@/components/GoogleAuthCallback";
 import { useEffect, lazy, Suspense } from "react";
 
 import { BrandSplash } from "@/components/BrandSplash";
@@ -223,6 +224,8 @@ function ContentGuard() {
 // Remount the whole page tree when the active salon changes → branch switch is an instant SPA swap, no full reload.
 function TenantKeyedRoutes({ children }) {
   const { user } = useAuth();
+  const location = useLocation();
+  if (location.hash?.includes("session_id=")) return <GoogleAuthCallback />;
   return <Routes key={user?.tenant_id || user?.active_tenant_id || "anon"}>{children}</Routes>;
 }
 

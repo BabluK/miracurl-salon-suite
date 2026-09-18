@@ -46,6 +46,8 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let cancelled = false;
+    // Returning from Google sign-in: AuthCallback exchanges the session_id first, so skip /auth/me here.
+    if (window.location.hash?.includes("session_id=")) { setUser(false); setLoading(false); return undefined; }
     const PUBLIC_PREFIXES = ["/book", "/staff-registry", "/review/"];
     if (PUBLIC_PREFIXES.some(p => window.location.pathname.startsWith(p))) {
       setUser(false);
@@ -103,6 +105,16 @@ export function AuthProvider({ children }) {
     }
   }, [afterAuth]);
 
+  const googleLogin = useCallback(async (sessionId) => {
+    try {
+      const { data } = await api.post("/auth/google/session", { session_id: sessionId });
+      await afterAuth(data);
+      return { ok: true, user: data.user };
+    } catch (e) {
+      return { ok: false, error: formatApiError(e.response?.data?.detail) || e.message };
+    }
+  }, [afterAuth]);
+
   const register = useCallback(async (name, email, password) => {
     try {
       const { data } = await api.post("/auth/register", { name, email, password });
@@ -149,8 +161,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, tenant, loading, login, register, logout, forgot, switchTenant, refresh }),
-    [user, tenant, loading, login, register, logout, forgot, switchTenant, refresh],
+    () => ({ user, tenant, loading, login, googleLogin, register, logout, forgot, switchTenant, refresh }),
+    [user, tenant, loading, login, googleLogin, register, logout, forgot, switchTenant, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -35,6 +35,7 @@ export function LoginShowcase() {
             <div className="flex items-center gap-2 text-rose-600 font-bold tracking-[0.2em] text-sm mb-3"><Scissors className="w-5 h-5" /> SALONS</div>
             <ul className="space-y-1.5">{SALON.map(f => <li key={f} className="flex items-center gap-2 text-[13px] text-slate-800"><CheckCircle2 className="w-4 h-4 text-rose-500 shrink-0 fill-rose-100" /> {f}</li>)}</ul>
             <div className="font-playfair italic text-rose-500 text-lg mt-4 leading-tight -rotate-6 origin-left">Beautiful<br />Businesses<br />Grow Here ♡</div>
+            <a href="/features" className="inline-flex items-center gap-1 mt-4 px-4 py-2 rounded-full bg-rose-600 text-white text-xs font-bold shadow hover:bg-rose-700 transition-colors" data-testid="login-explore-salon">Explore Salon Features →</a>
           </div>
         </div>
         <div className="relative min-h-[370px] bg-[#1d140a] text-white" data-testid="login-restaurant-card">
@@ -43,6 +44,7 @@ export function LoginShowcase() {
             <div className="flex items-center gap-2 text-[#f0d27a] font-bold tracking-[0.2em] text-sm mb-3"><Utensils className="w-5 h-5" /> RESTAURANTS</div>
             <ul className="space-y-1.5">{RESTO.map(f => <li key={f} className="flex items-center gap-2 text-[13px] text-white/90"><CheckCircle2 className="w-4 h-4 text-[#f0d27a] shrink-0" /> {f}</li>)}</ul>
             <div className="font-playfair italic text-[#f0d27a] text-lg mt-4 leading-tight -rotate-6 origin-left">Great Food<br />Brings People<br />Together ♡</div>
+            <a href="/restaurant" className="inline-flex items-center gap-1 mt-4 px-4 py-2 rounded-full bg-[#f0d27a] text-[#1d140a] text-xs font-bold shadow hover:bg-[#f7e2a0] transition-colors" data-testid="login-explore-restaurant">Explore Restaurant Features →</a>
           </div>
         </div>
       </div>

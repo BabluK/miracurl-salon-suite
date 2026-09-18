@@ -608,6 +608,43 @@ async def login(body: LoginIn, request: Request, response: Response):
         asyncio.create_task(_deferred_welcome_poster(user["tenant_id"]))
     return await _issue_session(user, email, request, response, body.remember)
 
+
+class GoogleSessionIn(BaseModel):
+    session_id: str = Field(min_length=8, max_length=500)
+
+
+@router.post("/auth/google/session")
+async def google_session(body: GoogleSessionIn, request: Request, response: Response):
+    """Emergent-managed Google sign-in: exchange the one-time session_id server-side, then log the
+    matching Miracurl user in (same JWT cookies as password login). No account is auto-created."""
+    import httpx
+    from security import durable_rate_limit
+    await durable_rate_limit(request, f"google-login:{client_ip(request)}", limit=20, window_sec=600)
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.get("https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+                                 headers={"X-Session-ID": body.session_id})
+    except httpx.HTTPError:
+        raise HTTPException(502, "Google sign-in service unavailable — please try again")
+    if r.is_error:
+        raise HTTPException(401, "Google sign-in expired — please try again")
+    info = r.json()
+    email = (info.get("email") or "").lower().strip()
+    if not email:
+        raise HTTPException(401, "Google did not return an email address")
+    user = await db.users.find_one({"email": email})
+    if not user:
+        raise HTTPException(403, f"No Miracurl account uses {email}. Ask your salon admin to add you, or start a free trial.")
+    if user.get("disabled"):
+        raise HTTPException(403, "Your account has been disabled by the salon admin. Please contact them.")
+    patch = {"google_sub": info.get("id"), "google_linked_at": datetime.now(timezone.utc).isoformat()}
+    if info.get("picture") and not user.get("avatar_url"):
+        patch["avatar_url"] = info["picture"]
+    await db.users.update_one({"id": user["id"]}, {"$set": patch})
+    if user.get("role") == "admin" and user.get("tenant_id"):
+        asyncio.create_task(_deferred_welcome_poster(user["tenant_id"]))
+    return await _issue_session(user, email, request, response, True)
+
 @router.post("/auth/logout")
 async def logout(request: Request, response: Response):
     await revoke_token_jtis(request)

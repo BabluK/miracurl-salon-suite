@@ -1,23 +1,4 @@
-# Miracurl Auth Testing Playbook
-
-## MongoDB
-- DB: from DB_NAME env
-- users collection: stores email, password_hash (bcrypt $2b$), name, role, created_at
-- login_attempts: identifier "{ip}:{email}", count, last_attempt
-- password_reset_tokens: TTL index on expires_at
-
-## API Endpoints
-- POST /api/auth/register  body {email,password,name} -> sets cookies, returns user
-- POST /api/auth/login     body {email,password}      -> sets cookies, returns user
-- POST /api/auth/logout    -> clears cookies
-- GET  /api/auth/me        -> current user (requires auth)
-- POST /api/auth/refresh   -> refresh access token
-- POST /api/auth/forgot-password body {email}
-- POST /api/auth/reset-password  body {token,new_password}
-
-## Test Steps
-1. Login admin (admin@miracurl.com / Miracurl@123)
-2. Verify cookies set (access_token, refresh_token)
-3. GET /api/auth/me returns admin user
-4. Wrong password 5x -> 423/429 lockout for 15min
-5. Logout clears cookies; /me returns 401
+# Google (Emergent) Auth testing — Miracurl
+Flow: Login page "Login with Google" → https://auth.emergentagent.com/?redirect=<origin>/dashboard → returns to /dashboard#session_id=… → App.js TenantKeyedRoutes renders <GoogleAuthCallback/> → POST /api/auth/google/session {session_id} → backend calls Emergent session-data, finds users by email (NO auto-create), issues the normal JWT cookies via _issue_session → navigate /dashboard.
+Negative tests (no real Google needed): POST /api/auth/google/session with bogus id → 401 "Google sign-in expired"; missing body → 422; visiting /login#session_id=bogus shows the callback screen then error card (data-testid google-auth-error) with "Back to login".
+Real-account test requires a human Google login; unknown Google email → 403 "No Miracurl account uses …".
