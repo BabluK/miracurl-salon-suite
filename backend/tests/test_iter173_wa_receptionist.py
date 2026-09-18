@@ -178,40 +178,75 @@ def test_thread_bad_wa_id_400(salon):
     assert r.status_code == 400
 
 
+def _db():
+    from motor.motor_asyncio import AsyncIOMotorClient
+    return AsyncIOMotorClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
+
+
+def _run(coro):
+    return asyncio.get_event_loop().run_until_complete(coro)
+
+
+def _seed_thread(wa_id, slug):
+    async def _go():
+        db = _db()
+        t = await db.tenants.find_one({"slug": slug}, {"id": 1})
+        await db.whatsapp_messages.insert_one({"direction": "inbound", "message_id": f"wamid.test.{wa_id}", "wa_id": wa_id,
+                                               "type": "text", "text": "test", "tenant_id": t["id"], "status": "received",
+                                               "created_at": "2026-09-18T00:00:00+00:00"})
+    _run(_go())
+
+
+def _clean_thread(wa_id):
+    async def _go():
+        db = _db()
+        await db.whatsapp_messages.delete_many({"wa_id": wa_id, "message_id": {"$regex": "^wamid.test"}})
+        await db.wa_sessions.delete_many({"wa_id": wa_id})
+    _run(_go())
+
+
 def test_thread_human_toggle_and_cleanup(salon):
     wa_id = "919000055555"
-    r = salon.put(f"{BASE}/api/whatsapp-link/receptionist/threads/{wa_id}/human",
-                  json={"on": True}, timeout=15)
-    assert r.status_code == 200, r.text
-    d = r.json()
-    assert d.get("ok") is True
-    assert d.get("human_until"), "human_until not set"
-
-    r2 = salon.put(f"{BASE}/api/whatsapp-link/receptionist/threads/{wa_id}/human",
-                   json={"on": False}, timeout=15)
-    assert r2.status_code == 200
-    assert r2.json().get("human_until") is None
-
-    # Cleanup wa_sessions doc
-    from motor.motor_asyncio import AsyncIOMotorClient
-    async def _clean():
-        cli = AsyncIOMotorClient(os.environ["MONGO_URL"])
-        db = cli[os.environ["DB_NAME"]]
-        await db.wa_sessions.delete_many({"wa_id": wa_id})
-    asyncio.get_event_loop().run_until_complete(_clean())
+    _seed_thread(wa_id, SALON_SLUG)
+    try:
+        r = salon.put(f"{BASE}/api/whatsapp-link/receptionist/threads/{wa_id}/human", json={"on": True}, timeout=15)
+        assert r.status_code == 200, r.text
+        assert r.json().get("human_until"), "human_until not set"
+        r2 = salon.put(f"{BASE}/api/whatsapp-link/receptionist/threads/{wa_id}/human", json={"on": False}, timeout=15)
+        assert r2.status_code == 200 and r2.json().get("human_until") is None
+    finally:
+        _clean_thread(wa_id)
 
 
-# ---------- Staff reply — expect 502 (no live Meta) or 409 (no credits), never 500 ----------
+# ---------- SEC-001: a tenant cannot act on another tenant's guest (BOLA) ----------
+def test_thread_bola_other_tenant_404(salon, resto):
+    wa_id = "919000066666"
+    _seed_thread(wa_id, SALON_SLUG)
+    try:
+        assert resto.get(f"{BASE}/api/whatsapp-link/receptionist/threads/{wa_id}", timeout=15).status_code == 404
+        assert resto.put(f"{BASE}/api/whatsapp-link/receptionist/threads/{wa_id}/human", json={"on": True}, timeout=15).status_code == 404
+        assert resto.post(f"{BASE}/api/whatsapp-link/receptionist/threads/{wa_id}/reply", json={"text": "hi"}, timeout=15).status_code == 404
+        # session must not have been rebound
+        async def _sess():
+            return await _db().wa_sessions.find_one({"wa_id": wa_id})
+        assert _run(_sess()) is None
+        assert salon.get(f"{BASE}/api/whatsapp-link/receptionist/threads/{wa_id}", timeout=15).status_code == 200
+    finally:
+        _clean_thread(wa_id)
+
+
+# ---------- Staff reply — expect 502 (no live Meta) or 409 (no credits), never 500; credits refunded ----------
 def test_reply_meta_failure_not_500(salon):
-    # Snapshot credits
-    st1 = salon.get(f"{BASE}/api/whatsapp-link/receptionist", timeout=15).json()
-    before = st1.get("credits", 0)
-    r = salon.post(f"{BASE}/api/whatsapp-link/receptionist/threads/919000055555/reply",
-                   json={"text": "hi from staff"}, timeout=25)
-    assert r.status_code in (502, 409), f"expected 502/409, got {r.status_code} body={r.text[:200]}"
-    st2 = salon.get(f"{BASE}/api/whatsapp-link/receptionist", timeout=15).json()
-    after = st2.get("credits", 0)
-    assert after == before, f"credits changed on failure: {before} -> {after}"
+    wa_id = "919000055555"
+    _seed_thread(wa_id, SALON_SLUG)
+    try:
+        before = salon.get(f"{BASE}/api/whatsapp-link/receptionist", timeout=15).json().get("credits", 0)
+        r = salon.post(f"{BASE}/api/whatsapp-link/receptionist/threads/{wa_id}/reply", json={"text": "hi from staff"}, timeout=25)
+        assert r.status_code in (502, 409), f"expected 502/409, got {r.status_code} body={r.text[:200]}"
+        after = salon.get(f"{BASE}/api/whatsapp-link/receptionist", timeout=15).json().get("credits", 0)
+        assert after == before, f"credits changed on failure: {before} -> {after}"
+    finally:
+        _clean_thread(wa_id)
 
 
 # ---------- Webhook routing unit test ----------

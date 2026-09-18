@@ -39,6 +39,15 @@ async def touch_session(wa_id: str, tenant_id: str, **extra) -> None:
          "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": _now().isoformat()}}, upsert=True)
 
 
+async def tenant_owns_thread(tenant_id: str, wa_id: str) -> bool:
+    """BOLA guard: a tenant may only act on a guest whose sticky session is theirs (or, with no
+    session yet, a guest who has messaged/been messaged by them)."""
+    sess = await get_session(wa_id)
+    if sess and sess.get("tenant_id"):
+        return sess["tenant_id"] == tenant_id
+    return await _raw_db.whatsapp_messages.find_one({"tenant_id": tenant_id, "wa_id": wa_id}, {"_id": 1}) is not None
+
+
 async def set_human_mode(wa_id: str, tenant_id: str, on: bool, by: str = "") -> dict:
     until = (_now() + timedelta(hours=HUMAN_TAKEOVER_HOURS)).isoformat() if on else None
     await touch_session(wa_id, tenant_id, human_until=until, human_by=by if on else None)

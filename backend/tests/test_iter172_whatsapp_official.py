@@ -31,7 +31,7 @@ def test_status_official_channel(sess):
     assert d.get("available") is True
     assert d.get("connected") is True
     assert d.get("channel") == "official"
-    assert d.get("sender") == "+91 91802 61256"
+    assert d.get("sender", "").replace(" ", "") == "+" + os.environ["WHATSAPP_PLATFORM_NUMBER"]
     assert isinstance(d.get("credits"), int)
     tpls = d.get("templates") or []
     assert isinstance(tpls, list) and len(tpls) == 6

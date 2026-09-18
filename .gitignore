@@ -7,8 +7,8 @@
 # Environment files with production secrets (Razorpay LIVE keys, JWT secret,
 # seeded admin passwords). Never commit these — set them via the deployment
 # platform's env config instead.
-# NOTE: backend/.env and frontend/.env are intentionally TRACKED — the Emergent deployment
-# system reads and auto-updates them with production values. Only local overrides are ignored.
+# NOTE: backend/.env and frontend/.env are NOT tracked in git; the Emergent deployment
+# system reads them from the workspace filesystem. Never commit real secrets.
 .env.local
 .env.*.local
 !.env.example
