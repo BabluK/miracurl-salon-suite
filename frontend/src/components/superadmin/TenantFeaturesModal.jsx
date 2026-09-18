@@ -122,9 +122,13 @@ export function TenantFeaturesModal({ tenant, onClose, onChanged }) {
               )}
             </div>
 
-            <div className={`rounded-2xl border p-3 flex items-center gap-3 text-xs ${d.support_access ? "border-emerald-200 bg-emerald-50/50 text-emerald-800" : "border-red-200 bg-red-50/50 text-red-700"}`} data-testid="support-access-status">
-              {d.support_access ? <ShieldCheck className="w-4 h-4" /> : <ShieldOff className="w-4 h-4" />}
-              {d.support_access ? "Owner allows Miracurl support to open this workspace (all HQ edits are logged in their Audit log)." : "Owner has switched OFF Miracurl support access — 'Open' will be refused until they re-enable it."}
+            <div className={`rounded-2xl border p-3 flex items-center gap-3 text-xs ${d.support_access ? "border-emerald-200 bg-emerald-50/50 text-emerald-800" : "border-slate-200 bg-slate-50 text-slate-600"}`} data-testid="support-access-status">
+              {d.support_access ? <ShieldCheck className="w-4 h-4 shrink-0" /> : <ShieldOff className="w-4 h-4 shrink-0" />}
+              <span className="flex-1">{d.support_access ? "Miracurl support may open this workspace to fix settings (edits appear in the owner's Audit log as “Miracurl Support” — your email is never shown)." : "Support access is OFF (default). Turn it on only while HQ needs to work inside this salon; “Open” is refused until then."}</span>
+              <button onClick={() => put({ support_access: !d.support_access }, "support")} disabled={!!busy} aria-pressed={!!d.support_access} data-testid="support-access-toggle"
+                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${d.support_access ? "bg-emerald-500" : "bg-slate-300"} disabled:opacity-50`}>
+                <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${d.support_access ? "translate-x-5" : "translate-x-0.5"}`} />
+              </button>
             </div>
           </>
         )}

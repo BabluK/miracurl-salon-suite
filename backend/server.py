@@ -160,6 +160,10 @@ async def on_startup():
     try:
         from database import _raw_db as _db0
         await _db0.mira_image_batches.update_many({"status": "running"}, {"$set": {"status": "interrupted"}})
+        # HQ hygiene: super-admin records never carry a personal notification inbox (all HQ mail → @miracurl-suite.com aliases).
+        r = await _db0.users.update_many({"role": "super_admin", "notify_email": {"$exists": True}}, {"$unset": {"notify_email": ""}})
+        if r.modified_count:
+            logging.info(f"cleared personal notify_email from {r.modified_count} super-admin record(s)")
     except Exception as e:
         logging.warning(f"could not flag interrupted image batches: {e}")
     from database import IS_PREVIEW_ENV

@@ -7,12 +7,8 @@ FEATURE_KEYS = ("sms", "whatsapp")
 def features_of(t: dict | None) -> dict:
     """Missing key = OFF: HQ switches each feature on per tenant."""
     f = (t or {}).get("features") or {}
-    out = {k: bool(f.get(k)) for k in FEATURE_KEYS}
-    if int((t or {}).get("wa_points") or 0) > 0:
-        out["whatsapp"] = True  # tenant holds WhatsApp credits for Miracurl's official channel
-    if ((t or {}).get("own_whatsapp") or {}).get("status") == "connected":
-        out["whatsapp"] = True  # tenant brought its own WhatsApp Business number (coexistence)
-    return out
+    # Strictly opt-in: credits or an own WhatsApp number do NOT switch sending on — Super Admin must enable it.
+    return {k: bool(f.get(k)) for k in FEATURE_KEYS}
 
 
 async def feature_on(tenant_id: str, key: str) -> bool:
@@ -21,5 +17,5 @@ async def feature_on(tenant_id: str, key: str) -> bool:
 
 
 def support_access_on(t: dict | None) -> bool:
-    """Owner consent for Miracurl support to open their workspace (default ON)."""
-    return (t or {}).get("support_access") is not False
+    """HQ may open this tenant's workspace only when Super Admin switched it on (default OFF)."""
+    return (t or {}).get("support_access") is True

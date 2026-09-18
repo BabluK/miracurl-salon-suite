@@ -269,7 +269,6 @@ export function SuperProfileCard() {
             )}
             {user?.phone && <span className="text-slate-600">|</span>}
             <span className="flex items-center gap-1.5" data-testid="super-profile-email"><Mail className="w-4 h-4 text-sky-400" /> {user?.email}</span>
-            {user?.notify_email && <><span className="text-slate-600">|</span><span className="flex items-center gap-1.5 text-emerald-300" title="Support / notification inbox" data-testid="super-profile-notify-email">✉ {user.notify_email}</span></>}
             {user?.instagram && <><span className="text-slate-600">|</span><a href={`https://instagram.com/${user.instagram}`} target="_blank" rel="noreferrer" className="text-pink-300 hover:underline" data-testid="super-profile-instagram">@{user.instagram}</a></>}
           </div>
           <div className="flex items-center gap-2 flex-wrap mt-4">
@@ -354,7 +353,7 @@ const PfSection = ({ title, accent, children }) => (
 
 function ProfileEditModal({ user, onClose, onSaved }) {
   const [form, setForm] = useState({ name: user?.name || "", phone: user?.phone || "", occupation: user?.occupation || "", photo_url: user?.photo_url || "" });
-  const [contact, setContact] = useState({ notify_email: user?.notify_email || "", instagram: user?.instagram || "" });
+  const [contact, setContact] = useState({ instagram: user?.instagram || "" });
   const [login, setLogin] = useState({ new_email: "", current_password: "" });
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -366,7 +365,7 @@ function ProfileEditModal({ user, onClose, onSaved }) {
   useEffect(() => {
     api.get("/auth/me").then(({ data }) => {
       setForm({ name: data.name || "", phone: data.phone || "", occupation: data.occupation || "", photo_url: data.photo_url || "" });
-      setContact({ notify_email: data.notify_email || "", instagram: data.instagram || "" });
+      setContact({ instagram: data.instagram || "" });
     }).catch(() => {}).finally(() => setLoaded(true));
   }, []);
 
@@ -391,7 +390,9 @@ function ProfileEditModal({ user, onClose, onSaved }) {
     try {
       await api.put("/super-admin/profile", form);
       await api.put("/auth/me/profile", { name: form.name, phone: form.phone, ...contact });
-      if (login.new_email.trim()) {
+      const nextEmail = login.new_email.trim().toLowerCase();
+      if (nextEmail && nextEmail === (user?.email || "").toLowerCase()) { toast.message("Login email unchanged", { description: `You already sign in as ${user?.email}.` }); setLogin({ new_email: "", current_password: "" }); }
+      else if (nextEmail) {
         if (!login.current_password) { toast.error("Enter your current password to change the login email"); setBusy(false); return; }
         if (!window.confirm(`Change your login email from ${user?.email} to ${login.new_email.trim()}? You'll sign in with the new address from now on.`)) { setBusy(false); return; }
         const { data } = await api.put("/auth/me/login-email", { new_email: login.new_email.trim(), current_password: login.current_password });
@@ -444,8 +445,8 @@ function ProfileEditModal({ user, onClose, onSaved }) {
           </PfSection>
           <PfSection title="Contact & inbox">
             <div className="grid sm:grid-cols-2 gap-4">
-              <PfField label="Support / notification email" hint="Real inbox for HQ alerts & reset links — login IDs like @miracurl.com can't receive mail.">
-                <input data-testid="super-profile-notify-email-input" type="email" className={PF_INPUT} placeholder="admin@miracurl-suite.com" value={contact.notify_email} onChange={e => setContact(c => ({ ...c, notify_email: e.target.value }))} />
+              <PfField label="HQ inboxes" hint="All HQ alerts, invoices and reset links go to your @miracurl-suite.com aliases — no personal address is stored.">
+                <div className={PF_INPUT + " flex items-center text-slate-500 text-sm"} data-testid="super-profile-hq-inboxes">admin@ · support@ · billing@miracurl-suite.com</div>
               </PfField>
               <PfField label="Instagram ID">
                 <div className="relative"><span className="absolute left-3.5 top-0 h-11 flex items-center text-slate-400 text-sm">@</span><input data-testid="super-profile-instagram-input" className={PF_INPUT + " pl-8"} placeholder="miracurl.ai" value={contact.instagram} onChange={e => setContact(c => ({ ...c, instagram: e.target.value }))} /></div>

@@ -173,7 +173,7 @@ async def hq_grant_credits(tid: str, body: GrantIn, admin=Depends(require_super_
     w = await _wallet()
     if w.get(f"{body.channel}_stock", 0) < body.points:
         raise HTTPException(409, f"HQ has only {w.get(f'{body.channel}_stock', 0)} {body.channel} credits in stock — top up first")
-    await _raw_db.tenants.update_one({"id": tid}, {"$inc": {FIELD[body.channel]: body.points}, "$set": {f"features.{body.channel}": True}})
+    await _raw_db.tenants.update_one({"id": tid}, {"$inc": {FIELD[body.channel]: body.points}})  # feature stays as Super Admin set it
     await _raw_db.hq_wallet.update_one({"id": WALLET_ID}, {"$inc": {f"{body.channel}_stock": -body.points}, "$set": {"updated_at": _now()}})
     await _raw_db.sms_credit_log.insert_one({"id": str(uuid.uuid4()), "tenant_id": tid, "points": body.points, "source": "hq_grant",
                                              "channel": body.channel, "credited_by": admin.get("email"), "at": _now(), "note": body.note})

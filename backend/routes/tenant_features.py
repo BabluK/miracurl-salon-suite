@@ -7,7 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from database import _raw_db, db
+from database import _raw_db
 from security import current_tenant, log_audit, require_super_admin, require_tenant_admin
 from services.campaign_onboarding import CHECKLIST, ONBOARDING_STEPS, agreement_ok, agreement_state, get_onboarding, set_onboarding  # noqa: F401 — re-exported
 from services.rewards_core import _tenant_eligible, _plan_matches, campaign_id_for, get_campaign, get_campaign_for
@@ -63,6 +63,7 @@ class FeaturesIn(BaseModel):
     sms: Optional[bool] = None
     whatsapp: Optional[bool] = None
     campaign: Optional[str] = Field(None, pattern=r"^(on|off|auto)$")
+    support_access: Optional[bool] = None  # HQ may open this workspace (default OFF)
 
 
 @router.get("/super-admin/tenants/{tid}/features")
@@ -74,10 +75,12 @@ async def sa_get_features(tid: str, user=Depends(require_super_admin)):
 async def sa_put_features(tid: str, body: FeaturesIn, user=Depends(require_super_admin)):
     t = await _tenant(tid)
     sets = {f"features.{k}": bool(getattr(body, k)) for k in FEATURE_KEYS if getattr(body, k) is not None}
+    if body.support_access is not None:
+        sets["support_access"] = bool(body.support_access)
     if sets:
         await _raw_db.tenants.update_one({"id": tid}, {"$set": sets})
         await log_audit(tid, {**user, "name": "Miracurl HQ"}, "hq_features",
-                        "Features updated by HQ: " + ", ".join(f"{k.split('.')[1]} {'ON' if v else 'OFF'}" for k, v in sets.items()))
+                        "Features updated by HQ: " + ", ".join(f"{k.split('.')[-1]} {'ON' if v else 'OFF'}" for k, v in sets.items()))
     invite = None
     if body.campaign is not None:
         c_before = await get_campaign_for(t)
@@ -161,12 +164,6 @@ async def sa_onboarding_list(campaign: str = "main", user=Depends(require_super_
 
 
 # ---------------- Tenant ----------------
-class SupportAccessIn(BaseModel):
-    enabled: bool
-
-
 @router.put("/settings/support-access")
-async def set_support_access(body: SupportAccessIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    await db.tenants.update_one({"id": t["id"]}, {"$set": {"support_access": bool(body.enabled)}})
-    await log_audit(t["id"], user, "support_access", f"Miracurl support access turned {'ON' if body.enabled else 'OFF'}")
-    return {"ok": True, "support_access": bool(body.enabled)}
+async def set_support_access(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    raise HTTPException(410, "Support access is managed by Miracurl HQ (Super Admin → Features).")

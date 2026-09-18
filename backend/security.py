@@ -334,8 +334,8 @@ async def _apply_tenant_context(request: Request, user: dict) -> None:
 
 async def _hq_workspace_guard(request: Request, user: dict, t: dict) -> None:
     """HQ inside a salon's workspace: needs owner consent, every write is audited, owner is told once a day."""
-    if t.get("support_access") is False:
-        raise HTTPException(403, "This salon has switched off Miracurl support access. Ask the owner to enable it in Settings → Miracurl support access.")
+    if t.get("support_access") is not True:
+        raise HTTPException(403, "Miracurl support access is OFF for this salon. Enable it in Super Admin → Features for this tenant first.")
     today = datetime.now(timezone.utc).date().isoformat()
     if (t.get("hq_access_notified_on") or "") != today:
         await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"hq_access_notified_on": today}})
@@ -347,7 +347,7 @@ async def _hq_workspace_guard(request: Request, user: dict, t: dict) -> None:
         except Exception:  # noqa: BLE001
             pass
     if request.method in ("POST", "PUT", "PATCH"):
-        await log_audit(t["id"], {**user, "name": "Miracurl Support"}, "hq_edit", f"{request.method} {request.url.path}")
+        await log_audit(t["id"], {"name": "Miracurl Support", "email": "support@miracurl-suite.com", "role": "support"}, "hq_edit", f"{request.method} {request.url.path}")
 
 
 async def revoke_token_jtis(request: Request):

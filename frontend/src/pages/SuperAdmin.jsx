@@ -16,6 +16,7 @@ import { PartnersPanel } from "@/components/superadmin/PartnersPanel";
 import { SecurityCard } from "@/components/superadmin/SecurityCard";
 import { HqTaxCard } from "@/components/superadmin/HqTaxCard";
 import { PackPricingCard } from "@/components/superadmin/PackPricingCard";
+import { TenantCreditPills } from "@/components/superadmin/TenantCreditPills";
 import { HqGstRegisterCard } from "@/components/superadmin/HqGstRegisterCard";
 import { EditTenantModal } from "@/components/superadmin/EditTenantModal";
 import { Handshake, ShieldAlert, ToggleRight } from "lucide-react";
@@ -340,18 +341,23 @@ export default function SuperAdmin() {
     }
   }
 
-  async function creditSms(t) {
+  async function grantCredits(t, channel = "sms") {
+    const label = channel === "sms" ? "SMS" : "WhatsApp";
+    const bal = channel === "sms" ? t.sms_points || 0 : t.wa_points || 0;
+    let stock = null;
+    try { const { data } = await api.get("/super-admin/credit-wallet"); stock = channel === "sms" ? data.sms_stock : data.whatsapp_stock; } catch { /* show without stock */ }
     askConfirm({
-      title: `Add SMS points for ${t.name}`, message: `Current balance: ${t.sms_points || 0}. 1 point = 1 customer SMS (booking confirmations, billing receipts, 24h reminders).`,
-      confirmLabel: "Add points", inputLabel: "Points to add", defaultValue: "100",
+      title: `Grant ${label} credits to ${t.name}`,
+      message: `Current balance: ${bal}. ${stock !== null ? `HQ has ${stock.toLocaleString("en-IN")} ${label} credits in stock — the grant is deducted from it and ledgered.` : ""} 1 credit = 1 ${label} message.`,
+      confirmLabel: "Grant credits", inputLabel: "Credits to grant", defaultValue: "100",
       action: async (val) => {
         const points = parseInt(val, 10);
-        if (!points || points < 1) { toast.error("Enter a positive number of points"); return; }
+        if (!points || points < 1) { toast.error("Enter a positive number of credits"); return; }
         try {
-          const { data } = await api.post(`/super-admin/tenants/${t.id}/sms-points`, { points });
-          toast.success(`${t.name} now has ${data.sms_points} SMS points`);
+          const { data } = await api.post(`/super-admin/tenants/${t.id}/sms-points?channel=${channel}`, { points });
+          toast.success(`${t.name} now has ${data.balance} ${label} credits ✦`);
           load();
-        } catch (e) { toast.error(e.response?.data?.detail || "Couldn't credit SMS points"); }
+        } catch (e) { toast.error(e.response?.data?.detail || `Couldn't grant ${label} credits`); }
       },
     });
   }
@@ -749,12 +755,7 @@ export default function SuperAdmin() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  <div className="flex items-center gap-1.5 border border-slate-100 rounded-lg px-2.5 py-1.5" title="SMS points">
-                    <span className="text-[9px] uppercase tracking-wider text-slate-400">SMS</span>
-                    <button data-testid={`sms-balance-${t.id}`} onClick={() => setSmsLogFor(t)} title="View SMS delivery log" className={`text-xs font-bold hover:underline ${(t.sms_points || 0) < 20 ? "text-amber-600" : "text-emerald-700"}`}>{t.sms_points || 0}</button>
-                    <button data-testid={`sms-points-${t.id}`} onClick={() => creditSms(t)} title="Credit SMS points"
-                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition">+ Add</button>
-                  </div>
+                  <TenantCreditPills t={t} onGrant={grantCredits} onViewLog={(tt) => setSmsLogFor(tt)} />
                   <div className="flex items-center gap-0.5 border border-slate-200 bg-slate-50/60 rounded-xl px-1.5 py-1" data-testid={`tenant-actions-${t.id}`}>
                     <ActionBtn testid={`open-salon-${t.id}`} onClick={() => { setActAsSalon(t.slug, t.name); nav("/dashboard"); }} title="Open this tenant's workspace (edit & correct — no deletes)" tone="text-violet-600 hover:bg-violet-50" icon={Eye} label="Open" />
                     <ActionBtn testid={`edit-tenant-${t.id}`} onClick={() => setEditFor(t)} title="Edit details, credentials & branch links" tone="text-emerald-600 hover:bg-emerald-50" icon={Pencil} label="Edit" />

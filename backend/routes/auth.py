@@ -975,7 +975,7 @@ def _normalize_phone(raw: str) -> str | None:
 async def update_my_profile(body: ProfileIn, user=Depends(get_current_user)) -> dict:
     """Own profile: display name, real inbox (Gmail), Instagram handle, WhatsApp number."""
     upd: dict = {}
-    if body.notify_email is not None:
+    if body.notify_email is not None and user.get("role") != "super_admin":  # HQ mail only ever goes to @miracurl-suite.com aliases
         upd["notify_email"] = _validate_notify_email(body.notify_email)
     if body.instagram is not None:
         upd["instagram"] = _validate_instagram(body.instagram)

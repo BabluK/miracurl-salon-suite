@@ -43,7 +43,6 @@ import { NotifyEmailCard } from "@/components/NotifyEmailCard";
 import { GrowthAdvisoryCard } from "@/components/settings/GrowthAdvisoryCard";
 import { ReferEarnCard } from "@/components/settings/ReferEarnCard";
 import { Lazy } from "@/components/Lazy";
-import { SupportAccessCard } from "@/components/settings/SupportAccessCard";
 
 export default function Settings() {
   const { tenant } = useAuth();
@@ -94,7 +93,6 @@ export default function Settings() {
           <div className="min-w-0" data-testid="settings-col-right">
             <ChangePasswordSection />
             <Lazy eager={eager}><ContactHQSection /></Lazy>
-            <Lazy eager={eager}><SupportAccessCard /></Lazy>
             <Lazy eager={eager}><AttendanceFinesCard /></Lazy>
             <Lazy eager={eager}><PreviousStaffCard /></Lazy>
             <Lazy eager={eager}><WhatsAppLinkCard /></Lazy>
