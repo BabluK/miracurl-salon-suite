@@ -1,4 +1,4 @@
-import { Facebook, Instagram, MessageCircle } from "lucide-react";
+import { Facebook, Instagram, Linkedin, MessageCircle, Youtube } from "lucide-react";
 
 const NAV = [
   { label: "Features", href: "/features" }, { label: "Industries", href: "/who-can-use" }, { label: "Pricing", href: "/pricing" },
@@ -8,12 +8,21 @@ export const FB_URL = "https://www.facebook.com/profile.php?id=61593610030812";
 export const IG_URL = "https://www.instagram.com/miracurl.ai/";
 export const WA_DEMO_URL = "https://wa.me/919180261256?text=" + encodeURIComponent("Hi Miracurl! I'd like a demo of Miracurl Suite for my business.");
 
+export function SparkleLogo({ className = "w-12 h-12" }) {
+  return (
+    <span className="ms-logo-sparkle" data-testid="brand-logo-sparkle">
+      <img src="/assets/brand/ms-logo-dark.png" alt="Miracurl" className={`${className} rounded-full shadow-md ring-2 ring-[#d4af37]/60`} />
+      <span className="ms-star s1" /><span className="ms-star s2" /><span className="ms-star s3" />
+    </span>
+  );
+}
+
 export function LandingNav() {
   return (
     <header className="relative z-20 max-w-[1640px] mx-auto flex items-center justify-between gap-4 px-4 sm:px-8 pt-5 sm:pr-36 xl:pr-40" data-testid="landing-nav">
       <a href="/" className="flex items-center gap-3 shrink-0" data-testid="landing-logo">
-        <img src="/assets/brand/ms-logo-gold.png" alt="Miracurl" className="w-11 h-11 rounded-full shadow-md" />
-        <div className="leading-tight"><div className="font-playfair text-lg tracking-wide text-[#8a6a1c]">MIRACURL SUITE</div><div className="text-[10px] uppercase tracking-[0.25em] text-slate-500">Salons · Restaurants · AI</div></div>
+        <SparkleLogo />
+        <div className="leading-tight"><div className="font-playfair text-lg tracking-wide text-[#8a6a1c]">MIRACURL SUITE</div><div className="text-[9px] uppercase tracking-[0.22em] text-slate-600 font-semibold">AI-Powered Business Management Platform</div></div>
       </a>
       <nav className="hidden md:flex items-center gap-7 text-sm font-semibold text-slate-700">
         {NAV.map(n => <a key={n.href} href={n.href} className="hover:text-[#b58a2c] transition-colors" data-testid={`landing-nav-${n.label.toLowerCase().replace(/ /g, "-")}`}>{n.label}</a>)}
@@ -31,17 +40,20 @@ export function LandingFooter() {
     <footer className="relative z-10 max-w-[1640px] mx-auto px-4 sm:px-8 pb-8" data-testid="landing-footer">
       <div className="rounded-2xl bg-white/80 backdrop-blur border border-white shadow-lg shadow-slate-200/60 px-6 py-5 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <img src="/assets/brand/ms-logo-gold.png" alt="" className="w-9 h-9 rounded-full" />
-          <div className="text-xs text-slate-600"><span className="font-bold text-slate-900">Miracurl Suite</span> · © {new Date().getFullYear()} Miracurl Studio, Bengaluru. Smarter Businesses. Happier Customers.</div>
+          <SparkleLogo />
+          <div className="leading-tight"><div className="font-playfair text-base tracking-wide text-slate-900">MIRACURL SUITE</div><div className="text-[9px] uppercase tracking-[0.22em] text-slate-600 font-semibold">AI-Powered Business Management Platform</div></div>
         </div>
         <nav className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs font-semibold text-slate-600">
           <a href="/about-us" className="hover:text-[#b58a2c]">About Us</a><a href="/features" className="hover:text-[#b58a2c]">Features</a><a href="/pricing" className="hover:text-[#b58a2c]">Pricing</a>
-          <a href="/success-stories" className="hover:text-[#b58a2c]">Success Stories</a><a href="/contact-us" className="hover:text-[#b58a2c]">Contact Us</a><a href="/privacy" className="hover:text-[#b58a2c]">Privacy</a><a href="/terms" className="hover:text-[#b58a2c]">Terms</a>
+          <a href="/success-stories" className="hover:text-[#b58a2c]">Success Stories</a><a href="/contact-us" className="hover:text-[#b58a2c]">Contact Us</a>
         </nav>
-        <div className="flex items-center gap-2">
-          <a href={FB_URL} target="_blank" rel="noreferrer" aria-label="Facebook" className="w-9 h-9 rounded-full bg-[#1877f2] text-white flex items-center justify-center hover:scale-105 transition-transform" data-testid="landing-facebook"><Facebook className="w-4 h-4" /></a>
-          <a href={IG_URL} target="_blank" rel="noreferrer" aria-label="Instagram" className="w-9 h-9 rounded-full bg-gradient-to-br from-[#f58529] via-[#dd2a7b] to-[#8134af] text-white flex items-center justify-center hover:scale-105 transition-transform" data-testid="landing-instagram"><Instagram className="w-4 h-4" /></a>
-          <a href={WA_DEMO_URL} target="_blank" rel="noreferrer" aria-label="WhatsApp" className="w-9 h-9 rounded-full bg-[#25d366] text-white flex items-center justify-center hover:scale-105 transition-transform" data-testid="landing-whatsapp"><MessageCircle className="w-4 h-4" /></a>
+        <div className="flex items-center gap-4 text-slate-800">
+          <a href={IG_URL} target="_blank" rel="noreferrer" aria-label="Instagram" className="hover:text-[#b58a2c] transition-colors" data-testid="landing-instagram"><Instagram className="w-5 h-5" /></a>
+          <a href="https://www.linkedin.com/company/miracurl" target="_blank" rel="noreferrer" aria-label="LinkedIn" className="hover:text-[#b58a2c] transition-colors" data-testid="landing-linkedin"><Linkedin className="w-5 h-5" /></a>
+          <a href="https://www.youtube.com/@miracurl" target="_blank" rel="noreferrer" aria-label="YouTube" className="hover:text-[#b58a2c] transition-colors" data-testid="landing-youtube"><Youtube className="w-5 h-5" /></a>
+          <a href={FB_URL} target="_blank" rel="noreferrer" aria-label="Facebook" className="hover:text-[#b58a2c] transition-colors" data-testid="landing-facebook"><Facebook className="w-5 h-5" /></a>
+          <a href={WA_DEMO_URL} target="_blank" rel="noreferrer" aria-label="WhatsApp" className="hover:text-[#25d366] transition-colors" data-testid="landing-whatsapp"><MessageCircle className="w-5 h-5" /></a>
+          <span className="text-xs text-slate-500 ml-2 hidden lg:inline">© {new Date().getFullYear()} Miracurl Suite. All rights reserved.</span>
         </div>
       </div>
     </footer>

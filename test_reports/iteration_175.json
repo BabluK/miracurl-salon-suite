@@ -1,0 +1,31 @@
+{
+  "summary": "Iter 175 — Miracurl landing+login page, Emergent-managed Google auth endpoint, and password login regression. Backend: 6/6 pytest cases pass in test_iter175_google_auth_login.py (POST /api/auth/google/session → 401 on bogus id, 422 on empty body, 429 after ≤20 rapid attempts; salon-admin + super-admin cookie login work; logout clears cookies). Frontend: /login renders all 18 requested data-testids at 1920×1080 (landing-nav, landing-logo, landing-nav-features/industries/pricing/success-stories/support, landing-get-started, landing-whatsapp-demo, login-explore-salon, login-explore-restaurant, landing-footer, landing-facebook, landing-instagram, landing-whatsapp, landing-whatsapp-float, login-google-btn, login-language-pill) with correct hrefs (FB=facebook.com/profile.php?id=61593610030812, IG=instagram.com/miracurl.ai/, WA=wa.me/919180261256, external links target=_blank). No overlap between language pill and Get Started at 1920 or 1366. All 7 internal routes (/features, /who-can-use, /pricing, /success-stories, /contact-us, /signup-salon, /restaurant) return HTTP 200 with no ErrorBoundary. Google button correctly navigates to https://auth.emergentagent.com/?redirect=<origin>%2Fdashboard. /login#session_id=bogus renders google-auth-callback → google-auth-error card → google-auth-back returns to clean /login. Password regression: super@miracurl.com → /super-admin, admin@miracurl.com → /dashboard, /receptionist and /settings load 200. Mobile 390 and 1366 viewports render usably (nav links collapse on mobile as expected).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/dashboard (MiraDayOffer)", "issues": ["Pre-existing (from iter174): React DOM warning '<span> cannot be a child of <option>' emitted from MiraDayOffer select — hydration warning, non-blocking, still present."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter175_google_auth_login.py",
+    "/app/test_reports/pytest/iter175.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: fix pre-existing <span> inside <option> in /app/frontend/src/components/MiraDayOffer.jsx (line ~55) — carried over from iter174, causes React hydration warning on /dashboard."
+  ],
+  "critical_code_review_comments": [
+    "Google auth backend endpoint /api/auth/google/session is well-guarded: pydantic 8..500 char length validation → 422, upstream 4xx → 401 with clean message, upstream network failure → 502, no auto-create (403 with friendly copy if email unknown), google_sub + avatar persisted after first login, rate limit 20/10min. No BOLA/tenant leak — issue_session runs the same JWT + tenant lookup as password login.",
+    "Frontend startGoogleLogin correctly builds redirect from window.location.origin (no hardcoded URL), and GoogleAuthCallback replaces the URL hash before calling backend so a page refresh doesn't retry the used-up session_id. Good.",
+    "Landing links to external social handles are all target=_blank + rel=noreferrer — correct. WhatsApp deep-link URL is identical across LandingNav, LandingFooter and WhatsAppFloat (single WA_DEMO_URL const — nicely DRY)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter175_google_auth_login.py", "/app/test_reports/pytest/iter175.xml"],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (all data-testids present, all routes 200, all flows work)"},
+  "test_credentials": "Used /app/memory/test_credentials.md: super@miracurl.com/og9T@41Es#OQb6, admin@miracurl.com/q6QY@tn3p#9DtL",
+  "seed_data_creation": "None. Rate-limit key google-login:<ip> may still be counted; the test asserts 429 is reached, which mildly consumes the durable rate-limit window for that IP for ~10 min after run.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 175 shipped landing+login combo and Emergent Google auth (POST /api/auth/google/session, GET session-data upstream). Rate limit is 20 attempts / 10 min per IP — if you rerun the 429 test back-to-back, subsequent tests inheriting the same IP may see 429 instead of the expected 401 on bogus tokens (this is why the UI callback showed 'Too many requests…' on the 2nd probe instead of 'expired'). Both are correct behavior — just be aware the same window shares the counter. Real Google login flow was NOT executed (needs human Google sign-in). MiraDayOffer <span>-in-<option> hydration warning is pre-existing from iter174.",
+  "rca of the issue": "N/A — no failures this iteration."
+}

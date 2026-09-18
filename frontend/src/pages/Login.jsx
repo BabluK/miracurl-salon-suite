@@ -9,6 +9,7 @@ import InstallAppPrompt from "@/components/InstallAppPrompt";
 import { passkeySupported, registerPasskey, loginWithPasskey } from "@/lib/webauthn";
 import { LoginShowcase } from "@/components/LoginShowcase";
 import { LandingNav, LandingFooter, WhatsAppFloat, GoogleButton } from "@/components/LandingBits";
+import { EmailOtpLogin } from "@/components/EmailOtpLogin";
 import { startGoogleLogin } from "@/components/GoogleAuthCallback";
 import { SubscriptionBlockModal } from "@/components/SubscriptionBlockModal";
 
@@ -233,6 +234,9 @@ export default function Login() {
               <div className="text-rose-600 text-sm bg-rose-50 border border-rose-100 rounded-lg px-3 py-2" data-testid="login-error">
                 {err}
               </div>
+            )}
+            {mode === "login" && err && /invalid email or password/i.test(err) && (
+              <EmailOtpLogin email={email} onSuccess={(u) => nav(afterLogin(u?.role), { replace: true })} />
             )}
 
             {mode === "login" && (

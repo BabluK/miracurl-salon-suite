@@ -1,6 +1,7 @@
 """Authentication & onboarding: register, login, logout, refresh, password reset,
 staff attach, public salon self-signup (7-day trial)."""
 import asyncio
+import html as html_lib
 import logging
 import os
 import re
@@ -643,6 +644,63 @@ async def google_session(body: GoogleSessionIn, request: Request, response: Resp
     await db.users.update_one({"id": user["id"]}, {"$set": patch})
     if user.get("role") == "admin" and user.get("tenant_id"):
         asyncio.create_task(_deferred_welcome_poster(user["tenant_id"]))
+    return await _issue_session(user, email, request, response, True)
+
+
+class OtpRequestIn(BaseModel):
+    email: EmailStr
+
+
+class OtpVerifyIn(BaseModel):
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
+@router.post("/auth/otp/request")
+async def otp_request(body: OtpRequestIn, request: Request):
+    """Strong fallback when the password fails: a 6-digit one-time code emailed to the account's own address.
+    Always answers 200 so account existence is never revealed."""
+    from security import durable_rate_limit
+    email = body.email.lower().strip()
+    await durable_rate_limit(request, f"otp-req:{client_ip(request)}", limit=10, window_sec=600)
+    await durable_rate_limit(request, f"otp-req-email:{email}", limit=4, window_sec=600)
+    user = await db.users.find_one({"email": email, "disabled": {"$ne": True}}, {"_id": 0, "id": 1, "name": 1, "tenant_id": 1})
+    if user:
+        code = f"{secrets.randbelow(10**6):06d}"
+        now = datetime.now(timezone.utc)
+        await db.login_otps.update_one({"email": email}, {"$set": {
+            "email": email, "code_hash": hash_pw(code), "expires_at": (now + timedelta(minutes=10)).isoformat(),
+            "attempts": 0, "created_at": now.isoformat(), "ip": client_ip(request)}}, upsert=True)
+        t = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0, "name": 1}) if user.get("tenant_id") else None
+        brand = (t or {}).get("name") or "Miracurl Suite"
+        html = (f"<div style='font-family:Georgia,serif;max-width:480px;margin:auto;padding:28px;border:1px solid #eee;border-radius:16px'>"
+                f"<h2 style='margin:0 0 8px;color:#111'>Your Miracurl sign-in code</h2>"
+                f"<p style='color:#555;margin:0 0 18px'>Hi {html_lib.escape(user.get('name') or 'there')}, use this one-time code to sign in to <b>{html_lib.escape(brand)}</b>. It expires in 10 minutes.</p>"
+                f"<div style='font-size:34px;letter-spacing:10px;font-weight:700;color:#111;background:#faf6ee;border:1px dashed #d4af37;border-radius:12px;padding:16px;text-align:center'>{code}</div>"
+                f"<p style='color:#888;font-size:12px;margin-top:18px'>If you didn't try to sign in, ignore this email — your password still works and nobody can sign in without this code.</p></div>")
+        from email_service import _send_email
+        asyncio.create_task(_send_email([email], f"{code} is your Miracurl sign-in code", html, from_name="Miracurl Security"))
+    return {"ok": True, "message": "If that email belongs to a Miracurl account, a 6-digit code is on its way."}
+
+
+@router.post("/auth/otp/verify")
+async def otp_verify(body: OtpVerifyIn, request: Request, response: Response):
+    from security import durable_rate_limit
+    email = body.email.lower().strip()
+    await durable_rate_limit(request, f"otp-verify:{client_ip(request)}", limit=15, window_sec=600)
+    rec = await db.login_otps.find_one({"email": email})
+    if not rec or rec.get("expires_at", "") < datetime.now(timezone.utc).isoformat():
+        raise HTTPException(401, "Code expired — request a new one")
+    if rec.get("attempts", 0) >= 5:
+        await db.login_otps.delete_one({"email": email})
+        raise HTTPException(429, "Too many wrong codes — request a new one")
+    if not verify_pw(body.code, rec["code_hash"]):
+        await db.login_otps.update_one({"email": email}, {"$inc": {"attempts": 1}})
+        raise HTTPException(401, "That code isn't right")
+    await db.login_otps.delete_one({"email": email})
+    user = await db.users.find_one({"email": email})
+    if not user or user.get("disabled"):
+        raise HTTPException(403, "This account is not active")
     return await _issue_session(user, email, request, response, True)
 
 @router.post("/auth/logout")

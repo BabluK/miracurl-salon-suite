@@ -86,6 +86,7 @@ class _DB:
     tenants = _raw_db.tenants
     users = _raw_db.users
     login_attempts = _raw_db.login_attempts
+    login_otps = _raw_db.login_otps
     password_reset_tokens = _raw_db.password_reset_tokens
     revoked_tokens = _raw_db.revoked_tokens
     subscriptions = _raw_db.subscriptions
