@@ -122,9 +122,13 @@ async def _tenant_for_sms(user: dict):
     return t
 
 
-def _queue_sms(t: dict, phone: str, text: str, kind: str, wa: dict | None = None) -> None:
+def _queue_sms(t: dict, phone: str, text: str, kind: str, wa: dict | None = None, sms_vars: list[str] | None = None) -> None:
     from sms_service import send_tenant_sms
-    asyncio.create_task(send_tenant_sms(t["id"], phone, text, kind=kind, wa=wa))
+    asyncio.create_task(send_tenant_sms(t["id"], phone, text, kind=kind, wa=wa, sms_vars=sms_vars))
+
+
+def _salon_phone(t: dict) -> str:
+    return t.get("reception_phone") or t.get("phone") or "the salon"
 
 
 async def _send_booking_sms(user: dict, cust: dict, staff: dict, services: list, scheduled_at) -> None:
@@ -138,7 +142,8 @@ async def _send_booking_sms(user: dict, cust: dict, staff: dict, services: list,
                f"{', '.join(s['name'] for s in services)} on {_ist_when(scheduled_at)} with {staff['name']}. See you soon!",
                "booking",
                wa={"kind": "booking", "params": [cust["name"].split()[0], t.get("name") or "your salon", _ist_when(scheduled_at),
-                                                 ", ".join(s["name"] for s in services), staff["name"], t.get("reception_phone") or t.get("phone") or "the salon"]})
+                                                 ", ".join(s["name"] for s in services), staff["name"], _salon_phone(t)]},
+               sms_vars=[cust["name"].split()[0], _ist_when(scheduled_at), ", ".join(s["name"] for s in services), _salon_phone(t)])
 
 
 async def _send_cancellation_sms(user: dict, appt: dict, phone: str) -> None:
@@ -149,7 +154,43 @@ async def _send_cancellation_sms(user: dict, appt: dict, phone: str) -> None:
                f"{t.get('name') or 'Your salon'}: Hi {appt.get('customer_name', '')}, your booking "
                f"({', '.join(appt.get('service_names') or ['appointment'])}) on {_ist_when(appt.get('scheduled_at'))} "
                "has been CANCELLED. Reply or call us to rebook anytime.",
-               "cancellation")
+               "cancellation",
+               sms_vars=[(appt.get("customer_name") or "there").split()[0], _ist_when(appt.get("scheduled_at")), _salon_phone(t)])
+
+
+async def _send_reschedule_sms(user: dict, appt: dict, phone: str) -> None:
+    t = await _tenant_for_sms(user)
+    if not t:
+        return
+    svc = ", ".join(appt.get("service_names") or ["appointment"])
+    _queue_sms(t, phone,
+               f"{t.get('name') or 'Your salon'}: Hi {appt.get('customer_name', '')}, your booking ({svc}) has been RESCHEDULED to "
+               f"{_ist_when(appt.get('scheduled_at'))}. For assistance call {_salon_phone(t)}.",
+               "rescheduled",
+               sms_vars=[(appt.get("customer_name") or "there").split()[0], _ist_when(appt.get("scheduled_at")), svc, _salon_phone(t)])
+
+
+class RescheduleIn(BaseModel):
+    scheduled_at: str = Field(..., min_length=10, max_length=40)
+
+
+@router.put("/appointments/{aid}/reschedule")
+async def reschedule_appointment(aid: str, body: RescheduleIn, user=Depends(get_current_user)):
+    """Move a booking to a new time; the guest gets a DLT 'rescheduled' SMS (always — no WhatsApp template exists for this)."""
+    try:
+        datetime.fromisoformat(body.scheduled_at.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(400, "Invalid date/time")
+    res = await db.appointments.update_one({"id": aid, "status": {"$nin": ["completed", "cancelled"]}},
+                                           {"$set": {"scheduled_at": body.scheduled_at, "rescheduled_at": datetime.now(timezone.utc).isoformat(),
+                                                     "hour_reminder_sent": False, "sms_reminder_sent": False}})
+    if not res.matched_count:
+        raise HTTPException(404, "Appointment not found or already closed")
+    appt = await db.appointments.find_one({"id": aid}, {"_id": 0})
+    phone = await _appt_customer_phone(appt)
+    if phone:
+        await _send_reschedule_sms(user, appt, phone)
+    return {"appointment": appt, "sms_queued": bool(phone)}
 
 
 @router.get("/appointments/billing-status")

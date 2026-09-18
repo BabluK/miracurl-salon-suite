@@ -58,7 +58,10 @@ async def _sms_reminder_scheduler() -> None:
                             await send_tenant_sms(a["tenant_id"], cust["phone"],
                                            f"Reminder from {t.get('name') or 'your salon'}: "
                                            f"{', '.join(a.get('service_names') or ['your appointment'])} tomorrow, {when}. Reply/call to reschedule.",
-                                           kind="reminder")
+                                           kind="reminder",
+                                           sms_vars=[(a.get("customer_name") or "there").split()[0], when,
+                                                     ", ".join(a.get("service_names") or ["your appointment"]),
+                                                     t.get("reception_phone") or t.get("phone") or "the salon"])
                         await _raw_db.appointments.update_one({"id": a["id"]}, {"$set": {"sms_reminder_sent": True}})
                     # Mira's 1-hour heads-up (WhatsApp-first when the salon linked its number)
                     lo1 = (now + timedelta(minutes=45)).isoformat()
@@ -79,7 +82,8 @@ async def _sms_reminder_scheduler() -> None:
                                            f"{svc} is in about 1 hour"
                                            f"{(' with ' + a['staff_name']) if a.get('staff_name') else ''}. See you soon ✦",
                                            kind="reminder",
-                                           wa={"kind": "reminder", "params": [first, svc, t.get("name") or "your salon", at_time]})
+                                           wa={"kind": "reminder", "params": [first, svc, t.get("name") or "your salon", at_time]},
+                                           sms_vars=[first, f"today {at_time}", svc, t.get("reception_phone") or t.get("phone") or "the salon"])
                         await _raw_db.appointments.update_one({"id": a["id"]}, {"$set": {"hour_reminder_sent": True}})
                 # Low-balance alert: email HQ once per tenant per day when points dip under 20
                 today = datetime.now(timezone.utc).date().isoformat()

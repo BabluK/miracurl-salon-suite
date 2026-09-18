@@ -512,7 +512,9 @@ async def public_book(slug: str, body: PublicBookingIn, request: Request):
                 kind="booking",
                 wa={"kind": "booking", "params": [(cust.get("name") or "there").split()[0], t_doc.get("name") or "your salon", when,
                                                   ", ".join(s["name"] for s in services), staff["name"],
-                                                  t_doc.get("reception_phone") or t_doc.get("phone") or "the salon"]}))
+                                                  t_doc.get("reception_phone") or t_doc.get("phone") or "the salon"]},
+                sms_vars=[(cust.get("name") or "there").split()[0], when, ", ".join(s["name"] for s in services),
+                          t_doc.get("reception_phone") or t_doc.get("phone") or "the salon"]))
             # UPI prepay link when the diner chose "Pay by UPI" at reservation
             upi_vpa = ((t_doc.get("gift_cards") or {}).get("upi_id") or "").strip()
             if upi_vpa and "Pay by UPI" in (appt.get("notes") or "") and total and total > 0:

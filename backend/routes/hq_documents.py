@@ -1,6 +1,7 @@
 """HQ Documents Center — policy/overview PDFs generated on demand, plus combined platform earnings."""
 import asyncio
 import base64
+from urllib.parse import quote
 import calendar
 import html as html_lib
 import logging
@@ -1643,82 +1644,119 @@ def _validate_slot(date_s: str, time_s: str):
         raise HTTPException(400, "Invalid time slot")
 
 
-def _hq_slot_alert_html(d: dict) -> str:
-    """Polished HQ alert for a demo / onboarding booking (to support@)."""
+@dataclass
+class SlotBooking:
+    """One demo / onboarding slot request — everything the confirmation mails need."""
+    email: str
+    name: str = ""
+    salon_name: str = ""
+    city: str = ""
+    phone: str = ""
+    date: str = ""
+    time: str = ""
+    purpose: str = "demo"
+    tz: str = ""
+    local_time: str = ""
+
+    @property
+    def onboarding(self) -> bool:
+        return self.purpose == "onboarding"
+
+    @property
+    def kind(self) -> str:
+        return "onboarding assistance session" if self.onboarding else "demo"
+
+    @property
+    def pretty_long(self) -> str:
+        return datetime.fromisoformat(self.date).strftime("%A, %d %B %Y")
+
+    @property
+    def pretty_short(self) -> str:
+        return datetime.fromisoformat(self.date).strftime("%a, %d %b %Y")
+
+
+def _hq_alert_header(b: SlotBooking) -> str:
     e = html_lib.escape
-    onboarding = d["purpose"] == "onboarding"
-    label = "ONBOARDING ASSISTANCE" if onboarding else "LIVE DEMO"
-    badge_bg, badge_fg = ("#e0f2ea", "#1f7a4d") if onboarding else ("#fdeef4", "#c2185b")
-    local = f" · {e(d['local_time'])} local ({e(d['tz'])})" if d.get("local_time") else ""
-    row = lambda k, v: (f"<tr><td style='padding:9px 0;font-size:12px;letter-spacing:1.2px;color:#9a8f6d;font-weight:bold;width:34%;border-bottom:1px solid #f0ece2'>{k}</td>"
-                        f"<td style='padding:9px 0;font-size:14px;color:#1d1d24;border-bottom:1px solid #f0ece2'>{v}</td></tr>")
-    mailto = f"mailto:{e(d['email'])}?subject=Your%20Miracurl%20{'onboarding%20session' if onboarding else 'demo'}%20%E2%80%94%20{e(d['date'])}%20{e(d['time'])}%20IST"
-    return f"""<!doctype html><html><body style="margin:0;padding:0;background:#f2f0eb">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f0eb;padding:28px 12px"><tr><td align="center">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:18px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,.08)">
-  <tr><td style="background:#15151b;padding:28px 36px 24px">
+    label = "ONBOARDING ASSISTANCE" if b.onboarding else "LIVE DEMO"
+    badge_bg, badge_fg = ("#e0f2ea", "#1f7a4d") if b.onboarding else ("#fdeef4", "#c2185b")
+    return f"""<tr><td style="background:#15151b;padding:28px 36px 24px">
     {platform_brand_mark(24)}
     <div style="height:2px;width:56px;background:#d4af37;margin-top:12px"></div>
     <div style="font-size:11px;letter-spacing:2.5px;color:#d4af37;font-weight:bold;margin-top:16px">MIRACURL HQ · NEW REQUEST</div>
     <div style="font-family:Georgia,serif;color:#f4f1e8;font-size:21px;margin-top:8px;line-height:1.4">
-      {e(d['name'] or d['email'])} booked {'an onboarding session' if onboarding else 'a live demo'} ✦</div>
+      {e(b.name or b.email)} booked {'an onboarding session' if b.onboarding else 'a live demo'} ✦</div>
   </td></tr>
   <tr><td style="padding:24px 36px 4px">
     <span style="display:inline-block;background:{badge_bg};color:{badge_fg};font-size:11px;font-weight:bold;letter-spacing:1.8px;padding:6px 14px;border-radius:999px">{label}</span>
-  </td></tr>
-  <tr><td style="padding:14px 36px 6px">
+  </td></tr>"""
+
+
+def _hq_alert_slot_tile(b: SlotBooking) -> str:
+    e = html_lib.escape
+    local = f" · {e(b.local_time)} local ({e(b.tz)})" if b.local_time else ""
+    return f"""<tr><td style="padding:14px 36px 6px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fdf8ec;border:1px solid #ecdcae;border-radius:14px">
       <tr><td style="padding:20px 24px">
         <div style="font-size:11px;letter-spacing:2px;color:#9a8f6d;font-weight:bold">SCHEDULED SLOT</div>
-        <div style="font-family:Georgia,serif;font-size:24px;color:#1d1d24;margin-top:8px">{e(d['pretty'])}</div>
-        <div style="font-size:16px;color:#55555f;margin-top:4px"><b>{e(d['time'])} IST</b> · 20 minutes{local}</div>
+        <div style="font-family:Georgia,serif;font-size:24px;color:#1d1d24;margin-top:8px">{e(b.pretty_long)}</div>
+        <div style="font-size:16px;color:#55555f;margin-top:4px"><b>{e(b.time)} IST</b> · 20 minutes{local}</div>
       </td></tr>
     </table>
-  </td></tr>
-  <tr><td style="padding:18px 36px 6px">
+  </td></tr>"""
+
+
+def _hq_alert_details(b: SlotBooking) -> str:
+    e = html_lib.escape
+    row = lambda k, v: (f"<tr><td style='padding:9px 0;font-size:12px;letter-spacing:1.2px;color:#9a8f6d;font-weight:bold;width:34%;border-bottom:1px solid #f0ece2'>{k}</td>"
+                        f"<td style='padding:9px 0;font-size:14px;color:#1d1d24;border-bottom:1px solid #f0ece2'>{v}</td></tr>")
+    rows = [("NAME", e(b.name or "—")),
+            ("EMAIL", f"<a href='mailto:{e(b.email)}' style='color:#b08d3f;text-decoration:none'>{e(b.email)}</a>"),
+            ("PHONE", e(b.phone or "—")), ("SALON", e(b.salon_name or "—")), ("CITY", e(b.city or "—"))]
+    return f"""<tr><td style="padding:18px 36px 6px">
     <div style="font-size:11px;letter-spacing:2px;color:#9a8f6d;font-weight:bold;margin-bottom:6px">PROSPECT DETAILS</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-      {row("NAME", e(d['name'] or '—'))}
-      {row("EMAIL", f"<a href='mailto:{e(d['email'])}' style='color:#b08d3f;text-decoration:none'>{e(d['email'])}</a>")}
-      {row("PHONE", e(d['phone'] or '—'))}
-      {row("SALON", e(d['salon_name'] or '—'))}
-      {row("CITY", e(d['city'] or '—'))}
-    </table>
-  </td></tr>
-  <tr><td align="center" style="padding:24px 36px 8px">
-    <a href="{d['gcal']}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:14px;font-weight:bold;text-decoration:none;padding:13px 30px;border-radius:999px;margin:4px">📅 Add to Google Calendar</a>
-    <a href="{mailto}" style="display:inline-block;background:#15151b;color:#e8c37f;font-size:14px;font-weight:bold;text-decoration:none;padding:13px 30px;border-radius:999px;margin:4px">✉ Reply to {e((d['name'] or 'prospect').split()[0])}</a>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{''.join(row(k, v) for k, v in rows)}</table>
+  </td></tr>"""
+
+
+def _hq_alert_actions(b: SlotBooking, gcal: str, admin_url: str) -> str:
+    e = html_lib.escape
+    subject = quote(f"Your Miracurl {'onboarding session' if b.onboarding else 'demo'} — {b.date} {b.time} IST")
+    return f"""<tr><td align="center" style="padding:24px 36px 8px">
+    <a href="{gcal}" style="display:inline-block;background:#d4af37;color:#15151b;font-size:14px;font-weight:bold;text-decoration:none;padding:13px 30px;border-radius:999px;margin:4px">📅 Add to Google Calendar</a>
+    <a href="mailto:{e(b.email)}?subject={subject}" style="display:inline-block;background:#15151b;color:#e8c37f;font-size:14px;font-weight:bold;text-decoration:none;padding:13px 30px;border-radius:999px;margin:4px">✉ Reply to {e((b.name or 'prospect').split()[0])}</a>
     <div style="font-size:12px;color:#8f8798;margin-top:12px">The prospect has received a confirmation with the same calendar invite (.ics attached here too).</div>
   </td></tr>
   <tr><td style="padding:14px 36px 26px">
     <p style="font-size:12px;color:#8f8798;line-height:1.7;margin:0">Replying to this email goes straight to the prospect. Manage all requests in
-      <a href="{e(d['admin_url'])}" style="color:#b08d3f;text-decoration:none">Super Admin → Demo calendar</a>.</p>
+      <a href="{e(admin_url)}" style="color:#b08d3f;text-decoration:none">Super Admin → Demo calendar</a>.</p>
   </td></tr>
   <tr><td style="background:#15151b;padding:14px 36px;text-align:center">
-    <span style="font-size:11px;color:#8f8798;letter-spacing:1px">MIRACURL SUITE · HQ NOTIFICATIONS · {e(hq_inbox('support'))}</span></td></tr>
-</table></td></tr></table></body></html>"""
+    <span style="font-size:11px;color:#8f8798;letter-spacing:1px">MIRACURL SUITE · HQ NOTIFICATIONS · {e(hq_inbox('support'))}</span></td></tr>"""
 
 
-async def _send_slot_confirmations(email: str, name: str, salon_name: str,
-                                   date_s: str, time_s: str, phone: str, city: str = "",
-                                   purpose: str = "demo", local: dict | None = None) -> str:
+def _hq_slot_alert_html(b: SlotBooking, gcal: str, admin_url: str) -> str:
+    """Polished HQ alert for a demo / onboarding booking (to support@)."""
+    return ('<!doctype html><html><body style="margin:0;padding:0;background:#f2f0eb">'
+            '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f0eb;padding:28px 12px"><tr><td align="center">'
+            '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:18px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 4px 24px rgba(0,0,0,.08)">'
+            + _hq_alert_header(b) + _hq_alert_slot_tile(b) + _hq_alert_details(b) + _hq_alert_actions(b, gcal, admin_url)
+            + "</table></td></tr></table></body></html>")
+
+
+async def _send_slot_confirmations(b: SlotBooking) -> str:
+    """Prospect confirmation (reply-to booking@) + polished HQ alert (to support@, reply-to prospect). Returns the GCal link."""
     booking_inbox = hq_inbox("booking")
-    kind = "onboarding assistance session" if purpose == "onboarding" else "demo"
-    gcal = _gcal_link(date_s, time_s)
-    ics = _slot_ics(date_s, time_s, email)
+    gcal = _gcal_link(b.date, b.time)
+    ics = _slot_ics(b.date, b.time, b.email)
     ics_att = [{"filename": "miracurl-demo.ics", "content": base64.b64encode(ics.encode()).decode()}]
-    await _send_email([email],
-                      f"Your Miracurl {kind} is booked — {date_s} at {time_s} IST ✦",
-                      _slot_confirm_email_html(name, date_s, time_s, gcal, booking_inbox),
+    await _send_email([b.email],
+                      f"Your Miracurl {b.kind} is booked — {b.date} at {b.time} IST ✦",
+                      _slot_confirm_email_html(b.name, b.date, b.time, gcal, booking_inbox),
                       attachments=ics_att, reply_to=booking_inbox)
-    pretty = datetime.fromisoformat(date_s).strftime("%a, %d %b %Y")
     admin_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com').rstrip('/')}/super-admin"
-    ctx = {"name": name, "email": email, "phone": (phone or "").strip(), "salon_name": salon_name, "city": city,
-           "date": date_s, "time": time_s, "pretty": datetime.fromisoformat(date_s).strftime("%A, %d %B %Y"),
-           "purpose": purpose, "gcal": gcal, "admin_url": admin_url, **(local or {})}
     await _send_email(hq_notify_emails("support"),
-                      f"{'🧭 Onboarding session' if purpose == 'onboarding' else '🔥 Live demo'} booked · {name or email} — {pretty} {time_s} IST",
-                      _hq_slot_alert_html(ctx), attachments=ics_att, reply_to=email,
+                      f"{'🧭 Onboarding session' if b.onboarding else '🔥 Live demo'} booked · {b.name or b.email} — {b.pretty_short} {b.time} IST",
+                      _hq_slot_alert_html(b, gcal, admin_url), attachments=ics_att, reply_to=b.email,
                       book_url=admin_url, book_label="Open Super Admin ✦")
     return gcal
 
@@ -1746,8 +1784,9 @@ async def demo_slot_book(iid: str, body: DemoSlotIn, request: Request):
         {"$set": {"preferred_slot": slot, "demo_requested_at": inv.get("demo_requested_at") or now_iso,
                   "opened_at": inv.get("opened_at") or now_iso,
                   "seen_by_hq_req": False, "responded": True}})
-    gcal = await _send_slot_confirmations(inv["email"], inv.get("name", ""), inv.get("salon_name", ""),
-                                          body.date, body.time, body.phone)
+    gcal = await _send_slot_confirmations(SlotBooking(email=inv["email"], name=inv.get("name", ""), salon_name=inv.get("salon_name", ""),
+                                                      date=body.date, time=body.time, phone=body.phone.strip(),
+                                                      tz=slot.get("tz", ""), local_time=slot.get("local_time", "")))
     return {"ok": True, "gcal": gcal, "slot": slot}
 
 
@@ -1832,8 +1871,9 @@ async def _book_open_demo(d: dict) -> dict:
     slot["purpose"] = str(d.get("purpose") or "demo")
     await _upsert_demo_invite(email, name, salon_name, city, slot, now_iso)
     await _mark_lead_demo(email, slot, now_iso)
-    gcal = await _send_slot_confirmations(email, name, salon_name, date_s, time_s, phone, city, slot["purpose"],
-                                          {k: slot[k] for k in ("tz", "local_time") if k in slot})
+    gcal = await _send_slot_confirmations(SlotBooking(email=email, name=name, salon_name=salon_name, city=city, phone=slot["phone"],
+                                                      date=date_s, time=time_s, purpose=slot["purpose"],
+                                                      tz=slot.get("tz", ""), local_time=slot.get("local_time", "")))
     return {"ok": True, "gcal": gcal, "slot": slot}
 
 

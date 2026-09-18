@@ -664,10 +664,11 @@ async def reviews_blast_send(body: BlastSendIn, user=Depends(require_admin), t=D
             raise HTTPException(409 if "credits" in str(e) else 502, str(e))
         return {"ok": True, "channel": "whatsapp", "message_id": r.get("message_id")}
     if body.channel == "sms":
-        from sms_service import send_sms
-        res = await send_sms(target["phone"],
-                             f"Hi {first}! Thanks for visiting {t.get('name', 'us')} 💇 "
-                             f"We'd love your quick rating: {link}")
+        from sms_service import send_tenant_sms
+        res = await send_tenant_sms(t["id"], target["phone"],
+                                    f"Hi {first}! Thanks for visiting {t.get('name', 'us')} 💇 "
+                                    f"We'd love your quick rating: {link}",
+                                    kind="review", sms_vars=[first, link])
         if not res.get("sent"):
             raise HTTPException(502, res.get("error") or "SMS could not be sent")
         return {"ok": True, "channel": "sms", "points_left": res.get("points_left")}

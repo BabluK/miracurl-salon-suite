@@ -21,7 +21,10 @@ import pytest
 import requests
 from pymongo import MongoClient
 from dotenv import load_dotenv
-import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+import os as _os
+import sys as _sys
+
+_sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
 
 

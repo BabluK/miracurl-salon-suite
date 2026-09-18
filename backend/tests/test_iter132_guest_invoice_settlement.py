@@ -5,7 +5,10 @@ from datetime import date
 import fitz  # pymupdf
 import pytest
 import requests
-import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+import os as _os
+import sys as _sys
+
+_sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
 
 BASE = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")

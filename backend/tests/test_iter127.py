@@ -1,7 +1,10 @@
 """Iteration 127: winner card PNG + advisory tracker regression."""
 import os, hmac, hashlib, requests, io
 from dotenv import dotenv_values
-import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+import os as _os
+import sys as _sys
+
+_sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
 
 API = os.popen("grep REACT_APP_BACKEND_URL /app/frontend/.env | cut -d= -f2").read().strip() + "/api"

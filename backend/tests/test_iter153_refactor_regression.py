@@ -6,7 +6,10 @@ import os
 import pytest
 import requests
 from datetime import datetime, timezone, timedelta
-import sys as _sys; _sys.path.insert(0, __import__("os").path.dirname(__file__))
+import os as _os
+import sys as _sys
+
+_sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
 
 def _read_env(path):

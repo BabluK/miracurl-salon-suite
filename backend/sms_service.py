@@ -14,8 +14,29 @@ log = logging.getLogger("sms")
 MSG91_FLOW_URL = "https://control.msg91.com/api/v5/flow"
 
 
+# DLT-approved MSG91 flows (sender MIRACU). Text is fixed on DLT; only ##varN## slots are filled.
+# kind → (env override key, default MSG91 template id, variable names in order)
+MSG91_TEMPLATES: dict[str, tuple[str, str, tuple[str, ...]]] = {
+    "booking":      ("MSG91_TPL_BOOKING",      "6aad2c6df24ce78592014d12", ("name", "when", "service", "phone")),
+    "reminder":     ("MSG91_TPL_REMINDER",     "6aad4b01b3d5bd0e3603bbb2", ("name", "when", "service", "phone")),
+    "cancellation": ("MSG91_TPL_CANCELLED",    "6aad4823152316d3b30f5c27", ("name", "when", "phone")),
+    "rescheduled":  ("MSG91_TPL_RESCHEDULED",  "6aad49b58393cbe7b10bfff2", ("name", "when", "service", "phone")),
+    "review":       ("MSG91_TPL_REVIEW",       "6aad488c9d46d5d9310ea663", ("name", "url")),
+    "birthday":     ("MSG91_TPL_BIRTHDAY",     "6aad49f494e67f01f40b14a2", ("name", "offer")),
+    "festival":     ("MSG91_TPL_FESTIVAL",     "6aad491cd077278ca60eae23", ("name", "festival", "offer")),
+    "special":      ("MSG91_TPL_SPECIAL",      "6aad4a4adf4726e0d1013f14", ("name", "offer", "valid_till")),
+}
+
+
+def msg91_template_id(kind: str) -> str:
+    env_key, default, _ = MSG91_TEMPLATES.get(kind) or ("", "", ())
+    return os.environ.get(env_key, default) if env_key else ""
+
+
 def _msg91_ready() -> bool:
-    return all(os.environ.get(k) for k in ("MSG91_AUTHKEY", "MSG91_SENDER_ID", "MSG91_FLOW_ID"))
+    # Either the generic ##message## flow or the per-kind DLT templates make MSG91 usable.
+    return all(os.environ.get(k) for k in ("MSG91_AUTHKEY", "MSG91_SENDER_ID")) and bool(
+        os.environ.get("MSG91_FLOW_ID") or MSG91_TEMPLATES)
 
 
 def _twilio_ready() -> bool:
@@ -47,19 +68,12 @@ def _normalize_in(phone: str) -> str:
     return f"+{digits}" if digits else ""
 
 
-async def _send_msg91(to: str, body: str) -> dict:
+async def _msg91_post(payload: dict) -> dict:
     import httpx
-    mobile = to.lstrip("+")
-    payload = {
-        "flow_id": os.environ["MSG91_FLOW_ID"],
-        "sender": os.environ["MSG91_SENDER_ID"],
-        "mobiles": mobile,
-        "message": body,
-    }
     try:
         async with httpx.AsyncClient(timeout=15) as http:
             resp = await http.post(MSG91_FLOW_URL, json=payload,
-                                   headers={"authkey": os.environ["MSG91_AUTHKEY"]})
+                                   headers={"authkey": os.environ["MSG91_AUTHKEY"], "accept": "application/json"})
         data = resp.json()
         if resp.status_code == 200 and data.get("type") == "success":
             return {"sent": True, "sid": data.get("message", "")}
@@ -68,6 +82,56 @@ async def _send_msg91(to: str, body: str) -> dict:
     except Exception as e:
         log.error("msg91 send failed: %s", e)
         return {"sent": False, "error": str(e)[:200]}
+
+
+def _fit_var(v: str, limit: int = 30) -> str:
+    """DLT allows ≤30 chars per variable: keep the first item of a comma list and say how many more."""
+    if len(v) <= limit:
+        return v
+    parts = [x.strip() for x in v.split(",") if x.strip()]
+    if len(parts) > 1:
+        cand = f"{parts[0][:limit - 4]} +{len(parts) - 1}"
+        if len(cand) <= limit:
+            return cand
+    return v[:limit - 1] + "…"
+
+
+async def send_sms_template(to: str, kind: str, values: list[str]) -> dict:
+    """DLT-template SMS via MSG91 Flow API: fills ##var1##..##varN## in order. Values are trimmed to DLT's 30-char slot limit."""
+    tpl = msg91_template_id(kind)
+    if not tpl:
+        return {"sent": False, "error": f"no_dlt_template:{kind}"}
+    to = _normalize_in(to)
+    if not to:
+        return {"sent": False, "error": "invalid_phone"}
+    names = MSG91_TEMPLATES[kind][2]
+    recipient = {"mobiles": to.lstrip("+")}
+    has_url = False
+    for i, name in enumerate(names):
+        v = str(values[i] if i < len(values) else "-").strip()
+        if name == "url":
+            has_url = True  # MSG91 shortens links (DLT caps other variables at 30 chars)
+        else:
+            v = _fit_var(v)
+        recipient[f"var{i + 1}"] = v or "-"
+    res = await _msg91_post({"template_id": tpl, "short_url": "1" if has_url else "0",
+                             "sender": os.environ["MSG91_SENDER_ID"], "recipients": [recipient]})
+    res["provider"] = "msg91"
+    res["template"] = kind
+    return res
+
+
+async def _send_msg91(to: str, body: str) -> dict:
+    if not os.environ.get("MSG91_FLOW_ID"):
+        return {"sent": False, "error": "msg91_generic_flow_missing"}
+    mobile = to.lstrip("+")
+    payload = {
+        "flow_id": os.environ["MSG91_FLOW_ID"],
+        "sender": os.environ["MSG91_SENDER_ID"],
+        "mobiles": mobile,
+        "message": body,
+    }
+    return await _msg91_post(payload)
 
 
 async def _send_twilio(to: str, body: str) -> dict:
@@ -94,7 +158,8 @@ async def send_sms(to_phone: str, body: str) -> dict:
     return await _send_twilio(to, body)
 
 
-async def send_tenant_sms(tenant_id: str, to_phone: str, body: str, kind: str = "general", wa: dict | None = None) -> dict:
+async def send_tenant_sms(tenant_id: str, to_phone: str, body: str, kind: str = "general", wa: dict | None = None,
+                          sms_vars: list[str] | None = None) -> dict:
     """Point-metered customer SMS: burns 1 sms_point from the tenant, refunds on failure.
     Every attempt is recorded in sms_log for the HQ delivery log."""
     from database import _raw_db
@@ -139,7 +204,11 @@ async def send_tenant_sms(tenant_id: str, to_phone: str, body: str, kind: str = 
         res = {"sent": False, "error": "no_sms_points"}
         await _log(res)
         return res
-    res = await send_sms(to_phone, body)
+    # MSG91 (DLT): use the approved template for this kind when the caller supplied its variables.
+    if _provider() == "msg91" and sms_vars is not None and msg91_template_id(kind):
+        res = await send_sms_template(to_phone, kind, sms_vars)
+    else:
+        res = await send_sms(to_phone, body)
     if not res.get("sent"):
         await _raw_db.tenants.update_one({"id": tenant_id}, {"$inc": {"sms_points": 1}})
     fresh = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0, "sms_points": 1})

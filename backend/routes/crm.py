@@ -1,5 +1,6 @@
 # Extracted from server.py — domain route module (auto-split refactor)
 import os
+from dataclasses import dataclass
 import re
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -208,15 +209,27 @@ async def _celebrants(tenant_id: str, field: str, mmdd: str, channel: str, today
     return await _raw_db.customers.find(flt, {"_id": 0, "id": 1, "name": 1, "email": 1, "phone": 1}).to_list(200)
 
 
-async def _wish_on_whatsapp(t: dict, c: dict, field: str, emoji: str, word: str, offer: str, book_url: str, today_iso: str) -> dict:
+@dataclass(frozen=True)
+class _Occasion:
+    """One celebration run: which date field, how to say it, and what to offer."""
+    field: str
+    emoji: str
+    word: str
+    offer: str
+    book_url: str
+    today_iso: str
+
+
+async def _wish_on_whatsapp(t: dict, c: dict, o: _Occasion) -> dict:
     from sms_service import send_tenant_sms
     first = (c.get("name") or "there").split()[0]
-    msg = (f"{emoji} Happy {word}, {first}! Everyone at {t.get('name', 'your salon')} wishes you a wonderful day ✦\n\n"
-           f"Our little treat for you: *{offer}* — valid this week.\nBook your pampering: {book_url}")
+    msg = (f"{o.emoji} Happy {o.word}, {first}! Everyone at {t.get('name', 'your salon')} wishes you a wonderful day ✦\n\n"
+           f"Our little treat for you: *{o.offer}* — valid this week.\nBook your pampering: {o.book_url}")
     r = await send_tenant_sms(t["id"], c["phone"], msg, kind="birthday",
-                              wa={"kind": "birthday", "params": [first, t.get("name", "your salon"), offer]} if field == "dob" else None)
-    await _raw_db.customers.update_one({"id": c["id"]}, {"$set": {f"wa_{field}_wished_on": today_iso}})
-    return {"tenant": t["name"], "customer": c["name"], "phone": c["phone"], "occasion": field,
+                              wa={"kind": "birthday", "params": [first, t.get("name", "your salon"), o.offer]} if o.field == "dob" else None,
+                              sms_vars=[first, o.offer] if o.field == "dob" else None)
+    await _raw_db.customers.update_one({"id": c["id"]}, {"$set": {f"wa_{o.field}_wished_on": o.today_iso}})
+    return {"tenant": t["name"], "customer": c["name"], "phone": c["phone"], "occasion": o.field,
             "channel": r.get("channel", "sms"), "sent": bool(r.get("sent")), "error": r.get("error")}
 
 
@@ -231,7 +244,7 @@ async def _celebrate_tenant(t: dict, mmdd: str, today_iso: str, app_url: str) ->
             results.append(await _send_celebration_email(t, c, field, subject_tpl, offer, book_url))
         if wa_linked:
             for c in await _celebrants(t["id"], field, mmdd, "phone", today_iso):
-                results.append(await _wish_on_whatsapp(t, c, field, emoji, word, offer, book_url, today_iso))
+                results.append(await _wish_on_whatsapp(t, c, _Occasion(field, emoji, word, offer, book_url, today_iso)))
     return results
 
 
