@@ -21,6 +21,7 @@ export const OwnWhatsAppCard = () => {
   const session = useRef({});
   const load = () => api.get("/whatsapp-own/status").then(r => setSt(r.data)).catch(() => setSt({ available: false }));
   useEffect(() => { load(); }, []);
+  useEffect(() => { if (st?.available && st.app_id) loadFbSdk(st.app_id); }, [st?.available, st?.app_id]);
 
   useEffect(() => {
     const onMsg = (ev) => {
@@ -34,10 +35,11 @@ export const OwnWhatsAppCard = () => {
     return () => window.removeEventListener("message", onMsg);
   }, []);
 
-  const connect = async () => {
+  const connect = () => {
+    const FB = window.FB;
+    if (!FB) { toast.error("Meta login is still loading — try again in a second"); return; }
     setBusy("connect");
     try {
-      const FB = await loadFbSdk(st.app_id);
       FB.login(async (resp) => {
         const code = resp?.authResponse?.code;
         const s = session.current;
