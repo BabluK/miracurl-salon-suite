@@ -25,6 +25,7 @@ MSG91_TEMPLATES: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "birthday":     ("MSG91_TPL_BIRTHDAY",     "6aad49f494e67f01f40b14a2", ("name", "offer")),
     "festival":     ("MSG91_TPL_FESTIVAL",     "6aad491cd077278ca60eae23", ("name", "festival", "offer")),
     "special":      ("MSG91_TPL_SPECIAL",      "6aad4a4adf4726e0d1013f14", ("name", "offer", "valid_till")),
+    "billing":      ("MSG91_TPL_BILLING",      "6aaed91266b259e2920c73d3", ("name", "invoice", "amount", "salon", "points")),  # receipt after POS bill
     "otp":          ("MSG91_TPL_OTP",          "6aae14594f99d7fba7049633", ("var1",)),  # miracurl_otp (DLT verified): "…verification code is ##var1##…"
 }
 

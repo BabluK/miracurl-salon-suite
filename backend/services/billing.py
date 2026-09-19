@@ -297,8 +297,10 @@ async def _send_billing_receipts(inv: dict, cust: dict, tenant_doc: Optional[dic
             out["sms"] = {"sent": False, "error": "no_tenant"}
         else:
             from sms_service import send_tenant_sms
+            first = (inv.get("customer_name") or "Guest").split()[0][:30]
             out["sms"] = await send_tenant_sms(
-                t["id"], cust["phone"], _receipt_sms_text(t, inv, points_earned), kind="billing")
+                t["id"], cust["phone"], _receipt_sms_text(t, inv, points_earned), kind="billing",
+                sms_vars=[first, str(inv.get("invoice_no") or "")[:30], f"{inv['total']:.0f}", (t.get("name") or "your salon")[:30], str(points_earned or 0)])
     except Exception as e:  # noqa: BLE001
         out["sms"] = {"sent": False, "error": str(e)[:200]}
     return out
