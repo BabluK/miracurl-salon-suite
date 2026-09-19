@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.321"
-BUILD_TIME = "20 Sep 2026, 2:15 AM IST"
+BUILD = "2026-09-19.322"
+BUILD_TIME = "20 Sep 2026, 3:30 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.322", "note": "Super Admin: new top-row tab 'Message Credits (SMS & WhatsApp)' (?tab=credits) = HQ Credit Wallet + Pack Pricing + tenant Message Credits (moved out of Billing where it sat below the fold). Icons: favicon.ico rebuilt from the circular PNG + PWA icon-192/512 & admin icons masked circular; all icon links v=8 (browsers cache favicon.ico aggressively — v=7 only covered PNGs)."},
     {"build": "2026-09-19.321", "note": "Booking header: circle/square logo frames shrunk to fit the 80px bar (was 88px + -my-2 → overflow, seen on MDM); blend logos h-14/h-[4.5rem]; mobile CTA shortened to 'Signature Look' + subtitle hidden so the salon name is readable. Favicons/app icons circular (v=7). Thank-You v2 wording (owner text) → templates miracurl_thank_you_v2 + mdm_thank_you_call_v2 (APPROVED) with TEMPLATE_FALLBACK to v1 while pending; resolve_template() centralises tenant override + fallback. Guide send verifies PDF on APP_PUBLIC_URL → x-forwarded-host → base_url. miracurl_owner_guide APPROVED; guide sent to MDM owner."},
     {"build": "2026-09-19.320", "note": "Guide Auto-Send: POST /super-admin/tenants/{tid}/send-guide (template miracurl_owner_guide, DOCUMENT header → /guides/mdm-whatsapp-campaign-guide.pdf, verifies the PDF is live on APP_PUBLIC_URL else request origin; 409 while template PENDING); Super Admin tenant row 'Guide' button. Per-tenant WA template overrides: tenant.wa_template_overrides {kind→template}; official.send uses it and drops the URL-button param (overrides carry a PHONE_NUMBER 'Call now' button). MDM: mdm_festival_offer_call + mdm_thank_you_call (APPROVED, +91 96084 24704) applied via PUT /super-admin/tenants/{tid}/wa-template-overrides and a one-time startup migration for production."},
     {"build": "2026-09-19.319", "note": "Reply Inbox Alert: GET /notifications/new-bookings now returns `replies` (inbound whatsapp_messages after `since` whose sender got a campaign in the last 30 days; id 'reply:<message_id>'). NewBookingNotifier: kind 'reply' (emerald MessageCircle) → chime + toast '<guest> replied on WhatsApp ✦' with 'Open inbox →' deep link /customers?view=campaign&inbox=1 (Customers.jsx reads ?view, WaCampaignPage reads ?inbox)."},

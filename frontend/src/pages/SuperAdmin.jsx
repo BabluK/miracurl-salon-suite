@@ -30,6 +30,7 @@ import EngineerPanel from "@/components/EngineerPanel";
 import { LeaderboardPanel, RevenuePanel, HiringEarningsReview } from "@/components/superadmin/LeaderboardRevenue";
 import { OnboardingStudio } from "@/components/superadmin/OnboardingStudio";
 import { MessageCreditsCard } from "@/components/superadmin/MessageCreditsCard";
+import CreditWalletCard from "@/components/superadmin/CreditWalletCard";
 import { PromoVideoStudio } from "@/components/superadmin/PromoVideoStudio";
 import { SuperNotifBell, StatusActionButton } from "@/components/superadmin/SuperNotifBell";
 import { InquiriesPanel } from "@/components/superadmin/InquiriesPanel";
@@ -453,6 +454,7 @@ export default function SuperAdmin() {
               { id: "tenants", label: "Tenants", icon: Building2, top: true },
               { id: "notifications", label: "Notifications", icon: BellRing, badge: notifFeed?.unread || 0, top: true },
               { id: "billing", label: "Billing & Subscriptions", icon: Receipt, top: true },
+              { id: "credits", label: "Message Credits (SMS & WhatsApp)", icon: CreditCard, top: true },
               { id: "revenue", label: "Revenue", icon: TrendingUp, top: true },
               { id: "mira-leads", label: "Mira Lead Agent", icon: Sparkles, top: true },
               { id: "inbox", label: "HQ Inbox", icon: Inbox, badge: hqUnread, top: true },
@@ -538,7 +540,8 @@ export default function SuperAdmin() {
             pipeline: <FollowUpPipeline onGoTab={setTab} />,
             notifications: <NotificationsPanel feed={notifFeed} onGoTab={setTab} onRefresh={() => api.get("/super-admin/notifications").then(r => setNotifFeed(r.data)).catch(() => {})} />,
             "platform-map": <div className="space-y-6"><PlatformOverview onGoTab={setTab} /><PlatformOrbitMap onGoTab={setTab} /></div>,
-            billing: <div className="space-y-6"><HqTaxCard /><PackPricingCard /><HqGstRegisterCard /><MessageCreditsCard tenants={tenants} /><StripePaymentsPanel /><BillingPanel tenants={tenants} /></div>,
+            credits: <div className="space-y-6" data-testid="sa-credits-tab"><CreditWalletCard /><PackPricingCard /><MessageCreditsCard tenants={tenants} /></div>,
+            billing: <div className="space-y-6"><HqTaxCard /><PackPricingCard /><HqGstRegisterCard /><StripePaymentsPanel /><BillingPanel tenants={tenants} /></div>,
             partners: <PartnersPanel />,
             leaderboard: <LeaderboardPanel />,
             "growth-advisory": <GrowthAdvisoryPanel />,

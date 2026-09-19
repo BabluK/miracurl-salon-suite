@@ -11,7 +11,6 @@ import { GraceRequestsCard } from "@/components/superadmin/GraceRequestsCard";
 import { InvoicesPanel } from "@/components/superadmin/InvoicesPanel";
 import { WebhookHealthCard } from "@/components/superadmin/WebhookHealthCard";
 import { EmailLogCard } from "@/components/superadmin/EmailLogCard";
-import CreditWalletCard from "@/components/superadmin/CreditWalletCard";
 import { TrialOfferEditor } from "@/components/superadmin/TrialOfferEditor";
 
 const CHART_TOOLTIP_STYLE = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, color: "#0f172a" };
@@ -198,7 +197,6 @@ export default function BillingPanel({ tenants }) {
       {/* Invoices + billing identity */}
       <InvoicesPanel />
       <WebhookHealthCard />
-      <CreditWalletCard />
       <EmailLogCard />
 
       {/* Plan catalog editor */}
