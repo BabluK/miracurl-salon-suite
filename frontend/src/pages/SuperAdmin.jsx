@@ -21,6 +21,7 @@ import { ResetFeaturesModal } from "@/components/superadmin/ResetFeaturesModal";
 import { DeployBanner } from "@/components/superadmin/DeployBanner";
 import { HqGstRegisterCard } from "@/components/superadmin/HqGstRegisterCard";
 import { EditTenantModal } from "@/components/superadmin/EditTenantModal";
+import { LoginCheckCard } from "@/components/superadmin/LoginCheckCard";
 import { Handshake, ShieldAlert, ToggleRight } from "lucide-react";
 import { TenantFeaturesModal } from "@/components/superadmin/TenantFeaturesModal";
 import { setActAsSalon } from "@/lib/api";
@@ -552,7 +553,7 @@ export default function SuperAdmin() {
               </div>
             ),
             ai: <AiInsightsPanel />,
-            inbox: <HqInbox onUnreadChange={setHqUnread} />,
+            inbox: <><LoginCheckCard /><HqInbox onUnreadChange={setHqUnread} /></>,
             feedback: <FeedbackPanel />,
             inquiries: <InquiriesPanel onNewCount={setInquiryNew} onConvert={convertLead} />,
             "mira-studio": <MiraStudioPanel />,

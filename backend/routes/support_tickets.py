@@ -1,5 +1,6 @@
 """Owner "Ask Miracurl to fix this" tickets → HQ Inbox with one-click Open into the salon workspace."""
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -67,6 +68,99 @@ async def my_fix_requests(user=Depends(require_admin), t=Depends(current_tenant)
 
 class HqNoteIn(BaseModel):
     note: Optional[str] = Field(None, max_length=600)
+
+
+def _lock_info(rows: list[dict], now: str) -> list[dict]:
+    return [{"identifier": r.get("identifier"), "count": r.get("count", 0), "last_attempt": r.get("last_attempt"),
+             "locked": bool(r.get("locked_until") and r["locked_until"] > now), "locked_until": r.get("locked_until")} for r in rows]
+
+
+async def _check_salon_login(email: str, now: str) -> dict:
+    u = await _raw_db.users.find_one({"email": email}, {"_id": 0, "password_hash": 0})
+    out = {"queried": email, "found": bool(u), "findings": []}
+    locks = _lock_info(await _raw_db.login_attempts.find({"identifier": {"$regex": f":{re.escape(email)}$"}}, {"_id": 0}).to_list(20), now)
+    out["lockouts"] = locks
+    if not u:
+        out["findings"].append({"level": "error", "text": "No login exists with this email. Owner → Staff → 'Give login' creates one (check spelling / the email the owner typed)."})
+        return out
+    t = await _raw_db.tenants.find_one({"id": u.get("tenant_id")}, {"_id": 0, "name": 1, "slug": 1, "business_type": 1}) if u.get("tenant_id") else None
+    staff = await _raw_db.staff.find_one({"user_id": u.get("id")}, {"_id": 0, "name": 1, "active": 1, "last_working_day": 1, "personal_email": 1, "phone": 1})
+    out.update({"account": {"name": u.get("name"), "role": u.get("role"), "tenant": (t or {}).get("name"), "tenant_slug": (t or {}).get("slug"),
+                            "disabled": bool(u.get("disabled")), "status": u.get("status"), "must_change_password": bool(u.get("must_change_password")),
+                            "last_login_at": u.get("last_login_at"), "password_changed_at": u.get("password_changed_at"), "created_at": u.get("created_at")},
+                "staff": staff})
+    if u.get("disabled") or u.get("status") == "disabled":
+        out["findings"].append({"level": "error", "text": "Account is DISABLED by the owner — Staff page → enable the login."})
+    if any(l["locked"] for l in locks):
+        out["findings"].append({"level": "error", "text": "Temporarily LOCKED after 5+ wrong passwords — tap 'Unlock now' or wait 15 minutes."})
+    if u.get("must_change_password"):
+        out["findings"].append({"level": "warn", "text": "Still on the one-time (temporary) password — they must log in with the temp password shared by the owner, then set their own. If lost: Owner → Staff → 'Reset login' generates a new one."})
+    if staff and staff.get("active") is False:
+        out["findings"].append({"level": "error", "text": "Linked staff record is inactive (marked left) — reactivate in Staff to allow login."})
+    if staff and not staff.get("personal_email"):
+        out["findings"].append({"level": "info", "text": "No personal email on the staff profile — welcome/temp-password emails are NOT sent; the owner must share credentials shown on screen."})
+    if not u.get("last_login_at"):
+        out["findings"].append({"level": "info", "text": "Never logged in successfully yet."})
+    if not out["findings"]:
+        out["findings"].append({"level": "ok", "text": "Account looks healthy — wrong password is the only remaining cause. Use 'Reset login' to issue a fresh temp password."})
+    return out
+
+
+async def _check_employee_portal(phone: str, now: str) -> dict:
+    from routes.employee_portal import _find_registry_emp_by_phone, _is_employment_active
+    emp = await _find_registry_emp_by_phone(phone)
+    out = {"queried": phone, "found": bool(emp), "findings": []}
+    out["lockouts"] = _lock_info(await _raw_db.login_attempts.find({"identifier": {"$regex": f":emp:{re.escape(phone)}$"}}, {"_id": 0}).to_list(20), now)
+    if not emp:
+        out["findings"].append({"level": "error", "text": "No Staff Registry record with this mobile — registration says 'not registered'. HQ/owner must add the employee to the Staff Registry (with Aadhaar) first."})
+        return out
+    acct = await _raw_db.employee_accounts.find_one({"employee_id": emp["id"]}, {"_id": 0, "created_at": 1, "password_changed_at": 1})
+    active = await _is_employment_active(emp["id"])
+    pending = await _raw_db.employee_reset_codes.find_one({"employee_id": emp["id"]}, {"_id": 0, "purpose": 1, "expires_at": 1, "attempts": 1})
+    out.update({"registry": {"name": emp.get("name"), "staff_code": emp.get("staff_code"), "phone": emp.get("phone"), "email": emp.get("email") or "",
+                             "has_aadhaar": bool(emp.get("aadhaar_hash")), "employment_active": active},
+                "account": acct, "pending_code": pending})
+    if not emp.get("aadhaar_hash"):
+        out["findings"].append({"level": "error", "text": "Registry record has NO Aadhaar — Register/Reset can't verify them. Add the Aadhaar in Staff Registry."})
+    if not active:
+        out["findings"].append({"level": "error", "text": "Employment is not active (left / deactivated / notice period over) — portal blocks login by design. Reactivate the staff record or add an open employment."})
+    if not acct:
+        out["findings"].append({"level": "warn", "text": "No portal account yet — they must use the REGISTER tab (mobile + Aadhaar → 6-digit code → password), not Login."})
+    if acct and not emp.get("email"):
+        out["findings"].append({"level": "info", "text": "No email on the registry profile — verification codes fall back to SMS only (set MSG91 OTP template) — add an email to be safe."})
+    if any(l["locked"] for l in out["lockouts"]):
+        out["findings"].append({"level": "error", "text": "Temporarily LOCKED after 5+ wrong passwords — tap 'Unlock now' or wait 15 minutes."})
+    if pending:
+        out["findings"].append({"level": "info", "text": f"A {pending.get('purpose')} code is pending (expires {pending.get('expires_at', '')[:16]}, {pending.get('attempts', 0)} wrong tries)."})
+    if not out["findings"]:
+        out["findings"].append({"level": "ok", "text": "Registry + account look healthy — wrong password is the only remaining cause; use Reset Password on the portal."})
+    return out
+
+
+@router.get("/super-admin/login-check")
+async def sa_login_check(q: str, user=Depends(require_super_admin)):
+    """HQ diagnostic: why can't this staff member log in? q = login email or 10-digit mobile."""
+    q = (q or "").strip().lower()
+    now = _now()
+    if "@" in q:
+        return {"kind": "salon_login", **(await _check_salon_login(q, now))}
+    digits = re.sub(r"\D", "", q)[-10:]
+    if len(digits) != 10:
+        raise HTTPException(400, "Enter the staff login email or their 10-digit mobile number")
+    return {"kind": "employee_portal", **(await _check_employee_portal(digits, now))}
+
+
+class UnlockIn(BaseModel):
+    q: str = Field(..., min_length=3, max_length=120)
+
+
+@router.post("/super-admin/login-check/unlock")
+async def sa_login_unlock(body: UnlockIn, user=Depends(require_super_admin)):
+    q = body.q.strip().lower()
+    key = re.escape(q) if "@" in q else f"emp:{re.escape(re.sub(r'[^0-9]', '', q)[-10:])}"
+    r = await _raw_db.login_attempts.delete_many({"identifier": {"$regex": f":{key}$"}})
+    await _raw_db.hq_audit.insert_one({"id": str(uuid.uuid4()), "kind": "login_unlock", "by": user.get("email"), "target": q, "cleared": r.deleted_count, "at": _now()})
+    return {"ok": True, "cleared": r.deleted_count}
 
 
 @router.patch("/super-admin/hq-messages/{mid}/note")

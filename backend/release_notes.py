@@ -2,11 +2,13 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.290"
-BUILD_TIME = "19 Sep 2026, 10:50 AM IST"
+BUILD = "2026-09-19.292"
+BUILD_TIME = "19 Sep 2026, 11:45 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.292", "note": "Login/dashboard double-repaint fixed: AuthContext now resolves the tenant BEFORE exposing the user (login, bootstrap and refresh paths) so the workspace mounts once with full context — dashboard is fetched exactly once (was twice: tenant-less first render + refetch)."},
+    {"build": "2026-09-19.291", "note": "Mobile: disabled Chrome/Android pull-to-refresh (overscroll-behavior-y: contain on html/body) — swiping down at the top of a page no longer reloads the whole app. Super Admin → HQ Inbox: 'Staff login check' tool (GET /super-admin/login-check?q=email|mobile) explains why a staff member can't log in (no account, disabled, locked, temp password pending, inactive staff record, no registry/Aadhaar/portal account) with one-tap Unlock (POST /super-admin/login-check/unlock)."},
     {"build": "2026-09-19.290", "note": "FIX: QR table menu (/order/{slug}) no longer bounces diners to /login — AuthContext skips the /tenants/current probe on guest pages and the api 401 handler uses a shared isPublicPath() list for every public route (order, gift, loyalty, salon, color, employee…). Restaurant tenants: gallery card says Restaurant photo gallery / Open my restaurant page / reservations; Hair Colour Try-On card hidden in Settings and /api/public/color/{slug} returns 404; Grow-with-Memberships promo hidden on the dashboard."},
     {"build": "2026-09-19.289", "note": "Security audit fixes: staff-portal registration now needs a one-time code sent to the employee (SMS via DLT OTP template MSG91_TPL_OTP / generic flow, email fallback) — phone+Aadhaar alone can no longer claim an account (SEC-001); reset flow shares the same SMS-first code delivery; employee-portal state-changing routes covered by CSRF double-submit (emp_csrf cookie); session IP/location uses spoof-resistant client_ip(); Aadhaar fingerprints upgraded to scrypt (s1$ prefix) with lazy migration from sha256 on match."},
     {"build": "2026-09-19.288", "note": "Fix-request tracker: popup gets a 'My requests' tab (live every 20s) with Sent → HQ working → Fixed timeline, HQ notes and an active-ticket badge on the header button; HQ Inbox gains 'Start working' (status in_progress), auto in_progress on 'Open workspace', and a note-to-owner field; PATCH hq-messages/{id}/status accepts in_progress + note and notifies the owner."},
@@ -96,6 +98,7 @@ RELEASES = [
         "date": "2026-09-19 (Faster app, smarter SMS & tighter HQ control ⚡)",
         "changes": [
             "🛠️ 'Ask Miracurl to fix this' got a concierge makeover — a premium popup with a live 500-character counter and a direct Miracurl Support link, now available on your phone too. Every request becomes a numbered HQ ticket",
+            "📱 Phone fix: the app no longer reloads when you swipe down at the top of a page (pull-to-refresh is off inside Miracurl), and login → dashboard now paints once instead of twice",
             "🍽️ Table QR fixed: diners scanning a table QR stay on your menu — no more bounce to the login page",
             "📍 Track your fix requests live: the new 'My requests' tab shows each ticket moving Sent → HQ working on it → Fixed, with notes from Miracurl Support — and a gold badge on the button while HQ is on it",
             "⚡ Faster everywhere: pages open instantly from your last snapshot and refresh in the background, duplicate loads are gone, and the dashboard shows a little 'Loaded in 0.4s' pulse so you can see the speed",

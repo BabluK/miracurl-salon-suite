@@ -62,13 +62,13 @@ export function AuthProvider({ children }) {
         const tenantP = guestPage ? null : fetchCurrentTenant().catch(() => null);
         const { data } = await api.get("/auth/me");
         if (cancelled) return;
-        setUser(data);
         if (data.role === "manager" && data.branch) setSelectedBranch(data.branch);
-        if (data.role === "super_admin") return;
+        if (data.role === "super_admin") { setUser(data); return; }
         const t = await (tenantP || fetchCurrentTenant().catch(() => null));
-        if (cancelled || !t) return;
-        setTenant(t);
-        persistTenant(t);
+        if (cancelled) return;
+        // Tenant + user land in one batch → the shell paints once with full context.
+        if (t) { setTenant(t); persistTenant(t); }
+        setUser(data);
       } catch (e) {
         if (!cancelled) {
           if (e?.response?.status && e.response.status !== 401) {
@@ -85,18 +85,19 @@ export function AuthProvider({ children }) {
 
   const afterAuth = useCallback(async (data) => {
     clearSectionUnlocks();
-    setUser(data.user);
     if (data.user.role === "manager" && data.user.branch) setSelectedBranch(data.user.branch);
     if (data.user.role === "super_admin") {
       setTenant(null);
       clearTenantStorage();
+      setUser(data.user);
       return;
     }
     setTenantSlug(null); // drop any stale slug from a previous user on this device
+    // Resolve the tenant BEFORE exposing the user: the workspace then mounts once with full context
+    // (no tenant-less first render → second repaint that looked like a "double refresh").
     const t = await fetchCurrentTenant();
-    if (!t) return;
-    setTenant(t);
-    persistTenant(t);
+    if (t) { setTenant(t); persistTenant(t); }
+    setUser(data.user);
   }, []);
 
   const login = useCallback(async (email, password, remember = false) => {
@@ -152,11 +153,11 @@ export function AuthProvider({ children }) {
   const refresh = useCallback(async () => {
     try {
       const { data } = await api.get("/auth/me");
-      setUser(data);
       if (data.role !== "super_admin") {  // branch switch: re-brand the shell (sidebar name/location, nav, logo) without a reload
         const t = await fetchCurrentTenant();
         if (t) { setTenant(t); persistTenant(t); }
       }
+      setUser(data);
       return data;
     } catch (e) {
       log.warn("[auth] refresh failed:", e?.message || e);

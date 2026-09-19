@@ -34,6 +34,10 @@ html, body, #root {
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
 }
+/* Mobile: kill Chrome/Android pull-to-refresh — a downward swipe at the top of a page reloaded the whole app ("keeps refreshing") */
+html, body {
+  overscroll-behavior-y: contain;
+}
 
 /* Custom scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
