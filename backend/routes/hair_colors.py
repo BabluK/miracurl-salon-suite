@@ -324,6 +324,8 @@ async def delete_custom_shade(color_id: str, admin=Depends(require_tenant_admin)
 @router.get("/public/color/{slug}")
 async def public_color_catalog(slug: str):
     t = await resolve_tenant_from_slug(slug)
+    if t.get("business_type") == "restaurant":
+        raise HTTPException(404, "Hair colour try-on is a salon feature")
     colors = await _catalog_with_images(t["id"])
     men_colors = await _catalog_with_images(t["id"], men=True)
     if any(not c.get("image_url") and not c.get("custom") for c in colors + men_colors) or \

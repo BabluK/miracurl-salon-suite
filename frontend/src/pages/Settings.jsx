@@ -86,7 +86,7 @@ export default function Settings() {
             <Lazy eager={eager}><SmsPacksCard /></Lazy>
             <Lazy eager={eager}><div className="mt-6"><VendorsCard /></div></Lazy>
             <Lazy eager={eager}><LoyaltyCard /></Lazy>
-            <Lazy eager={eager}><ColorTryOnCard /></Lazy>
+            {!resto && <Lazy eager={eager}><ColorTryOnCard /></Lazy>}
             <Lazy eager={eager}><InvoicesCard /></Lazy>
             <Lazy eager={eager}><GiftCardsCard /></Lazy>
           </div>

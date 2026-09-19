@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.289"
-BUILD_TIME = "19 Sep 2026, 10:25 AM IST"
+BUILD = "2026-09-19.290"
+BUILD_TIME = "19 Sep 2026, 10:50 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.290", "note": "FIX: QR table menu (/order/{slug}) no longer bounces diners to /login — AuthContext skips the /tenants/current probe on guest pages and the api 401 handler uses a shared isPublicPath() list for every public route (order, gift, loyalty, salon, color, employee…). Restaurant tenants: gallery card says Restaurant photo gallery / Open my restaurant page / reservations; Hair Colour Try-On card hidden in Settings and /api/public/color/{slug} returns 404; Grow-with-Memberships promo hidden on the dashboard."},
     {"build": "2026-09-19.289", "note": "Security audit fixes: staff-portal registration now needs a one-time code sent to the employee (SMS via DLT OTP template MSG91_TPL_OTP / generic flow, email fallback) — phone+Aadhaar alone can no longer claim an account (SEC-001); reset flow shares the same SMS-first code delivery; employee-portal state-changing routes covered by CSRF double-submit (emp_csrf cookie); session IP/location uses spoof-resistant client_ip(); Aadhaar fingerprints upgraded to scrypt (s1$ prefix) with lazy migration from sha256 on match."},
     {"build": "2026-09-19.288", "note": "Fix-request tracker: popup gets a 'My requests' tab (live every 20s) with Sent → HQ working → Fixed timeline, HQ notes and an active-ticket badge on the header button; HQ Inbox gains 'Start working' (status in_progress), auto in_progress on 'Open workspace', and a note-to-owner field; PATCH hq-messages/{id}/status accepts in_progress + note and notifies the owner."},
     {"build": "2026-09-19.287", "note": "'Ask Miracurl to fix this' concierge popup redesigned (dark/gold header, We're Here for You script, 500-char counter, HQ ticket info card, support footer with Miracurl wordmark) and now available on mobile too; Super Admin Edit-tenant modal uses Restaurant/Salon wording per vertical."},
@@ -95,6 +96,7 @@ RELEASES = [
         "date": "2026-09-19 (Faster app, smarter SMS & tighter HQ control ⚡)",
         "changes": [
             "🛠️ 'Ask Miracurl to fix this' got a concierge makeover — a premium popup with a live 500-character counter and a direct Miracurl Support link, now available on your phone too. Every request becomes a numbered HQ ticket",
+            "🍽️ Table QR fixed: diners scanning a table QR stay on your menu — no more bounce to the login page",
             "📍 Track your fix requests live: the new 'My requests' tab shows each ticket moving Sent → HQ working on it → Fixed, with notes from Miracurl Support — and a gold badge on the button while HQ is on it",
             "⚡ Faster everywhere: pages open instantly from your last snapshot and refresh in the background, duplicate loads are gone, and the dashboard shows a little 'Loaded in 0.4s' pulse so you can see the speed",
             "📲 DLT SMS is live (sender MIRACU): booking confirmations, 24h & 1h reminders, cancellations, reschedules, review requests and birthday wishes go out as approved SMS templates when WhatsApp credits are unavailable — festival & offer campaigns fall back to SMS too",

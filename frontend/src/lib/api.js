@@ -81,6 +81,13 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Guest-facing routes: a 401 here must never bounce the visitor to /login.
+const PUBLIC_PREFIXES = ["/book", "/rewards/", "/color/", "/order/", "/gift", "/membership/", "/member/", "/pay/", "/feedback/",
+  "/salon/", "/products", "/employee", "/demo", "/partner", "/success-stories", "/blog", "/mira.ai", "/mira-ai", "/reset-password",
+  "/staff-registry", "/terms", "/privacy", "/refund-policy", "/review/", "/loyalty/", "/rate/", "/login", "/signup-salon",
+  "/signup-restaurant", "/restaurant", "/features", "/pricing", "/about-us", "/contact-us", "/who-can-use", "/ceo", "/jobs", "/candidate/"];
+export const isPublicPath = (p) => p === "/" || PUBLIC_PREFIXES.some((x) => p.startsWith(x));
+
 // Global 401 handler — expired/invalid session → clear token + redirect to /login.
 // Prevents the "blank Settings page" symptom users hit after long idle sessions.
 api.interceptors.response.use(
@@ -113,10 +120,8 @@ api.interceptors.response.use(
     }
     if (status === 401 && !isAuthBootstrap && !isRefresh && typeof window !== "undefined") {
       const path = window.location.pathname;
-      // Don't loop if we're already on /login or the public marketing/booking routes
-      const isPublic = path === "/login" || path === "/" || path.startsWith("/book/") ||
-                       path.startsWith("/review/") || path === "/signup-salon";
-      if (!isPublic) {
+      // Don't loop if we're already on /login or any public (guest-facing) route
+      if (!isPublicPath(path)) {
         window.location.assign(`${path.startsWith("/partner/") ? "/partner" : ""}/login?next=${encodeURIComponent(path + window.location.search)}`);
       }
     }

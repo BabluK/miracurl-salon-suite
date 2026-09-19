@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import log from "@/lib/log";
-import api, { formatApiError, setTenantSlug, detectTenantSlug } from "@/lib/api";
+import api, { formatApiError, setTenantSlug, detectTenantSlug, isPublicPath } from "@/lib/api";
 import { setSelectedBranch } from "@/lib/branch";
 
 const AuthContext = createContext(null);
@@ -54,16 +54,18 @@ export function AuthProvider({ children }) {
       setLoading(false);
       return undefined;
     }
+    const guestPage = isPublicPath(window.location.pathname);
     (async () => {
       try {
         // Perf: fetch the session and the tenant in one parallel wave (was two sequential round-trips).
-        const tenantP = fetchCurrentTenant().catch(() => null);
+        // On guest pages (QR menu, gift, loyalty…) the tenant call waits for a real session so it never 401s.
+        const tenantP = guestPage ? null : fetchCurrentTenant().catch(() => null);
         const { data } = await api.get("/auth/me");
         if (cancelled) return;
         setUser(data);
         if (data.role === "manager" && data.branch) setSelectedBranch(data.branch);
         if (data.role === "super_admin") return;
-        const t = await tenantP;
+        const t = await (tenantP || fetchCurrentTenant().catch(() => null));
         if (cancelled || !t) return;
         setTenant(t);
         persistTenant(t);

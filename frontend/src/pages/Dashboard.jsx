@@ -208,7 +208,7 @@ export default function Dashboard() {
         <PendingApprovalsTile />
         <QuickActionsCard />
       </div>
-      <MembershipPromoCard />
+      <MembershipPromoCard resto={tenant?.business_type === "restaurant"} />
 
       {isOwner && <WelcomeCongratsModal />}
       <RenewalBanner sub={subStatus} />

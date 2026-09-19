@@ -204,7 +204,8 @@ export function QuickActionsCard() {
   );
 }
 
-export function MembershipPromoCard() {
+export function MembershipPromoCard({ resto = false }) {
+  if (resto) return null;
   return (
     <section className="relative overflow-hidden rounded-3xl bg-[#0f0e0b] text-white p-6 border border-[#e8c56a]/25 shadow-[0_30px_60px_-30px_rgba(0,0,0,.7)]" data-testid="membership-promo-card">
       <img src="/assets/salon/premium-membership.jpg" alt="" className="absolute inset-0 w-full h-full object-cover object-right opacity-60" />
