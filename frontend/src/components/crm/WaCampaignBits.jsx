@@ -74,7 +74,8 @@ export function CampaignHistory({ camps, onChange }) {
             <div className="font-medium text-slate-800 truncate flex items-center gap-2">
               <span className="truncate">{c.batch_no ? c.name.replace(/ · batch \d+$/, "") : c.name}</span>
               {c.batch_no && <span className="shrink-0 px-1.5 py-0.5 rounded bg-[#b8863b]/10 text-[#8a6425] text-[10px] font-semibold" data-testid={`wa-batch-chip-${c.id}`}>
-                Batch {c.batch_no}{c.batches_total ? ` of ${c.batches_total}` : ""}{c.scheduled_at && new Date(c.scheduled_at) > new Date() ? ` · sends at ${new Date(c.scheduled_at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}` : ""}
+                Batch {c.batch_no}{c.batches_total ? ` of ${c.batches_total}` : ""}
+                {c.manual && c.status === "paused" ? " · manual — waiting for you" : c.manual && c.released_by ? ` · sent manually by ${c.released_by}` : c.scheduled_at && new Date(c.scheduled_at) > new Date() ? ` · sends ${new Date(c.scheduled_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}` : ""}
               </span>}
             </div>
             <div className="text-[11px] text-slate-400">{new Date(c.scheduled_at || c.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}{c.failed ? ` · ${c.failed} failed` : ""}</div>
@@ -87,7 +88,8 @@ export function CampaignHistory({ camps, onChange }) {
           {c.status === "draft" && <button onClick={() => act(c.id, "approve")} data-testid={`wa-approve-${c.id}`} className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700">Approve & send</button>}
           {c.status === "draft" && <button onClick={() => act(c.id, "cancel")} className="text-xs text-slate-500">Dismiss</button>}
           {["queued", "running", "capped"].includes(c.status) && <button onClick={() => act(c.id, "pause")} className="text-xs text-slate-500 hover:text-slate-800">Pause</button>}
-          {c.status === "paused" && <button onClick={() => act(c.id, "resume")} className="text-xs text-emerald-700 font-semibold">Resume</button>}
+          {c.status === "paused" && c.manual && <button onClick={() => act(c.id, "resume")} data-testid={`wa-release-${c.id}`} className="px-2.5 py-1 rounded-lg bg-[#b8863b] text-white text-xs font-semibold hover:bg-[#a0722f]">Send this batch now</button>}
+          {c.status === "paused" && !c.manual && <button onClick={() => act(c.id, "resume")} className="text-xs text-emerald-700 font-semibold">Resume</button>}
           {["queued", "paused", "capped"].includes(c.status) && <button onClick={() => act(c.id, "cancel")} className="text-xs text-rose-600">Cancel</button>}
         </li>
       ))}

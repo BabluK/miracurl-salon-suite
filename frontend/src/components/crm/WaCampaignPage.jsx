@@ -18,6 +18,9 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
   const [counts, setCounts] = useState({ all: 0, loyal: 0 });
   const [audience, setAudience] = useState(selectedCustomers.length ? "selected" : "all");
   const [autoBatch, setAutoBatch] = useState(true);
+  const [batchMode, setBatchMode] = useState("hourly");
+  const [batchTime, setBatchTime] = useState("23:00");
+  const [batchTz, setBatchTz] = useState("Asia/Kolkata");
   const audienceTotal = audience === "all" ? counts.all_total : audience === "loyal" ? counts.loyal_total : 0;
   const canBatch = (audience === "all" || audience === "loyal") && audienceTotal > (counts.per_send_limit || 500);
   const [tpl, setTpl] = useState("festive");
@@ -43,6 +46,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
     api.get("/whatsapp-link/audience-counts").then(r => setCounts(r.data))
       .catch(e => toast.error(`Couldn't load your guest counts: ${e.response?.data?.detail || e.message}`));
     api.get("/whatsapp-link/festivals").then(r => { const d = { ...r.data, today: r.data.today && (r.data.today.day || 1) <= 1 ? r.data.today : null }; setFest(d); const f = d.today || d.upcoming?.[0] || d.next; if (f) setFestPick(f.name); }).catch(() => {});
+    api.get("/whatsapp-link/batch-settings").then(r => { setBatchMode(r.data.batch_mode); setBatchTime(r.data.batch_time); setBatchTz(r.data.timezone); }).catch(() => {});
     loadCamps();
     const id = setInterval(loadCamps, 15000);
     return () => clearInterval(id);
@@ -130,11 +134,13 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
         audience, customer_ids: selectedCustomers.map(c => c.id), text, image_url: image?.url || null,
         name: `${TEMPLATES[tpl].label} · ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`,
         scheduled_at: when === "later" ? new Date(schedAt).toISOString() : null,
-        auto_batch: canBatch && autoBatch && when !== "later",
+        auto_batch: canBatch && autoBatch && when !== "later", batch_mode: batchMode, batch_time: batchTime,
         festival: meta.festival || festPick, offer: meta.offer || brief.slice(0, 160), valid_till: meta.valid_till,
         offer_type: TEMPLATES[tpl].offer_type,
       });
-      toast.success(when === "later" ? `Scheduled for ${data.total} guests ✦` : data.auto_batches_scheduled ? `Queued ${data.total} now + ${data.auto_batches_scheduled} more batch${data.auto_batches_scheduled > 1 ? "es" : ""} of 500, one every hour — all ${audienceTotal.toLocaleString("en-IN")} guests covered ✦` : `Queued ${data.total} messages — sending gradually ✦`);
+      const n = data.auto_batches_scheduled;
+      const how = { hourly: "one every hour", daily: `one per day at ${batchTime}`, manual: "waiting for you in Campaign History — release each with “Send this batch now”" }[data.batch_mode || batchMode];
+      toast.success(when === "later" ? `Scheduled for ${data.total} guests ✦` : n ? `Queued ${data.total} now + ${n} more batch${n > 1 ? "es" : ""} of 500, ${how} — all ${audienceTotal.toLocaleString("en-IN")} guests covered ✦` : `Queued ${data.total} messages — sending gradually ✦`);
       setText(""); setImage(null); loadCamps(); setShowHistory(true);
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't queue"); }
     finally { setBusy(""); }
@@ -192,10 +198,31 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
               ))}
             </div>
             {canBatch && (
-              <label className="mt-3 flex items-start gap-2 text-xs text-slate-600 cursor-pointer" data-testid="wa-auto-batch">
-                <input type="checkbox" checked={autoBatch} onChange={e => setAutoBatch(e.target.checked)} className="mt-0.5 accent-[#b8863b]" />
-                <span><b className="text-slate-800">Auto-batch the rest</b> — send 500 now, then the remaining {(audienceTotal - (counts.per_send_limit || 500)).toLocaleString("en-IN")} guests in batches of 500, one every hour, until all {audienceTotal.toLocaleString("en-IN")} are covered (needs ≈{audienceTotal.toLocaleString("en-IN")} credits).</span>
-              </label>
+              <div className="mt-3 rounded-xl border border-[#b8863b]/25 bg-[#fbf7ee] p-3" data-testid="wa-auto-batch-box">
+                <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer" data-testid="wa-auto-batch">
+                  <input type="checkbox" checked={autoBatch} onChange={e => setAutoBatch(e.target.checked)} className="mt-0.5 accent-[#b8863b]" />
+                  <span><b className="text-slate-800">Auto-batch the rest</b> — send 500 now, then the remaining {(audienceTotal - (counts.per_send_limit || 500)).toLocaleString("en-IN")} guests in batches of 500 until all {audienceTotal.toLocaleString("en-IN")} are covered (needs ≈{audienceTotal.toLocaleString("en-IN")} credits).</span>
+                </label>
+                {autoBatch && (
+                  <div className="mt-2.5 ml-6 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                    <span className="font-semibold text-slate-700">Release the next batches:</span>
+                    <select value={batchMode} onChange={e => setBatchMode(e.target.value)} data-testid="wa-batch-mode"
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 [&_option]:bg-white [&_option]:text-slate-800">
+                      <option value="hourly">Every hour (automatic)</option>
+                      <option value="daily">Daily at a fixed time (automatic)</option>
+                      <option value="manual">Manually — I'll release each batch</option>
+                    </select>
+                    {batchMode === "daily" && (
+                      <>
+                        <input type="time" value={batchTime} onChange={e => setBatchTime(e.target.value)} data-testid="wa-batch-time"
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800" />
+                        <span className="text-slate-400">{batchTz.replace("_", " ")} · 500 guests per day{batchTime >= "21:00" || batchTime < "08:00" ? " · tip: 10–11 AM or 6–8 PM gets more opens" : ""}</span>
+                      </>
+                    )}
+                    {batchMode === "manual" && <span className="text-slate-400">Each batch waits in Campaign History with a “Send this batch now” button</span>}
+                  </div>
+                )}
+              </div>
             )}
             {audience === "selected" && selectedCustomers.length > 0 && (
               <div className="mt-3">

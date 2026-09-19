@@ -244,6 +244,8 @@ class CampaignIn(BaseModel):
     audience: str = Field("selected", pattern="^(selected|all|loyal)$")
     customer_ids: list[str] = Field(default_factory=list, max_length=500)
     auto_batch: bool = False
+    batch_mode: str = Field("hourly", pattern="^(hourly|daily|manual)$")
+    batch_time: str = Field("23:00", pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     text: str = Field(..., min_length=5, max_length=1000)
     image_url: Optional[str] = Field(None, max_length=600, pattern=r"^(/api/files/[A-Za-z0-9-]{8,64}|/assets/[A-Za-z0-9_./-]+\.(jpe?g|png|webp)|https://[^\s]+)$")
     name: str = Field("CRM campaign", max_length=80)
@@ -284,27 +286,53 @@ async def campaign_create(body: CampaignIn, request: Request, user=Depends(requi
     await _raw_db.wa_campaigns.update_one({"id": doc["id"]}, {"$set": {"festival": body.festival, "offer": body.offer,
                                                                         "valid_till": body.valid_till, "offer_type": body.offer_type}})
     batches = 0
+    mode, btime = body.batch_mode, body.batch_time
+    await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"wa_batch_mode": mode, "wa_batch_time": btime}})
     if body.auto_batch and body.audience in ("all", "loyal") and not sched:
-        from datetime import datetime as _dt, timezone as _tz, timedelta as _td
         sent_ids = set(ids)
         rest = [i for i in await _audience_all_ids(t, body.audience) if i not in sent_ids]
+        slots = _batch_slots(t, mode, btime, len(range(0, len(rest), 500)))
         for n, start in enumerate(range(0, len(rest), 500), start=1):
             chunk = rest[start:start + 500]
             bc = await _raw_db.customers.find({"tenant_id": t["id"], "id": {"$in": chunk}}, {"_id": 0, "id": 1, "name": 1, "phone": 1}).to_list(500)
             brc = [{"customer_id": c["id"], "name": c.get("name") or "", "phone": c["phone"]} for c in bc if c.get("phone")]
             if not brc:
                 continue
-            when = (_dt.now(_tz.utc) + _td(hours=n)).isoformat()
             b = await camp.create_campaign(t, name=f"{body.name} · batch {n + 1}", text=body.text, image_url=img, recipients=brc,
-                                           created_by=user["id"], scheduled_at=when)
+                                           created_by=user["id"], scheduled_at=slots[n - 1] or "9999-12-31T00:00:00+00:00")
+            extra = {"status": "paused", "manual": True, "scheduled_at": None} if mode == "manual" else {}
             await _raw_db.wa_campaigns.update_one({"id": b["id"]}, {"$set": {"festival": body.festival, "offer": body.offer, "valid_till": body.valid_till,
-                                                                             "offer_type": body.offer_type, "parent_id": doc["id"], "batch_no": n + 1}})
+                                                                             "offer_type": body.offer_type, "parent_id": doc["id"], "batch_no": n + 1,
+                                                                             "batch_mode": mode, **extra}})
             batches += 1
-        await _raw_db.wa_campaigns.update_one({"id": doc["id"]}, {"$set": {"batch_no": 1, "batches_total": batches + 1}})
+        await _raw_db.wa_campaigns.update_one({"id": doc["id"]}, {"$set": {"batch_no": 1, "batches_total": batches + 1, "batch_mode": mode}})
         await _raw_db.wa_campaigns.update_many({"parent_id": doc["id"]}, {"$set": {"batches_total": batches + 1}})
     use = await camp.usage_today(t)
     doc.pop("recipients", None)
-    return {**doc, "skipped_no_phone": len(custs) - len(rcps), "usage": use, "auto_batches_scheduled": batches}
+    return {**doc, "skipped_no_phone": len(custs) - len(rcps), "usage": use, "auto_batches_scheduled": batches, "batch_mode": mode}
+
+
+def _batch_slots(t: dict, mode: str, btime: str, n: int) -> list[str | None]:
+    """UTC ISO send times for n follow-up batches: hourly → +1h each; daily → next n days at btime (tenant tz); manual → None."""
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    from services.day_window import _tenant_tz
+    if mode == "manual":
+        return [None] * n
+    now = _dt.now(_tz.utc)
+    if mode == "daily":
+        tz = _tenant_tz(t)
+        hh, mm = (int(x) for x in btime.split(":"))
+        first = now.astimezone(tz).replace(hour=hh, minute=mm, second=0, microsecond=0)
+        if first <= now.astimezone(tz):
+            first += _td(days=1)
+        return [(first + _td(days=i)).astimezone(_tz.utc).isoformat() for i in range(n)]
+    return [(now + _td(hours=i + 1)).isoformat() for i in range(n)]
+
+
+@router.get("/batch-settings")
+async def batch_settings(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from services.day_window import _tenant_tz
+    return {"batch_mode": t.get("wa_batch_mode") or "hourly", "batch_time": t.get("wa_batch_time") or "23:00", "timezone": str(_tenant_tz(t))}
 
 
 @router.get("/campaigns")
@@ -338,6 +366,10 @@ async def campaign_action(cid: str, action: str, user=Depends(require_tenant_adm
         raise HTTPException(400, "Unknown action")
     if not await camp.set_status(t["id"], cid, status):
         raise HTTPException(409, "Campaign already finished")
+    if action == "resume":
+        await _raw_db.wa_campaigns.update_one({"id": cid, "tenant_id": t["id"], "manual": True},
+                                              {"$set": {"released_by": (user.get("name") or user.get("email") or "you").split()[0],
+                                                        "released_at": datetime.now(timezone.utc).isoformat()}})
     return {"ok": True, "status": status}
 
 

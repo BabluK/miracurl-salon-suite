@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.315"
-BUILD_TIME = "19 Sep 2026, 10:40 PM IST"
+BUILD = "2026-09-19.316"
+BUILD_TIME = "19 Sep 2026, 11:15 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.316", "note": "WA auto-batch release modes: CampaignIn.batch_mode hourly|daily|manual + batch_time (HH:MM, tenant timezone via _tenant_tz). daily → follow-up batches at the next N days' slot; manual → batches created paused+manual, released via /campaigns/{id}/resume (stamps released_by/released_at). GET /whatsapp-link/batch-settings returns the tenant default (persisted on each send). New 'Thank You' campaign type (offer_type=thankyou) → Meta template miracurl_thank_you (submitted, PENDING) — send blocked with 409 until APPROVED (template_status cached 5 min). Composer: mode selector + time picker + 'Send this batch now' button for manual batches."},
     {"build": "2026-09-19.315", "note": "WA campaigns Auto-batch: fixed 500 on POST /whatsapp-link/campaigns (auto_batch missing from CampaignIn); 'All'/'Loyal' + auto_batch now sends 500 immediately and queues the rest in 500-guest batches, each scheduled +1h (verified: 1,151 guests → 500 + 500 + 151, no overlap, worker due-check honours scheduled_at). Campaign history shows 'Batch n of N · sends at HH:MM' chip."},
     {"build": "2026-09-19.314", "note": "HQ contact WhatsApp unified to the Cloud API sender +91 91803 79552 (919180379552) across landing wa.me links, Site Info default and Number Health expected value (was 919180261256)."},
     {"build": "2026-09-19.313", "note": "WA campaigns: delivery report adds Replied (inbound whatsapp_messages from recipients after send) next to read/delivered/booked; audience-counts returns all_total/loyal_total/per_send_limit and the composer shows 'All Customers (500 of 2,060 per send)'; 500-per-campaign cap kept by user choice. Number Health: blank site_info values fall back to defaults so HQ WhatsApp is never 'not set'."},
@@ -120,6 +121,8 @@ RELEASES = [
     {
         "date": "2026-09-19 (Faster app, smarter SMS & tighter HQ control ⚡)",
         "changes": [
+            "⏰ Choose how the follow-up batches go out: every hour, daily at a fixed time in YOUR local time (e.g. 11 PM IST for India, your own timezone abroad), or manually — each waiting batch shows a gold 'Send this batch now' button and is marked 'sent manually by you' once released",
+            "🙏 New 'Thank You' campaign type — a pure gratitude message ('You are not just a client — you are a part of our journey') with no offer, signed by your salon. Goes live as soon as Meta approves the new template",
             "📣 One-click campaign to ALL your guests: pick 'All Customers', tick 'Auto-batch the rest' and hit Send — 500 go out now, the remaining guests are queued in 500-guest batches one hour apart (2,060 guests = 5 batches, all automatic). Each batch shows 'Batch 2 of 5 · sends at 4:00 PM' in Campaign history with its own sent/read/replied count",
             "🛠️ 'Ask Miracurl to fix this' got a concierge makeover — a premium popup with a live 500-character counter and a direct Miracurl Support link, now available on your phone too. Every request becomes a numbered HQ ticket",
             "📱 Phone fix: the app no longer reloads when you swipe down at the top of a page (pull-to-refresh is off inside Miracurl), and login → dashboard now paints once instead of twice",
