@@ -475,6 +475,52 @@ async def invoice_email(inv_id: str, body: InvoiceEmailIn, user=Depends(get_curr
     return {"ok": True, "to": to}
 
 
+class SendReceiptIn(BaseModel):
+    channels: list[str] = Field(..., min_length=1, max_length=3)
+
+
+@router.post("/invoices/{inv_id}/send-receipt")
+async def invoice_send_receipt(inv_id: str, body: SendReceiptIn, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Manual 'Send bill' from POS or CRM. Staff: SMS + Email only. Admin/Manager: also WhatsApp (1 credit)."""
+    role = user.get("role")
+    allowed = {"sms", "email"} | ({"whatsapp"} if role in ("admin", "super_admin", "manager") else set())
+    channels = [c for c in body.channels if c in ("sms", "email", "whatsapp")]
+    if not channels:
+        raise HTTPException(400, "Pick SMS, Email or WhatsApp")
+    if set(channels) - allowed:
+        raise HTTPException(403, "Staff can send the bill by SMS or Email — WhatsApp is for admins")
+    inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(404, "Invoice not found")
+    if inv.get("status") == "open":
+        raise HTTPException(409, "Finish the bill first — the receipt is sent after payment")
+    cust = await db.customers.find_one({"id": inv.get("customer_id")}, {"_id": 0, "id": 1, "email": 1, "phone": 1}) or {}
+    from services.billing import send_receipt_channels
+    tdoc = await db.tenants.find_one({"id": t["id"]}, {"_id": 0}) or t
+    res = await send_receipt_channels(inv, cust, tdoc, int(inv.get("points_earned") or 0), channels)
+    stamp = {f"receipts.{k}": {**v, "by": user.get("name") or user.get("email"), "at": datetime.now(timezone.utc).isoformat()} for k, v in res.items()}
+    await db.invoices.update_one({"id": inv_id}, {"$set": stamp})
+    return {"ok": True, "results": res}
+
+
+class ReceiptAutoIn(BaseModel):
+    email: bool = False
+    sms: bool = False
+    whatsapp: bool = False
+
+
+@router.get("/settings/receipts")
+async def receipts_settings_get(user=Depends(get_current_user), t=Depends(current_tenant)):
+    tdoc = await db.tenants.find_one({"id": t["id"]}, {"_id": 0, "receipt_auto": 1}) or {}
+    return {"auto": {"email": False, "sms": False, "whatsapp": False, **(tdoc.get("receipt_auto") or {})}}
+
+
+@router.put("/settings/receipts")
+async def receipts_settings_put(body: ReceiptAutoIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    await db.tenants.update_one({"id": t["id"]}, {"$set": {"receipt_auto": body.model_dump()}})
+    return {"ok": True, "auto": body.model_dump()}
+
+
 def _check_wallet_balance(cust: dict, total: float):
     bal = float(cust.get("wallet_balance") or 0)
     if bal < total:

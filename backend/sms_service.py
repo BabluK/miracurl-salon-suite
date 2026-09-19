@@ -1,10 +1,9 @@
-"""SMS delivery — MSG91 (Flow API, DLT) or Twilio, gracefully skips when not configured.
+"""SMS delivery — MSG91 (Flow API, DLT) only; gracefully skips when not configured. (Twilio retired 20 Sep 2026.)
 
 Provider selection: SMS_PROVIDER=msg91 activates MSG91 once MSG91_AUTHKEY,
 MSG91_SENDER_ID and MSG91_FLOW_ID are all set (Flow template must contain a
-##message## variable approved on DLT). Otherwise falls back to Twilio.
+##message## variable approved on DLT).
 """
-import asyncio
 import logging
 import os
 import uuid
@@ -41,17 +40,9 @@ def _msg91_ready() -> bool:
         os.environ.get("MSG91_FLOW_ID") or MSG91_TEMPLATES)
 
 
-def _twilio_ready() -> bool:
-    return all(os.environ.get(k) for k in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_PHONE_NUMBER"))
-
-
 def _provider() -> str:
-    # MSG91 (DLT, sender MIRACU) is the production route for India; Twilio only when MSG91 isn't configured at all.
-    if _msg91_ready():
-        return "msg91"
-    if _twilio_ready():
-        return "twilio"
-    return ""
+    # MSG91 (DLT, sender MIRACU) is the only SMS route. Twilio was retired on 20 Sep 2026 (account suspended) — never used.
+    return "msg91" if _msg91_ready() else ""
 
 
 def sms_configured() -> bool:
@@ -135,18 +126,6 @@ async def _send_msg91(to: str, body: str) -> dict:
     return await _msg91_post(payload)
 
 
-async def _send_twilio(to: str, body: str) -> dict:
-    from twilio.rest import Client
-    client = Client(os.environ["TWILIO_ACCOUNT_SID"], os.environ["TWILIO_AUTH_TOKEN"])
-    try:
-        msg = await asyncio.to_thread(
-            client.messages.create, to=to, from_=os.environ["TWILIO_PHONE_NUMBER"], body=body)
-        return {"sent": True, "sid": msg.sid}
-    except Exception as e:
-        log.error(f"twilio send failed: {e}")
-        return {"sent": False, "error": str(e)[:200]}
-
-
 async def send_sms(to_phone: str, body: str) -> dict:
     provider = _provider()
     if not provider:
@@ -154,9 +133,7 @@ async def send_sms(to_phone: str, body: str) -> dict:
     to = _normalize_in(to_phone)
     if not to:
         return {"sent": False, "error": "invalid_phone"}
-    if provider == "msg91":
-        return await _send_msg91(to, body)
-    return await _send_twilio(to, body)
+    return await _send_msg91(to, body)
 
 
 async def send_tenant_sms(tenant_id: str, to_phone: str, body: str, kind: str = "general", wa: dict | None = None,

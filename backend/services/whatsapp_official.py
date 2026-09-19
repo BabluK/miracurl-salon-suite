@@ -16,7 +16,9 @@ TEMPLATES = {
     "review": os.environ.get("WHATSAPP_REVIEW_TEMPLATE", "miracurl_review_request"),
     "thank_you": os.environ.get("WHATSAPP_THANKYOU_TEMPLATE", "miracurl_thank_you_v2"),
     "owner_guide": os.environ.get("WHATSAPP_GUIDE_TEMPLATE", "miracurl_owner_guide"),
+    "receipt": os.environ.get("WHATSAPP_RECEIPT_TEMPLATE", "miracurl_receipt"),  # UTILITY, text-only (no header/button)
 }
+TEXT_ONLY = {"receipt"}
 BUTTON_SLUG = {"festival", "winback", "birthday", "review", "thank_you"}  # templates whose URL button takes the tenant slug
 # Newer wording awaiting Meta review → fall back to the approved predecessor (same 3 body params) until it clears.
 TEMPLATE_FALLBACK = {"miracurl_thank_you_v2": "miracurl_thank_you", "mdm_thank_you_call_v2": "mdm_thank_you_call"}
@@ -90,10 +92,9 @@ async def send(kind: str, t: dict, to: str, params: list[str], image_url: str | 
             raise RuntimeError("No WhatsApp credits left — top up in Settings → Credits")
     tpl_name = await resolve_template(t, kind)
     overridden = tpl_name == (t.get("wa_template_overrides") or {}).get(kind)  # tenant Call-now variants carry a phone button, no URL button
-    components = [
-        {"type": "header", "parameters": [{"type": "image", "image": {"link": await tenant_header_image(t, image_url)}}]},
-        {"type": "body", "parameters": [{"type": "text", "text": str(p)[:1024]} for p in params]},
-    ]
+    components = [{"type": "body", "parameters": [{"type": "text", "text": str(p)[:1024]} for p in params]}]
+    if kind not in TEXT_ONLY:
+        components.insert(0, {"type": "header", "parameters": [{"type": "image", "image": {"link": await tenant_header_image(t, image_url)}}]})
     if kind in BUTTON_SLUG and not overridden:
         components.append({"type": "button", "sub_type": "url", "index": "0",
                            "parameters": [{"type": "text", "text": t.get("slug", "")}]})

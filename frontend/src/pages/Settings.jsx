@@ -18,6 +18,7 @@ import { AffiliateCard } from "@/components/settings/AffiliateCard";
 import { RazorpayCard } from "@/components/settings/RazorpayCard";
 import { ColorTryOnCard } from "@/components/settings/ColorTryOnCard";
 import { InvoicesCard } from "@/components/settings/InvoicesCard";
+import { GuestReceiptsCard } from "@/components/settings/GuestReceiptsCard";
 import { AccountProfileCard } from "@/components/settings/AccountProfileCard";
 import { GiftCardsCard } from "@/components/settings/GiftCardsCard";
 import { StripeSubscriptionCard } from "@/components/settings/StripeSubscriptionCard";
@@ -87,6 +88,7 @@ export default function Settings() {
             <Lazy eager={eager}><div className="mt-6"><VendorsCard /></div></Lazy>
             <Lazy eager={eager}><LoyaltyCard /></Lazy>
             {!resto && <Lazy eager={eager}><ColorTryOnCard /></Lazy>}
+            <Lazy eager={eager}><GuestReceiptsCard /></Lazy>
             <Lazy eager={eager}><InvoicesCard /></Lazy>
             <Lazy eager={eager}><GiftCardsCard /></Lazy>
           </div>

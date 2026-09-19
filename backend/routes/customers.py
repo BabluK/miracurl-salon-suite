@@ -266,7 +266,7 @@ async def customer_history(cid: str, user=Depends(require_admin)):
     """Date-wise service history: every non-voided bill with items, staff and amounts."""
     invs = await db.invoices.find(
         {"customer_id": cid, "status": {"$ne": "voided"}},
-        {"_id": 0, "invoice_no": 1, "created_at": 1, "items": 1, "total": 1,
+        {"_id": 0, "id": 1, "invoice_no": 1, "created_at": 1, "items": 1, "total": 1, "receipts": 1,
          "payment_mode": 1, "status": 1, "tip": 1, "discount": 1},
     ).sort("created_at", -1).to_list(200)
     staff_map = {s["id"]: s.get("name") for s in await db.staff.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(200)}

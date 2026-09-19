@@ -4,6 +4,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import ThermalPrintButton from "@/components/pos/ThermalPrintButton";
 import { payLabel } from "@/components/pos/payLabels";
+import { SendBillButtons } from "@/components/pos/SendBillButtons";
 import { curSym } from "@/lib/currency";
 
 export default function InvoiceReceiptModal({ invoice, tenant, customer, onEmailSaved, onClose, onPrint, onShare }) {
@@ -80,6 +81,7 @@ export default function InvoiceReceiptModal({ invoice, tenant, customer, onEmail
           <Row label="Payment" value={<span className="text-sky-600 font-medium" data-testid="receipt-payment-mode">{payLabel(invoice.payment_mode)}</span>} />
           {invoice.branch_name && <Row label="Branch" value={invoice.branch_name} />}
         </div>
+        <div className="pb-3"><SendBillButtons invoice={invoice} customer={customer} /></div>
         {(invoice.receipts?.email?.sent || invoice.receipts?.sms?.sent) && (
           <div className="flex flex-wrap gap-2 pb-3" data-testid="receipt-delivery-status">
             {invoice.receipts?.email?.sent && (

@@ -275,32 +275,64 @@ def _receipt_whatsapp_url(t: dict, inv: dict, phone: str, points_earned: int) ->
 
 
 async def _send_billing_receipts(inv: dict, cust: dict, tenant_doc: Optional[dict], points_earned: int) -> dict:
-    """Post-billing receipts. Email is free; each SMS burns 1 sms_point (credited by HQ)."""
-    out = {"email": None, "sms": None, "whatsapp_url": None}
+    """Post-billing receipts. Auto-send is OFF by default — the cashier sends manually from the receipt modal / CRM.
+    Tenant setting receipt_auto = {"email": bool, "sms": bool, "whatsapp": bool}. Email is free; SMS/WA burn 1 point."""
+    out = {"email": None, "sms": None, "whatsapp": None, "whatsapp_url": None}
     t = tenant_doc or {}
+    auto = t.get("receipt_auto") or {}
     try:
         out["whatsapp_url"] = _receipt_whatsapp_url(t, inv, cust.get("phone") or "", points_earned)
     except Exception:  # noqa: BLE001
         out["whatsapp_url"] = None
-    try:
-        if cust.get("email"):
-            from services.guest_invoice import email_guest_invoice
-            out["email"] = await email_guest_invoice(inv, t, cust["email"])
-        else:
-            out["email"] = {"sent": False, "error": "no_email"}
-    except Exception as e:  # noqa: BLE001 — receipts must never break checkout
-        out["email"] = {"sent": False, "error": str(e)[:200]}
-    try:
-        if not cust.get("phone"):
-            out["sms"] = {"sent": False, "error": "no_phone"}
-        elif not t.get("id"):
-            out["sms"] = {"sent": False, "error": "no_tenant"}
-        else:
-            from sms_service import send_tenant_sms
-            first = (inv.get("customer_name") or "Guest").split()[0][:30]
-            out["sms"] = await send_tenant_sms(
-                t["id"], cust["phone"], _receipt_sms_text(t, inv, points_earned), kind="billing",
-                sms_vars=[first, str(inv.get("invoice_no") or "")[:30], f"{inv['total']:.0f}", (t.get("name") or "your salon")[:30], str(points_earned or 0)])
-    except Exception as e:  # noqa: BLE001
-        out["sms"] = {"sent": False, "error": str(e)[:200]}
+    if not any(auto.get(k) for k in ("email", "sms", "whatsapp")):
+        return out
+    return {**out, **await send_receipt_channels(inv, cust, t, points_earned, [k for k in ("email", "sms", "whatsapp") if auto.get(k)])}
+
+
+async def send_receipt_channels(inv: dict, cust: dict, t: dict, points_earned: int, channels: list[str]) -> dict:
+    """Send the bill on the requested channels; each result is {"sent": bool, ...}. Never raises."""
+    out: dict = {}
+    if "email" in channels:
+        try:
+            if cust.get("email"):
+                from services.guest_invoice import email_guest_invoice
+                out["email"] = await email_guest_invoice(inv, t, cust["email"])
+            else:
+                out["email"] = {"sent": False, "error": "no_email"}
+        except Exception as e:  # noqa: BLE001 — receipts must never break checkout
+            out["email"] = {"sent": False, "error": str(e)[:200]}
+    if "sms" in channels:
+        try:
+            if not cust.get("phone"):
+                out["sms"] = {"sent": False, "error": "no_phone"}
+            else:
+                from sms_service import send_tenant_sms
+                first = (inv.get("customer_name") or "Guest").split()[0][:30]
+                out["sms"] = await send_tenant_sms(
+                    t["id"], cust["phone"], _receipt_sms_text(t, inv, points_earned), kind="billing",
+                    sms_vars=[first, str(inv.get("invoice_no") or "")[:30], f"{inv['total']:.0f}", (t.get("name") or "your salon")[:30], str(points_earned or 0)])
+        except Exception as e:  # noqa: BLE001
+            out["sms"] = {"sent": False, "error": str(e)[:200]}
+    if "whatsapp" in channels:
+        out["whatsapp"] = await _send_receipt_whatsapp(inv, cust, t, points_earned)
     return out
+
+
+async def _send_receipt_whatsapp(inv: dict, cust: dict, t: dict, points_earned: int) -> dict:
+    """Official Meta UTILITY template 'miracurl_receipt' (1 wa_point). Falls back to the free wa.me link while pending."""
+    if not cust.get("phone"):
+        return {"sent": False, "error": "no_phone"}
+    try:
+        from services import whatsapp_official as official
+        from services.tenant_features import feature_on
+        if not await feature_on(t["id"], "whatsapp"):
+            return {"sent": False, "error": "whatsapp_disabled"}
+        if await official.template_status("receipt") != "APPROVED":
+            return {"sent": False, "error": "template_pending", "whatsapp_url": _receipt_whatsapp_url(t, inv, cust["phone"], points_earned)}
+        if int(t.get("wa_points") or 0) < 1:
+            return {"sent": False, "error": "no_wa_points"}
+        first = (inv.get("customer_name") or "Guest").split()[0]
+        r = await official.send("receipt", t, cust["phone"], [first, t.get("name") or "your salon", inv.get("invoice_no") or "", f"{inv['total']:,.0f}", str(points_earned or 0)])
+        return {"sent": True, "message_id": r.get("message_id")}
+    except Exception as e:  # noqa: BLE001
+        return {"sent": False, "error": str(e)[:200]}

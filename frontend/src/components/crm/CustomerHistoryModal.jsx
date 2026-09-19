@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { X, History, CreditCard } from "lucide-react";
 import { payLabel } from "@/components/pos/payLabels";
+import { SendBillButtons } from "@/components/pos/SendBillButtons";
 
 export function CustomerHistoryModal({ customer, onClose }) {
   const [rows, setRows] = useState(null);
@@ -82,6 +83,7 @@ export function CustomerHistoryModal({ customer, onClose }) {
                   </span>
                 ))}
               </div>
+              <SendBillButtons invoice={inv} customer={customer} compact />
             </div>
           ))}
         </div>

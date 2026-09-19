@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.324"
-BUILD_TIME = "20 Sep 2026, 5:00 AM IST"
+BUILD = "2026-09-19.325"
+BUILD_TIME = "20 Sep 2026, 6:00 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.325", "note": "Guest bill delivery: tenant.receipt_auto {email,sms,whatsapp} default all OFF (_send_billing_receipts only auto-sends enabled channels; wa.me link always returned). POST /invoices/{id}/send-receipt {channels} — staff: sms+email only (403 on whatsapp), admin/manager: all; stamps invoice.receipts.<ch> with by/at. GET/PUT /settings/receipts. New Meta UTILITY template miracurl_receipt (text-only, 5 vars; TEXT_ONLY set skips header) — wa.me fallback while PENDING. UI: SendBillButtons (POS InvoiceReceiptModal + CRM CustomerHistoryModal compact), Settings → Guest bill delivery card. Twilio removed from sms_service entirely (MSG91 only)."},
     {"build": "2026-09-19.324", "note": "SMS: MSG91 is always the route when configured (Twilio only if MSG91 absent) — fixes prod 401s from the suspended Twilio account; kinds without a DLT template are skipped with a clear reason (no point burn). New MSG91 template miracurl_billing_receipt (6aaed912…, 5 vars name/invoice/amount/salon/points) wired as kind 'billing'; services/billing.py passes sms_vars so POS receipts go via DLT template. Prod: dummy SMS/WA balances zeroed (Marathahalli, AECS), real grants 300 SMS each + 100 WA; HQ SMS stock recorded from MSG91 wallet ₹1,048.80."},
     {"build": "2026-09-19.323", "note": "Call-Now For All: services/wa_cta.py clones platform festival/thank_you templates per tenant (t_<id8>_<kind>_call, PHONE_NUMBER button) via Graph API; GET/PUT /whatsapp-link/cta; resolve_template() uses a tenant override only once APPROVED (Book Now until then); composer 'Message button' box + phone preview 'Call now' card; Mira compose prompt drops booking link in call mode. Image Model Picker: _gen_image_bytes(image_model auto|gpt-image-1|nano-banana), SocialIn/GooglePostIn.image_model, Mira Studio 'Poster engine' chips (localStorage mira_image_model)."},
     {"build": "2026-09-19.322", "note": "Super Admin: new top-row tab 'Message Credits (SMS & WhatsApp)' (?tab=credits) = HQ Credit Wallet + Pack Pricing + tenant Message Credits (moved out of Billing where it sat below the fold). Icons: favicon.ico rebuilt from the circular PNG + PWA icon-192/512 & admin icons masked circular; all icon links v=8 (browsers cache favicon.ico aggressively — v=7 only covered PNGs)."},
@@ -129,6 +130,7 @@ RELEASES = [
     {
         "date": "2026-09-19 (Faster app, smarter SMS & tighter HQ control ⚡)",
         "changes": [
+            "🧾 Send the bill only when the guest asks: after billing (and later from the guest's CRM history) tap Send bill → WhatsApp / SMS / Email. Auto-send is OFF by default — switch any channel on in Settings → Guest bill delivery. Staff can send SMS & Email; WhatsApp sending is reserved for admins",
             "🧾 Receipt SMS now delivers: after every POS bill the guest gets a DLT-approved SMS — 'Thank you Akash! Your receipt INV-… for Rs 1,250 at <salon> is ready. You earned 25 loyalty points' — and SMS never touches the old Twilio route again",
             "📞 Call now instead of Book Now: in WhatsApp Campaign → 'Message button', switch to 'Call now → my number' and every campaign button dials your salon (Meta approves your button in minutes; Book Now is used until then). The phone preview shows exactly which button guests will see",
             "🎨 Poster engine picker in Mira Studio: choose Auto, OpenAI GPT-Image-1 (sharpest text & logos) or Gemini Nano Banana (fast & vivid) for every social/Google post image — your pick is remembered",
