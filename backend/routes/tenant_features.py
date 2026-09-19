@@ -1,11 +1,12 @@
 """HQ per-tenant feature switches (SMS / WhatsApp / Campaign), owner support-access consent,
 and Brand Model campaign onboarding (invite → agreement → setup call → HQ go-live)."""
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from database import _raw_db
@@ -105,6 +106,61 @@ async def sa_features_reset(body: FeaturesResetIn, user=Depends(require_super_ad
     await _raw_db.hq_audit.insert_one({"id": str(uuid.uuid4()), "kind": "features_bulk_reset", "by": user.get("email"), "channels": channels,
                                        "kept": body.keep_tenant_ids, "switched_off": [a["id"] for a in affected], "at": datetime.now(timezone.utc).isoformat()})
     return {"ok": True, "switched_off": len(affected), "kept": len(body.keep_tenant_ids), "tenants": [a["name"] for a in affected]}
+
+
+@router.post("/super-admin/tenants/{tid}/send-guide")
+async def sa_send_guide(tid: str, request: Request, user=Depends(require_super_admin)):
+    """WhatsApp the 5-step campaign guide (PDF) to the owner via the HQ number using the miracurl_owner_guide template."""
+    import httpx
+    from services import whatsapp_official as official
+    from services.whatsapp_cloud import GRAPH_API_VERSION, channel_for, _now
+    t = await _tenant(tid)
+    to = re.sub(r"\D", "", t.get("owner_phone") or t.get("whatsapp_number") or t.get("phone") or "")
+    if len(to) < 10:
+        raise HTTPException(400, "This tenant has no owner/WhatsApp number on file — add it in Edit first")
+    if len(to) == 10:
+        to = "91" + to
+    if await official.template_status("owner_guide") != "APPROVED":
+        raise HTTPException(409, "The guide template is still pending Meta approval — try again in a few minutes")
+    ch = await channel_for(None)
+    base = os.environ.get("APP_PUBLIC_URL", "").rstrip("/") or str(request.base_url).rstrip("/")
+    guide_path = "/guides/mdm-whatsapp-campaign-guide.pdf"
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
+    async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+        for cand in (base, f"https://{host}" if host else "", str(request.base_url).rstrip("/")):
+            if not cand:
+                continue
+            h = await client.head(f"{cand}{guide_path}")
+            if h.status_code == 200 and "pdf" in (h.headers.get("content-type") or ""):
+                base = cand
+                break
+        else:
+            raise HTTPException(409, "Guide PDF isn't live on this domain yet — deploy the latest build first")
+    first = (t.get("owner_name") or t.get("name") or "there").split()[0]
+    payload = {"messaging_product": "whatsapp", "to": to, "type": "template", "template": {"name": official.TEMPLATES["owner_guide"], "language": {"code": "en"}, "components": [
+        {"type": "header", "parameters": [{"type": "document", "document": {"link": f"{base}{guide_path}", "filename": "Miracurl-WhatsApp-Campaign-Guide.pdf"}}]},
+        {"type": "body", "parameters": [{"type": "text", "text": first}, {"type": "text", "text": t.get("name", "your salon")}]}]}}
+    async with httpx.AsyncClient(timeout=25.0) as client:
+        r = await client.post(f"https://graph.facebook.com/{GRAPH_API_VERSION}/{ch['phone_number_id']}/messages", json=payload, headers={"Authorization": f"Bearer {ch['token']}"})
+    if r.is_error:
+        raise HTTPException(502, f"Meta rejected the send: {r.text[:200]}")
+    mid = ((r.json().get("messages") or [{}])[0]).get("id")
+    await _raw_db.whatsapp_messages.insert_one({"direction": "outbound", "provider": "meta", "message_id": mid, "wa_id": to, "type": "template", "template": official.TEMPLATES["owner_guide"],
+                                                "kind": "owner_guide", "text": f"Owner guide → {t.get('name')}", "tenant_id": None, "hq": True, "status": "accepted", "created_at": _now()})
+    await _raw_db.tenants.update_one({"id": tid}, {"$set": {"guide_sent_at": _now(), "guide_sent_to": to}})
+    return {"ok": True, "to": to, "message_id": mid}
+
+
+class TemplateOverridesIn(BaseModel):
+    overrides: dict[str, str] = Field(default_factory=dict)  # kind → Meta template name, e.g. {"festival": "mdm_festival_offer_call"}
+
+
+@router.put("/super-admin/tenants/{tid}/wa-template-overrides")
+async def sa_template_overrides(tid: str, body: TemplateOverridesIn, user=Depends(require_super_admin)):
+    await _tenant(tid)
+    clean = {k: v for k, v in body.overrides.items() if re.fullmatch(r"[a-z0-9_]{3,80}", v or "") and k in ("festival", "winback", "thank_you", "birthday")}
+    await _raw_db.tenants.update_one({"id": tid}, {"$set": {"wa_template_overrides": clean}} if clean else {"$unset": {"wa_template_overrides": ""}})
+    return {"ok": True, "overrides": clean}
 
 
 @router.put("/super-admin/tenants/{tid}/features")

@@ -180,6 +180,10 @@ export default function SuperAdmin() {
   const [editFor, setEditFor] = useState(null); // tenant being edited
   const [quickFor, setQuickFor] = useState(null); // tenant open in the quick-view drawer
   const profilePdf = (t) => downloadBlob(`/super-admin/tenants/${t.id}/profile.pdf`, `Miracurl-Account-Profile-${t.slug}.pdf`).then(() => toast.success("Account profile PDF downloaded")).catch(() => toast.error("Couldn't build the PDF"));
+  const sendGuide = (t) => {
+    if (!window.confirm(`WhatsApp the 5-step campaign guide (PDF) to ${t.name}'s owner from the HQ number?`)) return;
+    api.post(`/super-admin/tenants/${t.id}/send-guide`).then(r => toast.success(`Guide sent on WhatsApp to +${r.data.to} ✦`)).catch(e => toast.error(e.response?.data?.detail || "Couldn't send the guide"));
+  };
   const [diagFor, setDiagFor] = useState(null); // tenant being diagnosed
   const [importFor, setImportFor] = useState(null); // tenant being imported into
   const [payLinkFor, setPayLinkFor] = useState(null); // tenant getting a payment link
@@ -787,6 +791,7 @@ export default function SuperAdmin() {
                     <ActionBtn testid={`tenant-profile-pdf-${t.id}`} onClick={() => profilePdf(t)} title="Account Profile PDF — HQ + tenant logo, owner & business details, trial and plan dates" tone="text-amber-600 hover:bg-amber-50" icon={IdCard} label="Profile" />
                     <ActionBtn testid={`pay-link-${t.id}`} onClick={() => setPayLinkFor(t)} title="Generate a subscription pay link — tenant pays, plan activates" tone="text-amber-600 hover:bg-amber-50" icon={CreditCard} label="Pay link" />
                     <ActionBtn testid={`import-customers-${t.id}`} onClick={() => setImportFor(t)} title="Import customers from CSV" tone="text-sky-600 hover:bg-sky-50" icon={Upload} label="Import" />
+                    <ActionBtn testid={`send-guide-${t.id}`} onClick={() => sendGuide(t)} title={t.guide_sent_at ? `Guide already sent ${new Date(t.guide_sent_at).toLocaleDateString("en-IN")} — send again` : "WhatsApp the 5-step campaign guide (PDF) to the owner"} tone="text-emerald-600 hover:bg-emerald-50" icon={Send} label="Guide" />
                     <ActionBtn testid={`diagnose-tenant-${t.id}`} onClick={() => setDiagFor(t)} title="Diagnose — find why this tenant feels slow & clear their cache" tone="text-sky-600 hover:bg-sky-50" icon={Stethoscope} label="Diagnose" />
                     <ActionBtn testid={`clean-dummy-${t.id}`} onClick={() => setCleanFor(t)} title="Clean test data — removes test/dummy bookings, customers & TEST staff" tone="text-rose-500 hover:bg-rose-50" icon={Eraser} label="Clean" />
                     <StatusActionButton t={t} setStatus={setStatus} reactivateTenant={reactivateTenant} />

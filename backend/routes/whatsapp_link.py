@@ -223,7 +223,7 @@ async def campaign_compose(body: ComposeIn, request: Request, user=Depends(requi
         "discount": f"DISCOUNT OFFER — exactly {body.discount_pct or 15}% off; show original → offer price for each service.",
         "new_service": "NEW / FEATURED SERVICE announcement — make guests curious to try it.",
         "winback": "WIN-BACK — warm 'we miss you' tone with a small comeback perk.",
-        "thankyou": "THANK-YOU / GRATITUDE — no discount, no sales push. Heartfelt 'you are not just a client, you are part of our journey' tone; the 'offer' field must be a warm closing line signed by the salon (e.g. 'With gratitude — MDM Luxury Salon, Harmu, Ranchi ♡').",
+        "thankyou": "THANK-YOU / GRATITUDE — no discount, no sales push. The WhatsApp body is FIXED: '❤️ To our wonderful {salon} family, thank you for your trust, love and continued support. Every visit means so much to us. ✨ With gratitude, {sign-off}'. Set 'offer' to ONLY the sign-off line: '<Salon name>, <City>' (e.g. 'MDM Luxury Salon, Ranchi'). Poster text should echo the same gratitude message.",
         "general": "General campaign.",
     }[body.offer_type]
     svc_line = (" Services to feature (real catalogue, use these exact names & prices): "
@@ -271,7 +271,7 @@ async def campaign_create(body: CampaignIn, request: Request, user=Depends(requi
     from services import whatsapp_official as official
     if await official.credits(t["id"]) < 1:
         raise HTTPException(409, "No WhatsApp credits — top up in Settings → Credits")
-    if body.offer_type == "thankyou" and (st := await official.template_status("thank_you")) != "APPROVED":
+    if body.offer_type == "thankyou" and (st := await official.template_status(await official.resolve_template(t, "thank_you"))) != "APPROVED":
         raise HTTPException(409, f"The Thank-You WhatsApp template is still {(st or 'pending').lower()} with Meta — usually approved within a few hours. Try again soon or pick another campaign type.")
     ids = await _audience_ids(t, body.audience, body.customer_ids)
     if not ids:

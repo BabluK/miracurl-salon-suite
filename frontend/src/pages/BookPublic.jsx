@@ -472,30 +472,30 @@ export default function BookPublic() {
             {salon.logo_url ? (
               effLogoShape === "blend" ? (
                 <img src={salon.logo_url} alt={salon.name} onLoad={onLogoLoad}
-                  className="h-14 sm:h-16 w-auto max-w-[200px] object-contain flex-shrink-0 z-10 drop-shadow-[0_2px_8px_rgba(160,120,40,0.35)]" />
+                  className="h-14 sm:h-[4.5rem] w-auto max-w-[120px] sm:max-w-[220px] object-contain flex-shrink-0 z-10 drop-shadow-[0_2px_8px_rgba(160,120,40,0.35)]" />
               ) : effLogoShape === "square" ? (
-                <span className="tenant-logo-glow h-16 sm:h-[4.5rem] rounded-2xl p-[3px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_4px_18px_rgba(180,140,50,0.5)] z-10">
+                <span className="tenant-logo-glow h-14 sm:h-16 rounded-2xl p-[3px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_4px_18px_rgba(180,140,50,0.5)] z-10">
                   <span className="h-full rounded-[13px] overflow-hidden bg-[#17141c] flex items-center justify-center px-2.5">
                     <img src={salon.logo_url} alt={salon.name} onLoad={onLogoLoad} className="h-[85%] w-auto max-w-[150px] object-contain" />
                   </span>
                 </span>
               ) : (
-                <span className="tenant-logo-glow w-20 h-20 sm:w-[5.5rem] sm:h-[5.5rem] -my-2 rounded-full p-[3px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_4px_18px_rgba(180,140,50,0.5)] z-10">
-                  <span className="w-full h-full rounded-full overflow-hidden bg-[#17141c] block">
-                    <img src={salon.logo_url} alt={salon.name} onLoad={onLogoLoad} className="w-full h-full object-cover scale-[1.45]" />
+                <span className="tenant-logo-glow w-14 h-14 sm:w-16 sm:h-16 rounded-full p-[3px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_4px_18px_rgba(180,140,50,0.5)] z-10">
+                  <span className="w-full h-full rounded-full overflow-hidden bg-[#17141c] flex items-center justify-center">
+                    <img src={salon.logo_url} alt={salon.name} onLoad={onLogoLoad} className="w-full h-full object-cover" />
                   </span>
                 </span>
               )
             ) : (
-              <span className="tenant-logo-glow w-20 h-20 sm:w-[5.5rem] sm:h-[5.5rem] -my-2 rounded-full p-[3px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_4px_18px_rgba(180,140,50,0.5)] z-10">
+              <span className="tenant-logo-glow w-14 h-14 sm:w-16 sm:h-16 rounded-full p-[3px] bg-gradient-to-br from-[#d4af37] via-[#f3e3ae] to-[#b08d3f] flex-shrink-0 shadow-[0_4px_18px_rgba(180,140,50,0.5)] z-10">
                 <span className="w-full h-full rounded-full bg-[#17141c] text-[#e8c37f] flex items-center justify-center font-playfair text-3xl font-bold">
                   {(salon.name || "M").charAt(0)}
                 </span>
               </span>
             )}
             <div className="min-w-0 leading-tight">
-              <div className="font-playfair text-sm sm:text-base tracking-[0.06em] text-[#8a6d1f] font-semibold truncate">{salon.name}</div>
-              <div className="text-[8px] sm:text-[10px] uppercase tracking-[0.32em] text-[#a5926a] truncate mt-0.5">
+              <div className="font-playfair text-[13px] sm:text-base tracking-[0.04em] sm:tracking-[0.06em] text-[#8a6d1f] font-semibold truncate">{salon.name}</div>
+              <div className="hidden sm:block text-[10px] uppercase tracking-[0.32em] text-[#a5926a] truncate mt-0.5">
                 {salon.business_type === "restaurant" ? "Fine Dining · Powered by Mira AI" : "Luxury Salon · Powered by Mira AI"}
               </div>
             </div>
@@ -511,8 +511,8 @@ export default function BookPublic() {
             </Link>
             {salon.business_type !== "restaurant" && !pickedColor ? (
               <Link to={`/color/${slug}${searchParams.get("branch") ? `?branch=${encodeURIComponent(searchParams.get("branch"))}` : ""}`} data-testid="book-header-cta"
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#d4af37] to-[#e6c66e] text-[#17141c] text-xs sm:text-sm font-bold shadow-[0_2px_12px_rgba(180,140,50,0.4)] hover:opacity-90 transition-opacity">
-                <Palette className="w-3.5 h-3.5" /> Discover Your Signature Look <Star className="w-3 h-3 fill-current" />
+                className="inline-flex items-center gap-1.5 px-3.5 sm:px-5 py-2.5 rounded-full bg-gradient-to-r from-[#d4af37] to-[#e6c66e] text-[#17141c] text-xs sm:text-sm font-bold shadow-[0_2px_12px_rgba(180,140,50,0.4)] hover:opacity-90 transition-opacity">
+                <Palette className="w-3.5 h-3.5" /> <span className="sm:hidden">Signature Look</span><span className="hidden sm:inline">Discover Your Signature Look</span> <Star className="w-3 h-3 fill-current" />
               </Link>
             ) : (
               <button

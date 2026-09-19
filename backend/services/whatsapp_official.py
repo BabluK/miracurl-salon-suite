@@ -14,18 +14,22 @@ TEMPLATES = {
     "booking": os.environ.get("WHATSAPP_BOOKING_TEMPLATE", "miracurl_booking_confirmed"),
     "reminder": os.environ.get("WHATSAPP_REMINDER_TEMPLATE", "miracurl_reminder_1h"),
     "review": os.environ.get("WHATSAPP_REVIEW_TEMPLATE", "miracurl_review_request"),
-    "thank_you": os.environ.get("WHATSAPP_THANKYOU_TEMPLATE", "miracurl_thank_you"),
+    "thank_you": os.environ.get("WHATSAPP_THANKYOU_TEMPLATE", "miracurl_thank_you_v2"),
+    "owner_guide": os.environ.get("WHATSAPP_GUIDE_TEMPLATE", "miracurl_owner_guide"),
 }
 BUTTON_SLUG = {"festival", "winback", "birthday", "review", "thank_you"}  # templates whose URL button takes the tenant slug
+# Newer wording awaiting Meta review → fall back to the approved predecessor (same 3 body params) until it clears.
+TEMPLATE_FALLBACK = {"miracurl_thank_you_v2": "miracurl_thank_you", "mdm_thank_you_call_v2": "mdm_thank_you_call"}
 _tpl_status_cache: dict[str, tuple[float, str]] = {}
 
 
 async def template_status(kind: str) -> str | None:
-    """Meta review status of a platform template (APPROVED / PENDING / REJECTED), cached 5 min."""
+    """Meta review status of a platform template (APPROVED / PENDING / REJECTED), cached 5 min. Accepts a kind or a raw template name."""
     import time
     import httpx
     from services.whatsapp_cloud import GRAPH_API_VERSION
-    hit = _tpl_status_cache.get(kind)
+    name = TEMPLATES.get(kind, kind)
+    hit = _tpl_status_cache.get(name)
     if hit and time.time() - hit[0] < 300 and hit[1] == "APPROVED":
         return hit[1]
     waba, tok = os.environ.get("WHATSAPP_BUSINESS_ACCOUNT_ID", ""), os.environ.get("WHATSAPP_ACCESS_TOKEN", "")
@@ -33,12 +37,20 @@ async def template_status(kind: str) -> str | None:
         return None
     async with httpx.AsyncClient(timeout=15.0) as client:
         r = await client.get(f"https://graph.facebook.com/{GRAPH_API_VERSION}/{waba}/message_templates",
-                             params={"name": TEMPLATES[kind], "fields": "name,status", "access_token": tok})
+                             params={"name": name, "fields": "name,status", "access_token": tok})
     rows = (r.json().get("data") or []) if not r.is_error else []
-    st = next((x.get("status") for x in rows if x.get("name") == TEMPLATES[kind]), None)
+    st = next((x.get("status") for x in rows if x.get("name") == name), None)
     if st:
-        _tpl_status_cache[kind] = (time.time(), st)
+        _tpl_status_cache[name] = (time.time(), st)
     return st
+
+
+async def resolve_template(t: dict, kind: str) -> str:
+    """Tenant override → platform default; v2 wording only once Meta approved it."""
+    name = (t.get("wa_template_overrides") or {}).get(kind) or TEMPLATES[kind]
+    if name in TEMPLATE_FALLBACK and await template_status(name) != "APPROVED":
+        return TEMPLATE_FALLBACK[name]
+    return name
 
 
 def _abs(url: str) -> str:
@@ -73,18 +85,20 @@ async def send(kind: str, t: dict, to: str, params: list[str], image_url: str | 
         r = await _raw_db.tenants.update_one({"id": t["id"], "wa_points": {"$gte": 1}}, {"$inc": {"wa_points": -1}})
         if not r.modified_count:
             raise RuntimeError("No WhatsApp credits left — top up in Settings → Credits")
+    tpl_name = await resolve_template(t, kind)
+    overridden = tpl_name.startswith("mdm_") or (t.get("wa_template_overrides") or {}).get(kind) is not None  # tenant variants carry a phone button, no URL button
     components = [
         {"type": "header", "parameters": [{"type": "image", "image": {"link": await tenant_header_image(t, image_url)}}]},
         {"type": "body", "parameters": [{"type": "text", "text": str(p)[:1024]} for p in params]},
     ]
-    if kind in BUTTON_SLUG:
+    if kind in BUTTON_SLUG and not overridden:
         components.append({"type": "button", "sub_type": "url", "index": "0",
                            "parameters": [{"type": "text", "text": t.get("slug", "")}]})
     digits = "".join(ch for ch in to if ch.isdigit()).lstrip("0")
     if len(digits) == 10:
         digits = "91" + digits
     payload = {"messaging_product": "whatsapp", "to": digits, "type": "template",
-               "template": {"name": TEMPLATES[kind], "language": {"code": lang}, "components": components}}
+               "template": {"name": tpl_name, "language": {"code": lang}, "components": components}}
     async with httpx.AsyncClient(timeout=25.0) as client:
         resp = await client.post(f"https://graph.facebook.com/{GRAPH_API_VERSION}/{cfg['phone_number_id']}/messages",
                                  json=payload, headers={"Authorization": f"Bearer {cfg['access_token']}"})
@@ -95,7 +109,7 @@ async def send(kind: str, t: dict, to: str, params: list[str], image_url: str | 
         raise RuntimeError(f"Meta API {resp.status_code}")
     mid = ((resp.json().get("messages") or [{}])[0]).get("id")
     await _raw_db.whatsapp_messages.insert_one({
-        "direction": "outbound", "provider": "meta", "message_id": mid, "wa_id": digits, "type": "template", "template": TEMPLATES[kind],
+        "direction": "outbound", "provider": "meta", "message_id": mid, "wa_id": digits, "type": "template", "template": tpl_name,
         "kind": kind, "text": " | ".join(map(str, params)), "phone_number_id": cfg["phone_number_id"], "own_number": ch["own"], "tenant_id": t["id"],
         "status": "accepted", "created_at": _now()})
     if ch["own"]:

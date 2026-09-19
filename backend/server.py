@@ -152,6 +152,10 @@ for _r in (
 async def _boot_wa_campaigns():
     from services.wa_campaigns import start_worker
     start_worker()
+    # MDM asked for a 'Call now' button (their number) instead of 'Book Now' — apply the approved per-tenant templates once on every env.
+    from database import _raw_db as _db
+    await _db.tenants.update_one({"slug": "mdm-luxury-salon", "wa_template_overrides": {"$exists": False}},
+                                 {"$set": {"wa_template_overrides": {"festival": "mdm_festival_offer_call", "thank_you": "mdm_thank_you_call_v2"}}})
 
 
 @app.on_event("startup")

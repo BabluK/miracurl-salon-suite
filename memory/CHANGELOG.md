@@ -192,3 +192,18 @@
 ## 2026-09-20 — Reply Inbox Alert (build 2026-09-19.319); Guide Auto-Send SKIPPED by user
 - `_campaign_replies_since()` in routes/appointments_pos.py; bell kind "reply" in NewBookingNotifier.jsx; deep link /customers?view=campaign&inbox=1. Verified via seeded inbound message (Bablu → linked to 'Thank You · 19 Sep'), seed removed.
 - User asked for PayPal + Image-Generation AI model integrations; scoping questions (usage, PayPal creds, which models) sent via ask_human — user replied "skip" (interpreted: skip Guide Auto-Send). PayPal/image-gen answers still pending → next agent must re-ask A–D before implementing (integration_expert required).
+
+## 2026-09-20 — Guide Auto-Send + MDM 'Call now' templates (build 2026-09-19.320)
+- Meta templates created via scripts/create_guide_and_mdm_call_templates.py: mdm_thank_you_call + mdm_festival_offer_call (APPROVED, PHONE_NUMBER button +919608424704), miracurl_owner_guide (UTILITY, DOCUMENT header — still PENDING at end of session; id 1094837222921245).
+- whatsapp_official.send(): `tenant.wa_template_overrides[kind]` picks the tenant template; URL button param skipped when overridden. Applied to MDM demo (preview) via new PUT /super-admin/tenants/{tid}/wa-template-overrides; production gets it via startup migration in server.py (_boot_wa_campaigns) since prod build .310 lacks the endpoint. Live Call-now Thank-You sent to 7406869271 via mdm_thank_you_call (accepted).
+- POST /super-admin/tenants/{tid}/send-guide + 'Guide' ActionBtn in SuperAdmin.jsx (data-testid send-guide-<tid>). Recipient = owner_phone → whatsapp_number → phone. MDM demo tenant owner_phone set to real MDM owner 9608424704 (Amitesh Thakur) so the guide can be sent from preview once template approves. Returns 409 until APPROVED. NOT YET SENT.
+- Prod MDM owner: Amitesh Thakur, thakur007amitesh@gmail.com, 9608424704.
+
+## 2026-09-20 — Logo overflow fix, MDM blended logo, Thank-You v2 wording, favicon circle, guide sent (build 2026-09-19.321)
+- BookPublic header: circle frame w-14/sm:w-16 (no -my-2), square h-14/sm:h-16, blend h-14/sm:h-[4.5rem] max-w 120/220; mobile: CTA text 'Signature Look', subtitle hidden. Applies to every tenant.
+- MDM logo: user's gold emblem (asset v9nahonv_ChatGPT…10_35_23 PM.png) → white keyed out (numpy soft alpha) → /tmp/mdm_logo_transparent.png; uploaded kind=logo + POST /branding/logo/apply (PUT /settings/branding IGNORES logo_url) on preview (74a97569) and PRODUCTION (289abd9f → blend endpoint re-saved as dea5c378, logo_shape=blend). Prod booking page verified.
+- Favicons: favicon-32/192/512 + apple-touch-icon masked circular; index.html icons v=7, svg icon link replaced by PNG (svg was square).
+- Thank-You wording (user-provided): 'Hi {{1}}! ❤️ To our wonderful {{2}} family, thank you for your trust, love and continued support. Every visit means so much to us. ✨ With gratitude, {{3}} ♡' → miracurl_thank_you_v2 (Book Now URL btn) + mdm_thank_you_call_v2 (Call now +919608424704), both APPROVED. TEMPLATES.thank_you=v2; TEMPLATE_FALLBACK map; resolve_template(t, kind). {{3}} default = '<salon>, <city>' (tenant.city|location). Meta rejects a variable at the very end of body → trailing ♡ required. Composer brief + Mira compose prompt updated.
+- MDM overrides now {festival: mdm_festival_offer_call, thank_you: mdm_thank_you_call_v2} (preview set directly; prod via startup migration on deploy). Sent v2 Call-now Thank-You to 7406869271 (accepted).
+- miracurl_owner_guide APPROVED → guide WhatsApp'd to MDM owner 919608424704 from HQ (wamid…QjC1AA==). send-guide now tries APP_PUBLIC_URL → https://<x-forwarded-host> → base_url for a live PDF.
+- Still pending from user: PayPal + Image-Generation AI scoping answers (A–D).
