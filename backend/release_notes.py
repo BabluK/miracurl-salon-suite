@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.297"
-BUILD_TIME = "19 Sep 2026, 01:30 PM IST"
+BUILD = "2026-09-19.298"
+BUILD_TIME = "19 Sep 2026, 02:00 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.298", "note": "QR ordering pixel-matched to reference mock-ups: menu (icon category chips w/ gold underline, View all →, +ADD pills, descriptions, name/phone icons, table input hidden when table comes from QR), status screen (sparkle check, timeline card, chef-hat script, gold Order-something-else, View Order Details expander, footer rule), wait panel (hero copy, Play/Pass/Stay icons, Good Things Take Time bubble, generated diner illustration /assets/order/wait-boy.jpg, Play a Game Now, 4 tiles: Sudoku 4×4, Jigsaw 3×3, Bubble Pop, Tic Tac Toe)."},
     {"build": "2026-09-19.297", "note": "QR table ordering redesign: hero header (logo ring, script tagline, party-size selector, +91 phone pill, Call waiter / Water please), sticky category chips, Playfair section titles, persistent Your Order / View Cart bar. Order persistence: active order saved in localStorage (mc_order_active:<slug>, 3h) so closing/reopening the page resumes the live status screen with a Welcome-back banner + 'Would you like to order anything else?' prompt; new OrderStatusView timeline; after 10 minutes waiting a WaitGames panel (Tic Tac Toe vs chef, Bubble Pop) appears. table-order accepts optional guests."},
     {"build": "2026-09-19.296", "note": "QR table menu welcome gate (components/order/WelcomeGate.jsx): after a scan the diner enters their mobile; known guests get 'Welcome back, Mr/Ms <name> — we're happy you came back, please proceed with your order, let us know if you need any assistance' + Call waiter; new guests are asked for their name. Gate remembered per session (sessionStorage mc_order_gate:<slug>). guest-lookup returns title (Mr/Ms by gender)."},
     {"build": "2026-09-19.295", "note": "Login logo switched to the gold-ring MS monogram (/assets/ms-logo-ring.png, transparent bg derived from user asset) in SparkleLogo (desktop showcase + landing nav) and BrandMark (mobile/tablet + sidebar). Staff-portal OTP now goes by SMS via DLT template miracurl_otp (MSG91_TPL_OTP=6aae14594f99d7fba7049633, var1=code) — verified sent; email remains fallback."},
