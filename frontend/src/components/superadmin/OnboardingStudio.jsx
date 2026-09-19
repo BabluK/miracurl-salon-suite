@@ -52,7 +52,7 @@ export function OnboardingStudio({ tenants }) {
   const format = FORMATS.find(f => f.id === formatId) || FORMATS[0];
   const accent = (BACKGROUNDS.find(b => b.id === bgId) || BACKGROUNDS[0]).accent;
 
-  useEffect(() => { loadImg("/assets/brand/ms-ring-160.png").then(setEmblem); }, []);
+  useEffect(() => { loadImg("/assets/ms-logo-emblem.png").then(setEmblem); }, []);
   useEffect(() => { loadImg(tenant?.logo_url).then(setLogoImg); }, [tenant?.logo_url]);
   useEffect(() => {
     if (bgId !== "custom" && bgId !== "ai") loadImg(`/assets/onboarding/${bgId}.jpg`).then(setBgImg);

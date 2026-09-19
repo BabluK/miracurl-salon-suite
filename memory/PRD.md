@@ -3487,3 +3487,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-19 — "Refreshing twice on login/dashboard" root cause
 - AuthContext set `user` before `tenant` (login afterAuth, bootstrap, refresh) → Dashboard mounted tenant-less (cache miss → splash, fetch #1 without slug), then tenant arrived → effect re-ran → fetch #2 + sidebar re-brand = visible double repaint. Fix: resolve tenant first, then setUser (both batched). Verified on mobile viewport: login → 1× /reports/dashboard, hard reload → 1×, 0 full reloads. Build 2026-09-19.292.
 - IMPORTANT: production (miracurl-suite.com) is still on build 2026-09-18.280 — none of today's fixes (.281–.292) are live until the user clicks Deploy.
+
+## 2026-09-19 — Logo unification (login mobile/tablet)
+- Desktop login showcase already used `/assets/ms-logo-emblem.png`; mobile/tablet `BrandMark` still used old `/assets/brand/ms-ring.png`. BrandMark now uses the MS emblem (no Sparkles overlay), subtitle "AI-Powered Business Management Platform"; also swapped in SuperAdmin.jsx header, SiteInfoPanel fallback, OnboardingStudio emblem. Build 2026-09-19.293.
+- Tablet: LandingNav md:pl-24 + gap-4/text-xs at md, BrandMark wordmark hidden on md via `md:[&_.brand-word]:hidden` in Login.jsx. Build .294.

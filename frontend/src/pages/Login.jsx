@@ -143,7 +143,7 @@ export default function Login() {
       {blocked && <SubscriptionBlockModal info={blocked} onClose={() => setBlocked(null)} />}
 
       {/* Mobile brand mark (desktop shows the full showcase panel) */}
-      <div className="lg:hidden absolute z-10 px-6 pt-5">
+      <div className="lg:hidden absolute z-10 px-4 pt-4 max-w-[70%] md:[&_.brand-word]:hidden">
         <BrandMark variant="light" size="lg" />
       </div>
       <div className="absolute right-5 top-4 z-10 hidden sm:inline-flex items-center gap-2 rounded-full bg-white/90 border border-slate-200 px-3.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm" data-testid="login-language-pill">

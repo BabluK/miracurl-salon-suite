@@ -78,7 +78,7 @@ export const SiteInfoPanel = () => {
         <h2 className="font-semibold text-slate-800 flex items-center gap-2"><Globe className="w-4 h-4 text-amber-500" /> Platform Logo (HQ console)</h2>
         <div className="flex items-center gap-5">
           <div className="w-16 h-16 rounded-full overflow-hidden border border-slate-200 bg-[#1c1c22] flex items-center justify-center">
-            <img src={info.platform_logo || "/assets/brand/ms-ring.png"} alt="logo" className={info.platform_logo ? "w-full h-full object-cover" : "w-11 h-11 object-contain"} data-testid="platform-logo-preview" />
+            <img src={info.platform_logo || "/assets/ms-logo-emblem.png"} alt="logo" className={info.platform_logo ? "w-full h-full object-cover" : "w-11 h-11 object-contain"} data-testid="platform-logo-preview" />
           </div>
           <div>
             <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 border border-slate-200 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-slate-50">

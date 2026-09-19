@@ -2,11 +2,13 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.292"
-BUILD_TIME = "19 Sep 2026, 11:45 AM IST"
+BUILD = "2026-09-19.294"
+BUILD_TIME = "19 Sep 2026, 12:20 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.294", "note": "Login page tablet (md) layout: nav gaps/text tightened + left padding so the MS emblem no longer overlaps Features; wordmark hidden on md (emblem only), full mark on mobile and desktop showcase."},
+    {"build": "2026-09-19.293", "note": "Brand: BrandMark (login page mobile/tablet, sidebar) and Super Admin header/site-info/onboarding studio now use the gold MS emblem (/assets/ms-logo-emblem.png) matching the landing page; subtitle → AI-Powered Business Management Platform; mobile login brand mark shrunk to avoid overlapping Get Started."},
     {"build": "2026-09-19.292", "note": "Login/dashboard double-repaint fixed: AuthContext now resolves the tenant BEFORE exposing the user (login, bootstrap and refresh paths) so the workspace mounts once with full context — dashboard is fetched exactly once (was twice: tenant-less first render + refetch)."},
     {"build": "2026-09-19.291", "note": "Mobile: disabled Chrome/Android pull-to-refresh (overscroll-behavior-y: contain on html/body) — swiping down at the top of a page no longer reloads the whole app. Super Admin → HQ Inbox: 'Staff login check' tool (GET /super-admin/login-check?q=email|mobile) explains why a staff member can't log in (no account, disabled, locked, temp password pending, inactive staff record, no registry/Aadhaar/portal account) with one-tap Unlock (POST /super-admin/login-check/unlock)."},
     {"build": "2026-09-19.290", "note": "FIX: QR table menu (/order/{slug}) no longer bounces diners to /login — AuthContext skips the /tenants/current probe on guest pages and the api 401 handler uses a shared isPublicPath() list for every public route (order, gift, loyalty, salon, color, employee…). Restaurant tenants: gallery card says Restaurant photo gallery / Open my restaurant page / reservations; Hair Colour Try-On card hidden in Settings and /api/public/color/{slug} returns 404; Grow-with-Memberships promo hidden on the dashboard."},

@@ -408,7 +408,7 @@ export default function SuperAdmin() {
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div className="relative w-11 h-11 sm:w-14 sm:h-14 shrink-0 rounded-full bg-[#0f0f14] flex items-center justify-center ring-1 ring-amber-300/70 shadow-[0_0_0_4px_rgba(212,175,55,0.12),0_10px_28px_-6px_rgba(212,175,55,0.55)]" data-testid="hq-logo-wrap">
               <span className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_25%,rgba(240,217,165,0.35),transparent_60%)]" />
-              <img src={platformLogo || "/assets/brand/ms-ring-160.png"} alt="Miracurl Suite" className={`relative w-9 h-9 sm:w-11 sm:h-11 drop-shadow-[0_2px_8px_rgba(212,175,55,0.6)] ${platformLogo ? "rounded-full object-cover" : "object-contain"}`} draggable="false" data-testid="hq-logo" />
+              <img src={platformLogo || "/assets/ms-logo-emblem.png"} alt="Miracurl Suite" className={`relative w-9 h-9 sm:w-11 sm:h-11 drop-shadow-[0_2px_8px_rgba(212,175,55,0.6)] ${platformLogo ? "rounded-full object-cover" : "object-contain"}`} draggable="false" data-testid="hq-logo" />
               <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-slate-950 animate-pulse" title="Systems online" />
             </div>
             <div className="min-w-0">

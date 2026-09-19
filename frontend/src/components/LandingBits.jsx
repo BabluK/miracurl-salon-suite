@@ -19,9 +19,9 @@ export function SparkleLogo({ className = "w-12 h-12", testid = "brand-logo-spar
 
 export function LandingNav() {
   return (
-    <header className="relative z-20 max-w-[1640px] mx-auto flex items-center justify-end gap-6 px-4 sm:px-8 pt-4 sm:pr-36 xl:pr-40" data-testid="landing-nav">
+    <header className="relative z-20 max-w-[1640px] mx-auto flex items-center justify-end gap-3 lg:gap-6 px-4 sm:px-8 md:pl-24 lg:pl-8 pt-4 sm:pr-36 xl:pr-40" data-testid="landing-nav">
       <div className="flex-1" />
-      <nav className="hidden md:flex items-center gap-7 text-sm font-semibold text-slate-700">
+      <nav className="hidden md:flex items-center gap-4 lg:gap-7 text-xs lg:text-sm whitespace-nowrap font-semibold text-slate-700">
         {NAV.map(n => <a key={n.href} href={n.href} className="hover:text-[#b58a2c] transition-colors" data-testid={`landing-nav-${n.label.toLowerCase().replace(/ /g, "-")}`}>{n.label}</a>)}
       </nav>
       <div className="flex items-center gap-2">
