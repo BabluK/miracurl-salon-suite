@@ -22,27 +22,35 @@ router = APIRouter()
 _REG_BADGE_ORDER = ["NEW", "GOOD", "EXCELLENT", "EXTRAORDINARY"]
 _REG_REASONS = {"", "Working", "Resigned", "Terminated", "Absconded", "Contract Ended", "Transferred", "Other"}
 
-def _aadhaar_fp(num: str) -> str:
-    pepper = os.environ.get("REGISTRY_PEPPER") or jwt_secret()
+def _aadhaar_fp_legacy(num: str, pepper: str) -> str:
     return hashlib.sha256(f"aadhaar:{num}:{pepper}".encode()).hexdigest()
 
+def _aadhaar_fp(num: str) -> str:
+    """Deterministic slow KDF (scrypt, ~16 MB / ~40 ms) so a leaked collection + pepper still can't be
+    brute-forced across the 10^12 Aadhaar space in bulk. Deterministic salt keeps the value indexable."""
+    pepper = os.environ.get("REGISTRY_PEPPER") or jwt_secret()
+    salt = hashlib.sha256(f"aadhaar-salt:{pepper}".encode()).digest()
+    return "s1$" + hashlib.scrypt(f"aadhaar:{num}".encode(), salt=salt, n=2 ** 14, r=8, p=1, dklen=32).hex()
+
 def _aadhaar_fps(num: str) -> list:
-    """Current fp + legacy fps (pre-migration peppers) for backwards-compatible lookups."""
+    """Current fp + legacy fps (sha256 / pre-migration peppers) for backwards-compatible lookups."""
     fps = [_aadhaar_fp(num)]
-    for legacy in (os.environ.get("REGISTRY_PEPPER_LEGACY"), jwt_secret()):
+    for legacy in (os.environ.get("REGISTRY_PEPPER"), os.environ.get("REGISTRY_PEPPER_LEGACY"), jwt_secret()):
         if not legacy:
             continue
-        fp = hashlib.sha256(f"aadhaar:{num}:{legacy}".encode()).hexdigest()
+        fp = _aadhaar_fp_legacy(num, legacy)
         if fp not in fps:
             fps.append(fp)
     return fps
 
 async def _registry_find_by_aadhaar(num: str, projection: dict, limit: int = 5) -> list:
-    """Lookup by Aadhaar fingerprint; lazily re-peppers legacy hashes on match."""
+    """Lookup by Aadhaar fingerprint; lazily upgrades legacy hashes to the scrypt fp on match."""
     fps = _aadhaar_fps(num)
     rows = await _raw_db.registry_employees.find({"aadhaar_hash": {"$in": fps}}, projection).to_list(limit)
     if rows and len(fps) > 1:
         await _raw_db.registry_employees.update_many(
+            {"aadhaar_hash": {"$in": fps[1:]}}, {"$set": {"aadhaar_hash": fps[0]}})
+        await _raw_db.staff.update_many(
             {"aadhaar_hash": {"$in": fps[1:]}}, {"$set": {"aadhaar_hash": fps[0]}})
     return rows
 
@@ -228,7 +236,7 @@ async def hq_add_verified_staff(body: HQStaffIn, admin=Depends(require_super_adm
         raise HTTPException(400, "Aadhaar must be 12 digits (or leave it empty)")
     emp = None
     if aadhaar:
-        emp = await _raw_db.registry_employees.find_one({"aadhaar_hash": _aadhaar_fp(aadhaar)}, {"_id": 0})
+        emp = next(iter(await _registry_find_by_aadhaar(aadhaar, {"_id": 0}, 1)), None)
     if not emp:
         emp = await _raw_db.registry_employees.find_one({"phone": {"$regex": f"{phone[-10:]}$"}}, {"_id": 0})
     if not emp:
@@ -528,7 +536,7 @@ async def registry_public_search(q: str, request: Request, name: str = ""):
     # 12-digit query = Aadhaar (permanent ID) → full cross-salon history
     # 12-digit query: Aadhaar first; "91"-prefixed mobile numbers fall through to phone lookup
     if len(digits) == 12:
-        emp = await _raw_db.registry_employees.find_one({"aadhaar_hash": _aadhaar_fp(digits)}, {"_id": 0})
+        emp = next(iter(await _registry_find_by_aadhaar(digits, {"_id": 0}, 1)), None)
         if not emp and not digits.startswith("91"):
             raise HTTPException(404, "No staff found with that Aadhaar number — check all 12 digits")
         if emp:

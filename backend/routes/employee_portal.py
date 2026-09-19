@@ -2,8 +2,10 @@
 manage their profile and apply to salon job openings. Separate cookie from salon auth."""
 import re
 import uuid
+import hmac
 import secrets
 import hashlib
+import html as html_lib
 import jwt
 from datetime import datetime, timezone, timedelta
 
@@ -11,7 +13,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request, Response
 from pydantic import BaseModel, Field, field_validator
 
 from database import _raw_db, db
-from security import hash_pw, verify_pw, jwt_secret, JWT_ALG, public_rate_limit, client_ip
+from security import hash_pw, verify_pw, jwt_secret, JWT_ALG, public_rate_limit, client_ip, set_csrf_cookie
 from routes.registry import _aadhaar_fps
 
 router = APIRouter()
@@ -63,6 +65,7 @@ def _set_emp_cookie(resp: Response, token: str):
     import os
     sec = os.environ.get("COOKIE_SECURE", "true").lower() != "false"
     resp.set_cookie(_COOKIE, token, httponly=True, secure=sec, samesite="lax", max_age=54000, path="/")
+    set_csrf_cookie(resp, token, persistent=False, name="emp_csrf")
 
 
 async def current_employee(request: Request) -> dict:
@@ -93,17 +96,140 @@ async def _find_registry_emp_by_phone(phone: str) -> dict | None:
     return None
 
 
-def _verify_aadhaar(emp: dict, aadhaar: str) -> bool:
+async def _verify_aadhaar(emp: dict, aadhaar: str) -> bool:
     num = re.sub(r"\D", "", aadhaar or "")
     if len(num) != 12:
         return False
-    return emp.get("aadhaar_hash") in _aadhaar_fps(num)
+    fps = _aadhaar_fps(num)
+    stored = emp.get("aadhaar_hash")
+    if stored not in fps:
+        return False
+    if stored != fps[0]:  # legacy sha256 fingerprint → upgrade to scrypt on successful match
+        await _raw_db.registry_employees.update_one({"id": emp["id"]}, {"$set": {"aadhaar_hash": fps[0]}})
+    return True
 
 
 class RegisterIn(BaseModel):
     phone: str = Field(..., min_length=10, max_length=15)
     aadhaar: str = Field(..., min_length=12, max_length=14)
+    code: str = Field(..., min_length=6, max_length=6)
     password: str = Field(..., min_length=8, max_length=72)
+
+
+class RegisterCodeIn(BaseModel):
+    phone: str = Field(..., min_length=10, max_length=15)
+    aadhaar: str = Field(..., min_length=12, max_length=14)
+
+
+_DETAILS_MISMATCH = "Your details don't match our records. Please check your Aadhaar number or contact the Miracurl Admin team."
+
+
+def _mask_phone(p: str) -> str:
+    return f"+91 ******{p[-4:]}" if len(p) >= 4 else "your mobile"
+
+
+async def _issue_code(emp: dict, purpose: str) -> str:
+    """Store a fresh hashed 6-digit code (10 min, 5 attempts); one live code per employee+purpose."""
+    code = f"{secrets.randbelow(1000000):06d}"
+    now = datetime.now(timezone.utc)
+    await _raw_db.employee_reset_codes.delete_many({"employee_id": emp["id"], "purpose": purpose})
+    await _raw_db.employee_reset_codes.insert_one({
+        "id": str(uuid.uuid4()), "employee_id": emp["id"], "purpose": purpose,
+        "code_hash": hashlib.sha256(code.encode()).hexdigest(),
+        "expires_at": (now + timedelta(minutes=10)).isoformat(),
+        "attempts": 0, "created_at": now.isoformat()})
+    return code
+
+
+async def _consume_code(emp: dict, code: str, purpose: str) -> None:
+    """Verify + burn the one-time code; raises 400 on missing/expired/wrong/over-tried."""
+    now = datetime.now(timezone.utc)
+    rec = await _raw_db.employee_reset_codes.find_one({"employee_id": emp["id"], "purpose": purpose}, {"_id": 0})
+    if not rec or rec["expires_at"] < now.isoformat():
+        raise HTTPException(400, "Verification code expired or not requested — tap 'Send code' again")
+    if rec.get("attempts", 0) >= 5:
+        await _raw_db.employee_reset_codes.delete_one({"id": rec["id"]})
+        raise HTTPException(400, "Too many wrong codes — please request a fresh code")
+    if not hmac.compare_digest(hashlib.sha256(code.strip().encode()).hexdigest(), rec["code_hash"]):
+        await _raw_db.employee_reset_codes.update_one({"id": rec["id"]}, {"$inc": {"attempts": 1}})
+        raise HTTPException(400, "Incorrect verification code")
+    await _raw_db.employee_reset_codes.delete_one({"id": rec["id"]})
+
+
+def _code_email_html(name: str, code: str, heading: str, intro: str) -> str:
+    return f"""<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;color:#333">
+        <h2 style="color:#1c1c22">{heading}</h2>
+        <p>Hi {html_lib.escape(name or 'there')}, {intro}</p>
+        <div style="font-size:34px;font-weight:bold;letter-spacing:8px;text-align:center;
+             background:#faf6ec;border-radius:12px;padding:16px;margin:16px 0">{code}</div>
+        <p style="font-size:12px;color:#888">The code expires in 10 minutes. If you didn't request this,
+        you can safely ignore this message.</p></div>"""
+
+
+async def _deliver_code(emp: dict, code: str, sms_text: str, email_subject: str, email_html: str) -> dict:
+    """SMS to the registry phone first (DLT OTP template, else generic flow), email on file as fallback."""
+    from sms_service import send_sms, send_sms_template
+    phone = _norm_phone(emp.get("phone") or "")
+    res = {"sent": False}
+    if len(phone) == 10:
+        try:
+            res = await send_sms_template(phone, "otp", [code])
+            if not res.get("sent"):
+                res = await send_sms(phone, sms_text)
+        except Exception:  # noqa: BLE001
+            res = {"sent": False}
+    if res.get("sent"):
+        return {"channel": "sms", "sent_to": _mask_phone(phone)}
+    email = (emp.get("email") or "").strip()
+    if email:
+        from email_service import _send_email
+        er = await _send_email([email], email_subject, email_html)
+        if er.get("sent"):
+            return {"channel": "email", "sent_to": _mask_email(email)}
+    raise HTTPException(502, "We couldn't reach your registered mobile or email with a code right now — please try again in a minute or contact the Miracurl Admin team.")
+
+
+@router.post("/employee/register/request-code")
+async def employee_register_request_code(body: RegisterCodeIn, request: Request):
+    """Step 1 of registration: phone + Aadhaar are knowledge factors the salon also holds,
+    so account creation additionally needs a one-time code delivered to the employee (SEC-001)."""
+    await public_rate_limit(request, key_suffix="emp-register-otp", limit=3, window_sec=900)
+    emp = await _find_registry_emp_by_phone(body.phone)
+    if not emp:
+        raise HTTPException(404, NOT_REGISTERED_MSG)
+    if not await _verify_aadhaar(emp, body.aadhaar):
+        raise HTTPException(403, _DETAILS_MISMATCH)
+    if await _raw_db.employee_accounts.find_one({"employee_id": emp["id"]}, {"_id": 1}):
+        raise HTTPException(400, "You are already registered — please log in (or reset your password)")
+    if not await _is_employment_active(emp["id"]):
+        raise HTTPException(403, _ACCESS_ENDED_MSG)
+    code = await _issue_code(emp, "register")
+    out = await _deliver_code(
+        emp, code, f"{code} is your Miracurl staff portal verification code. Valid 10 min. Do not share it.",
+        "Your Miracurl staff portal verification code",
+        _code_email_html(emp.get("name"), code, "Registration code", "use this code to finish creating your Miracurl staff portal account:"))
+    return {"ok": True, **out}
+
+
+@router.post("/employee/register")
+async def employee_register(body: RegisterIn, request: Request, response: Response):
+    await public_rate_limit(request, key_suffix="emp-register", limit=5, window_sec=900)
+    emp = await _find_registry_emp_by_phone(body.phone)
+    if not emp:
+        raise HTTPException(404, NOT_REGISTERED_MSG)
+    if not await _verify_aadhaar(emp, body.aadhaar):
+        raise HTTPException(403, _DETAILS_MISMATCH)
+    if await _raw_db.employee_accounts.find_one({"employee_id": emp["id"]}):
+        raise HTTPException(400, "You are already registered — please log in (or reset your password below)")
+    if not await _is_employment_active(emp["id"]):
+        raise HTTPException(403, _ACCESS_ENDED_MSG)
+    await _consume_code(emp, body.code, "register")
+    acct = {"id": str(uuid.uuid4()), "employee_id": emp["id"], "phone": _norm_phone(body.phone),
+            "password_hash": hash_pw(body.password),
+            "created_at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.employee_accounts.insert_one(acct)
+    _set_emp_cookie(response, _make_emp_token(acct["id"], emp["id"]))
+    return {"ok": True, "name": emp.get("name"), "staff_code": emp.get("staff_code")}
 
 
 class LoginIn(BaseModel):
@@ -121,26 +247,6 @@ class ResetIn(BaseModel):
 class ResetRequestIn(BaseModel):
     phone: str = Field(..., min_length=10, max_length=15)
     aadhaar: str = Field(..., min_length=12, max_length=14)
-
-
-@router.post("/employee/register")
-async def employee_register(body: RegisterIn, request: Request, response: Response):
-    await public_rate_limit(request, key_suffix="emp-register", limit=5, window_sec=900)
-    emp = await _find_registry_emp_by_phone(body.phone)
-    if not emp:
-        raise HTTPException(404, NOT_REGISTERED_MSG)
-    if not _verify_aadhaar(emp, body.aadhaar):
-        raise HTTPException(403, "Your details don't match our records. Please check your Aadhaar number or contact the Miracurl Admin team.")
-    if await _raw_db.employee_accounts.find_one({"employee_id": emp["id"]}):
-        raise HTTPException(400, "You are already registered — please log in (or reset your password below)")
-    if not await _is_employment_active(emp["id"]):
-        raise HTTPException(403, _ACCESS_ENDED_MSG)
-    acct = {"id": str(uuid.uuid4()), "employee_id": emp["id"], "phone": _norm_phone(body.phone),
-            "password_hash": hash_pw(body.password),
-            "created_at": datetime.now(timezone.utc).isoformat()}
-    await _raw_db.employee_accounts.insert_one(acct)
-    _set_emp_cookie(response, _make_emp_token(acct["id"], emp["id"]))
-    return {"ok": True, "name": emp.get("name"), "staff_code": emp.get("staff_code")}
 
 
 @router.post("/employee/login")
@@ -177,40 +283,22 @@ def _mask_email(email: str) -> str:
 
 @router.post("/employee/reset-password/request")
 async def employee_reset_request(body: ResetRequestIn, request: Request):
-    """Step 1 of reset: verify phone + Aadhaar, then email a one-time code.
+    """Step 1 of reset: verify phone + Aadhaar, then send a one-time code (SMS first, email fallback).
     Aadhaar alone is NOT a reset secret — salons hold it too (SEC audit)."""
     await public_rate_limit(request, key_suffix="emp-reset-otp", limit=3, window_sec=900)
     emp = await _find_registry_emp_by_phone(body.phone)
     if not emp:
         raise HTTPException(404, NOT_REGISTERED_MSG)
-    if not _verify_aadhaar(emp, body.aadhaar):
-        raise HTTPException(403, "Your details don't match our records. Please check your Aadhaar number or contact the Miracurl Admin team.")
+    if not await _verify_aadhaar(emp, body.aadhaar):
+        raise HTTPException(403, _DETAILS_MISMATCH)
     if not await _raw_db.employee_accounts.find_one({"employee_id": emp["id"]}, {"_id": 1}):
         raise HTTPException(400, "No account yet for this number — please register first")
-    email = (emp.get("email") or "").strip()
-    if not email:
-        raise HTTPException(400, "There's no email on your staff profile, so we can't send a verification code. Please contact the Miracurl Admin team to reset your password.")
-    code = f"{secrets.randbelow(1000000):06d}"
-    now = datetime.now(timezone.utc)
-    await _raw_db.employee_reset_codes.delete_many({"employee_id": emp["id"]})
-    await _raw_db.employee_reset_codes.insert_one({
-        "id": str(uuid.uuid4()), "employee_id": emp["id"],
-        "code_hash": hashlib.sha256(code.encode()).hexdigest(),
-        "expires_at": (now + timedelta(minutes=10)).isoformat(),
-        "attempts": 0, "created_at": now.isoformat()})
-    from email_service import _send_email
-    res = await _send_email(
-        [email], "Your Miracurl staff portal verification code",
-        f"""<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;color:#333">
-        <h2 style="color:#1c1c22">Password reset code</h2>
-        <p>Hi {emp.get('name') or 'there'}, use this code to reset your Miracurl staff portal password:</p>
-        <div style="font-size:34px;font-weight:bold;letter-spacing:8px;text-align:center;
-             background:#faf6ec;border-radius:12px;padding:16px;margin:16px 0">{code}</div>
-        <p style="font-size:12px;color:#888">The code expires in 10 minutes. If you didn't request this,
-        you can safely ignore this email — your password stays unchanged.</p></div>""")
-    if not res.get("sent"):
-        raise HTTPException(502, "Couldn't send the verification email right now — please try again in a minute.")
-    return {"ok": True, "sent_to": _mask_email(email)}
+    code = await _issue_code(emp, "reset")
+    out = await _deliver_code(
+        emp, code, f"{code} is your Miracurl staff portal password reset code. Valid 10 min. Do not share it.",
+        "Your Miracurl staff portal verification code",
+        _code_email_html(emp.get("name"), code, "Password reset code", "use this code to reset your Miracurl staff portal password:"))
+    return {"ok": True, **out}
 
 
 @router.post("/employee/reset-password")
@@ -219,19 +307,9 @@ async def employee_reset_password(body: ResetIn, request: Request):
     emp = await _find_registry_emp_by_phone(body.phone)
     if not emp:
         raise HTTPException(404, NOT_REGISTERED_MSG)
-    if not _verify_aadhaar(emp, body.aadhaar):
-        raise HTTPException(403, "Your details don't match our records. Please check your Aadhaar number or contact the Miracurl Admin team.")
-    now = datetime.now(timezone.utc)
-    rec = await _raw_db.employee_reset_codes.find_one({"employee_id": emp["id"]}, {"_id": 0})
-    if not rec or rec["expires_at"] < now.isoformat():
-        raise HTTPException(400, "Verification code expired or not requested — tap 'Send code' again")
-    if rec.get("attempts", 0) >= 5:
-        await _raw_db.employee_reset_codes.delete_one({"id": rec["id"]})
-        raise HTTPException(400, "Too many wrong codes — please request a fresh code")
-    if hashlib.sha256(body.code.strip().encode()).hexdigest() != rec["code_hash"]:
-        await _raw_db.employee_reset_codes.update_one({"id": rec["id"]}, {"$inc": {"attempts": 1}})
-        raise HTTPException(400, "Incorrect verification code")
-    await _raw_db.employee_reset_codes.delete_one({"id": rec["id"]})
+    if not await _verify_aadhaar(emp, body.aadhaar):
+        raise HTTPException(403, _DETAILS_MISMATCH)
+    await _consume_code(emp, body.code, "reset")
     res = await _raw_db.employee_accounts.update_one(
         {"employee_id": emp["id"]},
         {"$set": {"password_hash": hash_pw(body.new_password),
@@ -244,6 +322,7 @@ async def employee_reset_password(body: ResetIn, request: Request):
 @router.post("/employee/logout")
 async def employee_logout(response: Response):
     response.delete_cookie(_COOKIE, path="/")
+    response.delete_cookie("emp_csrf", path="/")
     return {"ok": True}
 
 

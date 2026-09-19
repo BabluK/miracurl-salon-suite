@@ -164,8 +164,7 @@ async def start_session(user_id: str, email: str, tenant_id, request: Request, m
     """Register this device's login session; the returned sid is embedded in both tokens."""
     sid = uuid.uuid4().hex
     ua = (request.headers.get("user-agent") or "")[:300]
-    ip = ((request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
-          or (request.client.host if request.client else ""))
+    ip = client_ip(request)
     now = datetime.now(timezone.utc).isoformat()
     await _raw_db.sessions.insert_one({
         "sid": sid, "user_id": user_id, "email": email, "tenant_id": tenant_id,
@@ -262,7 +261,7 @@ def csrf_token_valid(value: str, expected_anchor: str | None = None) -> bool:
         return False
 
 
-def set_csrf_cookie(resp: Response, access_token: str, persistent: bool = True):
+def set_csrf_cookie(resp: Response, access_token: str, persistent: bool = True, name: str = "csrf_token"):
     try:
         payload = jwt.decode(access_token, jwt_secret(), algorithms=[JWT_ALG],
                              options={"verify_exp": False})
@@ -270,7 +269,7 @@ def set_csrf_cookie(resp: Response, access_token: str, persistent: bool = True):
         return
     anchor = payload.get("sid") or payload.get("sub") or ""
     _sec = os.environ.get("COOKIE_SECURE", "true").lower() != "false"
-    resp.set_cookie("csrf_token", make_csrf_token(anchor), httponly=False, secure=_sec,
+    resp.set_cookie(name, make_csrf_token(anchor), httponly=False, secure=_sec,
                     samesite="lax", max_age=604800 if persistent else None, path="/")
 
 def _extract_bearer_token(request: Request) -> str | None:

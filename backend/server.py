@@ -512,6 +512,8 @@ _CSRF_EXEMPT_EXACT = {
     "/api/auth/forgot-password", "/api/auth/reset-password",
     "/api/passkeys/login/options", "/api/passkeys/login/verify",
     "/api/passkeys/register/options", "/api/passkeys/register/verify",
+    "/api/employee/login", "/api/employee/register", "/api/employee/register/request-code",
+    "/api/employee/reset-password", "/api/employee/reset-password/request",
 }
 
 
@@ -536,9 +538,12 @@ async def _csrf_guard(request: Request, call_next):
     if request.headers.get("authorization", "").lower().startswith("bearer "):
         return await call_next(request)
     access = request.cookies.get("access_token")
+    csrf_cookie_name = "csrf_token"
+    if not access and p.startswith("/api/employee/"):
+        access, csrf_cookie_name = request.cookies.get("emp_token"), "emp_csrf"
     if not access:
         return await call_next(request)
-    cookie_val = request.cookies.get("csrf_token") or ""
+    cookie_val = request.cookies.get(csrf_cookie_name) or ""
     header_val = request.headers.get("x-csrf-token") or ""
     if not cookie_val or not header_val:
         # Rollout bridge: stale PWA bundles / pre-CSRF sessions don't send the token

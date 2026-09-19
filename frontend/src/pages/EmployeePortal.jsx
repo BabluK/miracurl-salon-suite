@@ -4,14 +4,17 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { BadgeCheck, Briefcase, FileText, LogOut, Pencil, ShieldCheck, UserRound } from "lucide-react";
 import { confirmAsync } from "@/components/ConfirmDialog";
-import { readCsrfToken } from "@/lib/api";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const http = axios.create({ baseURL: API, withCredentials: true });
+const readEmpCsrf = () => {
+  const item = document.cookie.split("; ").find((v) => v.startsWith("emp_csrf="));
+  return item ? decodeURIComponent(item.slice("emp_csrf=".length)) : null;
+};
 http.interceptors.request.use((config) => {
   const method = (config.method || "get").toUpperCase();
   if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
-    const csrf = readCsrfToken();
+    const csrf = readEmpCsrf();
     if (csrf) config.headers["X-CSRF-Token"] = csrf;
   }
   return config;
@@ -41,13 +44,19 @@ function AuthForms({ onAuthed, onEnded }) {
         toast.success(`Welcome back, ${data.name || "there"}!`);
         onAuthed();
       } else if (mode === "register") {
-        const { data } = await http.post("/employee/register", { phone: f.phone, aadhaar: f.aadhaar, password: f.password });
-        toast.success(`Registered! Welcome, ${data.name} (${data.staff_code})`);
-        onAuthed();
+        if (!codeSentTo) {
+          const { data } = await http.post("/employee/register/request-code", { phone: f.phone, aadhaar: f.aadhaar });
+          setCodeSentTo(data.sent_to);
+          toast.success(`Verification code sent by ${data.channel === "sms" ? "SMS" : "email"} to ${data.sent_to}`);
+        } else {
+          const { data } = await http.post("/employee/register", { phone: f.phone, aadhaar: f.aadhaar, code: f.code.trim(), password: f.password });
+          toast.success(`Registered! Welcome, ${data.name} (${data.staff_code})`);
+          onAuthed();
+        }
       } else if (!codeSentTo) {
         const { data } = await http.post("/employee/reset-password/request", { phone: f.phone, aadhaar: f.aadhaar });
         setCodeSentTo(data.sent_to);
-        toast.success(`Verification code sent to ${data.sent_to} — check your inbox`);
+        toast.success(`Verification code sent by ${data.channel === "sms" ? "SMS" : "email"} to ${data.sent_to}`);
       } else {
         await http.post("/employee/reset-password", { phone: f.phone, aadhaar: f.aadhaar, code: f.code.trim(), new_password: f.password });
         toast.success("Password reset — please log in");
@@ -78,30 +87,30 @@ function AuthForms({ onAuthed, onEnded }) {
         {mode !== "login" && (
           <input required data-testid="emp-aadhaar-input" className={inputCls} placeholder="Aadhaar number (12 digits)" value={f.aadhaar} onChange={set("aadhaar")} inputMode="numeric" maxLength={14} />
         )}
-        {mode === "reset" && codeSentTo && (
+        {mode !== "login" && codeSentTo && (
           <input required data-testid="emp-code-input" className={inputCls} placeholder={`6-digit code sent to ${codeSentTo}`}
             value={f.code} onChange={set("code")} inputMode="numeric" maxLength={6} minLength={6} />
         )}
-        {(mode !== "reset" || codeSentTo) && (
+        {(mode === "login" || codeSentTo) && (
           <input required data-testid="emp-password-input" className={inputCls} type="password" minLength={mode === "login" ? 1 : 8}
             placeholder={mode === "reset" ? "New password (min 8 chars)" : mode === "register" ? "Create password (min 8 chars)" : "Password"}
             value={f.password} onChange={set("password")} />
         )}
         <button disabled={busy} data-testid="emp-submit-btn"
           className="w-full py-3 rounded-lg bg-gradient-to-r from-amber-400 to-rose-300 text-black font-semibold text-sm hover:opacity-90 transition disabled:opacity-50">
-          {busy ? "Please wait…" : mode === "login" ? "Log in" : mode === "register" ? "Verify & Register"
+          {busy ? "Please wait…" : mode === "login" ? "Log in" : mode === "register" ? (codeSentTo ? "Verify & Register" : "Send verification code")
             : codeSentTo ? "Reset password" : "Send verification code"}
         </button>
-        {mode === "reset" && codeSentTo && (
+        {mode !== "login" && codeSentTo && (
           <button type="button" data-testid="emp-resend-code-btn" onClick={() => setCodeSentTo("")}
             className="w-full text-[11px] text-white/40 hover:text-white/70">Didn't get it? Send a new code</button>
         )}
       </form>
       <p className="text-[11px] text-white/40 mt-4 leading-relaxed">
         {mode === "register"
-          ? "Only staff onboarded in the Miracurl registry can register — your mobile and Aadhaar must match our records. Not registered? Contact the Miracurl Admin team."
+          ? "Only staff onboarded in the Miracurl registry can register — your mobile and Aadhaar must match our records, and we'll text a 6-digit code to your registered mobile (email if SMS fails) before your account is created. Not registered? Contact the Miracurl Admin team."
           : mode === "reset"
-            ? "Verify with your registered mobile + Aadhaar — we'll email a 6-digit code to the address on your staff profile before the password changes."
+            ? "Verify with your registered mobile + Aadhaar — we'll text a 6-digit code to your registered mobile (email if SMS fails) before the password changes."
             : "Use the mobile number you registered with. New here? Use the Register tab."}
       </p>
       <p className="text-[11px] text-white/30 mt-3 text-center">

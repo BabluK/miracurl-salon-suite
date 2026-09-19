@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.288"
-BUILD_TIME = "19 Sep 2026, 09:50 AM IST"
+BUILD = "2026-09-19.289"
+BUILD_TIME = "19 Sep 2026, 10:25 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.289", "note": "Security audit fixes: staff-portal registration now needs a one-time code sent to the employee (SMS via DLT OTP template MSG91_TPL_OTP / generic flow, email fallback) — phone+Aadhaar alone can no longer claim an account (SEC-001); reset flow shares the same SMS-first code delivery; employee-portal state-changing routes covered by CSRF double-submit (emp_csrf cookie); session IP/location uses spoof-resistant client_ip(); Aadhaar fingerprints upgraded to scrypt (s1$ prefix) with lazy migration from sha256 on match."},
     {"build": "2026-09-19.288", "note": "Fix-request tracker: popup gets a 'My requests' tab (live every 20s) with Sent → HQ working → Fixed timeline, HQ notes and an active-ticket badge on the header button; HQ Inbox gains 'Start working' (status in_progress), auto in_progress on 'Open workspace', and a note-to-owner field; PATCH hq-messages/{id}/status accepts in_progress + note and notifies the owner."},
     {"build": "2026-09-19.287", "note": "'Ask Miracurl to fix this' concierge popup redesigned (dark/gold header, We're Here for You script, 500-char counter, HQ ticket info card, support footer with Miracurl wordmark) and now available on mobile too; Super Admin Edit-tenant modal uses Restaurant/Salon wording per vertical."},
     {"build": "2026-09-19.286", "note": "Super Admin: Deploy banner (GET /super/deploy-status compares this build with the live site and lists pending build-log entries); Tenant Features modal redesigned as an HQ control centre (dark/gold header with live status chips, channel cards with ON/OFF accent, gold campaign card, support-access card)."},
