@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.310"
-BUILD_TIME = "19 Sep 2026, 07:00 PM IST"
+BUILD = "2026-09-19.311"
+BUILD_TIME = "19 Sep 2026, 08:50 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.311", "note": "Customer import accepts Excel (.xlsx, first sheet) and real-world headers (First Name + Last Name → Name; Mobile/Phone Number/Contact → Phone; Store Location → Address; Sex → Gender…) via utils.normalize_customer_row; WA campaign engine verified live in preview (create → queued → worker → Meta wamid returned, 1 credit burned)."},
     {"build": "2026-09-19.310", "note": "Security audit #2 fixes: GET /public/table-active-order now projects only id/status/table/items/totals/guests + first name (no phone / customer_id) — SEC-001 HIGH closed; guest-lookup tightened to 12/10min per IP + durable 40/day cap (SEC-002); mark-billed derives bill_total server-side from the orders. Prior four fixes re-verified by the auditor."},
     {"build": "2026-09-19.309", "note": "Public navbar TenantLogo: square/circular uploads (e.g. MDM gold monogram on black) auto-render in a gold-ringed circle with the tenant name + Unisex Salon/Restaurant beside it; wide wordmark logos render as-is (detected from natural aspect ratio or logo_shape=circle). /api/files logo paths resolved via REACT_APP_BACKEND_URL."},
     {"build": "2026-09-19.308", "note": "Sidebar brand never falls back to the Miracurl platform mark for a logged-in owner: AppLayout brands with the active salon from /auth/me (user.salons) until the tenant profile loads; TenantBrandMark no-logo placeholder is now a gold plaque with scissors/fork icon + Caveat tenant name + Unisex Salon/Restaurant label (matches public-page wordmark fallback)."},
@@ -117,6 +118,7 @@ RELEASES = [
         "changes": [
             "🛠️ 'Ask Miracurl to fix this' got a concierge makeover — a premium popup with a live 500-character counter and a direct Miracurl Support link, now available on your phone too. Every request becomes a numbered HQ ticket",
             "📱 Phone fix: the app no longer reloads when you swipe down at the top of a page (pull-to-refresh is off inside Miracurl), and login → dashboard now paints once instead of twice",
+            "📥 Import clients straight from Excel — First Name/Last Name/Mobile columns from other salon software are recognised automatically (Settings → Guests → Import)",
             "⭐ Table feedback: once food is served, diners get a quick 5-star rating + one-line review card on their order screen — reviews land in your Reviews list",
             "🏛️ Your public salon page now wears the premium white-gold navbar (your logo, tagline, branch picker, Book Appointment) with a luxe hero backdrop",
             "🧾 Kitchen history: closed tickets now show 'Bill completed & paid' with the invoice number once the table is billed in POS; re-scanning a table QR always reopens the live order until it's served",

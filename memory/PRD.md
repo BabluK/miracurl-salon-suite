@@ -3530,3 +3530,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - SEC-001 HIGH: `/public/table-active-order` returned full order incl. customer_phone/customer_id → now projected (id,status,table_no,total,subtotal,discount,created_at,items,guests) + first-name only. Verified via curl.
 - SEC-002 MED: `/public/guest-lookup` phone → name/last order/picks (feature the user explicitly requested). Mitigation: per-IP 12/10min + durable 40/day; gender `title` still returned (Mr/Ms greeting per user spec). Accepted trade-off — documented.
 - P3: mark-billed bill_total now server-derived. Auditor re-verified: OTP register, emp_csrf, client_ip, scrypt Aadhaar — all present. Build .310.
+
+## 2026-09-19 — MDM client import + WA campaign check
+- Import: `utils._read_csv_upload` now accepts .xlsx (openpyxl → CSV text); `utils.normalize_customer_row` maps header aliases (First/Last Name, Mobile, Store Location…); `POST /customers/import` uses it. Frontend tenant modal still accepts .csv only (client-side parse) — super-admin import is text/vcard.
+- WA campaign engine verified in PREVIEW with real Meta send: POST /whatsapp-link/campaigns (tenant admin; created already `queued`) → worker → recipient sent, wamid returned, wa_points 100→99 (miracurl-marathahalli, test number 9811122234).
+- PROD actions for MDM NOT done: prod super-admin password ≠ preview (401). User must: Super Admin → Tenants → MDM → Features → WhatsApp ON; Credit Wallet → allocate 2000 wa_points; then MDM owner CRM → WhatsApp campaign to 3 guests. Build .311.

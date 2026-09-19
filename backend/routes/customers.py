@@ -17,7 +17,7 @@ from security import (
 from models import (
     Customer,
 )
-from utils import _csv_row, _read_csv_upload
+from utils import _csv_row, _read_csv_upload, normalize_customer_row
 from schemas import CustomerIn
 
 router = APIRouter()
@@ -335,11 +335,11 @@ async def _upsert_customer(doc: dict) -> str:
 async def import_customers_csv(file: UploadFile = File(...), user=Depends(require_admin)):
     content = await _read_csv_upload(file)
     reader = csv.DictReader(io.StringIO(content))
-    fields = {(f or "").strip().lower() for f in (reader.fieldnames or [])}
-    if not {"name", "phone"}.issubset(fields):
-        raise HTTPException(400, "CSV needs columns: name, phone (optional: email, gender, dob, address, notes)")
+    rows = [normalize_customer_row(r) for r in reader]
+    if not rows or not any(r.get("name") and r.get("phone") for r in rows):
+        raise HTTPException(400, "Sheet needs a Name (or First/Last Name) column and a Phone/Mobile column (optional: Email, Gender, DOB, Address, Notes)")
     counts = {"added": 0, "updated": 0, "skipped": 0}
-    for raw in reader:
+    for raw in rows:
         doc = _customer_row_doc(raw)
         if doc is None:
             counts["skipped"] += 1
