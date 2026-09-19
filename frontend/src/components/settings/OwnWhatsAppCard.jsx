@@ -3,14 +3,27 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { Smartphone, ShieldCheck, RefreshCw, Unplug, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 
-const loadFbSdk = (appId) => new Promise((resolve) => {
-  if (window.FB) return resolve(window.FB);
-  window.fbAsyncInit = () => { window.FB.init({ appId, cookie: true, xfbml: false, version: "v22.0" }); resolve(window.FB); };
-  if (!document.getElementById("fb-sdk")) {
-    const s = document.createElement("script"); s.id = "fb-sdk"; s.async = true; s.defer = true; s.crossOrigin = "anonymous";
-    s.src = "https://connect.facebook.net/en_US/sdk.js"; document.body.appendChild(s);
+let _fbInited = false;
+let _fbBlocked = false;
+// Loads Meta's JS SDK once and guarantees FB.init ran (a remount or a pre-loaded SDK must not skip init).
+const loadFbSdk = (appId) => new Promise((resolve, reject) => {
+  const init = () => {
+    if (!_fbInited) { window.FB.init({ appId, cookie: true, xfbml: false, version: "v22.0" }); _fbInited = true; }
+    resolve(window.FB);
+  };
+  if (window.FB) return init();
+  if (_fbBlocked) return reject(new Error("blocked"));
+  window.fbAsyncInit = init;
+  let tag = document.getElementById("fb-sdk");
+  if (!tag) {
+    tag = document.createElement("script"); tag.id = "fb-sdk"; tag.async = true; tag.defer = true; tag.crossOrigin = "anonymous";
+    tag.src = "https://connect.facebook.net/en_US/sdk.js"; document.body.appendChild(tag);
   }
+  tag.addEventListener("error", () => { _fbBlocked = true; reject(new Error("blocked")); }, { once: true });
+  setTimeout(() => { if (!window.FB) reject(new Error("timeout")); }, 12000);
 });
+
+const SDK_HELP = "Your browser blocked Meta's login script (ad blocker / tracking prevention). Allow connect.facebook.net for this site or open in Chrome, then try again.";
 
 const TPL_LABEL = { miracurl_booking_confirmed: "Booking confirmation", miracurl_reminder_1h: "1-hour reminder", miracurl_review_request: "Review request",
   miracurl_winback: "Win-back", miracurl_birthday_wish: "Birthday wish", miracurl_festival_offer: "Festival offer" };
@@ -21,7 +34,7 @@ export const OwnWhatsAppCard = () => {
   const session = useRef({});
   const load = () => api.get("/whatsapp-own/status").then(r => setSt(r.data)).catch(() => setSt({ available: false }));
   useEffect(() => { load(); }, []);
-  useEffect(() => { if (st?.available && st.app_id) loadFbSdk(st.app_id); }, [st?.available, st?.app_id]);
+  useEffect(() => { if (st?.available && st.app_id) loadFbSdk(st.app_id).catch(() => {}); }, [st?.available, st?.app_id]);
 
   useEffect(() => {
     const onMsg = (ev) => {
@@ -35,10 +48,12 @@ export const OwnWhatsAppCard = () => {
     return () => window.removeEventListener("message", onMsg);
   }, []);
 
-  const connect = () => {
-    const FB = window.FB;
-    if (!FB) { toast.error("Meta login is still loading — try again in a second"); return; }
+  const connect = async () => {
+    if (!st?.app_id || !st?.config_id) { toast.error("Meta app isn't configured on the server (META_APP_ID / config id missing)"); return; }
     setBusy("connect");
+    let FB;
+    try { FB = await loadFbSdk(st.app_id); }
+    catch (e) { setBusy(""); toast.error(e?.message === "blocked" ? SDK_HELP : "Meta login is still loading — try again in a few seconds"); return; }
     try {
       FB.login(async (resp) => {
         const code = resp?.authResponse?.code;
@@ -51,7 +66,11 @@ export const OwnWhatsAppCard = () => {
         finally { setBusy(""); }
       }, { config_id: st.config_id, response_type: "code", override_default_response_type: true,
            extras: { setup: {}, featureType: "whatsapp_business_app_onboarding", sessionInfoVersion: "3" } });
-    } catch { setBusy(""); toast.error("Couldn't load Meta login"); }
+    } catch (e) {
+      setBusy("");
+      console.error("[meta-login]", e);
+      toast.error(`Couldn't open Meta login: ${e?.message || "unknown error"}`, { description: "If a popup was blocked, allow popups for this site and try again." });
+    }
   };
   const act = async (kind) => {
     setBusy(kind);

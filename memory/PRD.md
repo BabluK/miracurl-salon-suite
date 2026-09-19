@@ -3433,3 +3433,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-18 — Poster refactor (pixel-identical) · bulk feature reset
 - `_loyalty_poster_jpeg` → `_Poster` dataclass + steps `_poster_canvas/_poster_header/_poster_stamp_journey/_poster_qr/_poster_gift_block/_render_poster`. Verified byte-identical on 56 variants (logo×resto×7 designs×2 shapes) via `tests/tools/poster_snap.py before|after` (baseline `tests/tools/poster_before.json`). Re-run `after` whenever the poster code changes.
 - Bulk reset: `GET /super-admin/features/enabled` (tenants with sms/whatsapp ON) + `POST /super-admin/features/reset {keep_tenant_ids, channels}` → features OFF for all others, tenant audit + hq_audit features_bulk_reset. UI: Tenants tab → "Reset SMS/WA flags" → `ResetFeaturesModal` (tick approved → "Switch OFF N tenants").
+
+## 2026-09-19 — Prod regressions from "support access OFF by default" fixed
+- Super Admin "Open" on a tenant with support_access unset → 403 → endless splash. Fix: `openSalon()` in SuperAdmin.jsx uses askConfirm "Turn on & open" → PUT features {support_access:true} → act-as. Dashboard shows a clear 403 toast with "Back to Super Admin" for super admins.
+- OwnWhatsAppCard: `loadFbSdk` now guarantees FB.init (module flag), detects blocked SDK (script onerror → helpful message), 12s timeout; `connect` awaits SDK and surfaces the real exception text instead of "Couldn't load Meta login".
+- SmsLogModal: human labels for error codes (`sms_disabled` → "SMS not enabled for this salon — Super Admin → Features → SMS ON", etc.).
+- NOTE for prod: `sms_disabled` in tenant SMS logs = feature OFF by design (strict opt-in) — enable per tenant in Features. Meta payment: Visa ••3013 already attached, ₹0 billed (pay-as-you-go; no purchase needed).

@@ -4,6 +4,15 @@ import { X, MessageSquareText } from "lucide-react";
 
 const KIND_ICON = { booking: "📅", billing: "🧾", reminder: "⏰", cancellation: "❌", general: "💬" };
 
+const ERR_LABEL = {
+  sms_disabled: "SMS not enabled for this salon — Super Admin → Features → SMS ON",
+  no_credits: "No SMS credits — grant or the salon buys a pack",
+  invalid_phone: "Invalid mobile number",
+  sms_not_configured: "MSG91 not configured on the server",
+  msg91_generic_flow_missing: "No DLT template for this message kind",
+};
+const errLabel = (e) => (e && (ERR_LABEL[e] || ERR_LABEL[String(e).split(":")[0]])) || e;
+
 export default function SmsLogModal({ tenant, onClose }) {
   const [data, setData] = useState(null);
 
@@ -48,7 +57,7 @@ export default function SmsLogModal({ tenant, onClose }) {
                   <div className="text-slate-500 mt-1 truncate">{r.preview}</div>
                   <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
                     <span>{(r.created_at || "").slice(0, 16).replace("T", " ")}</span>
-                    {!r.sent && r.error && r.error !== "no_sms_points" && <span className="text-rose-400">· {r.error}</span>}
+                    {!r.sent && r.error && r.error !== "no_sms_points" && <span className="text-rose-400">· {errLabel(r.error)}</span>}
                   </div>
                 </div>
               ))}

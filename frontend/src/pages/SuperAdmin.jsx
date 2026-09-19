@@ -343,6 +343,21 @@ export default function SuperAdmin() {
     }
   }
 
+  // Support access is OFF by default — opening a salon switches it on (audited) after an explicit confirmation.
+  async function openSalon(t) {
+    const go = () => { setActAsSalon(t.slug, t.name); nav("/dashboard"); };
+    if (t.support_access === true) return go();
+    askConfirm({
+      title: `Open ${t.name}?`,
+      message: "Miracurl support access is currently OFF for this salon. Opening it switches access ON (the owner sees HQ edits in their Audit log as “Miracurl Support”). You can switch it off again in Features.",
+      confirmLabel: "Turn on & open",
+      action: async () => {
+        try { await api.put(`/super-admin/tenants/${t.id}/features`, { support_access: true }); go(); }
+        catch (e) { toast.error(e.response?.data?.detail || "Couldn't enable support access"); }
+      },
+    });
+  }
+
   async function grantCredits(t, channel = "sms") {
     const label = channel === "sms" ? "SMS" : "WhatsApp";
     const bal = channel === "sms" ? t.sms_points || 0 : t.wa_points || 0;
@@ -763,7 +778,7 @@ export default function SuperAdmin() {
                 <div className="flex items-center gap-3 shrink-0">
                   <TenantCreditPills t={t} onGrant={grantCredits} onViewLog={(tt) => setSmsLogFor(tt)} />
                   <div className="flex items-center gap-0.5 border border-slate-200 bg-slate-50/60 rounded-xl px-1.5 py-1" data-testid={`tenant-actions-${t.id}`}>
-                    <ActionBtn testid={`open-salon-${t.id}`} onClick={() => { setActAsSalon(t.slug, t.name); nav("/dashboard"); }} title="Open this tenant's workspace (edit & correct — no deletes)" tone="text-violet-600 hover:bg-violet-50" icon={Eye} label="Open" />
+                    <ActionBtn testid={`open-salon-${t.id}`} onClick={() => openSalon(t)} title="Open this tenant's workspace (edit & correct — no deletes)" tone="text-violet-600 hover:bg-violet-50" icon={Eye} label="Open" />
                     <ActionBtn testid={`edit-tenant-${t.id}`} onClick={() => setEditFor(t)} title="Edit details, credentials & branch links" tone="text-emerald-600 hover:bg-emerald-50" icon={Pencil} label="Edit" />
                     <ActionBtn testid={`features-tenant-${t.id}`} onClick={() => setFeaturesFor(t)} title="Switch SMS / WhatsApp / Campaign on or off for this tenant" tone="text-[#9b3a4e] hover:bg-rose-50" icon={ToggleRight} label="Features" />
                     <ActionBtn testid={`tenant-profile-pdf-${t.id}`} onClick={() => profilePdf(t)} title="Account Profile PDF — HQ + tenant logo, owner & business details, trial and plan dates" tone="text-amber-600 hover:bg-amber-50" icon={IdCard} label="Profile" />

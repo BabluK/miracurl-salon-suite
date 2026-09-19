@@ -111,7 +111,14 @@ export default function Dashboard() {
           _dashPaintedOnce = true;
           try { sessionStorage.setItem(key, JSON.stringify(r.data)); } catch { /* quota */ }
         })
-        .catch(e => toast.error(`Couldn't load dashboard: ${e?.message || "network error"}`));
+        .catch(e => {
+          if (e?.response?.status === 403 && user?.role === "super_admin") {
+            toast.error("Support access is OFF for this salon", { description: e.response?.data?.detail || "Enable it in Super Admin → Features, then open the workspace again.", duration: 8000,
+              action: { label: "Back to Super Admin", onClick: () => { window.location.href = "/super-admin"; } } });
+            return;
+          }
+          toast.error(`Couldn't load dashboard: ${e?.response?.data?.detail || e?.message || "network error"}`);
+        });
     };
     fetchDash();
     window.addEventListener("branch-changed", fetchDash);
@@ -120,7 +127,7 @@ export default function Dashboard() {
       api.get("/billing/subscription-status").then(r => setSubStatus(r.data)).catch(() => {});
     }
     return () => window.removeEventListener("branch-changed", fetchDash);
-  }, [isOwner, tenant?.id]);
+  }, [isOwner, tenant?.id, user?.role]);
 
   const isAdmin = user?.role === "admin" || user?.role === "super_admin";
   const monthMasked = !!data && ((data.month_revenue_locked && !(isAdmin && showMonth)) || (data.month_revenue_hidden_for_staff && !showMonth));
