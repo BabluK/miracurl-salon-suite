@@ -796,13 +796,15 @@ async def public_guest_lookup(slug: str, request: Request, phone: str = ""):
     digits = _norm_in_phone(phone)
     if not digits:
         return {"found": False}
-    c = await db.customers.find_one({"phone": digits}, {"_id": 0, "name": 1, "visits": 1})
+    c = await db.customers.find_one({"phone": digits}, {"_id": 0, "name": 1, "visits": 1, "gender": 1})
     if not c:
         return {"found": False}
     first = (c.get("name") or "").strip().split(" ")[0][:30]
     if not first or first.lower() in ("dine-in", "guest"):
         return {"found": False}
-    return {"found": True, "name": first, "visits": int(c.get("visits") or 0)}
+    g = (c.get("gender") or "").lower()
+    title = "Mr" if g == "male" else "Ms" if g == "female" else ""
+    return {"found": True, "name": first, "title": title, "visits": int(c.get("visits") or 0)}
 
 
 @router.post("/public/table-order/{slug}")

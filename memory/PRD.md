@@ -3495,3 +3495,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-19 — Gold-ring logo + SMS OTP live
 - User clarified: logo = gold MS ring on white (not the dark-circle emblem). Created `/public/assets/ms-logo-ring.png` (white→transparent, 640px) from the uploaded asset; used in `SparkleLogo` (LandingBits — login desktop showcase + landing mobile nav) and `BrandMark`. Dark emblem still used on Landing hero/footer/BrandSplash/SuperAdmin.
 - MSG91 OTP: `MSG91_TPL_OTP=6aae14594f99d7fba7049633` in backend/.env (also default in sms_service "otp" kind, var name `var1`). Verified `send_sms_template(..., "otp", [code])` → sent:true; reset-request → channel "sms". Build 2026-09-19.295.
+
+## 2026-09-19 — QR table-order Welcome Gate
+- `components/order/WelcomeGate.jsx` rendered by OrderPublic until `entered` (sessionStorage `mc_order_gate:<slug>`): phone → guest-lookup (now returns `title` Mr/Ms from customer gender) → known: welcome-back card + "Proceed to order"; new: name step → "Start ordering". Call waiter on gate + header. Header greeting text updated. Verified both flows on mobile viewport. Build 2026-09-19.296.

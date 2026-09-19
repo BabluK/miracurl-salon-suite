@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.295"
-BUILD_TIME = "19 Sep 2026, 12:30 PM IST"
+BUILD = "2026-09-19.296"
+BUILD_TIME = "19 Sep 2026, 01:00 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.296", "note": "QR table menu welcome gate (components/order/WelcomeGate.jsx): after a scan the diner enters their mobile; known guests get 'Welcome back, Mr/Ms <name> — we're happy you came back, please proceed with your order, let us know if you need any assistance' + Call waiter; new guests are asked for their name. Gate remembered per session (sessionStorage mc_order_gate:<slug>). guest-lookup returns title (Mr/Ms by gender)."},
     {"build": "2026-09-19.295", "note": "Login logo switched to the gold-ring MS monogram (/assets/ms-logo-ring.png, transparent bg derived from user asset) in SparkleLogo (desktop showcase + landing nav) and BrandMark (mobile/tablet + sidebar). Staff-portal OTP now goes by SMS via DLT template miracurl_otp (MSG91_TPL_OTP=6aae14594f99d7fba7049633, var1=code) — verified sent; email remains fallback."},
     {"build": "2026-09-19.294", "note": "Login page tablet (md) layout: nav gaps/text tightened + left padding so the MS emblem no longer overlaps Features; wordmark hidden on md (emblem only), full mark on mobile and desktop showcase."},
     {"build": "2026-09-19.293", "note": "Brand: BrandMark (login page mobile/tablet, sidebar) and Super Admin header/site-info/onboarding studio now use the gold MS emblem (/assets/ms-logo-emblem.png) matching the landing page; subtitle → AI-Powered Business Management Platform; mobile login brand mark shrunk to avoid overlapping Get Started."},
@@ -102,6 +103,7 @@ RELEASES = [
         "changes": [
             "🛠️ 'Ask Miracurl to fix this' got a concierge makeover — a premium popup with a live 500-character counter and a direct Miracurl Support link, now available on your phone too. Every request becomes a numbered HQ ticket",
             "📱 Phone fix: the app no longer reloads when you swipe down at the top of a page (pull-to-refresh is off inside Miracurl), and login → dashboard now paints once instead of twice",
+            "🙋 Table QR welcome: returning diners are greeted by name ('Welcome back, Mr Bablu — we're happy you came back'), new diners are asked for mobile + name, and a Call waiter button is always one tap away",
             "🍽️ Table QR fixed: diners scanning a table QR stay on your menu — no more bounce to the login page",
             "📍 Track your fix requests live: the new 'My requests' tab shows each ticket moving Sent → HQ working on it → Fixed, with notes from Miracurl Support — and a gold badge on the button while HQ is on it",
             "⚡ Faster everywhere: pages open instantly from your last snapshot and refresh in the background, duplicate loads are gone, and the dashboard shows a little 'Loaded in 0.4s' pulse so you can see the speed",

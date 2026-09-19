@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Loader2, Minus, Plus, UtensilsCrossed, CheckCircle2 } from "lucide-react";
 import { DishPhotoLightbox } from "../components/DishPhotoLightbox";
 import { thumbUrl } from "@/lib/api";
+import { WelcomeGate } from "../components/order/WelcomeGate";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -26,20 +27,23 @@ export default function OrderPublic() {
   const [liveStatus, setLiveStatus] = useState("new");
   const [photoDish, setPhotoDish] = useState(null);
   const [guest, setGuest] = useState(null);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [entered, setEntered] = useState(() => sessionStorage.getItem(`mc_order_gate:${slug}`) === "1");
 
   useEffect(() => {
     let d = phone.replace(/\D/g, "");
     if (d.length === 12 && d.startsWith("91")) d = d.slice(2);
     if (d.length === 11 && d.startsWith("0")) d = d.slice(1);
-    if (!/^[6-9]\d{9}$/.test(d)) { setGuest(null); return; }
+    if (!/^[6-9]\d{9}$/.test(d)) { setGuest(null); setLookingUp(false); return; }
+    setLookingUp(true);
     const t = setTimeout(() => {
       axios.get(`${BACKEND_URL}/api/public/guest-lookup/${slug}?phone=${d}`)
         .then(r => {
           setGuest(r.data.found ? r.data : null);
           if (r.data.found) setName(n => n || r.data.name);
-        }).catch(() => setGuest(null));
+        }).catch(() => setGuest(null)).finally(() => setLookingUp(false));
     }, 500);
-    return () => clearTimeout(t);
+    return () => { clearTimeout(t); setLookingUp(false); };
   }, [phone, slug]);
 
   useEffect(() => {
@@ -145,6 +149,12 @@ export default function OrderPublic() {
     </div>
   );
 
+  if (!entered) return (
+    <WelcomeGate salon={salon} table={table} phone={phone} setPhone={setPhone} name={name} setName={setName}
+      guest={guest} lookingUp={lookingUp} onCallWaiter={() => callStaff("waiter")}
+      onProceed={() => { sessionStorage.setItem(`mc_order_gate:${slug}`, "1"); setEntered(true); }} />
+  );
+
   return (
     <div className="min-h-screen bg-[#0d0b10] text-white pb-40" data-testid="order-public-page">
       <header className="px-5 pt-8 pb-5 border-b border-white/10">
@@ -173,7 +183,7 @@ export default function OrderPublic() {
           {guest && (
             <div data-testid="returning-guest-greeting"
               className="mt-2 px-3 py-2 rounded-xl bg-gold/10 border border-gold/40 text-gold text-sm font-semibold">
-              👋 Welcome back, {guest.name}! Visit #{(guest.visits || 0) + 1} — loyalty points on this one ✨
+              👋 Welcome back{guest.title ? `, ${guest.title}` : ","} {guest.name}! We're happy you came back — proceed with your order, and tap <b>Call waiter</b> anytime you need assistance. Visit #{(guest.visits || 0) + 1} ✨
             </div>
           )}
         </div>
