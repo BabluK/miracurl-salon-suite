@@ -24,9 +24,9 @@ export function OrderStatusView({ salon, done, liveStatus, resumed, onOrderMore,
   const placedAt = done.created_at ? new Date(done.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "";
 
   return (
-    <div className="min-h-screen bg-[#0b0a09] text-white px-5 pt-6 pb-10 relative overflow-hidden" data-testid="order-success">
-      <img src="/assets/login/restaurant.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-[0.18] pointer-events-none" />
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0b0a09]/40 via-[#0b0a09]/85 to-[#0b0a09] pointer-events-none" />
+    <div className="min-h-screen bg-[#0b0a09] text-white px-5 pt-6 pb-10 relative overflow-hidden max-w-md mx-auto shadow-[0_0_80px_rgba(0,0,0,0.8)]" data-testid="order-success">
+      <img src="/assets/login/restaurant.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-[0.12] pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0b0a09]/70 via-[#0b0a09]/92 to-[#0b0a09] pointer-events-none" />
 
       <div className="relative">
         <div className="flex items-start justify-between">

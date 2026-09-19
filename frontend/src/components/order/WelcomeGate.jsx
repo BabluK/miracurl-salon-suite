@@ -24,7 +24,7 @@ export function WelcomeGate({ salon, table, phone, setPhone, name, setName, gues
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0a09] text-white flex flex-col" data-testid="order-welcome-gate">
+    <div className="max-w-md mx-auto min-h-screen bg-[#0b0a09] text-white flex flex-col" data-testid="order-welcome-gate">
       <div className="px-6 pt-10 pb-6 text-center">
         {salon.logo_url && <img src={salon.logo_url} alt={salon.name} className="w-20 h-20 rounded-2xl object-contain bg-white p-1 mx-auto" />}
         <div className="mt-4 flex items-center justify-center gap-2 text-gold text-[10px] tracking-[0.3em] uppercase"><UtensilsCrossed className="w-3.5 h-3.5" /> Table {table || "—"}</div>

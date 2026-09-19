@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.299"
-BUILD_TIME = "19 Sep 2026, 03:00 PM IST"
+BUILD = "2026-09-19.300"
+BUILD_TIME = "19 Sep 2026, 03:10 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.300", "note": "QR ordering on desktop/tablet: welcome, menu and status screens now render as a centred phone-width column (max-w-md) with a darker photo overlay, so text stays readable on wide screens; cart bar follows the column."},
     {"build": "2026-09-19.299", "note": "QR welcome screen: returning diners see 'Your last order' (latest non-cancelled table_order for their phone, via guest-lookup.last_order) with one-tap 'Order the same again · ₹total' → cart prefilled with qty + spice (sold-out/removed dishes skipped with a note) → straight to Send to kitchen."},
     {"build": "2026-09-19.298", "note": "QR ordering pixel-matched to reference mock-ups: menu (icon category chips w/ gold underline, View all →, +ADD pills, descriptions, name/phone icons, table input hidden when table comes from QR), status screen (sparkle check, timeline card, chef-hat script, gold Order-something-else, View Order Details expander, footer rule), wait panel (hero copy, Play/Pass/Stay icons, Good Things Take Time bubble, generated diner illustration /assets/order/wait-boy.jpg, Play a Game Now, 4 tiles: Sudoku 4×4, Jigsaw 3×3, Bubble Pop, Tic Tac Toe)."},
     {"build": "2026-09-19.297", "note": "QR table ordering redesign: hero header (logo ring, script tagline, party-size selector, +91 phone pill, Call waiter / Water please), sticky category chips, Playfair section titles, persistent Your Order / View Cart bar. Order persistence: active order saved in localStorage (mc_order_active:<slug>, 3h) so closing/reopening the page resumes the live status screen with a Welcome-back banner + 'Would you like to order anything else?' prompt; new OrderStatusView timeline; after 10 minutes waiting a WaitGames panel (Tic Tac Toe vs chef, Bubble Pop) appears. table-order accepts optional guests."},

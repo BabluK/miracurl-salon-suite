@@ -144,7 +144,7 @@ export default function OrderPublic() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0d0b10] text-white pb-40" data-testid="order-public-page">
+    <div className="min-h-screen bg-[#0d0b10] text-white pb-40 max-w-md mx-auto shadow-[0_0_80px_rgba(0,0,0,0.8)]" data-testid="order-public-page">
       <header className="relative px-5 pt-7 pb-5 overflow-hidden border-b border-white/10">
         <img src="/assets/login/restaurant.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none" style={{ WebkitMaskImage: "linear-gradient(180deg,#000 30%,transparent)", maskImage: "linear-gradient(180deg,#000 30%,transparent)" }} />
         <div className="relative flex items-start gap-3">
@@ -292,7 +292,7 @@ export default function OrderPublic() {
         {menu.length === 0 && <p className="text-white/40 text-sm text-center py-10">Menu coming soon…</p>}
       </main>
 
-      <div className="fixed bottom-0 inset-x-0 p-4 bg-[#12101a]/95 backdrop-blur border-t border-gold/25 flex items-center gap-3" data-testid="order-cart-bar">
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md p-4 bg-[#12101a]/95 backdrop-blur border-t border-gold/25 flex items-center gap-3" data-testid="order-cart-bar">
         <div className="relative w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
           <ShoppingCart className="w-5 h-5 text-gold" />
           <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-gold text-black text-[10px] font-bold flex items-center justify-center" data-testid="order-cart-count">{cart.reduce((a, m) => a + qty[m.id], 0)}</span>
