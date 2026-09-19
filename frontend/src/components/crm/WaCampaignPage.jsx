@@ -21,6 +21,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
   const [batchMode, setBatchMode] = useState("hourly");
   const [batchTime, setBatchTime] = useState("23:00");
   const [batchTz, setBatchTz] = useState("Asia/Kolkata");
+  const [advice, setAdvice] = useState(null);
   const audienceTotal = audience === "all" ? counts.all_total : audience === "loyal" ? counts.loyal_total : 0;
   const canBatch = (audience === "all" || audience === "loyal") && audienceTotal > (counts.per_send_limit || 500);
   const [tpl, setTpl] = useState("festive");
@@ -46,7 +47,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
     api.get("/whatsapp-link/audience-counts").then(r => setCounts(r.data))
       .catch(e => toast.error(`Couldn't load your guest counts: ${e.response?.data?.detail || e.message}`));
     api.get("/whatsapp-link/festivals").then(r => { const d = { ...r.data, today: r.data.today && (r.data.today.day || 1) <= 1 ? r.data.today : null }; setFest(d); const f = d.today || d.upcoming?.[0] || d.next; if (f) setFestPick(f.name); }).catch(() => {});
-    api.get("/whatsapp-link/batch-settings").then(r => { setBatchMode(r.data.batch_mode); setBatchTime(r.data.batch_time); setBatchTz(r.data.timezone); }).catch(() => {});
+    api.get("/whatsapp-link/batch-settings").then(r => { setBatchMode(r.data.batch_mode); setBatchTime(r.data.batch_time); setBatchTz(r.data.timezone); setAdvice(r.data.advice || null); }).catch(() => {});
     loadCamps();
     const id = setInterval(loadCamps, 15000);
     return () => clearInterval(id);
@@ -220,6 +221,14 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
                       </>
                     )}
                     {batchMode === "manual" && <span className="text-slate-400">Each batch waits in Campaign History with a “Send this batch now” button</span>}
+                  </div>
+                )}
+                {autoBatch && batchMode === "daily" && advice && (
+                  <div className="mt-2 ml-6 flex flex-wrap items-center gap-2 text-xs" data-testid="wa-send-time-advice">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 font-semibold"><Sparkles className="w-3 h-3" /> Mira suggests {advice.hour}</span>
+                    <span className="text-slate-500">{advice.why}</span>
+                    {batchTime !== advice.hour && <button type="button" onClick={() => setBatchTime(advice.hour)} data-testid="wa-use-advice" className="px-2 py-0.5 rounded-lg bg-violet-600 text-white font-semibold hover:bg-violet-700">Use {advice.hour}</button>}
+                    {batchTime === advice.hour && <span className="text-emerald-700 font-semibold">✓ using Mira's pick</span>}
                   </div>
                 )}
               </div>

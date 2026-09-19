@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.316"
-BUILD_TIME = "19 Sep 2026, 11:15 PM IST"
+BUILD = "2026-09-19.317"
+BUILD_TIME = "19 Sep 2026, 11:45 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.317", "note": "WA campaigns: Batch Summary card (CampaignHistory groups batch rows under parent: '2,104 guests · 2 of 5 batches done · next tomorrow 11 PM' + progress bar). Send-Time Advisor: send_time_advice() buckets read receipts (wa_timestamp) + inbound replies by tenant-tz hour (8–21 only), salon → platform → 11:00 fallback; GET /whatsapp-link/send-time-advice; batch-settings pre-fills batch_time with the advice when the tenant hasn't set one; composer shows 'Mira suggests HH:00' + Use button."},
     {"build": "2026-09-19.316", "note": "WA auto-batch release modes: CampaignIn.batch_mode hourly|daily|manual + batch_time (HH:MM, tenant timezone via _tenant_tz). daily → follow-up batches at the next N days' slot; manual → batches created paused+manual, released via /campaigns/{id}/resume (stamps released_by/released_at). GET /whatsapp-link/batch-settings returns the tenant default (persisted on each send). New 'Thank You' campaign type (offer_type=thankyou) → Meta template miracurl_thank_you (submitted, PENDING) — send blocked with 409 until APPROVED (template_status cached 5 min). Composer: mode selector + time picker + 'Send this batch now' button for manual batches."},
     {"build": "2026-09-19.315", "note": "WA campaigns Auto-batch: fixed 500 on POST /whatsapp-link/campaigns (auto_batch missing from CampaignIn); 'All'/'Loyal' + auto_batch now sends 500 immediately and queues the rest in 500-guest batches, each scheduled +1h (verified: 1,151 guests → 500 + 500 + 151, no overlap, worker due-check honours scheduled_at). Campaign history shows 'Batch n of N · sends at HH:MM' chip."},
     {"build": "2026-09-19.314", "note": "HQ contact WhatsApp unified to the Cloud API sender +91 91803 79552 (919180379552) across landing wa.me links, Site Info default and Number Health expected value (was 919180261256)."},
@@ -121,6 +122,8 @@ RELEASES = [
     {
         "date": "2026-09-19 (Faster app, smarter SMS & tighter HQ control ⚡)",
         "changes": [
+            "📊 Batch Summary: big campaigns now show one gold summary card — '2,104 guests · 2 of 5 batches done · next tomorrow 11 PM' with a progress bar — above the individual batch rows",
+            "🕖 Mira's Send-Time Advisor: when you pick 'Daily at a fixed time', Mira suggests the hour your guests actually read and reply to WhatsApp (from past read receipts) and pre-fills it — one tap to use her pick",
             "⏰ Choose how the follow-up batches go out: every hour, daily at a fixed time in YOUR local time (e.g. 11 PM IST for India, your own timezone abroad), or manually — each waiting batch shows a gold 'Send this batch now' button and is marked 'sent manually by you' once released",
             "🙏 New 'Thank You' campaign type — a pure gratitude message ('You are not just a client — you are a part of our journey') with no offer, signed by your salon. Goes live as soon as Meta approves the new template",
             "📣 One-click campaign to ALL your guests: pick 'All Customers', tick 'Auto-batch the rest' and hit Send — 500 go out now, the remaining guests are queued in 500-guest batches one hour apart (2,060 guests = 5 batches, all automatic). Each batch shows 'Batch 2 of 5 · sends at 4:00 PM' in Campaign history with its own sent/read/replied count",

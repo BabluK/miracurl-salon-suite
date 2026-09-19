@@ -332,7 +332,54 @@ def _batch_slots(t: dict, mode: str, btime: str, n: int) -> list[str | None]:
 @router.get("/batch-settings")
 async def batch_settings(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     from services.day_window import _tenant_tz
-    return {"batch_mode": t.get("wa_batch_mode") or "hourly", "batch_time": t.get("wa_batch_time") or "23:00", "timezone": str(_tenant_tz(t))}
+    advice = await send_time_advice(t)
+    return {"batch_mode": t.get("wa_batch_mode") or "hourly", "batch_time": t.get("wa_batch_time") or advice["hour"], "timezone": str(_tenant_tz(t)),
+            "advice": advice, "time_is_default": not t.get("wa_batch_time")}
+
+
+async def send_time_advice(t: dict) -> dict:
+    """Mira's best send hour: hour-of-day (tenant tz) when this salon's guests actually READ or replied to WhatsApp messages.
+    Falls back to platform-wide receipts, then to 11:00. wa_timestamp = Meta epoch of the last status (read time for status=read)."""
+    from services.day_window import _tenant_tz
+    tz = _tenant_tz(t)
+
+    async def _hours(q: dict, ts_field: str, limit: int) -> list[int]:
+        out = []
+        async for m in _raw_db.whatsapp_messages.find(q, {"_id": 0, ts_field: 1}).sort("created_at", -1).limit(limit):
+            v = m.get(ts_field)
+            try:
+                dt = datetime.fromtimestamp(int(v), tz=timezone.utc) if str(v).isdigit() else datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+            except (TypeError, ValueError):
+                continue
+            out.append(dt.astimezone(tz).hour)
+        return out
+
+    async def _sample(scope: dict) -> list[int]:
+        reads = await _hours({**scope, "direction": "outbound", "status": "read", "wa_timestamp": {"$exists": True}}, "wa_timestamp", 3000)
+        replies = await _hours({**scope, "direction": "inbound"}, "created_at", 1500)
+        return reads + replies
+
+    hours, source = await _sample({"tenant_id": t["id"]}), "salon"
+    if len(hours) < 20:
+        hours, source = await _sample({}), "platform"
+    if len(hours) < 20:
+        return {"hour": "11:00", "confidence": "low", "based_on": len(hours), "source": "default", "top": [],
+                "why": "Not enough read receipts yet — 11 AM is the safest default for salon guests; Mira will refine this after your first campaigns."}
+    buckets = [0] * 24
+    for h in hours:
+        if 8 <= h <= 21:  # never suggest late-night / early-morning sends
+            buckets[h] += 1
+    best = max(range(24), key=lambda h: buckets[h])
+    top = sorted(({"hour": f"{h:02d}:00", "engagements": buckets[h]} for h in range(24) if buckets[h]), key=lambda x: -x["engagements"])[:3]
+    conf = "high" if len(hours) >= 200 else "medium"
+    who = "your guests" if source == "salon" else "salon guests across Miracurl"
+    return {"hour": f"{best:02d}:00", "confidence": conf, "based_on": len(hours), "source": source, "top": top,
+            "why": f"{who} read and reply to WhatsApp most around {best % 12 or 12} {'AM' if best < 12 else 'PM'} ({buckets[best]} of {len(hours)} engagements)."}
+
+
+@router.get("/send-time-advice")
+async def send_time_advice_ep(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    return await send_time_advice(t)
 
 
 @router.get("/campaigns")

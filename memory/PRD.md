@@ -252,7 +252,7 @@ Frontend:
 
 ## Session update history
 Moved to /app/memory/CHANGELOG.md (Jul 2026 split — PRD exceeded 700 lines). Backlog lives in /app/memory/ROADMAP.md.
-Latest: see CHANGELOG.md tail (2026-09-19 batch release modes hourly/daily/manual, Thank-You Meta template APPROVED, MDM prod import 2,104 guests — build .316). Earlier session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (/demo) + full Staff Verification workflow (public photo-upload form → HQ Staff Verification section → owner-verified → badge PDF + Staff ID generation + email/download).
+Latest: see CHANGELOG.md tail (2026-09-19 MDM prod go-live 2,200 credits, Batch Summary card, Send-Time Advisor — build .317). Earlier session: /app/memory/CHANGELOG_SESSION_20260719.md — Mira AI logo fix (/demo) + full Staff Verification workflow (public photo-upload form → HQ Staff Verification section → owner-verified → badge PDF + Staff ID generation + email/download).
 
 ## 2026-07-13 — Session updates
 - Day Offer: owner can now force a discount % ("Mira decides %" dropdown, 5-50%) — passed to /day-offers/suggest & suggest-another as {discount_pct}; AI must use exactly that %.

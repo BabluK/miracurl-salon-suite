@@ -61,21 +61,59 @@ export function PhonePreview({ salon, text, image, firstName, testPhone, setTest
 
 const TONE = { draft: "bg-violet-100 text-violet-700", done: "bg-emerald-100 text-emerald-700", running: "bg-sky-100 text-sky-700", queued: "bg-sky-100 text-sky-700", capped: "bg-amber-100 text-amber-700", paused: "bg-slate-100 text-slate-600", cancelled: "bg-slate-100 text-slate-500" };
 
+function BatchSummary({ group }) {
+  const rows = group.rows;
+  const total = rows.reduce((s, r) => s + (r.total || 0), 0);
+  const sent = rows.reduce((s, r) => s + (r.sent || 0), 0);
+  const done = rows.filter(r => r.status === "done").length;
+  const n = group.batches_total || rows.length;
+  const waiting = rows.find(r => r.manual && r.status === "paused");
+  const upcoming = rows.filter(r => !["done", "cancelled"].includes(r.status) && r.scheduled_at && new Date(r.scheduled_at) > new Date()).sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at))[0];
+  const running = rows.find(r => ["running", "queued"].includes(r.status) && (!r.scheduled_at || new Date(r.scheduled_at) <= new Date()));
+  const fmt = iso => { const d = new Date(iso); const day = d.toDateString() === new Date().toDateString() ? "today" : d.toDateString() === new Date(Date.now() + 864e5).toDateString() ? "tomorrow" : d.toLocaleDateString("en-IN", { day: "numeric", month: "short" }); return `${day} ${d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}`; };
+  const next = done === n ? "all batches delivered ✓" : running ? `batch ${running.batch_no} sending now` : waiting ? `batch ${waiting.batch_no} waiting for you` : upcoming ? `next ${fmt(upcoming.scheduled_at)}` : "";
+  const pct = total ? Math.round((sent / total) * 100) : 0;
+  return (
+    <li className="px-4 py-3 bg-[#fbf7ee] border-b border-[#b8863b]/20" data-testid={`wa-batch-summary-${group.id}`}>
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <div className="min-w-0">
+          <span className="font-semibold text-slate-800">{group.name}</span>
+          <span className="ml-2 text-xs text-[#8a6425] font-semibold" data-testid={`wa-batch-summary-line-${group.id}`}>{total.toLocaleString("en-IN")} guests · {done} of {n} batches done{next ? ` · ${next}` : ""}</span>
+        </div>
+        <span className="text-xs text-slate-600 shrink-0">{sent.toLocaleString("en-IN")}/{total.toLocaleString("en-IN")} sent</span>
+      </div>
+      <div className="mt-2 h-1.5 rounded-full bg-white border border-[#b8863b]/20 overflow-hidden"><div className="h-full bg-[#b8863b] transition-[width] duration-500" style={{ width: `${pct}%` }} /></div>
+    </li>
+  );
+}
+
+function groupBatches(rows) {
+  const groups = new Map();
+  const out = [];
+  for (const c of rows) {
+    const pid = c.batch_no ? (c.parent_id || c.id) : null;
+    if (!pid) { out.push({ kind: "row", c }); continue; }
+    if (!groups.has(pid)) { const g = { kind: "group", id: pid, name: c.name.replace(/ · batch \d+$/, ""), batches_total: c.batches_total, rows: [] }; groups.set(pid, g); out.push(g); }
+    groups.get(pid).rows.push(c);
+  }
+  for (const g of groups.values()) g.rows.sort((a, b) => (a.batch_no || 0) - (b.batch_no || 0));
+  return out;
+}
+
 export function CampaignHistory({ camps, onChange }) {
   const rows = camps?.campaigns || [];
   if (!rows.length) return <div className="rounded-2xl bg-white border border-slate-200 p-5 text-sm text-slate-500" data-testid="wa-history-empty">No campaigns yet — your first one will show up here.</div>;
   const act = (id, a) => api.post(`/whatsapp-link/campaigns/${id}/${a}`).then(onChange).catch(e => toast.error(e.response?.data?.detail || "Couldn't update"));
-  return (
-    <ul className="rounded-2xl bg-white border border-slate-200 divide-y divide-slate-100 shadow-sm" data-testid="wa-history">
-      {rows.map(c => (
-        <li key={c.id} className="px-4 py-3 flex items-center gap-3 text-sm" data-testid={`wa-history-${c.id}`}>
+  const items = groupBatches(rows);
+  const Row = ({ c, nested }) => (
+        <li key={c.id} className={`px-4 py-3 flex items-center gap-3 text-sm ${nested ? "pl-8 bg-white" : ""}`} data-testid={`wa-history-${c.id}`}>
           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${TONE[c.status] || TONE.paused}`}>{c.status === "capped" ? "daily limit" : c.status === "queued" && c.scheduled_at && new Date(c.scheduled_at) > new Date() ? "scheduled" : c.status}</span>
           <div className="flex-1 min-w-0">
             <div className="font-medium text-slate-800 truncate flex items-center gap-2">
               <span className="truncate">{c.batch_no ? c.name.replace(/ · batch \d+$/, "") : c.name}</span>
               {c.batch_no && <span className="shrink-0 px-1.5 py-0.5 rounded bg-[#b8863b]/10 text-[#8a6425] text-[10px] font-semibold" data-testid={`wa-batch-chip-${c.id}`}>
                 Batch {c.batch_no}{c.batches_total ? ` of ${c.batches_total}` : ""}
-                {c.manual && c.status === "paused" ? " · manual — waiting for you" : c.manual && c.released_by ? ` · sent manually by ${c.released_by}` : c.scheduled_at && new Date(c.scheduled_at) > new Date() ? ` · sends ${new Date(c.scheduled_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}` : ""}
+                {c.manual && c.status === "paused" ? " · manual — waiting for you" : c.manual && c.released_by ? ` · sent manually by ${c.released_by}` : !["done", "cancelled"].includes(c.status) && c.scheduled_at && new Date(c.scheduled_at) > new Date() ? ` · sends ${new Date(c.scheduled_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}` : ""}
               </span>}
             </div>
             <div className="text-[11px] text-slate-400">{new Date(c.scheduled_at || c.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}{c.failed ? ` · ${c.failed} failed` : ""}</div>
@@ -91,6 +129,16 @@ export function CampaignHistory({ camps, onChange }) {
           {c.status === "paused" && c.manual && <button onClick={() => act(c.id, "resume")} data-testid={`wa-release-${c.id}`} className="px-2.5 py-1 rounded-lg bg-[#b8863b] text-white text-xs font-semibold hover:bg-[#a0722f]">Send this batch now</button>}
           {c.status === "paused" && !c.manual && <button onClick={() => act(c.id, "resume")} className="text-xs text-emerald-700 font-semibold">Resume</button>}
           {["queued", "paused", "capped"].includes(c.status) && <button onClick={() => act(c.id, "cancel")} className="text-xs text-rose-600">Cancel</button>}
+        </li>
+  );
+  return (
+    <ul className="rounded-2xl bg-white border border-slate-200 divide-y divide-slate-100 shadow-sm overflow-hidden" data-testid="wa-history">
+      {items.map(it => it.kind === "row" ? <Row key={it.c.id} c={it.c} /> : (
+        <li key={it.id} className="p-0">
+          <ul className="divide-y divide-slate-100">
+            <BatchSummary group={it} />
+            {it.rows.map(c => <Row key={c.id} c={c} nested />)}
+          </ul>
         </li>
       ))}
     </ul>
