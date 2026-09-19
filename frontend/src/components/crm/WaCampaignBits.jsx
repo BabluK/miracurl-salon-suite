@@ -71,7 +71,12 @@ export function CampaignHistory({ camps, onChange }) {
         <li key={c.id} className="px-4 py-3 flex items-center gap-3 text-sm" data-testid={`wa-history-${c.id}`}>
           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${TONE[c.status] || TONE.paused}`}>{c.status === "capped" ? "daily limit" : c.status === "queued" && c.scheduled_at && new Date(c.scheduled_at) > new Date() ? "scheduled" : c.status}</span>
           <div className="flex-1 min-w-0">
-            <div className="font-medium text-slate-800 truncate">{c.name}</div>
+            <div className="font-medium text-slate-800 truncate flex items-center gap-2">
+              <span className="truncate">{c.batch_no ? c.name.replace(/ · batch \d+$/, "") : c.name}</span>
+              {c.batch_no && <span className="shrink-0 px-1.5 py-0.5 rounded bg-[#b8863b]/10 text-[#8a6425] text-[10px] font-semibold" data-testid={`wa-batch-chip-${c.id}`}>
+                Batch {c.batch_no}{c.batches_total ? ` of ${c.batches_total}` : ""}{c.scheduled_at && new Date(c.scheduled_at) > new Date() ? ` · sends at ${new Date(c.scheduled_at).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}` : ""}
+              </span>}
+            </div>
             <div className="text-[11px] text-slate-400">{new Date(c.scheduled_at || c.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}{c.failed ? ` · ${c.failed} failed` : ""}</div>
           </div>
           <span className="text-xs text-slate-600 shrink-0 text-right" data-testid={`wa-history-results-${c.id}`}>

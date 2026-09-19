@@ -16,6 +16,9 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
   const [status, setStatus] = useState(null);
   const [counts, setCounts] = useState({ all: 0, loyal: 0 });
   const [audience, setAudience] = useState(selectedCustomers.length ? "selected" : "all");
+  const [autoBatch, setAutoBatch] = useState(true);
+  const audienceTotal = audience === "all" ? counts.all_total : audience === "loyal" ? counts.loyal_total : 0;
+  const canBatch = (audience === "all" || audience === "loyal") && audienceTotal > (counts.per_send_limit || 500);
   const [tpl, setTpl] = useState("festive");
   const [brief, setBrief] = useState(TEMPLATES.festive.brief);
   const [discount, setDiscount] = useState(20);
@@ -126,10 +129,11 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
         audience, customer_ids: selectedCustomers.map(c => c.id), text, image_url: image?.url || null,
         name: `${TEMPLATES[tpl].label} · ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`,
         scheduled_at: when === "later" ? new Date(schedAt).toISOString() : null,
+        auto_batch: canBatch && autoBatch && when !== "later",
         festival: meta.festival || festPick, offer: meta.offer || brief.slice(0, 160), valid_till: meta.valid_till,
         offer_type: TEMPLATES[tpl].offer_type,
       });
-      toast.success(when === "later" ? `Scheduled for ${data.total} guests ✦` : `Queued ${data.total} messages — sending gradually ✦`);
+      toast.success(when === "later" ? `Scheduled for ${data.total} guests ✦` : data.auto_batches_scheduled ? `Queued ${data.total} now + ${data.auto_batches_scheduled} more batch${data.auto_batches_scheduled > 1 ? "es" : ""} of 500, one every hour — all ${audienceTotal.toLocaleString("en-IN")} guests covered ✦` : `Queued ${data.total} messages — sending gradually ✦`);
       setText(""); setImage(null); loadCamps(); setShowHistory(true);
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't queue"); }
     finally { setBusy(""); }
@@ -186,6 +190,12 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
                 </label>
               ))}
             </div>
+            {canBatch && (
+              <label className="mt-3 flex items-start gap-2 text-xs text-slate-600 cursor-pointer" data-testid="wa-auto-batch">
+                <input type="checkbox" checked={autoBatch} onChange={e => setAutoBatch(e.target.checked)} className="mt-0.5 accent-[#b8863b]" />
+                <span><b className="text-slate-800">Auto-batch the rest</b> — send 500 now, then the remaining {(audienceTotal - (counts.per_send_limit || 500)).toLocaleString("en-IN")} guests in batches of 500, one every hour, until all {audienceTotal.toLocaleString("en-IN")} are covered (needs ≈{audienceTotal.toLocaleString("en-IN")} credits).</span>
+              </label>
+            )}
             {audience === "selected" && selectedCustomers.length > 0 && (
               <div className="mt-3">
                 <div className="text-xs text-slate-500 mb-1.5">Selected Customers</div>

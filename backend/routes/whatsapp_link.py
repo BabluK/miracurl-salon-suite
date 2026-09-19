@@ -77,6 +77,14 @@ async def link_daily_cap(body: CapIn, user=Depends(require_tenant_admin), t=Depe
     return {"ok": True, "daily_cap": body.daily_cap}
 
 
+async def _audience_all_ids(t: dict, audience: str) -> list[str]:
+    q = {"tenant_id": t["id"], "phone": {"$nin": [None, ""]}}
+    if audience == "loyal":
+        q["visits"] = {"$gte": 3}
+    rows = await _raw_db.customers.find(q, {"_id": 0, "id": 1}).sort("visits" if audience == "loyal" else "last_visit", -1).to_list(20000)
+    return [r["id"] for r in rows]
+
+
 async def _audience_ids(t: dict, audience: str, ids: list[str]) -> list[str]:
     if audience == "all":
         rows = await _raw_db.customers.find({"tenant_id": t["id"], "phone": {"$nin": [None, ""]}}, {"_id": 0, "id": 1}).sort("last_visit", -1).to_list(500)
@@ -233,6 +241,7 @@ async def campaign_compose(body: ComposeIn, request: Request, user=Depends(requi
 class CampaignIn(BaseModel):
     audience: str = Field("selected", pattern="^(selected|all|loyal)$")
     customer_ids: list[str] = Field(default_factory=list, max_length=500)
+    auto_batch: bool = False
     text: str = Field(..., min_length=5, max_length=1000)
     image_url: Optional[str] = Field(None, max_length=600, pattern=r"^(/api/files/[A-Za-z0-9-]{8,64}|/assets/[A-Za-z0-9_./-]+\.(jpe?g|png|webp)|https://[^\s]+)$")
     name: str = Field("CRM campaign", max_length=80)
@@ -270,9 +279,28 @@ async def campaign_create(body: CampaignIn, request: Request, user=Depends(requi
     doc = await camp.create_campaign(t, name=body.name, text=body.text, image_url=img, recipients=rcps, created_by=user["id"], scheduled_at=sched)
     await _raw_db.wa_campaigns.update_one({"id": doc["id"]}, {"$set": {"festival": body.festival, "offer": body.offer,
                                                                         "valid_till": body.valid_till, "offer_type": body.offer_type}})
+    batches = 0
+    if body.auto_batch and body.audience in ("all", "loyal") and not sched:
+        from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+        sent_ids = set(ids)
+        rest = [i for i in await _audience_all_ids(t, body.audience) if i not in sent_ids]
+        for n, start in enumerate(range(0, len(rest), 500), start=1):
+            chunk = rest[start:start + 500]
+            bc = await _raw_db.customers.find({"tenant_id": t["id"], "id": {"$in": chunk}}, {"_id": 0, "id": 1, "name": 1, "phone": 1}).to_list(500)
+            brc = [{"customer_id": c["id"], "name": c.get("name") or "", "phone": c["phone"]} for c in bc if c.get("phone")]
+            if not brc:
+                continue
+            when = (_dt.now(_tz.utc) + _td(hours=n)).isoformat()
+            b = await camp.create_campaign(t, name=f"{body.name} · batch {n + 1}", text=body.text, image_url=img, recipients=brc,
+                                           created_by=user["id"], scheduled_at=when)
+            await _raw_db.wa_campaigns.update_one({"id": b["id"]}, {"$set": {"festival": body.festival, "offer": body.offer, "valid_till": body.valid_till,
+                                                                             "offer_type": body.offer_type, "parent_id": doc["id"], "batch_no": n + 1}})
+            batches += 1
+        await _raw_db.wa_campaigns.update_one({"id": doc["id"]}, {"$set": {"batch_no": 1, "batches_total": batches + 1}})
+        await _raw_db.wa_campaigns.update_many({"parent_id": doc["id"]}, {"$set": {"batches_total": batches + 1}})
     use = await camp.usage_today(t)
     doc.pop("recipients", None)
-    return {**doc, "skipped_no_phone": len(custs) - len(rcps), "usage": use}
+    return {**doc, "skipped_no_phone": len(custs) - len(rcps), "usage": use, "auto_batches_scheduled": batches}
 
 
 @router.get("/campaigns")
