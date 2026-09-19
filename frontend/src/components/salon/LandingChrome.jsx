@@ -1,48 +1,80 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Calendar, Menu, X, MapPin, Phone, Clock, Instagram, Facebook, Youtube, MessageCircle, Gift, CreditCard, Palette, Star, ArrowRight, Heart } from "lucide-react";
+import { Calendar, Menu, X, MapPin, Phone, Clock, Instagram, Facebook, Youtube, MessageCircle, Gift, CreditCard, Palette, Star, ArrowRight, Heart, Sparkles, ChevronDown } from "lucide-react";
 
-const NAV = [["Home", "#home"], ["Services", "#services"], ["Offers", "#offers"], ["Gallery", "#gallery"], ["About", "#about"], ["Contact", "#contact"]];
+const NAV = [["Home", "#home"], ["About Us", "#about"], ["Services", "#services"], ["Our Work", "#gallery"], ["Offers", "#offers"], ["Contact", "#contact"]];
 const scrollTo = (hash) => (e) => { e.preventDefault(); document.querySelector(hash)?.scrollIntoView({ behavior: "smooth", block: "start" }); };
 
 export function SalonNavbar({ s, bookHref, resto }) {
   const [open, setOpen] = useState(false);
   const [solid, setSolid] = useState(false);
+  const [branch, setBranch] = useState("");
   useEffect(() => {
     const onScroll = () => setSolid(window.scrollY > 40);
     onScroll(); window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
   const items = NAV.filter(([l, h]) => !(h === "#gallery" && !s.gallery?.length) && !(h === "#offers" && resto));
+  const branches = (s.branches || []).map(b => b.name).filter(Boolean);
+  const area = (b) => (b || s.location || "").split(",")[0].split("-").pop().trim();
+  const tagline = s.tagline || (resto ? "Taste · Warmth · For Everyone" : "Beauty · Care · For Everyone");
+  const href = branch ? `${bookHref}${bookHref.includes("?") ? "&" : "?"}branch=${encodeURIComponent(branch)}` : bookHref;
   return (
-    <header className={`fixed top-0 inset-x-0 z-40 border-b transition-colors duration-300 ${solid ? "bg-[#080809]/95 border-gold/15 backdrop-blur-xl" : "bg-black/40 border-transparent backdrop-blur-md"}`} data-testid="salon-navbar">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-        <a href="#home" onClick={scrollTo("#home")} className="flex items-center gap-3 min-w-0" data-testid="salon-header-tenant-brand">
-          {s.logo_url && <img src={s.logo_url} alt={s.name} className="w-11 h-11 rounded-xl object-contain bg-[#14141a] border border-gold/30 flex-shrink-0" />}
-          <span className="min-w-0 leading-tight">
-            <span className="block font-playfair text-sm sm:text-base gold-shine-text truncate">{s.name}</span>
-            <span className="block text-[8px] sm:text-[9px] uppercase tracking-[0.32em] text-white/45 truncate">{resto ? "Fine Dining · Powered by Mira AI" : "Luxury Salon · Powered by Mira AI"}</span>
-          </span>
-        </a>
-        <nav className="hidden lg:flex items-center gap-7 text-[13px] text-white/75" data-testid="salon-nav">
-          {items.map(([l, h]) => (
-            <a key={h} href={h} onClick={scrollTo(h)} data-testid={`salon-nav-${l.toLowerCase()}`} className="relative py-1 hover:text-white transition-colors after:absolute after:left-0 after:-bottom-0.5 after:h-px after:w-0 after:bg-gold hover:after:w-full after:transition-[width] after:duration-300">{l}</a>
-          ))}
-        </nav>
-        <div className="flex items-center gap-2">
-          <Link to={bookHref} data-testid="salon-header-book-btn" className="inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-xs sm:text-sm font-bold hover:brightness-110 flex-shrink-0 shadow-[0_10px_24px_-10px_rgba(232,197,106,.9)]">
-            <Calendar className="w-4 h-4" /> {resto ? "Reserve" : "Book Now"} <ArrowRight className="w-4 h-4 hidden sm:block" />
-          </Link>
-          <button type="button" onClick={() => setOpen(o => !o)} aria-label="Menu" data-testid="salon-nav-toggle" className="lg:hidden w-10 h-10 rounded-xl border border-white/15 text-white/80 flex items-center justify-center">
-            {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
+    <header className="fixed top-0 inset-x-0 z-40 px-2 sm:px-4 pt-2 sm:pt-3" data-testid="salon-navbar">
+      <div className={`max-w-[1500px] mx-auto rounded-b-[28px] sm:rounded-b-[36px] border border-[#d4af37]/40 bg-[#fffdf8]/95 backdrop-blur-xl text-[#1f1a10] transition-shadow duration-300 ${solid ? "shadow-[0_18px_50px_-20px_rgba(0,0,0,.6)]" : "shadow-[0_10px_40px_-18px_rgba(0,0,0,.45)]"}`}>
+        <div className="px-4 sm:px-8 h-[72px] sm:h-[88px] flex items-center gap-4 sm:gap-6">
+          <a href="#home" onClick={scrollTo("#home")} className="flex items-center gap-3 min-w-0" data-testid="salon-header-tenant-brand">
+            {s.logo_url ? (
+              <img src={s.logo_url} alt={s.name} className="h-12 sm:h-16 w-auto max-w-[170px] sm:max-w-[240px] object-contain flex-shrink-0" />
+            ) : (
+              <span className="leading-none">
+                <span className="block font-caveat text-[#b8863b] text-3xl sm:text-[34px] leading-none whitespace-nowrap max-w-[300px] truncate">{s.name}</span>
+                <span className="block text-[9px] tracking-[0.35em] uppercase text-[#7a6a45] mt-1">{resto ? "Restaurant" : "Unisex Salon"}</span>
+              </span>
+            )}
+          </a>
+          <div className="hidden xl:block h-12 w-px bg-[#d4af37]/40" />
+          <div className="hidden xl:block leading-tight">
+            <div className="text-[11px] tracking-[0.35em] uppercase text-[#5b4b2a] whitespace-nowrap">{tagline}</div>
+            <div className="text-[12px] text-[#3c3222] mt-1.5 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-[#c99a2e]" /> Powered by Miracurl AI {resto ? "Restaurant" : "Salon"} Suite</div>
+          </div>
+          <nav className="hidden lg:flex items-center gap-6 xl:gap-7 text-[15px] text-[#2a2418] ml-auto" data-testid="salon-nav">
+            {items.map(([l, h], i) => (
+              <a key={h} href={h} onClick={scrollTo(h)} data-testid={`salon-nav-${l.toLowerCase().replace(/\s+/g, "-")}`} className={`relative py-1 font-medium hover:text-[#b8863b] transition-colors after:absolute after:left-0 after:-bottom-1 after:h-[2px] after:bg-[#b8863b] after:transition-[width] after:duration-300 ${i === 0 ? "text-[#b8863b] after:w-full" : "after:w-0 hover:after:w-full"}`}>{l}</a>
+            ))}
+          </nav>
+          <div className="hidden lg:block h-12 w-px bg-[#d4af37]/40" />
+          {(branches.length > 0 || s.location) && (
+            <label className="hidden md:flex items-center gap-2 h-12 px-4 rounded-full border border-[#d4af37]/50 bg-white text-[#2a2418] text-sm relative" data-testid="salon-branch-select-wrap">
+              <MapPin className="w-4 h-4 text-[#b8863b]" />
+              <select value={branch} onChange={e => setBranch(e.target.value)} data-testid="salon-branch-select" className="appearance-none bg-transparent pr-5 focus:outline-none cursor-pointer max-w-[160px] truncate text-[#2a2418] font-medium" style={{ color: "#2a2418" }}>
+                <option value="" className="text-black">{area(s.location) || s.name}</option>
+                {branches.map(b => <option key={b} value={b} className="text-black">{area(b) || b}</option>)}
+              </select>
+              <ChevronDown className="w-4 h-4 text-[#7a6a45] absolute right-3 pointer-events-none" />
+            </label>
+          )}
+          <div className="flex items-center gap-2 ml-auto lg:ml-0">
+            <Link to={href} data-testid="salon-header-book-btn" className="inline-flex items-center gap-2 h-11 sm:h-12 px-4 sm:px-6 rounded-full bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm sm:text-base font-bold hover:brightness-110 flex-shrink-0 shadow-[0_12px_28px_-12px_rgba(201,154,46,.9)] border border-[#b8863b]/40">
+              <Calendar className="w-4 h-4" /> <span className="hidden sm:inline">{resto ? "Reserve a Table" : "Book Appointment"}</span><span className="sm:hidden">{resto ? "Reserve" : "Book"}</span> <ArrowRight className="w-4 h-4" />
+            </Link>
+            <button type="button" onClick={() => setOpen(o => !o)} aria-label="Menu" data-testid="salon-nav-toggle" className="lg:hidden w-11 h-11 rounded-full border border-[#d4af37]/50 text-[#2a2418] flex items-center justify-center bg-white">
+              {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
+        {open && (
+          <nav className="lg:hidden border-t border-[#d4af37]/30 px-5 py-3 grid grid-cols-2 gap-1 text-sm text-[#2a2418]" data-testid="salon-nav-mobile">
+            {items.map(([l, h]) => <a key={h} href={h} onClick={(e) => { scrollTo(h)(e); setOpen(false); }} className="px-3 py-2.5 rounded-lg hover:bg-[#f6efe0]">{l}</a>)}
+            {branches.length > 0 && (
+              <select value={branch} onChange={e => setBranch(e.target.value)} className="col-span-2 mt-1 h-11 px-3 rounded-full border border-[#d4af37]/50 bg-white text-sm" data-testid="salon-branch-select-mobile">
+                <option value="">{area(s.location) || s.name}</option>
+                {branches.map(b => <option key={b} value={b}>{area(b) || b}</option>)}
+              </select>
+            )}
+          </nav>
+        )}
       </div>
-      {open && (
-        <nav className="lg:hidden border-t border-white/10 bg-[#080809]/95 backdrop-blur-xl px-5 py-3 grid grid-cols-2 gap-1 text-sm text-white/80" data-testid="salon-nav-mobile">
-          {items.map(([l, h]) => <a key={h} href={h} onClick={(e) => { scrollTo(h)(e); setOpen(false); }} className="px-3 py-2.5 rounded-lg hover:bg-white/5">{l}</a>)}
-        </nav>
-      )}
     </header>
   );
 }

@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { Calendar, Sparkles, MapPin, Clock, Phone, Users, ShieldCheck, Gem, Smile, ArrowRight, Star, Heart, MoreHorizontal, Instagram, Facebook, Youtube } from "lucide-react";
-import { catImage } from "@/lib/categoryImages";
 import { serviceIcon } from "@/lib/serviceIcon";
 
 const fmt12 = (v, d) => { const [h, m] = (v || d).split(":").map(Number); return `${h % 12 || 12}:${String(m || 0).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
@@ -11,18 +10,20 @@ export const GHOST_BTN = "inline-flex items-center gap-2 px-5 py-3.5 rounded-xl 
 
 export function SalonHero({ s, bookHref, cats }) {
   const resto = s.business_type === "restaurant";
-  const img = s.hero_image || s.gallery?.[0] || catImage(cats[0] || "Hair", {});
-  const src = img.startsWith("/") ? `${process.env.REACT_APP_BACKEND_URL}${img}` : img;
+  const img = s.hero_image || s.gallery?.[0] || (resto ? "/assets/order/welcome-bg.jpg" : "/assets/salon/hero-luxe.jpg");
+  const src = img.startsWith("/uploads") || img.startsWith("/api") ? `${process.env.REACT_APP_BACKEND_URL}${img}` : img;
   const usps = resto
     ? [[Users, "Expert Chefs"], [ShieldCheck, "Hygienic & Safe"], [Gem, "Fresh Ingredients"], [Smile, "Warm Hospitality"]]
     : [[Users, "Expert Stylists"], [ShieldCheck, "Hygienic & Safe"], [Gem, "Premium Products"], [Smile, "Relaxing Experience"]];
   return (
-    <section className="relative pt-14 overflow-hidden" data-testid="salon-hero">
+    <section className="relative pt-24 sm:pt-28 overflow-hidden" data-testid="salon-hero">
       <div className="absolute inset-0">
-        <img src={src} alt="" className="w-full h-full object-cover object-right opacity-70" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#080809] via-[#080809]/90 to-[#080809]/20" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#080809] via-transparent to-transparent" />
+        <img src={src} alt="" className="w-full h-full object-cover object-center opacity-80" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#080809]/95 via-[#080809]/70 to-[#080809]/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#080809] via-transparent to-[#080809]/40" />
       </div>
+      <p className="hidden xl:block absolute left-10 top-40 font-caveat text-[#e8c56a] text-4xl leading-[1.1] text-center select-none drop-shadow" data-testid="hero-script-left">{resto ? <>Good Food<br />Brings People<br />Together</> : <>Good Hair<br />Brighter<br />Mood</>}<br /><span className="text-3xl">♡</span></p>
+      <p className="hidden xl:block absolute right-10 top-40 font-caveat text-[#e8c56a] text-4xl leading-[1.1] text-center rotate-[-6deg] select-none drop-shadow" data-testid="hero-script-right">{resto ? <>Taste<br />You'll<br />Remember</> : <>Style<br />For Every<br />You</>}<br /><span className="text-3xl">♡</span></p>
       <div className="relative max-w-6xl mx-auto px-5 sm:px-8 py-14 sm:py-20 grid lg:grid-cols-[1.1fr_.9fr] gap-8 items-center">
         <div>
           <div className="text-[10px] uppercase tracking-[0.4em] text-gold/80">{resto ? "Flavour begins here" : "Beauty begins here"}</div>

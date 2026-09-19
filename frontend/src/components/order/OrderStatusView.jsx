@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, FileText, Flame, UtensilsCrossed, ChefHat, Bell } from "lucide-react";
 import { WaitGames } from "./WaitGames";
+import { TableFeedbackCard } from "./TableFeedbackCard";
 
 const GAMES_AFTER_MS = 3 * 60 * 1000;
 const STEPS = [
@@ -11,7 +12,7 @@ const STEPS = [
 const sinceOrder = (done) => Date.now() - new Date(done.created_at || Date.now()).getTime();
 
 /** Post-order screen: live status timeline, resume banner, order details, and games after a 10-minute wait. */
-export function OrderStatusView({ salon, done, liveStatus, resumed, onOrderMore, onCallWaiter }) {
+export function OrderStatusView({ salon, done, liveStatus, resumed, onOrderMore, onCallWaiter, slug, feedbackRating = 0 }) {
   const [showGames, setShowGames] = useState(() => sinceOrder(done) > GAMES_AFTER_MS);
   const [details, setDetails] = useState(false);
   const finished = ["served", "billed", "cancelled"].includes(liveStatus);
@@ -94,6 +95,7 @@ export function OrderStatusView({ salon, done, liveStatus, resumed, onOrderMore,
           </div>
         )}
 
+        {(liveStatus === "served" || liveStatus === "billed") && <TableFeedbackCard slug={slug} orderId={done.id} salonName={salon?.name} initialRating={feedbackRating} />}
         {showGames && !finished && <WaitGames salon={salon} />}
 
         <div className="mt-10 flex items-center gap-3"><span className="flex-1 border-t border-white/15" /><p className="text-[12px] tracking-[0.35em] uppercase text-white/80">{salon.name}</p><span className="flex-1 border-t border-white/15" /></div>

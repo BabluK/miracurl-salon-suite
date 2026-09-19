@@ -903,6 +903,35 @@ async def public_table_active_order(slug: str, table_no: int, request: Request):
     return {"order": o}
 
 
+class TableFeedbackIn(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    comment: Optional[str] = Field(None, max_length=300)
+
+
+@router.post("/public/table-order/{slug}/{order_id}/feedback")
+async def public_table_order_feedback(slug: str, order_id: str, body: TableFeedbackIn, request: Request):
+    """Quick star rating + one-liner from the diner once their table order is served."""
+    t = await resolve_tenant_from_slug(slug)
+    await public_rate_limit(request, key_suffix="table-feedback", limit=10, window_sec=600)
+    o = await db.table_orders.find_one({"tenant_id": t["id"], "id": order_id}, {"_id": 0})
+    if not o:
+        raise HTTPException(404, "Order not found")
+    if o.get("status") not in ("served", "billed"):
+        raise HTTPException(400, "You can rate once your food has been served")
+    if o.get("feedback"):
+        return {"ok": True, "already": True}
+    from schemas import Review
+    review = Review(appointment_id=f"table:{order_id}", customer_id=o.get("customer_id") or "",
+                    customer_name=o.get("customer_name") or "Table guest", rating=body.rating,
+                    comment=(body.comment or "").strip() or None, public=body.rating >= 4).model_dump()
+    review.update({"tenant_id": t["id"], "source": "table_order", "table_no": o.get("table_no"), "order_id": order_id})
+    await db.reviews.insert_one(review)
+    now = datetime.now(timezone.utc).isoformat()
+    await db.table_orders.update_one({"tenant_id": t["id"], "id": order_id},
+                                     {"$set": {"feedback": {"rating": body.rating, "comment": review["comment"], "at": now}}})
+    return {"ok": True, "rating": body.rating}
+
+
 @router.get("/public/table-order-status/{slug}/{order_id}")
 async def public_table_order_status(slug: str, order_id: str, request: Request):
     """Diner-facing live status of their table order (new → preparing → served → billed)."""
@@ -910,7 +939,7 @@ async def public_table_order_status(slug: str, order_id: str, request: Request):
     await public_rate_limit(request, key_suffix=f"orderstatus:{slug}", limit=200, window_sec=600)
     o = await _raw_db.table_orders.find_one(
         {"tenant_id": t["id"], "id": order_id},
-        {"_id": 0, "id": 1, "status": 1, "table_no": 1, "total": 1, "created_at": 1})
+        {"_id": 0, "id": 1, "status": 1, "table_no": 1, "total": 1, "created_at": 1, "feedback.rating": 1})
     if not o:
         raise HTTPException(404, "Order not found")
     return o

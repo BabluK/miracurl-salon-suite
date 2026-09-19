@@ -3519,3 +3519,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-19 — MDM booking link + favicon
 - User: dashboard hero showed EMPTY "Public booking link" for MDM Luxury Salon on prod (.280). Both public pages already exist and return 200 on prod (/book/mdm-luxury-salon, /salon/mdm-luxury-salon; tenant slug present). Cause = `tenant` null/late in that session; fix: Dashboard slug fallback = tenant.slug || user.salons[active].slug; DashboardHero takes `slug` prop; salon URL empty (not "/salon/") when unknown. Plus today's AuthContext ordering fix.
 - Favicon/PWA icons regenerated from ms-logo-ring.png on white (user: "golden white"); index.html ?v=6, manifest-admin.json ?v=7. Build .306.
+
+## 2026-09-19 — Public salon page navbar (all tenants) + Table Feedback
+- `components/salon/LandingChrome.jsx` SalonNavbar rebuilt to user mock (white curved bar, logo/wordmark fallback, tagline (s.tagline or default), Powered by…, NAV renamed Home/About Us/Services/Our Work/Offers/Contact, branch <select> from s.branches → bookHref?branch=, gold pill CTA). `LandingSections.SalonHero`: pt-24, default bg /assets/salon/hero-luxe.jpg (generated) or welcome-bg for resto, Caveat script phrases left/right (xl+). catImage import removed.
+- Table feedback: `components/order/TableFeedbackCard.jsx`; backend `POST /public/table-order/{slug}/{order_id}/feedback` (schemas.Review, public if ≥4★, tenant_id/source/table_no/order_id added; order.feedback set; idempotent); status endpoint returns feedback.rating. Verified E2E on table 9. Build .307.

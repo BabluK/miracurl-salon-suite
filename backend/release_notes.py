@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.306"
-BUILD_TIME = "19 Sep 2026, 05:30 PM IST"
+BUILD = "2026-09-19.307"
+BUILD_TIME = "19 Sep 2026, 06:00 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.307", "note": "Every tenant's public /salon/{slug} page gets the white curved glass navbar (uploaded logo or Caveat wordmark fallback, tagline, Powered by Miracurl AI Salon/Restaurant Suite, Home/About Us/Services/Our Work/Offers/Contact, branch selector → ?branch=, gold Book Appointment); hero uses generated luxe backdrop (/assets/salon/hero-luxe.jpg, restaurants: welcome-bg) when tenant has no hero image, with Caveat script phrases on both sides. Table feedback: POST /public/table-order/{slug}/{id}/feedback (served/billed only, once) → reviews (source table_order) + order.feedback; status screen shows Rate-your-experience card after serving, thank-you state persists."},
     {"build": "2026-09-19.306", "note": "Dashboard hero: booking/salon links fall back to the active salon slug from /auth/me (user.salons) when the tenant profile has not loaded — fixes empty Public booking link seen on MDM Luxury Salon in prod. Favicon + PWA icons (favicon.ico/svg/32/192/512, apple-touch, icon(-admin)(-maskable)) regenerated as the gold MS ring on white; cache-busted v=6/v=7."},
     {"build": "2026-09-19.305", "note": "QR ordering: re-scanning the same table QR from ANY browser lands on the live order (GET /public/table-active-order/{slug}/{table}: newest new/preparing order <3h) — once served/billed the gate asks for the number again; wait-games panel now appears 3 min after ordering (was 10). Kitchen: mark-billed records paid/invoice_no/bill_total/billed_at; Recently closed keeps billed tickets with a '✅ Bill completed & paid · INV · ₹' (or 'Billed — payment pending') badge so the chef sees history."},
     {"build": "2026-09-19.304", "note": "Code-quality pass: mira_calls._retry_failed_batch split into _latest_failed_calls/_retry_target (C 20→<10); loyalty_stamps.run_loyalty_nudges split into _nudge_targets/_nudge_text (C 16→<10); CSRF comment reworded (scanner keyword false positive). ruff F821/F632/E711/E712 = 0 ('95 undefined vars' and '515 is-comparisons' are scanner false positives)."},
@@ -113,6 +114,8 @@ RELEASES = [
         "changes": [
             "🛠️ 'Ask Miracurl to fix this' got a concierge makeover — a premium popup with a live 500-character counter and a direct Miracurl Support link, now available on your phone too. Every request becomes a numbered HQ ticket",
             "📱 Phone fix: the app no longer reloads when you swipe down at the top of a page (pull-to-refresh is off inside Miracurl), and login → dashboard now paints once instead of twice",
+            "⭐ Table feedback: once food is served, diners get a quick 5-star rating + one-line review card on their order screen — reviews land in your Reviews list",
+            "🏛️ Your public salon page now wears the premium white-gold navbar (your logo, tagline, branch picker, Book Appointment) with a luxe hero backdrop",
             "🧾 Kitchen history: closed tickets now show 'Bill completed & paid' with the invoice number once the table is billed in POS; re-scanning a table QR always reopens the live order until it's served",
             "👨‍🍳 Chef's Picks: returning diners get 2–3 personalised dish suggestions (based on what they've ordered before) with one-tap ADD on the welcome screen",
             "🔁 Returning diners see their last order on the welcome screen and can tap 'Order the same again' to refill the cart instantly",
