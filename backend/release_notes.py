@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.322"
-BUILD_TIME = "20 Sep 2026, 3:30 AM IST"
+BUILD = "2026-09-19.323"
+BUILD_TIME = "20 Sep 2026, 4:10 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.323", "note": "Call-Now For All: services/wa_cta.py clones platform festival/thank_you templates per tenant (t_<id8>_<kind>_call, PHONE_NUMBER button) via Graph API; GET/PUT /whatsapp-link/cta; resolve_template() uses a tenant override only once APPROVED (Book Now until then); composer 'Message button' box + phone preview 'Call now' card; Mira compose prompt drops booking link in call mode. Image Model Picker: _gen_image_bytes(image_model auto|gpt-image-1|nano-banana), SocialIn/GooglePostIn.image_model, Mira Studio 'Poster engine' chips (localStorage mira_image_model)."},
     {"build": "2026-09-19.322", "note": "Super Admin: new top-row tab 'Message Credits (SMS & WhatsApp)' (?tab=credits) = HQ Credit Wallet + Pack Pricing + tenant Message Credits (moved out of Billing where it sat below the fold). Icons: favicon.ico rebuilt from the circular PNG + PWA icon-192/512 & admin icons masked circular; all icon links v=8 (browsers cache favicon.ico aggressively — v=7 only covered PNGs)."},
     {"build": "2026-09-19.321", "note": "Booking header: circle/square logo frames shrunk to fit the 80px bar (was 88px + -my-2 → overflow, seen on MDM); blend logos h-14/h-[4.5rem]; mobile CTA shortened to 'Signature Look' + subtitle hidden so the salon name is readable. Favicons/app icons circular (v=7). Thank-You v2 wording (owner text) → templates miracurl_thank_you_v2 + mdm_thank_you_call_v2 (APPROVED) with TEMPLATE_FALLBACK to v1 while pending; resolve_template() centralises tenant override + fallback. Guide send verifies PDF on APP_PUBLIC_URL → x-forwarded-host → base_url. miracurl_owner_guide APPROVED; guide sent to MDM owner."},
     {"build": "2026-09-19.320", "note": "Guide Auto-Send: POST /super-admin/tenants/{tid}/send-guide (template miracurl_owner_guide, DOCUMENT header → /guides/mdm-whatsapp-campaign-guide.pdf, verifies the PDF is live on APP_PUBLIC_URL else request origin; 409 while template PENDING); Super Admin tenant row 'Guide' button. Per-tenant WA template overrides: tenant.wa_template_overrides {kind→template}; official.send uses it and drops the URL-button param (overrides carry a PHONE_NUMBER 'Call now' button). MDM: mdm_festival_offer_call + mdm_thank_you_call (APPROVED, +91 96084 24704) applied via PUT /super-admin/tenants/{tid}/wa-template-overrides and a one-time startup migration for production."},
@@ -127,6 +128,9 @@ RELEASES = [
     {
         "date": "2026-09-19 (Faster app, smarter SMS & tighter HQ control ⚡)",
         "changes": [
+            "📞 Call now instead of Book Now: in WhatsApp Campaign → 'Message button', switch to 'Call now → my number' and every campaign button dials your salon (Meta approves your button in minutes; Book Now is used until then). The phone preview shows exactly which button guests will see",
+            "🎨 Poster engine picker in Mira Studio: choose Auto, OpenAI GPT-Image-1 (sharpest text & logos) or Gemini Nano Banana (fast & vivid) for every social/Google post image — your pick is remembered",
+            "💳 Super Admin: 'Message Credits (SMS & WhatsApp)' is now its own top-row tab — HQ wallet, pack pricing and per-salon credits in one place",
             "🔔 WhatsApp replies ring the bell: when a guest replies to your campaign, the dashboard bell chimes, shows their name + message + which campaign it answers, and 'Open inbox →' takes you straight to the Replies inbox",
             "✅ 'Ready to send' audience: one radio picks the next 500 guests who have NOT been messaged in the last 30 days — send again tomorrow and the same guests are never messaged twice",
             "⚠️ Low-credit alert: the campaign page warns you the moment WhatsApp credits drop below what your waiting batches need, with a one-tap 'Top up credits' button — so a blast never stalls mid-way",
@@ -134,7 +138,7 @@ RELEASES = [
             "📊 Batch Summary: big campaigns now show one gold summary card — '2,104 guests · 2 of 5 batches done · next tomorrow 11 PM' with a progress bar — above the individual batch rows",
             "🕖 Mira's Send-Time Advisor: when you pick 'Daily at a fixed time', Mira suggests the hour your guests actually read and reply to WhatsApp (from past read receipts) and pre-fills it — one tap to use her pick",
             "⏰ Choose how the follow-up batches go out: every hour, daily at a fixed time in YOUR local time (e.g. 11 PM IST for India, your own timezone abroad), or manually — each waiting batch shows a gold 'Send this batch now' button and is marked 'sent manually by you' once released",
-            "🙏 New 'Thank You' campaign type — a pure gratitude message ('You are not just a client — you are a part of our journey') with no offer, signed by your salon. Goes live as soon as Meta approves the new template",
+            "🙏 New 'Thank You' campaign type — a pure gratitude message ('❤️ To our wonderful {salon} family, thank you for your trust, love and continued support. Every visit means so much to us. ✨ With gratitude, {salon}, {city}') with no offer — live now, approved by Meta",
             "📣 One-click campaign to ALL your guests: pick 'All Customers', tick 'Auto-batch the rest' and hit Send — 500 go out now, the remaining guests are queued in 500-guest batches one hour apart (2,060 guests = 5 batches, all automatic). Each batch shows 'Batch 2 of 5 · sends at 4:00 PM' in Campaign history with its own sent/read/replied count",
             "🛠️ 'Ask Miracurl to fix this' got a concierge makeover — a premium popup with a live 500-character counter and a direct Miracurl Support link, now available on your phone too. Every request becomes a numbered HQ ticket",
             "📱 Phone fix: the app no longer reloads when you swipe down at the top of a page (pull-to-refresh is off inside Miracurl), and login → dashboard now paints once instead of twice",

@@ -16,7 +16,7 @@ import re
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, HTTPException, Depends, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from database import db, _raw_db
 from security import require_tenant_admin, current_tenant
@@ -179,6 +179,7 @@ class SocialIn(BaseModel):
     platforms: list[str] = ["instagram", "facebook", "google"]
     with_image: bool = True
     image_style: str = "luxury"
+    image_model: str = Field("auto", pattern="^(auto|gpt-image-1|nano-banana)$")
     reuse_post_id: str | None = None
 
 
@@ -249,7 +250,7 @@ async def social_generate(body: SocialIn, admin=Depends(require_tenant_admin), t
     posts = _clean_newlines(posts)
     image_url = ""
     if body.with_image:
-        image_url = await _gen_image(_social_image_prompt(body.topic, body.image_style), t, "social")
+        image_url = await _gen_image(_social_image_prompt(body.topic, body.image_style), t, "social", image_model=body.image_model)
     posted_today = {p: v for p, v in ctx["posted_today"].items() if p in want}
     return {"topic": body.topic, "posts": posts, "image_url": image_url,
             "platforms": want, "posted_today": posted_today}
@@ -262,6 +263,7 @@ class GooglePostIn(BaseModel):
     offer_title: str | None = None
     image_url: str | None = None
     with_image: bool = True
+    image_model: str = Field("auto", pattern="^(auto|gpt-image-1|nano-banana)$")
     confirm: bool = False
 
 
@@ -284,7 +286,7 @@ async def _draft_google_offer(body: GooglePostIn, t: dict) -> tuple:
         image_url = await _gen_image(
             f"Professional Google Business promo image for an Indian salon offer about '{body.topic}'. "
             "Premium beauty-brand aesthetic, warm cinematic lighting, square 1:1. "
-            "Absolutely NO text, NO letters, NO logos, NO watermarks.", t, "google")
+            "Absolutely NO text, NO letters, NO logos, NO watermarks.", t, "google", image_model=body.image_model)
     return caption, title, image_url
 
 

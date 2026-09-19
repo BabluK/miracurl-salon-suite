@@ -22,6 +22,15 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
   const [batchTime, setBatchTime] = useState("23:00");
   const [batchTz, setBatchTz] = useState("Asia/Kolkata");
   const [advice, setAdvice] = useState(null);
+  const [cta, setCta] = useState(null);
+  const [ctaPhone, setCtaPhone] = useState("");
+  const [ctaBusy, setCtaBusy] = useState(false);
+  const saveCta = (mode) => {
+    setCtaBusy(true);
+    api.put("/whatsapp-link/cta", { mode, phone: ctaPhone || cta?.phone || "" })
+      .then(r => { setCta(r.data); toast.success(mode === "call" ? (r.data.live ? "Campaign button is now Call now ✦" : "Call-now button submitted to Meta — usually approved within minutes. Book Now is used until then.") : "Campaign button is Book Now"); })
+      .catch(e => toast.error(e.response?.data?.detail || "Couldn't update the button")).finally(() => setCtaBusy(false));
+  };
   const audienceTotal = audience === "all" ? counts.all_total : audience === "loyal" ? counts.loyal_total : audience === "fresh" ? counts.fresh_total : 0;
   const canBatch = ["all", "loyal", "fresh"].includes(audience) && audienceTotal > (counts.per_send_limit || 500);
   const [tpl, setTpl] = useState("festive");
@@ -47,7 +56,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
     api.get("/whatsapp-link/audience-counts").then(r => setCounts(r.data))
       .catch(e => toast.error(`Couldn't load your guest counts: ${e.response?.data?.detail || e.message}`));
     api.get("/whatsapp-link/festivals").then(r => { const d = { ...r.data, today: r.data.today && (r.data.today.day || 1) <= 1 ? r.data.today : null }; setFest(d); const f = d.today || d.upcoming?.[0] || d.next; if (f) setFestPick(f.name); }).catch(() => {});
-    api.get("/whatsapp-link/batch-settings").then(r => { setBatchMode(r.data.batch_mode); setBatchTime(r.data.batch_time); setBatchTz(r.data.timezone); setAdvice(r.data.advice || null); }).catch(() => {});
+    api.get("/whatsapp-link/batch-settings").then(r => { setBatchMode(r.data.batch_mode); setBatchTime(r.data.batch_time); setBatchTz(r.data.timezone); setAdvice(r.data.advice || null); setCta(r.data.cta || null); setCtaPhone(r.data.cta?.phone || ""); }).catch(() => {});
     loadCamps();
     const id = setInterval(loadCamps, 15000);
     return () => clearInterval(id);
@@ -258,6 +267,20 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
           </Step>
 
           <Step n={2} title="Choose Template or Create Message" right={<button onClick={() => compose()} disabled={!!busy || !linked || !recipients} data-testid="wa-campaign-mira" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold hover:bg-rose-700 disabled:opacity-50">{busy === "mira" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Let Mira write it</button>}>
+            {cta && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2 mb-3 flex items-center gap-2 flex-wrap text-xs" data-testid="wa-cta-box">
+                <span className="font-semibold text-emerald-900">Message button:</span>
+                <button type="button" onClick={() => saveCta("book")} disabled={ctaBusy} data-testid="wa-cta-book"
+                  className={`px-2.5 py-1 rounded-full border font-semibold ${cta.mode === "book" ? "bg-emerald-700 text-white border-emerald-700" : "bg-white border-slate-200 text-slate-600"}`}>Book Now → booking page</button>
+                <button type="button" onClick={() => (cta.mode === "call" ? null : saveCta("call"))} disabled={ctaBusy} data-testid="wa-cta-call"
+                  className={`px-2.5 py-1 rounded-full border font-semibold ${cta.mode === "call" ? "bg-emerald-700 text-white border-emerald-700" : "bg-white border-slate-200 text-slate-600"}`}>Call now → my number</button>
+                {cta.mode !== "call" && <input value={ctaPhone} onChange={e => setCtaPhone(e.target.value)} placeholder="+91 98765 43210" data-testid="wa-cta-phone"
+                  className="w-40 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800" />}
+                {cta.mode === "call" && <span className="text-emerald-800">{cta.phone}{cta.live ? " · live ✓" : " · awaiting Meta approval (minutes) — Book Now used until then"}</span>}
+                {ctaBusy && <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-700" />}
+              </div>
+            )}
+
             {fest && (fest.today || fest.upcoming?.length > 0) && (
               <div className="rounded-xl bg-gradient-to-r from-amber-50 via-rose-50 to-amber-50 border border-amber-200 px-3 py-2 mb-3 flex items-center gap-3 flex-wrap text-xs" data-testid="wa-festival-radar">
                 <span className="font-semibold text-amber-800 inline-flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> Mira's festival radar</span>
@@ -330,7 +353,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
           </Step>
         </div>
 
-        <PhonePreview salon={status?.push_name || "Your salon"} text={text} image={image} firstName={firstName}
+        <PhonePreview salon={status?.push_name || "Your salon"} text={text} image={image} firstName={firstName} cta={cta}
           testPhone={testPhone} setTestPhone={setTestPhone} onTest={sendTest} busy={busy === "test"} disabled={!linked || !text.trim()} />
       </div>
     </div>

@@ -98,16 +98,22 @@ async def paint_offloop(gen, **kw) -> list[bytes]:
         return await asyncio.to_thread(lambda: asyncio.run(gen.generate_images(**kw)))
 
 
-async def _gen_image_bytes(prompt: str) -> bytes | None:
-    """Dual-engine image generation: GPT-Image-1 first, Gemini Nano Banana fallback."""
+IMAGE_MODELS = {"auto": "Auto (GPT-Image-1, Nano Banana fallback)", "gpt-image-1": "OpenAI GPT-Image-1", "nano-banana": "Gemini Nano Banana"}
+
+
+async def _gen_image_bytes(prompt: str, image_model: str = "auto") -> bytes | None:
+    """Image generation with an explicit engine pick: GPT-Image-1, Gemini Nano Banana, or auto (GPT first, Gemini fallback)."""
     from emergentintegrations.llm.openai.image_generation import OpenAIImageGeneration
-    try:
-        gen = OpenAIImageGeneration(api_key=_key())
-        images = await asyncio.wait_for(paint_offloop(gen, prompt=prompt), timeout=240)
-        if images:
-            return images[0]
-    except Exception as e:
-        log.warning("gpt-image-1 failed, trying Gemini Nano Banana: %s", e)
+    if image_model != "nano-banana":
+        try:
+            gen = OpenAIImageGeneration(api_key=_key())
+            images = await asyncio.wait_for(paint_offloop(gen, prompt=prompt), timeout=240)
+            if images:
+                return images[0]
+        except Exception as e:
+            log.warning("gpt-image-1 failed (%s): %s", image_model, e)
+            if image_model == "gpt-image-1":
+                return None
     try:
         return await asyncio.wait_for(_gen_image_gemini(prompt), timeout=240)
     except Exception as e:
@@ -130,8 +136,8 @@ async def _tenant_logo(t: dict) -> bytes | None:
         return None
 
 
-async def _gen_image(prompt: str, t: dict, kind: str, post=None) -> str:
-    data = await _gen_image_bytes(prompt)
+async def _gen_image(prompt: str, t: dict, kind: str, post=None, image_model: str = "auto") -> str:
+    data = await _gen_image_bytes(prompt, image_model if image_model in IMAGE_MODELS else "auto")
     if not data:
         return ""
     if post:

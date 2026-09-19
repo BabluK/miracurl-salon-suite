@@ -19,6 +19,7 @@ export default function MiraStudio() {
   const [conns, setConns] = useState({});
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [imageModel, setImageModel] = useState(() => localStorage.getItem("mira_image_model") || "auto");
   const [result, setResult] = useState(null);
   const [reply, setReply] = useState("");
   const [pendingAgent, setPendingAgent] = useState(null);
@@ -53,7 +54,7 @@ export default function MiraStudio() {
     setBusy(true);
     try {
       if (agent === "social") {
-        const { data } = await api.post("/mira-studio/social/generate", { topic, platforms: ["instagram", "facebook", "google"], with_image: true, image_style: "luxury", ...extra });
+        const { data } = await api.post("/mira-studio/social/generate", { topic, platforms: ["instagram", "facebook", "google"], with_image: true, image_style: "luxury", image_model: imageModel, ...extra });
         setResult({ type: "social", ...data });
       } else if (["content", "sales", "seo", "video", "email"].includes(agent)) {
         const { data } = await api.post("/mira-studio/generate", { agent, topic });
@@ -65,7 +66,7 @@ export default function MiraStudio() {
       } else if (agent === "staff_verify") {
         const { data } = await api.get("/mira-studio/staff-verification"); setResult({ type: "staff", ...data });
       } else if (agent === "google_post") {
-        const { data } = await api.post("/mira-studio/google/post", { topic, with_image: true });
+        const { data } = await api.post("/mira-studio/google/post", { topic, with_image: true, image_model: imageModel });
         setResult({ type: "google_post", topic, ...data });
       } else if (agent === "google" && conns.google_business) {
         const { data } = await api.get("/social/google/reviews");
@@ -121,6 +122,13 @@ export default function MiraStudio() {
               className="px-5 py-3 rounded-xl bg-gradient-to-r from-fuchsia-500 to-pink-600 font-semibold hover:from-fuchsia-600 hover:to-pink-700 disabled:opacity-60 flex items-center gap-2">
               {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />} Ask Mira
             </button>
+          </div>
+          <div className="mt-3 flex items-center gap-2 flex-wrap text-xs text-white/70" data-testid="mira-image-model-picker">
+            <span className="font-semibold text-white/80">Poster engine:</span>
+            {[["auto", "Auto"], ["gpt-image-1", "GPT-Image-1 · sharp text & logos"], ["nano-banana", "Gemini Nano Banana · fast & vivid"]].map(([k, l]) => (
+              <button key={k} type="button" onClick={() => { setImageModel(k); localStorage.setItem("mira_image_model", k); }} data-testid={`mira-image-model-${k}`}
+                className={`px-2.5 py-1 rounded-full border transition-colors ${imageModel === k ? "bg-fuchsia-500 border-fuchsia-400 text-white" : "border-white/20 text-white/70 hover:border-fuchsia-300"}`}>{l}</button>
+            ))}
           </div>
           {reply && <p className="mt-3 text-sm text-fuchsia-200" data-testid="mira-studio-reply">{reply}</p>}
         </div>

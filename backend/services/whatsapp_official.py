@@ -46,8 +46,11 @@ async def template_status(kind: str) -> str | None:
 
 
 async def resolve_template(t: dict, kind: str) -> str:
-    """Tenant override → platform default; v2 wording only once Meta approved it."""
-    name = (t.get("wa_template_overrides") or {}).get(kind) or TEMPLATES[kind]
+    """Tenant override (only once Meta approved it) → platform default; v2 wording only once approved."""
+    override = (t.get("wa_template_overrides") or {}).get(kind)
+    if override and await template_status(override) == "APPROVED":
+        return override
+    name = TEMPLATES[kind]
     if name in TEMPLATE_FALLBACK and await template_status(name) != "APPROVED":
         return TEMPLATE_FALLBACK[name]
     return name
@@ -86,7 +89,7 @@ async def send(kind: str, t: dict, to: str, params: list[str], image_url: str | 
         if not r.modified_count:
             raise RuntimeError("No WhatsApp credits left — top up in Settings → Credits")
     tpl_name = await resolve_template(t, kind)
-    overridden = tpl_name.startswith("mdm_") or (t.get("wa_template_overrides") or {}).get(kind) is not None  # tenant variants carry a phone button, no URL button
+    overridden = tpl_name == (t.get("wa_template_overrides") or {}).get(kind)  # tenant Call-now variants carry a phone button, no URL button
     components = [
         {"type": "header", "parameters": [{"type": "image", "image": {"link": await tenant_header_image(t, image_url)}}]},
         {"type": "body", "parameters": [{"type": "text", "text": str(p)[:1024]} for p in params]},

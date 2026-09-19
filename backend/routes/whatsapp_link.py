@@ -233,7 +233,7 @@ async def campaign_compose(body: ComposeIn, request: Request, user=Depends(requi
               f"Audience: {len(custs)} selected guests — genders {sorted({(c.get('gender') or '?') for c in custs})}, "
               f"avg visits {round(sum(c.get('visits') or 0 for c in custs) / max(1, len(custs)), 1)}. "
               f"Owner's brief: {body.brief or 'a warm offer / campaign message to bring these guests back'}. "
-              f"Booking link: {base}/book/{t.get('slug', '')}. "
+              f"{'Call-to-action: the message button is CALL NOW (' + (t.get('wa_cta_phone') or '') + '). Do NOT include any booking link; end with a short call-us line instead. ' if t.get('wa_cta_mode') == 'call' else 'Booking link: ' + base + '/book/' + t.get('slug', '') + '. '}"
               f"Image options (pick exactly one id): {[{'id': c['id'], 'label': c['label']} for c in cands]}. "
               + ("The owner UPLOADED THEIR OWN IMAGE (attached). Look at it carefully: read any text, offer, prices, dates, festival or service shown, "
                  "and write the message so it matches the image exactly (same offer/occasion/services); pick image_id 'upload:" + (body.image_url or "") + "'. "
@@ -342,9 +342,43 @@ def _batch_slots(t: dict, mode: str, btime: str, n: int) -> list[str | None]:
 @router.get("/batch-settings")
 async def batch_settings(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     from services.day_window import _tenant_tz
+    from services.wa_cta import cta_status
     advice = await send_time_advice(t)
     return {"batch_mode": t.get("wa_batch_mode") or "hourly", "batch_time": t.get("wa_batch_time") or advice["hour"], "timezone": str(_tenant_tz(t)),
-            "advice": advice, "time_is_default": not t.get("wa_batch_time")}
+            "advice": advice, "time_is_default": not t.get("wa_batch_time"), "cta": await cta_status(t)}
+
+
+class CtaIn(BaseModel):
+    mode: str = Field(..., pattern="^(book|call)$")
+    phone: str = Field("", max_length=20)
+
+
+@router.get("/cta")
+async def cta_get(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    from services.wa_cta import cta_status
+    return await cta_status(t)
+
+
+@router.put("/cta")
+async def cta_put(body: CtaIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Book Now (booking page) or Call now (salon's own number). Call now clones the platform templates with a phone button —
+    Meta approves in minutes; campaigns keep using Book Now until then."""
+    from services.wa_cta import cta_status, ensure_call_templates
+    if body.mode == "book":
+        await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"wa_cta_mode": "book"}, "$unset": {"wa_template_overrides": ""}})
+        return await cta_status({**t, "wa_cta_mode": "book", "wa_template_overrides": None})
+    digits = re.sub(r"\D", "", body.phone)
+    if len(digits) == 10:
+        digits = "91" + digits
+    if len(digits) < 11:
+        raise HTTPException(400, "Enter the salon's WhatsApp/phone number with country code")
+    try:
+        names = await ensure_call_templates(t, f"+{digits}")
+    except Exception as e:
+        raise HTTPException(502, f"Meta couldn't create the Call-now template: {e}")
+    patch = {"wa_cta_mode": "call", "wa_cta_phone": f"+{digits}", "wa_template_overrides": names}
+    await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": patch})
+    return await cta_status({**t, **patch})
 
 
 async def send_time_advice(t: dict) -> dict:
