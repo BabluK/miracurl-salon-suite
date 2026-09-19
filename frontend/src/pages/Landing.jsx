@@ -710,7 +710,7 @@ export default function Landing({ scrollTo }) {
                 className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold text-[#050505] bg-[#DFB78C] shadow-[0_0_26px_-6px_rgba(223,183,140,0.65)] hover:bg-[#EAD3B3] hover:-translate-y-0.5 transition-transform">
                 📞 Book a Demo
               </Link>
-              <a href={`https://wa.me/919180261256?text=${encodeURIComponent("Hi! I run a multi-branch salon chain and I'd like to know about Miracurl Enterprise plans.")}`}
+              <a href={`https://wa.me/919180379552?text=${encodeURIComponent("Hi! I run a multi-branch salon chain and I'd like to know about Miracurl Enterprise plans.")}`}
                 target="_blank" rel="noreferrer" data-testid="enterprise-whatsapp"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold text-white bg-[#25D366] shadow-[0_0_22px_-8px_rgba(37,211,102,0.7)] hover:-translate-y-0.5 transition-transform">
                 💬 Chat on WhatsApp

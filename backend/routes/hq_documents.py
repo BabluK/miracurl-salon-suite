@@ -468,7 +468,7 @@ class DemoCampaignIn(BaseModel):
 
 # ── Founder's personal invitation (6 months free, sent worldwide by the super admin) ──
 FOUNDER = {"name": "Bablu Kumar", "title": "Founder, Miracurl", "email": "admin@miracurl-suite.com",
-           "phone": "+91 91802 61256", "site": "miracurl-suite.com", "url": "https://miracurl-suite.com"}
+           "phone": "+91 91803 79552", "site": "miracurl-suite.com", "url": "https://miracurl-suite.com"}
 FOUNDER_INVITE_TRIAL_DAYS = 180
 FOUNDER_SUBJECT = "A personal invitation from Miracurl’s founder"
 

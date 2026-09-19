@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.313"
-BUILD_TIME = "19 Sep 2026, 09:50 PM IST"
+BUILD = "2026-09-19.314"
+BUILD_TIME = "19 Sep 2026, 10:20 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.314", "note": "HQ contact WhatsApp unified to the Cloud API sender +91 91803 79552 (919180379552) across landing wa.me links, Site Info default and Number Health expected value (was 919180261256)."},
     {"build": "2026-09-19.313", "note": "WA campaigns: delivery report adds Replied (inbound whatsapp_messages from recipients after send) next to read/delivered/booked; audience-counts returns all_total/loyal_total/per_send_limit and the composer shows 'All Customers (500 of 2,060 per send)'; 500-per-campaign cap kept by user choice. Number Health: blank site_info values fall back to defaults so HQ WhatsApp is never 'not set'."},
     {"build": "2026-09-19.312", "note": "WA campaign composer surfaces the audience-counts error (was silently showing All Customers (0))."},
     {"build": "2026-09-19.311", "note": "Customer import accepts Excel (.xlsx, first sheet) and real-world headers (First Name + Last Name → Name; Mobile/Phone Number/Contact → Phone; Store Location → Address; Sex → Gender…) via utils.normalize_customer_row; WA campaign engine verified live in preview (create → queued → worker → Meta wamid returned, 1 credit burned)."},

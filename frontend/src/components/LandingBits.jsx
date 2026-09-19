@@ -6,7 +6,7 @@ const NAV = [
 ];
 export const FB_URL = "https://www.facebook.com/profile.php?id=61593610030812";
 export const IG_URL = "https://www.instagram.com/miracurl.ai/";
-export const WA_DEMO_URL = "https://wa.me/919180261256?text=" + encodeURIComponent("Hi Miracurl! I'd like a demo of Miracurl Suite for my business.");
+export const WA_DEMO_URL = "https://wa.me/919180379552?text=" + encodeURIComponent("Hi Miracurl! I'd like a demo of Miracurl Suite for my business.");
 
 export function SparkleLogo({ className = "w-12 h-12", testid = "brand-logo-sparkle" }) {
   return (

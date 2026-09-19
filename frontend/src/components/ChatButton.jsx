@@ -6,7 +6,7 @@ import axios from "axios";
  * Floating "Need help?" button — opens a Mira callback card.
  * Collects name / phone / email → /api/public/demo-request; also offers WhatsApp.
  */
-export const MIRACURL_SUPPORT_WHATSAPP = "919180261256";
+export const MIRACURL_SUPPORT_WHATSAPP = "919180379552";
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Direct number link — the old wa.me/message/… business short-link belonged to the

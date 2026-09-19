@@ -15,7 +15,7 @@ _DEFAULTS = {
     "instagram": "",
     "facebook": "",
     "youtube": "",
-    "whatsapp": "919180261256",
+    "whatsapp": "919180379552",
     "ceo_name": "Founder & CEO",
     "ceo_title": "Founder & CEO, Miracurl Suite",
     "ceo_about": ("10+ years of IT industry experience with strong system design and data structures — "
@@ -66,7 +66,7 @@ async def public_site_info():
 async def number_health(admin=Depends(require_super_admin)):
     """Every public phone/WhatsApp number in one place — spot a wrong number at a glance."""
     info = await _get_info()
-    hq = "919180261256"
+    hq = "919180379552"
     platform = [
         {"label": "HQ WhatsApp — Landing, Contact Us, subscription popups (editable below)",
          "value": info.get("whatsapp") or "", "expected": hq},
