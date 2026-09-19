@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { UtensilsCrossed, Loader2, Bell, RotateCcw, Zap, ConciergeBell, Heart, ChevronDown, ArrowRight, Crown, ChevronRight, Users, Star } from "lucide-react";
+import { UtensilsCrossed, Loader2, Bell, RotateCcw, Zap, ConciergeBell, Heart, ChevronDown, ArrowRight, Crown, ChevronRight, Users, Star, ChefHat, Plus } from "lucide-react";
 import { thumbUrl } from "@/lib/api";
 
 const normPhone = (p) => { let d = (p || "").replace(/\D/g, ""); if (d.length > 10) d = d.slice(-10); return d; };
@@ -9,7 +9,8 @@ const FEATURES = [[Zap, "Quick Ordering"], [ConciergeBell, "Freshly Prepared"], 
 const FEATURES_BACK = [[ConciergeBell, "Delicious Food"], [Heart, "Family Friendly"], [Users, "Great Ambience"], [Star, "Happy Guests"]];
 
 /** First screen after a table-QR scan: mobile → (name for new guests) → welcome back / proceed. */
-export function WelcomeGate({ salon, table, phone, setPhone, name, setName, guest, lookingUp, onProceed, onCallWaiter, onReorder, menu = [] }) {
+export function WelcomeGate({ salon, table, phone, setPhone, name, setName, guest, lookingUp, onProceed, onCallWaiter, onReorder, onAddPick, menu = [] }) {
+  const picks = guest?.picks || [];
   const dish = (id) => menu.find(m => m.id === id) || {};
   const [step, setStep] = useState("phone");
   const valid = isValidPhone(phone);
@@ -89,6 +90,28 @@ export function WelcomeGate({ salon, table, phone, setPhone, name, setName, gues
                     <RotateCcw className="w-5 h-5" /> Order the same again <span className="text-white/60 text-base">•</span> ₹{Math.round(last.total || 0).toLocaleString("en-IN")}
                     <ChevronRight className="w-5 h-5 absolute right-5" />
                   </button>
+                </div>
+              )}
+              {picks.length > 0 && (
+                <div className="rounded-3xl border border-gold/30 bg-black/55 backdrop-blur-md p-5" data-testid="chef-picks-card">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                    <p className="text-[13px] tracking-[0.25em] uppercase text-gold font-semibold flex items-center gap-2"><ChefHat className="w-4 h-4" /> Chef's picks for you</p>
+                    <span className="text-[10px] text-white/50 shrink-0 ml-2">For you</span>
+                  </div>
+                  <ul>
+                    {picks.map((m) => (
+                      <li key={m.id} className="flex items-center gap-4 py-3 border-b border-white/10 last:border-0" data-testid={`chef-pick-${m.id}`}>
+                        {m.image_url ? <img src={thumbUrl(m.image_url, 160)} alt="" className="w-16 h-16 rounded-xl object-cover shrink-0" /> : <div className="w-16 h-16 rounded-xl bg-white/5 flex items-center justify-center shrink-0"><UtensilsCrossed className="w-6 h-6 text-gold/60" /></div>}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[15px] font-semibold text-white leading-tight line-clamp-2">{m.veg === "veg" ? "🟢 " : m.veg === "non-veg" ? "🔴 " : ""}{m.name}</p>
+                          <p className="text-xs text-gold/80 line-clamp-1 mt-0.5">{m.reason}</p>
+                          <p className="text-gold text-base font-semibold mt-0.5">₹{Math.round(m.price)}</p>
+                        </div>
+                        <button onClick={() => onAddPick(m)} data-testid={`chef-pick-add-${m.id}`}
+                          className="shrink-0 px-4 py-2.5 rounded-full border-2 border-gold/70 text-gold text-sm font-bold inline-flex items-center gap-1 active:scale-95 transition-transform"><Plus className="w-4 h-4" /> ADD</button>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </>

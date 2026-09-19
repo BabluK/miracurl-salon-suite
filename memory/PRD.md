@@ -3507,3 +3507,4 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - .300: QR order screens constrained to max-w-md centred column on desktop (user saw unreadable full-width status page); status bg opacity 0.12 + darker gradient.
 - .301: WelcomeGate rebuilt to mock-ups (new-guest + returning-guest states). Props now include menu (for last-order thumbnails/descriptions). BG image generated (Gemini) → /public/assets/order/welcome-bg.jpg.
 - .302: OrderPublic menu header restyled to welcome-screen language; name/phone inputs hidden (still in DOM, readOnly, testids kept).
+- .303: Chef's Picks — public_site._chef_picks(phone,last) (history from table_orders, ranks fav-category → trending → price, excludes had items, reason text); WelcomeGate chef-picks-card + onAddPick in OrderPublic. Verified add → cart 1.

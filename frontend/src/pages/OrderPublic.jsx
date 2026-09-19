@@ -131,6 +131,11 @@ export default function OrderPublic() {
     <WelcomeGate salon={salon} table={table} menu={menu} phone={phone} setPhone={setPhone} name={name} setName={setName}
       guest={guest} lookingUp={lookingUp} onCallWaiter={() => callStaff("waiter")}
       onProceed={() => { sessionStorage.setItem(`mc_order_gate:${slug}`, "1"); setEntered(true); }}
+      onAddPick={(m) => {
+        setQty(q => ({ ...q, [m.id]: (q[m.id] || 0) + 1 }));
+        sessionStorage.setItem(`mc_order_gate:${slug}`, "1"); setEntered(true);
+        toast.success(`${m.name} added to your cart — add more or send to kitchen`);
+      }}
       onReorder={(last) => {
         const ids = new Set(menu.filter(m => !m.sold_out).map(m => m.id));
         const q = {}, sp = {};

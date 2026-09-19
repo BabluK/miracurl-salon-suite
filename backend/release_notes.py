@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.302"
-BUILD_TIME = "19 Sep 2026, 04:00 PM IST"
+BUILD = "2026-09-19.303"
+BUILD_TIME = "19 Sep 2026, 04:20 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.303", "note": "Chef's Picks For You: guest-lookup returns up to 3 dishes the returning diner hasn't ordered (ranked: favourite categories → best sellers → price) with a reason line; shown under the last-order card on the QR welcome screen with one-tap ADD (adds to cart and opens the menu)."},
     {"build": "2026-09-19.302", "note": "QR menu page restyled to match the welcome screen: photo header with gold-framed logo tile, TABLE n, Playfair title, tagline + gold rule, crown welcome-back pill (or new-guest pill), compact row [guests ▾][Call waiter][water], name/phone inputs hidden (captured on welcome screen), gold gradient chips, Playfair section titles, glass dish cards, gold gradient View Cart bar."},
     {"build": "2026-09-19.301", "note": "QR welcome screen rebuilt to user mock-ups: full-bleed generated restaurant photo (/assets/order/welcome-bg.jpg), gold-framed logo tile, TABLE n, Playfair title + tagline + gold rule, +91 pill input, gold Continue, 3 feature icons, Call waiter, footer. Returning guest: Welcome back headline, loyalty-points pill, last-order card with dish thumbnails/descriptions, outline Order-the-same-again, gold Proceed to order, 4 feature icons, footer tagline."},
     {"build": "2026-09-19.300", "note": "QR ordering on desktop/tablet: welcome, menu and status screens now render as a centred phone-width column (max-w-md) with a darker photo overlay, so text stays readable on wide screens; cart bar follows the column."},
@@ -109,6 +110,7 @@ RELEASES = [
         "changes": [
             "🛠️ 'Ask Miracurl to fix this' got a concierge makeover — a premium popup with a live 500-character counter and a direct Miracurl Support link, now available on your phone too. Every request becomes a numbered HQ ticket",
             "📱 Phone fix: the app no longer reloads when you swipe down at the top of a page (pull-to-refresh is off inside Miracurl), and login → dashboard now paints once instead of twice",
+            "👨‍🍳 Chef's Picks: returning diners get 2–3 personalised dish suggestions (based on what they've ordered before) with one-tap ADD on the welcome screen",
             "🔁 Returning diners see their last order on the welcome screen and can tap 'Order the same again' to refill the cart instantly",
             "🎮 Diners who close the menu and come back land straight on their live order ('Your order is on the way'); after 10 minutes of waiting they can play Tic Tac Toe or Bubble Pop right on the page",
             "🙋 Table QR welcome: returning diners are greeted by name ('Welcome back, Mr Bablu — we're happy you came back'), new diners are asked for mobile + name, and a Call waiter button is always one tap away",

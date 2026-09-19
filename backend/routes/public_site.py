@@ -809,7 +809,28 @@ async def public_guest_lookup(slug: str, request: Request, phone: str = ""):
         {"customer_phone": digits, "status": {"$ne": "cancelled"}},
         {"_id": 0, "id": 1, "created_at": 1, "total": 1, "items.id": 1, "items.name": 1, "items.qty": 1, "items.spice": 1, "items.price": 1},
         sort=[("created_at", -1)])
-    return {"found": True, "name": first, "title": title, "visits": int(c.get("visits") or 0), "last_order": last}
+    return {"found": True, "name": first, "title": title, "visits": int(c.get("visits") or 0), "last_order": last,
+            "picks": await _chef_picks(digits, last)}
+
+
+async def _chef_picks(phone: str, last: dict | None) -> list:
+    """2–3 dishes the guest hasn't had recently: best sellers from their favourite categories first."""
+    history = await db.table_orders.find({"customer_phone": phone, "status": {"$ne": "cancelled"}},
+                                         {"_id": 0, "items.id": 1}).sort("created_at", -1).to_list(10)
+    had = {i.get("id") for o in history for i in (o.get("items") or [])}
+    if not had:
+        return []
+    menu = await db.services.find({"active": {"$ne": False}, "sold_out": {"$ne": True}},
+                                  {"_id": 0, "id": 1, "name": 1, "price": 1, "image_url": 1, "category": 1, "trending": 1, "veg": 1}).to_list(400)
+    fav_cats = {m["category"] for m in menu if m["id"] in had}
+    def rank(m):
+        return (0 if m.get("category") in fav_cats else 1, 0 if m.get("trending") else 1, -(m.get("price") or 0))
+    fresh = sorted((m for m in menu if m["id"] not in had), key=rank)[:3]
+    for m in fresh:
+        m["reason"] = ("Loved by guests who order " + m["category"]) if m.get("category") in fav_cats and m.get("trending") \
+            else ("Pairs well with your " + m["category"]) if m.get("category") in fav_cats \
+            else "Best seller this week" if m.get("trending") else "Chef's recommendation"
+    return fresh
 
 
 @router.post("/public/table-order/{slug}")
