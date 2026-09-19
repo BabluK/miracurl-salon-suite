@@ -36,7 +36,8 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
   const loadCamps = () => api.get("/whatsapp-link/campaigns").then(r => setCamps(r.data)).catch(() => {});
   useEffect(() => {
     api.get("/whatsapp-link/status").then(r => setStatus(r.data)).catch(() => setStatus({ available: false }));
-    api.get("/whatsapp-link/audience-counts").then(r => setCounts(r.data)).catch(() => {});
+    api.get("/whatsapp-link/audience-counts").then(r => setCounts(r.data))
+      .catch(e => toast.error(`Couldn't load your guest counts: ${e.response?.data?.detail || e.message}`));
     api.get("/whatsapp-link/festivals").then(r => { const d = { ...r.data, today: r.data.today && (r.data.today.day || 1) <= 1 ? r.data.today : null }; setFest(d); const f = d.today || d.upcoming?.[0] || d.next; if (f) setFestPick(f.name); }).catch(() => {});
     loadCamps();
     const id = setInterval(loadCamps, 15000);

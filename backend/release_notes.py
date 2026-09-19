@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.311"
-BUILD_TIME = "19 Sep 2026, 08:50 PM IST"
+BUILD = "2026-09-19.312"
+BUILD_TIME = "19 Sep 2026, 09:20 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.312", "note": "WA campaign composer surfaces the audience-counts error (was silently showing All Customers (0))."},
     {"build": "2026-09-19.311", "note": "Customer import accepts Excel (.xlsx, first sheet) and real-world headers (First Name + Last Name → Name; Mobile/Phone Number/Contact → Phone; Store Location → Address; Sex → Gender…) via utils.normalize_customer_row; WA campaign engine verified live in preview (create → queued → worker → Meta wamid returned, 1 credit burned)."},
     {"build": "2026-09-19.310", "note": "Security audit #2 fixes: GET /public/table-active-order now projects only id/status/table/items/totals/guests + first name (no phone / customer_id) — SEC-001 HIGH closed; guest-lookup tightened to 12/10min per IP + durable 40/day cap (SEC-002); mark-billed derives bill_total server-side from the orders. Prior four fixes re-verified by the auditor."},
     {"build": "2026-09-19.309", "note": "Public navbar TenantLogo: square/circular uploads (e.g. MDM gold monogram on black) auto-render in a gold-ringed circle with the tenant name + Unisex Salon/Restaurant beside it; wide wordmark logos render as-is (detected from natural aspect ratio or logo_shape=circle). /api/files logo paths resolved via REACT_APP_BACKEND_URL."},
