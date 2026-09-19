@@ -6,8 +6,8 @@ import { X, MessageSquare, Bot, Megaphone, ShieldCheck, ShieldOff, Loader2, Phon
 function Switch({ on, onChange, busy, testid }) {
   return (
     <button data-testid={testid} onClick={() => onChange(!on)} disabled={busy} aria-pressed={on}
-      className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${on ? "bg-emerald-500" : "bg-slate-300"} disabled:opacity-50`}>
-      <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${on ? "translate-x-5" : "translate-x-0.5"}`} />
+      className={`relative w-12 h-7 rounded-full transition-colors duration-300 shrink-0 ring-1 ring-inset ${on ? "bg-emerald-500 ring-emerald-400" : "bg-slate-200 ring-slate-300"} disabled:opacity-50`}>
+      <span className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 ${on ? "translate-x-6" : "translate-x-1"}`} />
     </button>
   );
 }
@@ -49,26 +49,39 @@ export function TenantFeaturesModal({ tenant, onClose, onChanged }) {
   const canGoLive = d?.agreement?.accepted && checklistDone;
   return (
     <div className="fixed inset-0 z-[120] flex items-start justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto" onClick={onClose} data-testid="tenant-features-modal">
-      <div className="relative w-full max-w-2xl rounded-3xl bg-white shadow-2xl my-auto p-6 space-y-5" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center" data-testid="tenant-features-close"><X className="w-4 h-4" /></button>
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.3em] text-[#9b3a4e] font-semibold">Tenant features</div>
-          <h3 className="font-playfair text-2xl text-slate-900">{tenant.name}</h3>
-          <p className="text-xs text-slate-500">You decide which paid channels & programmes this tenant gets. OFF = hidden in their app and sending blocked.</p>
+      <div className="relative w-full max-w-2xl rounded-[28px] bg-[#f7f5f0] shadow-[0_40px_80px_-30px_rgba(0,0,0,.7)] my-auto overflow-hidden ring-1 ring-black/10" onClick={e => e.stopPropagation()}>
+        <div className="relative bg-[#15151b] text-white px-6 pt-6 pb-7 overflow-hidden">
+          <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-[#d4af37]/15 blur-3xl" />
+          <div className="absolute inset-0 opacity-[0.06] bg-[radial-gradient(circle_at_20%_20%,#fff_1px,transparent_1px)] bg-[length:14px_14px]" />
+          <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors" data-testid="tenant-features-close"><X className="w-4 h-4" /></button>
+          <div className="relative">
+            <div className="text-[10px] uppercase tracking-[0.35em] text-[#d4af37] font-semibold">HQ control centre</div>
+            <h3 className="font-playfair text-3xl mt-1 leading-tight">{tenant.name}</h3>
+            <p className="text-xs text-white/60 mt-1">/{tenant.slug} · {tenant.plan || "trial"}{tenant.location ? ` · ${tenant.location}` : ""}</p>
+            {d && (
+              <div className="flex flex-wrap gap-2 mt-4" data-testid="hq-status-chips">
+                {[["SMS", d.sms], ["WhatsApp", d.whatsapp], [d.campaign?.name || "Campaign", d.campaign?.on], ["Support access", d.support_access]].map(([l, on]) => (
+                  <span key={l} className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold tracking-wide ${on ? "border-emerald-400/50 bg-emerald-400/15 text-emerald-200" : "border-white/15 bg-white/5 text-white/45"}`}>{on ? "● " : "○ "}{l}</span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+        <div className="p-6 space-y-5">
+        <p className="text-xs text-slate-500 -mt-1">You decide which paid channels & programmes this salon gets. <b>OFF</b> = hidden in their app and sending blocked. Every switch is written to the salon's audit log.</p>
         {!d ? <div className="py-10 text-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin inline" /></div> : (
           <>
             <div className="grid sm:grid-cols-2 gap-3">
               {[["sms", "SMS", MessageSquare, "Guest receipts, reminders, OTPs (MSG91)"], ["whatsapp", "WhatsApp", Bot, "Mira auto-replies, booking confirmations (Meta)"]].map(([k, l, Icon, sub]) => (
-                <div key={k} className="rounded-2xl border border-slate-200 p-4 flex items-center gap-3" data-testid={`feature-row-${k}`}>
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${d[k] ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400"}`}><Icon className="w-5 h-5" /></div>
+                <div key={k} className={`rounded-2xl border p-4 flex items-center gap-3 bg-white transition-shadow hover:shadow-md ${d[k] ? "border-emerald-200 shadow-[inset_4px_0_0_#10b981]" : "border-slate-200 shadow-[inset_4px_0_0_#cbd5e1]"}`} data-testid={`feature-row-${k}`}>
+                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${d[k] ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400"}`}><Icon className="w-5 h-5" /></div>
                   <div className="flex-1 min-w-0"><div className="text-sm font-semibold text-slate-800">{l}</div><div className="text-[11px] text-slate-500 truncate">{sub}</div></div>
                   <Switch on={d[k]} busy={busy === k} testid={`feature-toggle-${k}`} onChange={v => put({ [k]: v }, k)} />
                 </div>
               ))}
             </div>
 
-            <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 space-y-3" data-testid="feature-row-campaign">
+            <div className="rounded-2xl border border-[#e6d8b0] bg-gradient-to-br from-[#fbf6e8] to-white p-4 space-y-3 shadow-[inset_4px_0_0_#d4af37]" data-testid="feature-row-campaign">
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${d.campaign.on ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-400"}`}><Megaphone className="w-5 h-5" /></div>
                 <div className="flex-1 min-w-0">
@@ -122,7 +135,7 @@ export function TenantFeaturesModal({ tenant, onClose, onChanged }) {
               )}
             </div>
 
-            <div className={`rounded-2xl border p-3 flex items-center gap-3 text-xs ${d.support_access ? "border-emerald-200 bg-emerald-50/50 text-emerald-800" : "border-slate-200 bg-slate-50 text-slate-600"}`} data-testid="support-access-status">
+            <div className={`rounded-2xl border p-4 flex items-center gap-3 text-xs bg-white ${d.support_access ? "border-emerald-200 text-emerald-800 shadow-[inset_4px_0_0_#10b981]" : "border-slate-200 text-slate-600 shadow-[inset_4px_0_0_#cbd5e1]"}`} data-testid="support-access-status">
               {d.support_access ? <ShieldCheck className="w-4 h-4 shrink-0" /> : <ShieldOff className="w-4 h-4 shrink-0" />}
               <span className="flex-1">{d.support_access ? "Miracurl support may open this workspace to fix settings (edits appear in the owner's Audit log as “Miracurl Support” — your email is never shown)." : "Support access is OFF (default). Turn it on only while HQ needs to work inside this salon; “Open” is refused until then."}</span>
               <button onClick={() => put({ support_access: !d.support_access }, "support")} disabled={!!busy} aria-pressed={!!d.support_access} data-testid="support-access-toggle"
@@ -132,6 +145,7 @@ export function TenantFeaturesModal({ tenant, onClose, onChanged }) {
             </div>
           </>
         )}
+        </div>
       </div>
     </div>
   );

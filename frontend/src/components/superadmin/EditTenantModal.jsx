@@ -29,6 +29,8 @@ function copyText(text, label) {
 }
 
 export function EditTenantModal({ tenant, onClose, onSaved, onRefresh }) {
+  const noun = tenant.business_type === "restaurant" ? "Restaurant" : "Salon";
+  const nounL = noun.toLowerCase();
   const [form, setForm] = useState({
     name: tenant.name || "", location: tenant.location || "", phone: tenant.phone || "",
     salon_email: tenant.salon_email || "", owner_name: tenant.owner_name || "",
@@ -95,12 +97,12 @@ export function EditTenantModal({ tenant, onClose, onSaved, onRefresh }) {
       toast.success("Salon details updated ✦");
       onSaved();
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Couldn't update salon");
+      toast.error(err.response?.data?.detail || `Couldn't update ${nounL}`);
     } finally { setBusy(false); }
   }
 
   async function resetCredentials() {
-    if (!await confirmAsync(`Reset the owner's password and email new credentials to ${form.owner_email}?\n\nThis logs the owner out everywhere and affects ALL salons using this login.`)) return;
+    if (!await confirmAsync(`Reset the owner's password and email new credentials to ${form.owner_email}?\n\nThis logs the owner out everywhere and affects ALL ${nounL}s using this login.`)) return;
     setResetting(true);
     try {
       const { data } = await api.post(`/super-admin/tenants/${tenant.id}/resend-credentials`);
@@ -113,7 +115,7 @@ export function EditTenantModal({ tenant, onClose, onSaved, onRefresh }) {
 
   async function linkBranch() {
     const bid = linkId.trim();
-    if (!bid) { toast.error("Paste the Tenant ID of the salon to link"); return; }
+    if (!bid) { toast.error(`Paste the Tenant ID of the ${nounL} to link`); return; }
     setLinking(true);
     try {
       const { data } = await api.post(`/super-admin/tenants/${tenant.id}/link-branch`, { branch_tenant_id: bid });
@@ -166,7 +168,7 @@ export function EditTenantModal({ tenant, onClose, onSaved, onRefresh }) {
         {/* Details form */}
         <form onSubmit={save} className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div><label className="text-xs text-slate-500 font-medium">Salon name</label>
+            <div><label className="text-xs text-slate-500 font-medium">{noun} name</label>
               <input data-testid="edit-tenant-name" value={form.name} onChange={set("name")} className={inputCls} /></div>
             <div><label className="text-xs text-slate-500 font-medium">Location</label>
               <input data-testid="edit-tenant-location" value={form.location} onChange={set("location")} className={inputCls} /></div>
@@ -174,16 +176,16 @@ export function EditTenantModal({ tenant, onClose, onSaved, onRefresh }) {
               <input data-testid="edit-tenant-phone" value={form.phone} onChange={set("phone")} className={inputCls} /></div>
             <div><label className="text-xs text-slate-500 font-medium">WhatsApp number</label>
               <input data-testid="edit-tenant-whatsapp" value={form.whatsapp_number} onChange={set("whatsapp_number")} className={inputCls} /></div>
-            <div><label className="text-xs text-slate-500 font-medium">Salon email</label>
+            <div><label className="text-xs text-slate-500 font-medium">{noun} email</label>
               <input data-testid="edit-tenant-salon-email" type="email" value={form.salon_email} onChange={set("salon_email")} className={inputCls} /></div>
             <div><label className="text-xs text-slate-500 font-medium">Owner name</label>
               <input data-testid="edit-tenant-owner-name" value={form.owner_name} onChange={set("owner_name")} className={inputCls} /></div>
             <div><label className="text-xs text-slate-500 font-medium">Branch limit (paid allowance)</label>
               <input data-testid="edit-tenant-branch-limit" type="number" min="1" max="50" value={form.branch_limit} onChange={set("branch_limit")} placeholder="e.g. 5" className={inputCls} />
-              <p className="text-[10px] text-slate-400 mt-1">Max branches the salon can add in Settings — raise it after payment.</p></div>
+              <p className="text-[10px] text-slate-400 mt-1">Max branches the {nounL} can add in Settings — raise it after payment.</p></div>
             <div className="sm:col-span-2"><label className="text-xs text-slate-500 font-medium">Owner login email</label>
               <input data-testid="edit-tenant-owner-email" type="email" value={form.owner_email} onChange={set("owner_email")} className={inputCls} />
-              <p className="text-[10px] text-amber-600 mt-1">⚠ Changing this changes the owner&apos;s LOGIN email (applies to all their linked salons).</p></div>
+              <p className="text-[10px] text-amber-600 mt-1">⚠ Changing this changes the owner&apos;s LOGIN email (applies to all their linked {nounL}s).</p></div>
           </div>
           <button type="submit" data-testid="edit-tenant-save" disabled={busy}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-sky-500 to-blue-500 text-white text-sm font-semibold disabled:opacity-60">
@@ -215,7 +217,7 @@ export function EditTenantModal({ tenant, onClose, onSaved, onRefresh }) {
             {planBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
             {planBusy ? "Activating…" : "Activate plan"}
           </button>
-          <p className="text-[10px] text-slate-400 mt-1.5">Instantly upgrades trial → paid. Replaces any current subscription and records the payment against this salon.</p>
+          <p className="text-[10px] text-slate-400 mt-1.5">Instantly upgrades trial → paid. Replaces any current subscription and records the payment against this {nounL}.</p>
         </div>
 
         {/* Credentials reset */}
@@ -235,7 +237,7 @@ export function EditTenantModal({ tenant, onClose, onSaved, onRefresh }) {
                 <button type="button" data-testid="copy-temp-password" onClick={() => copyText(creds.temp_password, "Temp password")}
                   className="p-1.5 text-emerald-700 hover:bg-emerald-100 rounded"><Copy className="w-4 h-4" /></button>
               </div>
-              <p className="text-[10px] text-emerald-700 mt-1.5">Owner must set a new password on first login. Affects {creds.affects_salons} salon{creds.affects_salons === 1 ? "" : "s"} on this login.</p>
+              <p className="text-[10px] text-emerald-700 mt-1.5">Owner must set a new password on first login. Affects {creds.affects_salons} {nounL}{creds.affects_salons === 1 ? "" : "s"} on this login.</p>
             </div>
           )}
         </div>
@@ -258,18 +260,18 @@ export function EditTenantModal({ tenant, onClose, onSaved, onRefresh }) {
                 )}
               </div>
             ))}
-            {linked && linked.salons?.length <= 1 && <p className="text-[11px] text-slate-400">Only this salon is on the owner&apos;s login.</p>}
+            {linked && linked.salons?.length <= 1 && <p className="text-[11px] text-slate-400">Only this {nounL} is on the owner&apos;s login.</p>}
             {linked && !linked.owner_found && <p className="text-[11px] text-amber-600">No owner login found for {form.owner_email} — fix the owner email first.</p>}
           </div>
           <div className="flex gap-2">
             <input data-testid="link-branch-id-input" value={linkId} onChange={e => setLinkId(e.target.value)}
-              placeholder="Paste the other salon's Tenant ID to link…" className={`${inputCls} mt-0 flex-1 font-mono text-xs`} />
+              placeholder={`Paste the other ${nounL}'s Tenant ID to link…`} className={`${inputCls} mt-0 flex-1 font-mono text-xs`} />
             <button type="button" data-testid="link-branch-btn" onClick={linkBranch} disabled={linking || !linkId.trim()}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-fuchsia-500 hover:bg-fuchsia-600 text-white text-sm font-semibold disabled:opacity-50 shrink-0">
               {linking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />} Link
             </button>
           </div>
-          <p className="text-[10px] text-slate-400 mt-1.5">Works even if the two salons were registered with different emails — the branch joins THIS owner&apos;s login and appears in their salon switcher.</p>
+          <p className="text-[10px] text-slate-400 mt-1.5">Works even if the two {nounL}s were registered with different emails — the branch joins THIS owner&apos;s login and appears in their {nounL} switcher.</p>
         </div>
         </div>
       </div>

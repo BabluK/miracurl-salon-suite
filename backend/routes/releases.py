@@ -132,3 +132,30 @@ async def delete_release(rid: str, admin=Depends(require_super_admin)):
     if res.matched_count == 0:
         raise HTTPException(404, "Release entry not found")
     return {"ok": True}
+
+
+_deploy_cache: dict = {"at": 0.0, "data": None}
+
+
+@router.get("/super/deploy-status")
+async def deploy_status(refresh: bool = False, admin=Depends(require_super_admin)):
+    """This server's build vs. the live production build → what's still waiting to be published. Cached 5 min."""
+    import os
+    import time
+    import httpx
+    from release_notes import BUILD_LOG
+    if _deploy_cache["data"] and not refresh and time.time() - _deploy_cache["at"] < 300:
+        return _deploy_cache["data"]
+    prod_url = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com").rstrip("/")
+    live = None
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            r = await http.get(f"{prod_url}/api/public/build")
+            live = (r.json() or {}).get("build") if r.status_code == 200 else None
+    except Exception:  # noqa: BLE001 — production unreachable → report unknown
+        live = None
+    pending = [e for e in BUILD_LOG if live and e["build"] > live] if live else []
+    out = {"here": BUILD, "live": live, "prod_url": prod_url, "is_production": live == BUILD,
+           "pending_count": len(pending), "pending": pending[:8], "checked_at": datetime.now(timezone.utc).isoformat()}
+    _deploy_cache.update(at=time.time(), data=out)
+    return out

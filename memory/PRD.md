@@ -3452,3 +3452,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-19 — Per-tenant public links (no cross-salon fallback)
 - Removed hardcoded "miracurl-marathahalli" fallbacks: Dashboard slug/bookingUrl (empty → copy shows guidance; CircleBonusCard hidden), BookPublic DEFAULT_SLUG, GiftCardPublic. server.py startup assigns unique slug to tenants missing one. Build 2026-09-19.285.
 - USER FEEDBACK: page design quality — for any new page/modal design, call `design_agent` first (user wants advanced design). Tenant Features modal flagged as plain → candidate for redesign.
+
+## 2026-09-19 — Fix-request concierge popup (final) · vertical-aware Edit-tenant modal
+- `FixRequestButton.jsx` rebuilt to the user's reference: dark/gold header + Caveat "We're Here for You" script (font added to index.css import), 500-char counter, HQ-ticket info card, footer with mailto support link + MIRACURL wordmark (SALON/RESTAURANT SUITE by tenant.business_type). Button now visible on mobile ("Fix"). E2E verified: real click → modal → submit → Ticket #4 toast.
+- LEARNING: the earlier "button doesn't open" was the What's New popup (z-80, shows 1.2s after login on a new build) swallowing the first click — dismiss `whats-new-got-it-btn` before testing header buttons.
+- `EditTenantModal.jsx`: labels/copy use Restaurant/Salon noun by `tenant.business_type` (user flagged "Salon email" on a restaurant). Build bumped to 2026-09-19.287 + What's New highlight.

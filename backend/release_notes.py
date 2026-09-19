@@ -2,11 +2,13 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.285"
-BUILD_TIME = "19 Sep 2026, 08:30 AM IST"
+BUILD = "2026-09-19.287"
+BUILD_TIME = "19 Sep 2026, 09:15 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.287", "note": "'Ask Miracurl to fix this' concierge popup redesigned (dark/gold header, We're Here for You script, 500-char counter, HQ ticket info card, support footer with Miracurl wordmark) and now available on mobile too; Super Admin Edit-tenant modal uses Restaurant/Salon wording per vertical."},
+    {"build": "2026-09-19.286", "note": "Super Admin: Deploy banner (GET /super/deploy-status compares this build with the live site and lists pending build-log entries); Tenant Features modal redesigned as an HQ control centre (dark/gold header with live status chips, channel cards with ON/OFF accent, gold campaign card, support-access card)."},
     {"build": "2026-09-19.285", "note": "Public pages are strictly per-tenant: removed hardcoded miracurl-marathahalli fallbacks (Dashboard booking link, CircleBonusCard, /book, /gift) — an empty link + guidance is shown instead of another salon; startup migration assigns a unique slug to any tenant missing one; fix-request modal scroll + copy; support tickets visible in HQ Inbox."},
     {"build": "2026-09-19.284", "note": "HQ: Meta WhatsApp month-to-date usage & ₹ spend panel (GET /super-admin/meta-usage) in Credit Wallet; Super Admin 'Open salon' asks 'Turn on & open' when support access is OFF (no more 403 splash); Meta JS SDK loader hardened (guaranteed FB.init, blocked-script detection, real error text); Fix-request modal scrolls on small screens, no longer blocked by support access; SMS log shows human error labels (sms_disabled → enable in Features)."},
     {"build": "2026-09-19.283", "note": "Strict opt-in: SMS/WhatsApp OFF for tenants until Super Admin enables (credits/own number no longer auto-enable); support access OFF by default, tenant card removed, HQ toggle in Features; bulk 'Reset SMS/WA flags' (GET /super-admin/features/enabled, POST /super-admin/features/reset) with approve-list modal; Super Admin profile drops personal notify_email (startup migration unsets it); high-contrast favicon; TenantCreditPills (SMS+WA balance, one-tap grant from HQ stock)."},
@@ -90,6 +92,7 @@ RELEASES = [
     {
         "date": "2026-09-19 (Faster app, smarter SMS & tighter HQ control ⚡)",
         "changes": [
+            "🛠️ 'Ask Miracurl to fix this' got a concierge makeover — a premium popup with a live 500-character counter and a direct Miracurl Support link, now available on your phone too. Every request becomes a numbered HQ ticket",
             "⚡ Faster everywhere: pages open instantly from your last snapshot and refresh in the background, duplicate loads are gone, and the dashboard shows a little 'Loaded in 0.4s' pulse so you can see the speed",
             "📲 DLT SMS is live (sender MIRACU): booking confirmations, 24h & 1h reminders, cancellations, reschedules, review requests and birthday wishes go out as approved SMS templates when WhatsApp credits are unavailable — festival & offer campaigns fall back to SMS too",
             "🔴 Zero-credit alert: the moment WhatsApp credits hit zero a red banner appears under your dashboard hero with how many guest messages went unanswered and a one-tap Top up",

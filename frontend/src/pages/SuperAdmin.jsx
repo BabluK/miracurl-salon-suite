@@ -18,6 +18,7 @@ import { HqTaxCard } from "@/components/superadmin/HqTaxCard";
 import { PackPricingCard } from "@/components/superadmin/PackPricingCard";
 import { TenantCreditPills } from "@/components/superadmin/TenantCreditPills";
 import { ResetFeaturesModal } from "@/components/superadmin/ResetFeaturesModal";
+import { DeployBanner } from "@/components/superadmin/DeployBanner";
 import { HqGstRegisterCard } from "@/components/superadmin/HqGstRegisterCard";
 import { EditTenantModal } from "@/components/superadmin/EditTenantModal";
 import { Handshake, ShieldAlert, ToggleRight } from "lucide-react";
@@ -433,6 +434,7 @@ export default function SuperAdmin() {
       </header>
 
       <main className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 py-5 sm:py-10 space-y-5 sm:space-y-6 pb-24">
+        <DeployBanner />
         {/* Super-admin profile */}
         <SuperProfileCard />
 
