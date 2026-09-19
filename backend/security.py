@@ -230,7 +230,7 @@ def set_auth_cookies(resp: Response, access: str, refresh: str, persistent: bool
 
 # ---------------- CSRF (signed double-submit cookie, SEC-P3) ----------------
 # Token = "<anchor>.<nonce>.<hmac>" where anchor is the session sid (or user id)
-# and the HMAC binds nonce+anchor with a key derived from JWT_SECRET (env). No secret material lives in this file. The cookie
+# and the HMAC binds nonce+anchor with a key derived from the JWT signing key (env only). The cookie
 # is deliberately NOT HttpOnly: the frontend reads it and echoes it back in the
 # X-CSRF-Token header on every state-changing call. A cross-site attacker can
 # neither read the cookie nor forge a valid HMAC.

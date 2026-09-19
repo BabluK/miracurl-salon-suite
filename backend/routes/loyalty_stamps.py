@@ -175,6 +175,47 @@ class LoyaltyJoinIn(BaseModel):
     email: str | None = Field(None, max_length=120)
 
 
+def _loyalty_validate(body: LoyaltyJoinIn) -> tuple[str, str | None]:
+    digits = re.sub(r"[^0-9]", "", body.phone)[-10:]
+    if not re.fullmatch(r"[6-9]\d{9}", digits):
+        raise HTTPException(400, "Enter your full 10-digit mobile number")
+    email = (body.email or "").strip().lower()[:120] or None
+    if email and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        raise HTTPException(400, "That email doesn't look right")
+    return digits, email
+
+
+async def _loyalty_upsert_member(t: dict, body: LoyaltyJoinIn, digits: str, email: str | None) -> tuple[dict, bool]:
+    cust = await _raw_db.customers.find_one(
+        {"tenant_id": t["id"], "phone": {"$regex": f"{digits}$"}},
+        {"_id": 0, "id": 1, "name": 1, "email": 1, "stamps": 1, "stamp_rewards_redeemed": 1})
+    if cust is not None:
+        if email and not cust.get("email"):
+            await _raw_db.customers.update_one({"tenant_id": t["id"], "id": cust["id"]}, {"$set": {"email": email}})
+        return cust, False
+    from models import Customer
+    doc = Customer(name=body.name.strip()[:60], phone=digits, email=email, gender="Other").model_dump()
+    # loyalty joiners are physically at the desk — keep them visible in POS/CRM
+    doc.update({"tenant_id": t["id"], "crm_status": "active", "source": "loyalty_qr"})
+    await _raw_db.customers.insert_one(doc)
+    return doc, True
+
+
+def _loyalty_welcome_sms(request: Request, t: dict, slug: str, cfg: dict, first_name: str, digits: str) -> None:
+    """Fire-and-forget welcome SMS with the stamp-card link (skips gracefully if SMS not set up)."""
+    try:
+        import asyncio as _asyncio
+        from sms_service import send_tenant_sms
+        base = (request.headers.get("origin") or os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")).rstrip("/")
+        club = f"{t.get('name')} {t.get('location')}".strip() if t.get("location") else t.get("name")
+        sms_body = (f"Welcome to the {club} Loyalty Club, {first_name}! "
+                    f"You earn a gold stamp every visit - complete {cfg['stamps_needed']} and a surprise gift is yours. "
+                    f"Your card: {base}/loyalty/{slug}")
+        _asyncio.create_task(send_tenant_sms(t["id"], digits, sms_body, kind="loyalty_welcome"))
+    except Exception:
+        pass
+
+
 @router.post("/public/loyalty-join/{slug}")
 async def public_loyalty_join(slug: str, body: LoyaltyJoinIn, request: Request):
     """Walk-in guest scans the Loyalty Club QR and joins with name/phone/email."""
@@ -186,47 +227,14 @@ async def public_loyalty_join(slug: str, body: LoyaltyJoinIn, request: Request):
     cfg = _cfg(t)
     if not cfg["enabled"]:
         raise HTTPException(400, "The Loyalty Club isn't active right now — please ask at the desk.")
-    digits = re.sub(r"[^0-9]", "", body.phone)[-10:]
-    if not re.fullmatch(r"[6-9]\d{9}", digits):
-        raise HTTPException(400, "Enter your full 10-digit mobile number")
-    email = (body.email or "").strip().lower()[:120] or None
-    if email and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
-        raise HTTPException(400, "That email doesn't look right")
-    cust = await _raw_db.customers.find_one(
-        {"tenant_id": t["id"], "phone": {"$regex": f"{digits}$"}},
-        {"_id": 0, "id": 1, "name": 1, "email": 1, "stamps": 1, "stamp_rewards_redeemed": 1})
-    is_new = cust is None
-    if is_new:
-        from models import Customer
-        doc = Customer(name=body.name.strip()[:60], phone=digits, email=email,
-                       gender="Other").model_dump()
-        doc["tenant_id"] = t["id"]
-        # loyalty joiners are physically at the desk — keep them visible in POS/CRM
-        doc["crm_status"] = "active"
-        doc["source"] = "loyalty_qr"
-        await _raw_db.customers.insert_one(doc)
-        cust = doc
-    elif email and not cust.get("email"):
-        await _raw_db.customers.update_one({"tenant_id": t["id"], "id": cust["id"]}, {"$set": {"email": email}})
+    digits, email = _loyalty_validate(body)
+    cust, is_new = await _loyalty_upsert_member(t, body, digits, email)
     card = _card(cust, cfg)
-    card.pop("customer_id", None)
+    first_name = (cust.get("name") or body.name).split(" ")[0]
     if is_new:
-        # Fire-and-forget welcome SMS with the stamp-card link (skips gracefully if SMS not set up)
-        try:
-            import asyncio as _asyncio
-            import os as _os
-            from sms_service import send_tenant_sms
-            base = (request.headers.get("origin") or _os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")).rstrip("/")
-            club = f"{t.get('name')} {t.get('location')}".strip() if t.get("location") else t.get("name")
-            sms_body = (f"Welcome to the {club} Loyalty Club, {(cust.get('name') or body.name).split(' ')[0]}! "
-                        f"You earn a gold stamp every visit - complete {cfg['stamps_needed']} and a surprise gift is yours. "
-                        f"Your card: {base}/loyalty/{slug}")
-            _asyncio.create_task(send_tenant_sms(t["id"], digits, sms_body, kind="loyalty_welcome"))
-        except Exception:
-            pass
+        _loyalty_welcome_sms(request, t, slug, cfg, first_name, digits)
     return {"ok": True, "is_new": is_new, "salon_name": t.get("name"), "location": t.get("location") or "",
-            "first_name": (cust.get("name") or body.name).split(" ")[0],
-            "stamps": card["stamps"], "needed": card["needed"], "reward_label": cfg["reward_label"]}
+            "first_name": first_name, "stamps": card["stamps"], "needed": card["needed"], "reward_label": cfg["reward_label"]}
 
 
 def _shaped_logo(logo_bytes: bytes, size: int, shape: str):
@@ -331,14 +339,18 @@ def _poster_canvas(p: _Poster) -> None:
     p.gift = Image.open(gift_path).convert("RGBA") if os.path.exists(gift_path) else None
 
 
-def _poster_header(p: _Poster) -> None:
-    """Logo, auto-shrunk salon name, location line and the diamond-flanked LOYALTY CLUB label."""
-    if p.logo_bytes:
-        shape = p.logo_shape if p.logo_shape in ("circle", "square", "blend") else (p.cfg.get("logo_shape") or "circle")
-        lg = _shaped_logo(p.logo_bytes, 150, shape)
-        if lg is not None:
-            p.bg.paste(lg, ((p.W - lg.width) // 2, p.y), lg)
-            p.y += lg.height + 12
+def _poster_logo(p: _Poster) -> None:
+    if not p.logo_bytes:
+        return
+    shape = p.logo_shape if p.logo_shape in ("circle", "square", "blend") else (p.cfg.get("logo_shape") or "circle")
+    lg = _shaped_logo(p.logo_bytes, 150, shape)
+    if lg is not None:
+        p.bg.paste(lg, ((p.W - lg.width) // 2, p.y), lg)
+        p.y += lg.height + 12
+
+
+def _poster_name(p: _Poster) -> None:
+    """Auto-shrunk salon/restaurant name."""
     name = p.t.get("name") or ("Our Restaurant" if p.resto else "Our Salon")
     size = 46
     f = p.font("PlayfairDisplay-Bold.ttf", size)
@@ -347,12 +359,10 @@ def _poster_header(p: _Poster) -> None:
         f = p.font("PlayfairDisplay-Bold.ttf", size)
     p.center(name, p.y, f, p.gold)
     p.y += size + 8
-    loc = (p.t.get("location") or "").strip()
-    if loc:
-        p.center(loc[:48].upper(), p.y, p.font("FreeSansBold.ttf", 19), p.soft)
-        p.y += 30
-    else:
-        p.y += 6
+
+
+def _poster_club_label(p: _Poster) -> None:
+    """Diamond-flanked LOYALTY CLUB label."""
     lbl_f = p.font("FreeSansBold.ttf", 28)
     lbl = "L O Y A L T Y   C L U B"
     lw = p.d.textlength(lbl, font=lbl_f)
@@ -361,6 +371,19 @@ def _poster_header(p: _Poster) -> None:
         cx, cy = p.W / 2 + dx, p.y + 16
         p.d.polygon([(cx, cy - 8), (cx + 6, cy), (cx, cy + 8), (cx - 6, cy)], fill=p.gold)
     p.y += 48
+
+
+def _poster_header(p: _Poster) -> None:
+    """Logo, auto-shrunk salon name, location line and the diamond-flanked LOYALTY CLUB label."""
+    _poster_logo(p)
+    _poster_name(p)
+    loc = (p.t.get("location") or "").strip()
+    if loc:
+        p.center(loc[:48].upper(), p.y, p.font("FreeSansBold.ttf", 19), p.soft)
+        p.y += 30
+    else:
+        p.y += 6
+    _poster_club_label(p)
 
 
 def _poster_stamp_journey(p: _Poster, n: int) -> None:

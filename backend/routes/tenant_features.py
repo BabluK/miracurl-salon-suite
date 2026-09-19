@@ -1,6 +1,7 @@
 """HQ per-tenant feature switches (SMS / WhatsApp / Campaign), owner support-access consent,
 and Brand Model campaign onboarding (invite → agreement → setup call → HQ go-live)."""
 import os
+import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -101,7 +102,7 @@ async def sa_features_reset(body: FeaturesResetIn, user=Depends(require_super_ad
         for a in affected:
             await log_audit(a["id"], {**user, "name": "Miracurl HQ"}, "features",
                             "HQ reset: " + ", ".join(f"{c} OFF" for c in channels) + " (bulk approval cleanup)")
-    await _raw_db.hq_audit.insert_one({"id": str(__import__("uuid").uuid4()), "kind": "features_bulk_reset", "by": user.get("email"), "channels": channels,
+    await _raw_db.hq_audit.insert_one({"id": str(uuid.uuid4()), "kind": "features_bulk_reset", "by": user.get("email"), "channels": channels,
                                        "kept": body.keep_tenant_ids, "switched_off": [a["id"] for a in affected], "at": datetime.now(timezone.utc).isoformat()})
     return {"ok": True, "switched_off": len(affected), "kept": len(body.keep_tenant_ids), "tenants": [a["name"] for a in affected]}
 

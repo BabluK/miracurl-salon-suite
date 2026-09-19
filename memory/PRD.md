@@ -3461,3 +3461,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-19 — Fix-request Ticket Status Tracker
 - `FixRequestTracker.jsx` (useFixRequests hook polls GET /support/fix-requests every 20s while popup open; STATUS_PILL shared with Settings SupportAccessCard). Popup has tabs New request / My requests (n); after submit switches to My requests. Header button shows gold badge = active (non-resolved) tickets.
 - Status model: open → in_progress → resolved. `PATCH /super-admin/hq-messages/{id}/status` accepts `in_progress` + optional `note` (stored hq_note/hq_note_at, sets in_progress_at); notifies owner (fix_progress / fix_done with note text). HQ Inbox: "Start working" button, "Open workspace" auto-marks in_progress, note input + "Send note". Build 2026-09-19.288.
+
+## 2026-09-19 — Code review round (recurring scanner report)
+- Real fixes: `tenant_features.py` `__import__("uuid")` → static `import uuid`; security.py:232 comment reworded (scanner keyword false positive — no secret ever lived there).
+- Complexity: `public_loyalty_join` → `_loyalty_validate/_loyalty_upsert_member/_loyalty_welcome_sms`; `hq_meta_usage` → `_meta_fetch/_meta_summary`; `_poster_header` → `_poster_logo/_poster_name/_poster_club_label` (poster_snap.py after: 56/56 pixel-identical); `run_lead_auto_nudge` → `_nudge_email` + early-continue loop. All four now under ruff C901 threshold; regression via curl OK (loyalty join new/rejoin/invalid, meta-usage, run-auto-nudge).
+- "95 undefined variables": ruff F821/F632/F811 = 0 across backend (excl. tests) → scanner false positive. Import-count items (server.py 109, lead_gen 68…) are architectural; not changed (would need feature-domain split — schedule separately if desired).

@@ -1322,24 +1322,14 @@ async def run_due_city_watches() -> dict:
     return {"started": w["city"], "due": len(due)}
 
 
-async def run_lead_auto_nudge() -> dict:
-    """Mira emails WhatsApp-contacted leads a trial invite when nobody replied within a day."""
-    from email_service import _send_email
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
-    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
-    leads = await _raw_db.mira_leads.find({
-        "status": "sent", "sent_via": "whatsapp", "sent_at": {"$lt": cutoff},
-        "replied_at": {"$exists": False}, "nudge_sent_at": {"$exists": False},
-        "email": {"$nin": [None, ""]},
-    }, {"_id": 0}).to_list(50)
-    sent = failed = 0
-    for lead in leads:
-        resto = (lead.get("vertical") or "") == "restaurant"
-        noun = "restaurant" if resto else "salon"
-        signup = (f"{base}/signup-restaurant" if resto else f"{base}/signup-salon") + (
-            "?offer=newbiz" if lead.get("new_business") else "")
-        biz = lead.get("name") or f"your {noun}"
-        html = f"""
+def _nudge_email(lead: dict, base: str) -> tuple[str, str, str]:
+    """(signup_url, subject, html) for the 24h trial-invite nudge."""
+    resto = (lead.get("vertical") or "") == "restaurant"
+    noun = "restaurant" if resto else "salon"
+    signup = (f"{base}/signup-restaurant" if resto else f"{base}/signup-salon") + (
+        "?offer=newbiz" if lead.get("new_business") else "")
+    biz = lead.get("name") or f"your {noun}"
+    html = f"""
         <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
           <div style="background:#1c1c22;padding:24px 28px">
             <div style="color:#d4af37;font-size:20px;font-weight:bold">Miracurl ✦ {"Restaurant" if resto else "Salon"} Suite</div>
@@ -1355,21 +1345,33 @@ async def run_lead_auto_nudge() -> dict:
             <p style="font-size:12px;color:#888">Questions? Just reply to this email — a real human (and Mira 🤖) reads every reply.</p>
           </div>
         </div>"""
+    return signup, f"Your free Miracurl trial is waiting, {biz} ✦", html
+
+
+async def run_lead_auto_nudge() -> dict:
+    """Mira emails WhatsApp-contacted leads a trial invite when nobody replied within a day."""
+    from email_service import _send_email
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    leads = await _raw_db.mira_leads.find({
+        "status": "sent", "sent_via": "whatsapp", "sent_at": {"$lt": cutoff},
+        "replied_at": {"$exists": False}, "nudge_sent_at": {"$exists": False},
+        "email": {"$nin": [None, ""]},
+    }, {"_id": 0}).to_list(50)
+    sent = failed = 0
+    for lead in leads:
+        signup, subject, html = _nudge_email(lead, base)
         try:
-            status = await _send_email(
-                [lead["email"]],
-                f"Your free Miracurl trial is waiting, {biz} ✦",
-                html, book_url=signup, book_label="Start free trial ✦")
-            if status.get("sent"):
-                sent += 1
-                await _raw_db.mira_leads.update_one(
-                    {"id": lead["id"]},
-                    {"$set": {"nudge_sent_at": _now(), "nudge_via": "email"}})
-            else:
-                failed += 1
+            status = await _send_email([lead["email"]], subject, html, book_url=signup, book_label="Start free trial ✦")
         except Exception as e:
             logging.warning(f"lead nudge failed for {lead.get('id')}: {e}")
             failed += 1
+            continue
+        if not status.get("sent"):
+            failed += 1
+            continue
+        sent += 1
+        await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {"nudge_sent_at": _now(), "nudge_via": "email"}})
     return {"checked": len(leads), "sent": sent, "failed": failed}
 
 
