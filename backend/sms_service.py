@@ -45,12 +45,11 @@ def _twilio_ready() -> bool:
 
 
 def _provider() -> str:
-    if os.environ.get("SMS_PROVIDER", "").lower() == "msg91" and _msg91_ready():
+    # MSG91 (DLT, sender MIRACU) is the production route for India; Twilio only when MSG91 isn't configured at all.
+    if _msg91_ready():
         return "msg91"
     if _twilio_ready():
         return "twilio"
-    if _msg91_ready():
-        return "msg91"
     return ""
 
 
@@ -208,6 +207,8 @@ async def send_tenant_sms(tenant_id: str, to_phone: str, body: str, kind: str = 
     # MSG91 (DLT): use the approved template for this kind when the caller supplied its variables.
     if _provider() == "msg91" and sms_vars is not None and msg91_template_id(kind):
         res = await send_sms_template(to_phone, kind, sms_vars)
+    elif _provider() == "msg91" and not os.environ.get("MSG91_FLOW_ID"):
+        res = {"sent": False, "error": f"no DLT template for '{kind}' SMS — add an approved MSG91 template for this kind"}
     else:
         res = await send_sms(to_phone, body)
     if not res.get("sent"):
