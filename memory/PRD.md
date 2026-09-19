@@ -3525,3 +3525,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Table feedback: `components/order/TableFeedbackCard.jsx`; backend `POST /public/table-order/{slug}/{order_id}/feedback` (schemas.Review, public if ≥4★, tenant_id/source/table_no/order_id added; order.feedback set; idempotent); status endpoint returns feedback.rating. Verified E2E on table 9. Build .307.
 - .308: Sidebar brand: brandTenant fallback from user.salons (AppLayout), TenantBrandMark placeholder = gold plaque + Caveat name (no more platform BrandMark for owners; user saw it on prod .280 when tenant hadn't loaded).
 - .309: MDM logo check — prod tenant has logo_url /api/files/d7dc02f5… (1024² gold monogram on black, served OK). SalonNavbar TenantLogo: square → gold-ring circle + name/label; wide → plain. Verified with Infinity circle logo.
+
+## 2026-09-19 — Security audit #2 (QR ordering surfaces) → fixed
+- SEC-001 HIGH: `/public/table-active-order` returned full order incl. customer_phone/customer_id → now projected (id,status,table_no,total,subtotal,discount,created_at,items,guests) + first-name only. Verified via curl.
+- SEC-002 MED: `/public/guest-lookup` phone → name/last order/picks (feature the user explicitly requested). Mitigation: per-IP 12/10min + durable 40/day; gender `title` still returned (Mr/Ms greeting per user spec). Accepted trade-off — documented.
+- P3: mark-billed bill_total now server-derived. Auditor re-verified: OTP register, emp_csrf, client_ip, scrypt Aadhaar — all present. Build .310.

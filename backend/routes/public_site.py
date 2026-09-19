@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field, EmailStr, field_validator
 
 from database import _raw_db, db, _current_tenant_id
 from security import (
-    public_rate_limit, require_super_admin,
+    public_rate_limit, durable_rate_limit, require_super_admin,
 )
 from models import (
     Customer, Appointment, MAX_CUSTOMER_CREDIT, REFERRAL_REWARD_REFERRER, REFERRAL_REWARD_REFERRED,
@@ -793,7 +793,8 @@ def _norm_in_phone(v: str) -> str:
 async def public_guest_lookup(slug: str, request: Request, phone: str = ""):
     """Returning-guest greeting on the QR menu — first name + visit count only."""
     await resolve_tenant_from_slug(slug)  # 404s unknown slugs + sets tenant scope
-    await public_rate_limit(request, key_suffix=f"guestlookup:{slug}", limit=30, window_sec=600)
+    await public_rate_limit(request, key_suffix=f"guestlookup:{slug}", limit=12, window_sec=600)
+    await durable_rate_limit(request, "guest-lookup", limit=40, window_sec=86400)  # SEC-002: blunt bulk harvesting
     digits = _norm_in_phone(phone)
     if not digits:
         return {"found": False}
@@ -899,7 +900,10 @@ async def public_table_active_order(slug: str, table_no: int, request: Request):
     since = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
     o = await db.table_orders.find_one(
         {"tenant_id": t["id"], "table_no": table_no, "status": {"$in": ["new", "preparing"]}, "created_at": {"$gte": since}},
-        {"_id": 0}, sort=[("created_at", -1)])
+        {"_id": 0, "id": 1, "status": 1, "table_no": 1, "total": 1, "subtotal": 1, "discount": 1, "created_at": 1,
+         "items": 1, "guests": 1, "customer_name": 1}, sort=[("created_at", -1)])
+    if o:  # SEC-001: never expose phone/customer_id publicly; first name is enough for the greeting
+        o["customer_name"] = (o.get("customer_name") or "").split(" ")[0]
     return {"order": o}
 
 

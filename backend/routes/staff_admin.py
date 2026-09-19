@@ -945,10 +945,13 @@ async def mark_table_orders_billed(body: MarkBilledIn, admin=Depends(require_adm
     if not ids:
         raise HTTPException(400, "No order ids given")
     now = datetime.now(timezone.utc).isoformat()
+    # Record integrity: bill total comes from the orders themselves, not the client
+    rows = await db.table_orders.find({"id": {"$in": ids}, "status": {"$ne": "cancelled"}}, {"_id": 0, "total": 1}).to_list(len(ids) or 1)
+    bill_total = round(sum(float(r.get("total") or 0) for r in rows), 2)
     r = await db.table_orders.update_many(
         {"id": {"$in": ids}, "status": {"$ne": "cancelled"}},
         {"$set": {"status": "billed", "updated_at": now, "billed_at": now, "paid": body.paid,
-                  "paid_at": now if body.paid else None, "invoice_no": body.invoice_no, "bill_total": body.total}})
+                  "paid_at": now if body.paid else None, "invoice_no": body.invoice_no, "bill_total": bill_total}})
     return {"ok": True, "billed": r.modified_count}
 
 
