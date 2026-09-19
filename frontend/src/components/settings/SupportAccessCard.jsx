@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { LifeBuoy } from "lucide-react";
+import { STATUS_PILL } from "@/components/FixRequestTracker";
 
 export function SupportAccessCard() {
   const { tenant, refresh } = useAuth();
@@ -39,7 +40,7 @@ export function SupportAccessCard() {
               <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">My fix requests</div>
               {tickets.slice(0, 5).map(tk => (
                 <div key={tk.id} className="flex items-center gap-2 text-xs rounded-lg border border-slate-100 px-3 py-2" data-testid={`fix-request-row-${tk.id}`}>
-                  <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${tk.status === "resolved" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{tk.status === "resolved" ? "Fixed" : "Open"}</span>
+                  <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] border ${(STATUS_PILL[tk.status] || STATUS_PILL.open)[0]}`}>{(STATUS_PILL[tk.status] || STATUS_PILL.open)[1]}</span>
                   <span className="font-semibold text-slate-700">#{tk.ticket_no}</span>
                   <span className="text-slate-500 truncate flex-1">{tk.page_title || tk.page} · {tk.message}</span>
                   <span className="text-slate-400 shrink-0">{new Date(tk.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>

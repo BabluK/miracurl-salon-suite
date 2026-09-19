@@ -61,8 +61,8 @@ async def create_fix_request(body: FixRequestIn, request: Request, user=Depends(
 async def my_fix_requests(user=Depends(require_admin), t=Depends(current_tenant)):
     rows = await _raw_db.hq_messages.find({"tenant_id": t["id"], "kind": "fix_request"},
                                           {"_id": 0, "id": 1, "ticket_no": 1, "subject": 1, "message": 1, "status": 1, "page": 1,
-                                           "page_title": 1, "created_at": 1, "resolved_at": 1, "hq_note": 1}).sort("created_at", -1).to_list(20)
-    return {"items": rows}
+                                           "page_title": 1, "created_at": 1, "in_progress_at": 1, "resolved_at": 1, "hq_note": 1, "hq_note_at": 1}).sort("created_at", -1).to_list(20)
+    return {"items": rows, "active": sum(1 for r in rows if r.get("status") != "resolved")}
 
 
 class HqNoteIn(BaseModel):

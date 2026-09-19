@@ -93,23 +93,33 @@ async def hq_message_read(mid: str, user=Depends(require_super_admin)):
 
 
 class TicketStatusIn(BaseModel):
-    status: str = Field(..., pattern=r"^(open|resolved)$")
+    status: str = Field(..., pattern=r"^(open|in_progress|resolved)$")
+    note: Optional[str] = Field(None, max_length=600)
 
 
 @router.patch("/super-admin/hq-messages/{mid}/status")
 async def hq_ticket_status(mid: str, body: TicketStatusIn, user=Depends(require_super_admin)):
+    now = datetime.now(timezone.utc).isoformat()
     sets = {"status": body.status}
+    if body.note is not None:
+        sets.update({"hq_note": body.note.strip(), "hq_note_by": user.get("email"), "hq_note_at": now})
+    if body.status == "in_progress":
+        sets.update({"read": True, "in_progress_at": now, "in_progress_by": user.get("email")})
     if body.status == "resolved":
-        sets.update({"read": True, "resolved_at": datetime.now(timezone.utc).isoformat(),
-                     "resolved_by": user.get("email")})
+        sets.update({"read": True, "resolved_at": now, "resolved_by": user.get("email")})
     res = await _raw_db.hq_messages.update_one({"id": mid}, {"$set": sets})
     if not res.matched_count:
         raise HTTPException(404, "Message not found")
     m = await _raw_db.hq_messages.find_one({"id": mid}, {"_id": 0, "kind": 1, "tenant_id": 1, "ticket_no": 1, "page": 1})
-    if m and m.get("kind") == "fix_request" and m.get("tenant_id") and body.status == "resolved":
+    if m and m.get("kind") == "fix_request" and m.get("tenant_id"):
         from services.tenant_notices import notify_tenant
-        await notify_tenant(m["tenant_id"], "fix_done", f"✅ Fix request #{m.get('ticket_no')} resolved by Miracurl Support",
-                            "Have a look — changes are listed in Settings → Audit log.", m.get("page") or "/settings", f"fix_done:{mid}")
+        no = m.get("ticket_no")
+        if body.status == "resolved":
+            await notify_tenant(m["tenant_id"], "fix_done", f"✅ Fix request #{no} resolved by Miracurl Support",
+                                body.note or "Have a look — changes are listed in Settings → Audit log.", m.get("page") or "/settings", f"fix_done:{mid}")
+        elif body.status == "in_progress":
+            await notify_tenant(m["tenant_id"], "fix_progress", f"🛠 Miracurl is working on fix request #{no}",
+                                body.note or "HQ has opened your workspace and is on it — you'll be told when it's done.", m.get("page") or "/settings", f"fix_progress:{mid}")
     return {"ok": True, "status": body.status}
 
 

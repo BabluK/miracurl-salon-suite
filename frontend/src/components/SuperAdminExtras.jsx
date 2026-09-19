@@ -75,13 +75,15 @@ export function HqInbox({ onUnreadChange }) {
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't send the feedback link"); }
   }
 
-  async function setTicketStatus(m, status) {
+  async function setTicketStatus(m, status, note) {
     try {
-      await api.patch(`/super-admin/hq-messages/${m.id}/status`, { status });
-      toast.success(status === "resolved" ? `Ticket #${m.ticket_no} resolved ✅` : `Ticket #${m.ticket_no} reopened`);
+      await api.patch(`/super-admin/hq-messages/${m.id}/status`, note !== undefined ? { status, note } : { status });
+      toast.success(status === "resolved" ? `Ticket #${m.ticket_no} resolved ✅ — owner notified` : status === "in_progress" ? `Ticket #${m.ticket_no} marked in progress — owner notified` : `Ticket #${m.ticket_no} reopened`);
       await load();
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't update the ticket"); }
   }
+  const [notes, setNotes] = useState({});
+  const noteFor = (m) => notes[m.id] ?? m.hq_note ?? "";
 
   if (!items) return <div className="text-slate-500 p-4">Loading inbox…</div>;
   return (
@@ -111,8 +113,8 @@ export function HqInbox({ onUnreadChange }) {
                   )}
                   {(m.kind === "ticket" || m.kind === "fix_request") && (
                     <span data-testid={`hq-ticket-status-${m.id}`} className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${m.status === "resolved"
-                      ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
-                      {m.status === "resolved" ? "✓ Resolved" : "● Open"}
+                      ? "bg-emerald-50 text-emerald-600 border-emerald-200" : m.status === "in_progress" ? "bg-sky-50 text-sky-700 border-sky-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
+                      {m.status === "resolved" ? "✓ Resolved" : m.status === "in_progress" ? "🛠 In progress" : "● Open"}
                     </span>
                   )}
                   {m.subject}
@@ -132,13 +134,19 @@ export function HqInbox({ onUnreadChange }) {
             {(m.kind === "ticket" || m.kind === "fix_request") && (
               <div className="mt-2.5 flex items-center gap-2 flex-wrap">
                 {m.kind === "fix_request" && m.tenant_slug && (
-                  <button data-testid={`hq-fix-open-${m.id}`} onClick={() => { setActAsSalon(m.tenant_slug, m.tenant_name); nav(m.page || "/dashboard"); }}
+                  <button data-testid={`hq-fix-open-${m.id}`} onClick={() => { if (m.status === "open") setTicketStatus(m, "in_progress"); setActAsSalon(m.tenant_slug, m.tenant_name); nav(m.page || "/dashboard"); }}
                     className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-violet-600 text-white hover:bg-violet-700 transition">
                     👁 Open workspace → {m.page_title || m.page}
                   </button>
                 )}
+                {m.kind === "fix_request" && m.status === "open" && (
+                  <button data-testid={`hq-ticket-start-${m.id}`} onClick={() => setTicketStatus(m, "in_progress")}
+                    className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 transition">
+                    🛠 Start working
+                  </button>
+                )}
                 {m.status !== "resolved" ? (
-                  <button data-testid={`hq-ticket-resolve-${m.id}`} onClick={() => setTicketStatus(m, "resolved")}
+                  <button data-testid={`hq-ticket-resolve-${m.id}`} onClick={() => setTicketStatus(m, "resolved", noteFor(m))}
                     className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition">
                     ✓ Mark resolved
                   </button>
@@ -155,6 +163,17 @@ export function HqInbox({ onUnreadChange }) {
                 {m.status === "resolved" && m.resolved_at && (
                   <span className="text-[10px] text-slate-400">resolved {new Date(m.resolved_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
                 )}
+              </div>
+            )}
+            {m.kind === "fix_request" && (
+              <div className="mt-2 flex items-center gap-2" data-testid={`hq-fix-note-row-${m.id}`}>
+                <input value={noteFor(m)} onChange={e => setNotes(n => ({ ...n, [m.id]: e.target.value }))} maxLength={600}
+                  placeholder="Note the owner will see in their tracker (e.g. 'Fixed the Haircut price to ₹450')"
+                  className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-200" data-testid={`hq-fix-note-${m.id}`} />
+                <button data-testid={`hq-fix-note-save-${m.id}`} onClick={() => setTicketStatus(m, m.status === "open" ? "in_progress" : m.status, noteFor(m))}
+                  className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-slate-800 text-white hover:bg-slate-900 transition shrink-0">
+                  Send note
+                </button>
               </div>
             )}
             {m.tenant_id && m.tenant_id !== "superadmin" && (

@@ -5,6 +5,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { Wrench, X, Loader2, Send, Info, Headset, Heart, ArrowRight } from "lucide-react";
+import { FixRequestTracker, useFixRequests } from "./FixRequestTracker";
 
 const TITLES = { "/dashboard": "Dashboard", "/appointments": "Appointments", "/customers": "CRM", "/pos": "POS / Billing", "/inventory": "Inventory", "/services": "Services", "/staff": "Staff", "/reports": "Reports", "/settings": "Settings", "/plans": "Plans & Memberships", "/reviews": "Reviews", "/attendance": "Attendance" };
 const MAX = 500;
@@ -16,6 +17,8 @@ export function FixRequestButton() {
   const [open, setOpen] = useState(false);
   const [issue, setIssue] = useState("");
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState("new");
+  const tickets = useFixRequests(open);
   const page = loc.pathname;
   const title = TITLES[Object.keys(TITLES).find(k => page.startsWith(k))] || page;
 
@@ -24,15 +27,16 @@ export function FixRequestButton() {
     try {
       const r = await api.post("/support/fix-request", { issue, page, page_title: title });
       toast.success(`Ticket #${r.data.ticket_no} sent — Miracurl will fix it in your workspace and notify you`);
-      setOpen(false); setIssue("");
+      setIssue(""); setTab("mine"); tickets.reload();
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't send the request"); } finally { setBusy(false); }
   };
 
   return (
     <>
       <button data-testid="fix-request-btn" onClick={() => setOpen(true)} title="Ask Miracurl to fix this page for you"
-        className="inline-flex items-center gap-1.5 h-9 px-2.5 sm:px-3 rounded-full border border-[#d4af37]/40 text-[#d4af37] text-xs font-semibold hover:bg-[#d4af37]/10 transition-colors">
+        className="relative inline-flex items-center gap-1.5 h-9 px-2.5 sm:px-3 rounded-full border border-[#d4af37]/40 text-[#d4af37] text-xs font-semibold hover:bg-[#d4af37]/10 transition-colors">
         <Wrench className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Ask Miracurl to fix this</span><span className="sm:hidden">Fix</span>
+        {tickets.active > 0 && <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#d4af37] text-[#15130f] text-[10px] font-bold flex items-center justify-center" data-testid="fix-request-active-badge">{tickets.active}</span>}
       </button>
       {open && createPortal(
         <div className="fixed inset-0 z-[120] flex items-start sm:items-center justify-center bg-[#0b0a08]/75 backdrop-blur-md p-3 sm:p-4 overflow-y-auto" onClick={() => setOpen(false)} data-testid="fix-request-modal">
@@ -56,7 +60,16 @@ export function FixRequestButton() {
               </div>
             </div>
 
-            <div className="px-6 sm:px-8 pt-6 pb-5 space-y-4">
+            <div className="px-6 sm:px-8 pt-4 pb-5 space-y-4">
+              <div className="flex gap-1 p-1 rounded-full bg-[#f3efe4] w-fit" data-testid="fix-request-tabs">
+                {[["new", "New request"], ["mine", `My requests${tickets.items.length ? ` (${tickets.items.length})` : ""}`]].map(([k, l]) => (
+                  <button key={k} onClick={() => setTab(k)} data-testid={`fix-request-tab-${k}`}
+                    className={`h-8 px-4 rounded-full text-xs font-semibold transition-colors ${tab === k ? "bg-[#15130f] text-[#f3e5ab] shadow" : "text-slate-600 hover:text-slate-900"}`}>
+                    {l}{k === "mine" && tickets.active > 0 && <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-[#d4af37] animate-pulse align-middle" />}
+                  </button>
+                ))}
+              </div>
+              {tab === "mine" ? <FixRequestTracker {...tickets} /> : (<>
               <div className="flex items-end justify-between gap-3">
                 <h4 className="font-semibold text-slate-900 text-base">What's wrong?</h4>
                 <span className="text-[11px] text-slate-400">Describe the issue so we can fix it quickly.</span>
@@ -82,6 +95,7 @@ export function FixRequestButton() {
                   {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Send to Miracurl
                 </button>
               </div>
+              </>)}
             </div>
 
             <div className="px-6 sm:px-8 py-3.5 bg-[#faf7ef] border-t border-[#eee4c8] flex items-center justify-between gap-3 rounded-b-[26px]">
