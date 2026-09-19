@@ -3515,3 +3515,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-19 — Table QR resume (server-side), games @3min, kitchen billed history
 - `GET /public/table-active-order/{slug}/{table_no}` → newest order with status new/preparing (<3h) for that table; OrderPublic effect on mount sets `done` + localStorage, skipping the phone gate (fixes "closed browser, re-scanned, asked for number again" — QR scanners open different browser contexts). Served/billed → null → gate asks number again. GAMES_AFTER_MS = 3 min.
 - `PUT /table-orders/mark-billed` body now {ids, paid, invoice_no, total} → sets billed_at/paid/paid_at/invoice_no/bill_total; POS passes paid=!!complete + invoice. Kitchen `closed` includes billed; badge `ticket-billed-<id>`. Verified E2E (order 798dd80e table 7). Build .305.
+
+## 2026-09-19 — MDM booking link + favicon
+- User: dashboard hero showed EMPTY "Public booking link" for MDM Luxury Salon on prod (.280). Both public pages already exist and return 200 on prod (/book/mdm-luxury-salon, /salon/mdm-luxury-salon; tenant slug present). Cause = `tenant` null/late in that session; fix: Dashboard slug fallback = tenant.slug || user.salons[active].slug; DashboardHero takes `slug` prop; salon URL empty (not "/salon/") when unknown. Plus today's AuthContext ordering fix.
+- Favicon/PWA icons regenerated from ms-logo-ring.png on white (user: "golden white"); index.html ?v=6, manifest-admin.json ?v=7. Build .306.

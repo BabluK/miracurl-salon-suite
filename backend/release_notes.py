@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.305"
-BUILD_TIME = "19 Sep 2026, 05:00 PM IST"
+BUILD = "2026-09-19.306"
+BUILD_TIME = "19 Sep 2026, 05:30 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.306", "note": "Dashboard hero: booking/salon links fall back to the active salon slug from /auth/me (user.salons) when the tenant profile has not loaded — fixes empty Public booking link seen on MDM Luxury Salon in prod. Favicon + PWA icons (favicon.ico/svg/32/192/512, apple-touch, icon(-admin)(-maskable)) regenerated as the gold MS ring on white; cache-busted v=6/v=7."},
     {"build": "2026-09-19.305", "note": "QR ordering: re-scanning the same table QR from ANY browser lands on the live order (GET /public/table-active-order/{slug}/{table}: newest new/preparing order <3h) — once served/billed the gate asks for the number again; wait-games panel now appears 3 min after ordering (was 10). Kitchen: mark-billed records paid/invoice_no/bill_total/billed_at; Recently closed keeps billed tickets with a '✅ Bill completed & paid · INV · ₹' (or 'Billed — payment pending') badge so the chef sees history."},
     {"build": "2026-09-19.304", "note": "Code-quality pass: mira_calls._retry_failed_batch split into _latest_failed_calls/_retry_target (C 20→<10); loyalty_stamps.run_loyalty_nudges split into _nudge_targets/_nudge_text (C 16→<10); CSRF comment reworded (scanner keyword false positive). ruff F821/F632/E711/E712 = 0 ('95 undefined vars' and '515 is-comparisons' are scanner false positives)."},
     {"build": "2026-09-19.303", "note": "Chef's Picks For You: guest-lookup returns up to 3 dishes the returning diner hasn't ordered (ranked: favourite categories → best sellers → price) with a reason line; shown under the last-order card on the QR welcome screen with one-tap ADD (adds to cart and opens the menu)."},

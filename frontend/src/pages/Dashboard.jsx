@@ -153,7 +153,8 @@ export default function Dashboard() {
 
   const inr = (n) => `₹${(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
   // Never fall back to another salon's slug — an empty link is safer than a wrong one.
-  const slug = tenant?.slug || "";
+  // Fallback: /auth/me lists the owner's salons — use the active one if the tenant profile hasn't loaded
+  const slug = tenant?.slug || (user?.salons || []).find(s => s.id === (user?.active_tenant_id || user?.tenant_id))?.slug || "";
   const bookingUrl = slug ? `${window.location.origin}/book/${slug}` : "";
 
   const copyLink = async () => {
@@ -175,7 +176,7 @@ export default function Dashboard() {
   return (
     <div className="app-canvas relative isolate overflow-hidden -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="dashboard-page">
       <DashboardAurora />
-      <DashboardHero user={user} tenant={tenant} data={data} bookingUrl={bookingUrl} onCopy={copyLink} inr={inr} loadMs={isOwner ? loadMs : 0} />
+      <DashboardHero user={user} tenant={tenant} slug={slug} data={data} bookingUrl={bookingUrl} onCopy={copyLink} inr={inr} loadMs={isOwner ? loadMs : 0} />
       {isOwner && <WaCreditsBanner />}
 
       {/* KPIs */}

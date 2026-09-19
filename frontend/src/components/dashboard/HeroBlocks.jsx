@@ -17,8 +17,8 @@ const QUOTES = [
 
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good Morning" : h < 17 ? "Good Afternoon" : "Good Evening"; };
 
-export function DashboardHero({ user, tenant, data, bookingUrl, onCopy, inr, loadMs }) {
-  const salonUrl = `${window.location.origin}/salon/${tenant?.slug || ""}`;
+export function DashboardHero({ user, tenant, slug, data, bookingUrl, onCopy, inr, loadMs }) {
+  const salonUrl = slug ? `${window.location.origin}/salon/${slug}` : "";
   const copySalon = () => navigator.clipboard?.writeText(salonUrl).then(() => toast.success("Salon page link copied ✦")).catch(() => toast.error("Couldn't copy — long-press the link"));
   const [q, by] = QUOTES[new Date().getDate() % QUOTES.length];
   const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
