@@ -128,7 +128,7 @@ export default function OrderPublic() {
   );
 
   if (!entered) return (
-    <WelcomeGate salon={salon} table={table} phone={phone} setPhone={setPhone} name={name} setName={setName}
+    <WelcomeGate salon={salon} table={table} menu={menu} phone={phone} setPhone={setPhone} name={name} setName={setName}
       guest={guest} lookingUp={lookingUp} onCallWaiter={() => callStaff("waiter")}
       onProceed={() => { sessionStorage.setItem(`mc_order_gate:${slug}`, "1"); setEntered(true); }}
       onReorder={(last) => {
