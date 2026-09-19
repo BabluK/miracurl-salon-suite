@@ -775,6 +775,7 @@ class TableOrderIn(BaseModel):
     table_no: int = Field(..., ge=1, le=200)
     customer_name: Optional[str] = Field(None, max_length=80)
     customer_phone: Optional[str] = Field(None, max_length=20)
+    guests: Optional[int] = Field(None, ge=1, le=30)
     items: List[dict] = Field(..., min_length=1, max_length=40)
 
 
@@ -854,7 +855,7 @@ async def create_table_order(slug: str, body: TableOrderIn, request: Request):
         customer_id = cust["id"]
     order = {"id": uuid.uuid4().hex[:8], "tenant_id": t["id"], "table_no": body.table_no,
              "customer_name": (body.customer_name or "").strip()[:80],
-             "customer_phone": phone_digits, "customer_id": customer_id,
+             "customer_phone": phone_digits, "customer_id": customer_id, "guests": body.guests,
              "items": items, "subtotal": subtotal,
              "discount_pct": disc_pct, "discount_amt": disc_amt,
              "offer_title": (off or {}).get("title") or "",

@@ -2,10 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
-import { Loader2, Minus, Plus, UtensilsCrossed, CheckCircle2 } from "lucide-react";
+import { Loader2, Minus, Plus, UtensilsCrossed, Users, Bell, Droplets, ShoppingCart, LayoutGrid, ChevronDown } from "lucide-react";
 import { DishPhotoLightbox } from "../components/DishPhotoLightbox";
 import { thumbUrl } from "@/lib/api";
 import { WelcomeGate } from "../components/order/WelcomeGate";
+import { OrderStatusView } from "../components/order/OrderStatusView";
+
+const ACTIVE_KEY = (slug) => `mc_order_active:${slug}`;
+const readActive = (slug) => { try { const o = JSON.parse(localStorage.getItem(ACTIVE_KEY(slug)) || "null"); return o && Date.now() - new Date(o.created_at).getTime() < 3 * 3600 * 1000 ? o : null; } catch { return null; } };
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -19,16 +23,19 @@ export default function OrderPublic() {
   const [stats, setStats] = useState({ counts: {}, best_sellers: [] });
   const [qty, setQty] = useState({});
   const [spice, setSpice] = useState({});
-  const [table, setTable] = useState(params.get("table") || "");
+  const [table, setTable] = useState(params.get("table") || readActive(slug)?.table_no?.toString() || "");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(null);
+  const [done, setDone] = useState(() => readActive(slug));
+  const [resumed] = useState(() => !!readActive(slug));
+  const [guests, setGuests] = useState(2);
+  const [activeCat, setActiveCat] = useState("All");
   const [liveStatus, setLiveStatus] = useState("new");
   const [photoDish, setPhotoDish] = useState(null);
   const [guest, setGuest] = useState(null);
   const [lookingUp, setLookingUp] = useState(false);
-  const [entered, setEntered] = useState(() => sessionStorage.getItem(`mc_order_gate:${slug}`) === "1");
+  const [entered, setEntered] = useState(() => sessionStorage.getItem(`mc_order_gate:${slug}`) === "1" || !!readActive(slug));
 
   useEffect(() => {
     let d = phone.replace(/\D/g, "");
@@ -53,7 +60,7 @@ export default function OrderPublic() {
       axios.get(`${BACKEND_URL}/api/public/table-order-status/${slug}/${done.id}`)
         .then(r => {
           setLiveStatus(r.data.status);
-          if (["served", "billed", "cancelled"].includes(r.data.status)) clearInterval(iv);
+          if (["served", "billed", "cancelled"].includes(r.data.status)) { clearInterval(iv); localStorage.removeItem(ACTIVE_KEY(slug)); }
         }).catch(() => {});
     }, 10000);
     return () => clearInterval(iv);
@@ -98,10 +105,12 @@ export default function OrderPublic() {
     try {
       const { data } = await axios.post(`${BACKEND_URL}/api/public/table-order/${slug}`, {
         table_no: Number(table), customer_name: name.trim() || null,
-        customer_phone: phone.trim() || null,
+        customer_phone: phone.trim() || null, guests,
         items: cart.map(m => ({ id: m.id, qty: qty[m.id], spice: spice[m.id] || "normal" })),
       });
+      localStorage.setItem(ACTIVE_KEY(slug), JSON.stringify(data.order));
       setDone(data.order);
+      setQty({});
     } catch (e) {
       toast.error(e.response?.data?.detail || "Could not place the order");
     } finally { setBusy(false); }
@@ -111,42 +120,9 @@ export default function OrderPublic() {
   if (!salon) return <div className="min-h-screen bg-[#0d0b10] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-gold" /></div>;
 
   if (done) return (
-    <div className="min-h-screen bg-[#0d0b10] text-white flex items-center justify-center p-6" data-testid="order-success">
-      <div className="max-w-sm text-center">
-        <CheckCircle2 className="w-14 h-14 text-emerald-400 mx-auto" />
-        <h1 className="font-playfair text-3xl mt-4">Order sent to the kitchen!</h1>
-        <p className="text-white/60 text-sm mt-2">Order <b className="text-gold font-mono">#{done.id}</b> · Table {done.table_no} · ₹{done.total.toLocaleString("en-IN")}</p>
-        <div className="mt-6 text-left bg-white/[0.04] border border-white/10 rounded-2xl p-4" data-testid="order-live-status">
-          {[
-            ["new", "🧾 Order received", "The kitchen has your ticket"],
-            ["preparing", "🔥 Cooking now", "Your dishes are on the stove"],
-            ["served", "✅ Served — enjoy!", "Bon appétit!"],
-          ].map(([key, label, sub], i) => {
-            const order = ["new", "preparing", "served"];
-            const activeIdx = liveStatus === "billed" ? 2 : Math.max(order.indexOf(liveStatus), 0);
-            const doneStep = i < activeIdx || liveStatus === "served" || liveStatus === "billed" ? i <= activeIdx : false;
-            const isActive = i === activeIdx;
-            return (
-              <div key={key} className={`flex items-start gap-3 py-1.5 ${i <= activeIdx ? "" : "opacity-35"}`} data-testid={`order-step-${key}`}>
-                <span className={`mt-0.5 w-2.5 h-2.5 rounded-full shrink-0 ${doneStep || isActive ? "bg-emerald-400" : "bg-white/20"} ${isActive && liveStatus !== "served" && liveStatus !== "billed" ? "animate-pulse" : ""}`} />
-                <div>
-                  <p className={`text-sm font-bold ${isActive ? "text-white" : "text-white/70"}`}>{label}</p>
-                  {isActive && <p className="text-[11px] text-white/40">{sub}</p>}
-                </div>
-              </div>
-            );
-          })}
-          {liveStatus === "cancelled" && <p className="text-rose-300 text-xs mt-2">This order was cancelled — please ask a waiter.</p>}
-          {liveStatus === "billed" && <p className="text-gold text-xs mt-2">🧾 Billed — thank you for dining with us!</p>}
-          {!["served", "billed", "cancelled"].includes(liveStatus) && (
-            <p className="text-[10px] text-white/30 mt-2">Live — updates automatically every few seconds</p>
-          )}
-        </div>
-        <p className="text-white/40 text-xs mt-3">Sit back — your food is being prepared 🍽️</p>
-        <button onClick={() => { setDone(null); setQty({}); }} data-testid="order-again-btn"
-          className="btn-gold mt-6">Order something else</button>
-      </div>
-    </div>
+    <OrderStatusView salon={salon} done={done} liveStatus={liveStatus} resumed={resumed}
+      onCallWaiter={() => callStaff("waiter")}
+      onOrderMore={() => { localStorage.removeItem(ACTIVE_KEY(slug)); setDone(null); setQty({}); }} />
   );
 
   if (!entered) return (
@@ -157,43 +133,66 @@ export default function OrderPublic() {
 
   return (
     <div className="min-h-screen bg-[#0d0b10] text-white pb-40" data-testid="order-public-page">
-      <header className="px-5 pt-8 pb-5 border-b border-white/10">
-        <div className="flex items-center gap-3">
+      <header className="relative px-5 pt-7 pb-5 overflow-hidden border-b border-white/10">
+        <img src="/assets/login/restaurant.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none" style={{ WebkitMaskImage: "linear-gradient(180deg,#000 30%,transparent)", maskImage: "linear-gradient(180deg,#000 30%,transparent)" }} />
+        <div className="relative flex items-start gap-3">
           {salon.logo_url && (
             <img src={salon.logo_url} alt={salon.name} data-testid="order-restaurant-logo"
-              className="w-16 h-16 rounded-2xl object-contain bg-white p-1 shrink-0" />
+              className="w-16 h-16 rounded-full object-contain bg-black p-1 ring-2 ring-gold/60 shrink-0" />
           )}
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-gold text-[10px] tracking-[0.3em] uppercase"><UtensilsCrossed className="w-3.5 h-3.5" /> Order at your table</div>
-            <h1 className="font-playfair text-3xl mt-1">{salon.name}</h1>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 text-gold text-[10px] tracking-[0.3em] uppercase"><UtensilsCrossed className="w-3.5 h-3.5" /> Order at your table{table ? ` · Table ${table}` : ""}</div>
+            <h1 className="font-playfair text-2xl leading-tight mt-1">{salon.name}</h1>
+            <p className="text-[10px] tracking-[0.25em] uppercase text-white/60 mt-1">Good food · Great company</p>
           </div>
+          <p className="font-caveat text-gold text-lg leading-tight text-right shrink-0 hidden sm:block">Good Food<br />Brings People<br />Together ♡</p>
         </div>
-        <div className="flex gap-3 mt-4">
-          <input value={table} onChange={e => setTable(e.target.value.replace(/\D/g, ""))} inputMode="numeric"
-            data-testid="order-table-input" placeholder="Table #"
-            className="w-24 px-3 py-2.5 rounded-xl bg-white/5 border border-gold/40 text-center font-bold text-gold placeholder:text-white/30 focus:outline-none focus:border-gold" />
+        <div className="relative flex gap-3 mt-5">
+          <label className="relative w-28 shrink-0">
+            <Users className="w-4 h-4 text-gold absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <select value={guests} onChange={e => setGuests(Number(e.target.value))} data-testid="order-guests-select"
+              className="w-full appearance-none pl-9 pr-8 py-3 rounded-2xl bg-white/5 border border-white/15 font-bold text-gold text-sm focus:outline-none focus:border-gold">
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(n => <option key={n} value={n} className="text-black">{n}</option>)}
+            </select>
+            <ChevronDown className="w-4 h-4 text-gold absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </label>
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name (optional)"
             data-testid="order-name-input"
-            className="flex-1 min-w-0 px-3 py-2.5 rounded-xl bg-white/5 border border-white/15 text-sm placeholder:text-white/30 focus:outline-none focus:border-gold/60" />
+            className="flex-1 min-w-0 px-4 py-3 rounded-2xl bg-white/5 border border-white/15 text-sm placeholder:text-white/40 focus:outline-none focus:border-gold/60" />
         </div>
-        <div className="mt-2">
-          <input value={phone} onChange={e => setPhone(e.target.value.replace(/[^\d+ ]/g, ""))} inputMode="tel"
-            data-testid="order-phone-input" placeholder="📱 Mobile number — earn loyalty points on this visit"
-            className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/15 text-sm placeholder:text-white/30 focus:outline-none focus:border-gold/60" />
-          {guest && (
-            <div data-testid="returning-guest-greeting"
-              className="mt-2 px-3 py-2 rounded-xl bg-gold/10 border border-gold/40 text-gold text-sm font-semibold">
-              👋 Welcome back{guest.title ? `, ${guest.title}` : ","} {guest.name}! We're happy you came back — proceed with your order, and tap <b>Call waiter</b> anytime you need assistance. Visit #{(guest.visits || 0) + 1} ✨
-            </div>
-          )}
+        <div className="relative flex gap-3 mt-3">
+          <input value={table} onChange={e => setTable(e.target.value.replace(/\D/g, ""))} inputMode="numeric"
+            data-testid="order-table-input" placeholder="Table #"
+            className="w-28 shrink-0 px-3 py-3 rounded-2xl bg-white/5 border border-gold/40 text-center font-bold text-gold placeholder:text-white/30 focus:outline-none focus:border-gold" />
+          <div className="flex-1 min-w-0 flex rounded-2xl bg-white/5 border border-white/15 focus-within:border-gold/60 overflow-hidden">
+            <span className="px-3 flex items-center gap-1.5 text-sm font-bold text-white/80 border-r border-white/10 shrink-0">🇮🇳 +91</span>
+            <input value={phone} onChange={e => setPhone(e.target.value.replace(/[^\d+ ]/g, ""))} inputMode="tel"
+              data-testid="order-phone-input" placeholder="Mobile — earn loyalty points"
+              className="flex-1 min-w-0 px-3 py-3 bg-transparent text-sm placeholder:text-white/40 focus:outline-none" />
+          </div>
         </div>
-        <div className="flex gap-2 mt-3">
+        {guest && (
+          <div data-testid="returning-guest-greeting"
+            className="relative mt-3 px-4 py-2.5 rounded-2xl bg-gold/10 border border-gold/40 text-gold text-sm font-semibold">
+            👋 Welcome back{guest.title ? `, ${guest.title}` : ","} {guest.name}! We're happy you came back — proceed with your order, and tap <b>Call waiter</b> anytime you need assistance. Visit #{(guest.visits || 0) + 1} ✨
+          </div>
+        )}
+        <div className="relative flex gap-3 mt-4">
           <button onClick={() => callStaff("waiter")} data-testid="call-waiter-btn"
-            className="flex-1 px-3 py-2 rounded-full border border-gold/40 text-gold text-[11px] font-bold hover:bg-gold/10 transition-colors">🙋 Call waiter</button>
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-full border border-gold/60 text-gold text-sm font-bold hover:bg-gold/10 transition-colors"><Bell className="w-4 h-4" /> Call waiter</button>
           <button onClick={() => callStaff("water")} data-testid="call-water-btn"
-            className="flex-1 px-3 py-2 rounded-full border border-white/20 text-white/80 text-[11px] font-bold hover:bg-white/5 transition-colors">💧 Water please</button>
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-full border border-white/25 text-white/90 text-sm font-bold hover:bg-white/5 transition-colors"><Droplets className="w-4 h-4 text-sky-300" /> Water please</button>
         </div>
       </header>
+
+      <nav className="sticky top-0 z-20 bg-[#0d0b10]/95 backdrop-blur border-b border-white/10 px-5 py-3 flex gap-2 overflow-x-auto no-scrollbar" data-testid="order-category-chips">
+        {["All", ...Object.keys(byCat)].map(c => (
+          <button key={c} onClick={() => setActiveCat(c)} data-testid={`order-cat-${c}`}
+            className={`shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl text-sm font-semibold transition-colors ${activeCat === c ? "bg-gold text-black" : "bg-white/5 border border-white/10 text-white/80 hover:bg-white/10"}`}>
+            {c === "All" && <LayoutGrid className="w-4 h-4" />}{c}
+          </button>
+        ))}
+      </nav>
 
       <main className="px-5 py-6 space-y-8">
         {offer && (
@@ -202,9 +201,9 @@ export default function OrderPublic() {
             {offer.title && <p className="text-white/50 text-[11px] mt-0.5">{offer.title}</p>}
           </div>
         )}
-        {Object.entries(byCat).map(([cat, items]) => (
+        {Object.entries(byCat).filter(([cat]) => activeCat === "All" || cat === activeCat).map(([cat, items]) => (
           <section key={cat}>
-            <h2 className="text-gold text-xs tracking-[0.25em] uppercase mb-3 flex items-center gap-2">
+            <h2 className="font-playfair text-2xl mb-3 flex items-center gap-2 border-l-4 border-gold pl-3">
               {cat}
               {specials[cat] > 0 && (
                 <span data-testid={`cat-special-${cat}`} className="text-[9px] font-bold tracking-normal normal-case px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/40 text-emerald-300">
@@ -274,17 +273,20 @@ export default function OrderPublic() {
         {menu.length === 0 && <p className="text-white/40 text-sm text-center py-10">Menu coming soon…</p>}
       </main>
 
-      {cart.length > 0 && (
-        <div className="fixed bottom-0 inset-x-0 p-4 bg-[#12101a]/95 backdrop-blur border-t border-gold/25" data-testid="order-cart-bar">
-          <button onClick={submit} disabled={busy}
-            data-testid="order-submit-btn"
-            className="w-full btn-gold py-3.5 flex items-center justify-center gap-2 text-sm font-bold disabled:opacity-60">
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <UtensilsCrossed className="w-4 h-4" />}
-            Send order to kitchen · {cart.reduce((a, m) => a + qty[m.id], 0)} item(s) ·
-            {anyDiscount && <s className="opacity-60">₹{Math.round(total).toLocaleString("en-IN")}</s>} ₹{payable.toLocaleString("en-IN")}
-          </button>
+      <div className="fixed bottom-0 inset-x-0 p-4 bg-[#12101a]/95 backdrop-blur border-t border-gold/25 flex items-center gap-3" data-testid="order-cart-bar">
+        <div className="relative w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+          <ShoppingCart className="w-5 h-5 text-gold" />
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-gold text-black text-[10px] font-bold flex items-center justify-center" data-testid="order-cart-count">{cart.reduce((a, m) => a + qty[m.id], 0)}</span>
         </div>
-      )}
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-sm">Your Order</p>
+          <p className="text-xs text-white/50 truncate">{cart.length === 0 ? "Add items to get started" : <>{anyDiscount && <s className="opacity-60 mr-1">₹{Math.round(total).toLocaleString("en-IN")}</s>}₹{payable.toLocaleString("en-IN")} · {cart.length} dish{cart.length > 1 ? "es" : ""}</>}</p>
+        </div>
+        <button onClick={submit} disabled={busy || cart.length === 0} data-testid="order-submit-btn"
+          className="shrink-0 px-5 py-3 rounded-2xl bg-gold text-black text-sm font-bold flex items-center gap-2 disabled:opacity-40">
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}{cart.length === 0 ? "View Cart" : "Send to kitchen"} →
+        </button>
+      </div>
       <DishPhotoLightbox dish={photoDish} onClose={() => setPhotoDish(null)} />
     </div>
   );

@@ -3498,3 +3498,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-19 — QR table-order Welcome Gate
 - `components/order/WelcomeGate.jsx` rendered by OrderPublic until `entered` (sessionStorage `mc_order_gate:<slug>`): phone → guest-lookup (now returns `title` Mr/Ms from customer gender) → known: welcome-back card + "Proceed to order"; new: name step → "Start ordering". Call waiter on gate + header. Header greeting text updated. Verified both flows on mobile viewport. Build 2026-09-19.296.
+
+## 2026-09-19 — QR ordering redesign + resume + wait games (RESTAURANT ONLY — user: don't touch salon)
+- OrderPublic.jsx: new header (party-size select `guests`, +91 pill, hero bg /assets/login/restaurant.jpg, Call waiter/Water), sticky category chips (`activeCat`), always-visible cart bar (View Cart / Send to kitchen). Active order persisted `localStorage mc_order_active:<slug>` (3h TTL, cleared on served/billed/cancelled or "Order something else"); on load → `OrderStatusView` with `resumed` banner + order-more prompt + Call waiter. `components/order/OrderStatusView.jsx` (image-3 style timeline) shows `WaitGames` after 10 min from `done.created_at` (TicTacToe w/ simple AI, BubblePop 30s). Backend: TableOrderIn.guests optional, stored on order. OTP: template approved, already live (.295).
+- Verified E2E on mobile viewport: gate → menu → add → send → status → reload resumes → backdated created_at shows games → TTT plays. Build 2026-09-19.297.

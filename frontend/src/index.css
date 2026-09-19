@@ -54,6 +54,7 @@ input, select, textarea {
 input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.3); }
 
 .font-playfair { font-family: 'Playfair Display', serif; }
+.font-caveat { font-family: "Caveat", cursive; }
 .font-outfit { font-family: 'Outfit', sans-serif; }
 
 .gold-text { color: #D4AF37; }
