@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.298"
-BUILD_TIME = "19 Sep 2026, 02:00 PM IST"
+BUILD = "2026-09-19.299"
+BUILD_TIME = "19 Sep 2026, 03:00 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.299", "note": "QR welcome screen: returning diners see 'Your last order' (latest non-cancelled table_order for their phone, via guest-lookup.last_order) with one-tap 'Order the same again · ₹total' → cart prefilled with qty + spice (sold-out/removed dishes skipped with a note) → straight to Send to kitchen."},
     {"build": "2026-09-19.298", "note": "QR ordering pixel-matched to reference mock-ups: menu (icon category chips w/ gold underline, View all →, +ADD pills, descriptions, name/phone icons, table input hidden when table comes from QR), status screen (sparkle check, timeline card, chef-hat script, gold Order-something-else, View Order Details expander, footer rule), wait panel (hero copy, Play/Pass/Stay icons, Good Things Take Time bubble, generated diner illustration /assets/order/wait-boy.jpg, Play a Game Now, 4 tiles: Sudoku 4×4, Jigsaw 3×3, Bubble Pop, Tic Tac Toe)."},
     {"build": "2026-09-19.297", "note": "QR table ordering redesign: hero header (logo ring, script tagline, party-size selector, +91 phone pill, Call waiter / Water please), sticky category chips, Playfair section titles, persistent Your Order / View Cart bar. Order persistence: active order saved in localStorage (mc_order_active:<slug>, 3h) so closing/reopening the page resumes the live status screen with a Welcome-back banner + 'Would you like to order anything else?' prompt; new OrderStatusView timeline; after 10 minutes waiting a WaitGames panel (Tic Tac Toe vs chef, Bubble Pop) appears. table-order accepts optional guests."},
     {"build": "2026-09-19.296", "note": "QR table menu welcome gate (components/order/WelcomeGate.jsx): after a scan the diner enters their mobile; known guests get 'Welcome back, Mr/Ms <name> — we're happy you came back, please proceed with your order, let us know if you need any assistance' + Call waiter; new guests are asked for their name. Gate remembered per session (sessionStorage mc_order_gate:<slug>). guest-lookup returns title (Mr/Ms by gender)."},
@@ -105,6 +106,7 @@ RELEASES = [
         "changes": [
             "🛠️ 'Ask Miracurl to fix this' got a concierge makeover — a premium popup with a live 500-character counter and a direct Miracurl Support link, now available on your phone too. Every request becomes a numbered HQ ticket",
             "📱 Phone fix: the app no longer reloads when you swipe down at the top of a page (pull-to-refresh is off inside Miracurl), and login → dashboard now paints once instead of twice",
+            "🔁 Returning diners see their last order on the welcome screen and can tap 'Order the same again' to refill the cart instantly",
             "🎮 Diners who close the menu and come back land straight on their live order ('Your order is on the way'); after 10 minutes of waiting they can play Tic Tac Toe or Bubble Pop right on the page",
             "🙋 Table QR welcome: returning diners are greeted by name ('Welcome back, Mr Bablu — we're happy you came back'), new diners are asked for mobile + name, and a Call waiter button is always one tap away",
             "🍽️ Table QR fixed: diners scanning a table QR stay on your menu — no more bounce to the login page",

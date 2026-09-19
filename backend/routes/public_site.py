@@ -805,7 +805,11 @@ async def public_guest_lookup(slug: str, request: Request, phone: str = ""):
         return {"found": False}
     g = (c.get("gender") or "").lower()
     title = "Mr" if g == "male" else "Ms" if g == "female" else ""
-    return {"found": True, "name": first, "title": title, "visits": int(c.get("visits") or 0)}
+    last = await db.table_orders.find_one(
+        {"customer_phone": digits, "status": {"$ne": "cancelled"}},
+        {"_id": 0, "id": 1, "created_at": 1, "total": 1, "items.id": 1, "items.name": 1, "items.qty": 1, "items.spice": 1, "items.price": 1},
+        sort=[("created_at", -1)])
+    return {"found": True, "name": first, "title": title, "visits": int(c.get("visits") or 0), "last_order": last}
 
 
 @router.post("/public/table-order/{slug}")

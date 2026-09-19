@@ -130,7 +130,17 @@ export default function OrderPublic() {
   if (!entered) return (
     <WelcomeGate salon={salon} table={table} phone={phone} setPhone={setPhone} name={name} setName={setName}
       guest={guest} lookingUp={lookingUp} onCallWaiter={() => callStaff("waiter")}
-      onProceed={() => { sessionStorage.setItem(`mc_order_gate:${slug}`, "1"); setEntered(true); }} />
+      onProceed={() => { sessionStorage.setItem(`mc_order_gate:${slug}`, "1"); setEntered(true); }}
+      onReorder={(last) => {
+        const ids = new Set(menu.filter(m => !m.sold_out).map(m => m.id));
+        const q = {}, sp = {};
+        let skipped = 0;
+        (last.items || []).forEach(it => { if (ids.has(it.id)) { q[it.id] = it.qty; sp[it.id] = it.spice || "normal"; } else skipped += 1; });
+        if (!Object.keys(q).length) { toast.error("Those dishes aren't on today's menu — please pick from the menu"); return; }
+        setQty(q); setSpice(sp);
+        sessionStorage.setItem(`mc_order_gate:${slug}`, "1"); setEntered(true);
+        toast.success(skipped ? `Last order added to your cart (${skipped} item${skipped > 1 ? "s" : ""} no longer available) — review & send to kitchen` : "Last order added to your cart — review & send to kitchen");
+      }} />
   );
 
   return (
