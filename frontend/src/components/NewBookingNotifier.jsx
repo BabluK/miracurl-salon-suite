@@ -3,17 +3,19 @@ import log from "@/lib/log";
 import api from "@/lib/api";
 import { getSelectedBranch } from "@/lib/branch";
 import { toast } from "sonner";
-import { Bell, CalendarPlus, Gift, Crown, X, CheckCheck } from "lucide-react";
+import { Bell, CalendarPlus, Gift, Crown, X, CheckCheck, MessageCircle } from "lucide-react";
 
 const KIND = {
   booking:    { Icon: CalendarPlus, cls: "bg-gold/10 border-gold/30 text-gold", to: "/appointments" },
   gift:       { Icon: Gift, cls: "bg-fuchsia-500/10 border-fuchsia-400/40 text-fuchsia-400", to: "/plans" },
   membership: { Icon: Crown, cls: "bg-amber-500/10 border-amber-400/40 text-amber-400", to: "/plans" },
   notice:     { Icon: Bell, cls: "bg-sky-500/10 border-sky-400/40 text-sky-300", to: "/settings" },
+  reply:      { Icon: MessageCircle, cls: "bg-emerald-500/10 border-emerald-400/40 text-emerald-400", to: "/customers?view=campaign&inbox=1" },
 };
 
 function notifText(it) {
   if (it.kind === "notice") return { title: it.title, sub: it.sub || "", meta: "" };
+  if (it.kind === "reply") return { title: `WhatsApp reply — ${it.customer_name}`, sub: `“${it.text}”`, meta: `↩ ${it.campaign || "campaign"}` };
   if (it.kind === "gift") {
     return {
       title: `Gift card sold — ₹${Number(it.amount || 0).toLocaleString("en-IN")}`,
@@ -148,7 +150,7 @@ export function useNewBookingNotifier({ enabled }) {
       if (firstRun) {
         // First poll: don't replay old bookings, but DO load open notices & pending to-dos quietly.
         firstRunRef.current = false;
-        data = { ...data, bookings: [], gift_cards: [], memberships: [], count: (data.notices || []).length + (data.pending || []).length };
+        data = { ...data, bookings: [], gift_cards: [], memberships: [], replies: [], count: (data.notices || []).length + (data.pending || []).length };
       }
       {
         const live = new Set([...(data.notices || []), ...(data.pending || [])].map(n => n.id));
@@ -161,6 +163,7 @@ export function useNewBookingNotifier({ enabled }) {
           ...(data.bookings || []).map(b => ({ ...b, kind: "booking", received_at: b.created_at || now })),
           ...(data.gift_cards || []).map(g => ({ ...g, kind: "gift", received_at: g.issued_at || now })),
           ...(data.memberships || []).map(m => ({ ...m, kind: "membership", received_at: m.purchased_at || now })),
+          ...(data.replies || []).map(r => ({ ...r, kind: "reply", received_at: r.created_at || now })),
           ...(data.notices || []).map(n => ({ ...n, kind: "notice", silent: firstRun, received_at: n.created_at || now })),
           ...(data.pending || []).map(n => ({ ...n, kind: "notice", silent: true, received_at: n.created_at || now })),
         ];
@@ -181,6 +184,11 @@ export function useNewBookingNotifier({ enabled }) {
             });
           } else if (one.kind === "notice") {
             toast(one.title, { description: one.sub, duration: 8000 });
+          } else if (one.kind === "reply") {
+            toast.success(`${one.customer_name} replied on WhatsApp ✦`, {
+              description: `“${one.text}” — re: ${one.campaign || "your campaign"}`, duration: 10000,
+              action: { label: "Open inbox →", onClick: () => { window.history.pushState({}, "", KIND.reply.to); window.dispatchEvent(new PopStateEvent("popstate")); } },
+            });
           } else if (one.kind === "membership") {
             toast.success(`New ${(one.tier || "").toUpperCase()} member ✦ ${one.customer_name}`, {
               description: `${one.name || "Membership"} · ₹${Number(one.amount || 0).toLocaleString("en-IN")}`, duration: 6000,

@@ -25,7 +25,7 @@ export default function Customers() {
   const [importOpen, setImportOpen] = useState(false);
   const [selected, setSelected] = useState(() => new Set());
   const [campaignOpen, setCampaignOpen] = useState(false);
-  const [view, setView] = useState("crm");
+  const [view, setView] = useState(() => new URLSearchParams(window.location.search).get("view") === "campaign" ? "campaign" : "crm");
   const [campaignMounted, setCampaignMounted] = useState(false);
   useEffect(() => {
     if (view === "campaign") { setCampaignMounted(true); return; }

@@ -95,15 +95,40 @@ async def new_bookings(since: str, branch: str = "", user=Depends(get_current_us
     from services.tenant_notices import notices_open, staff_profile_gaps
     notices = await notices_open(t["id"], user.get("id") or "")
     gaps = await staff_profile_gaps(t) if user.get("role") in ("admin", "super_admin") else []
+    replies = await _campaign_replies_since(t, since) if user.get("role") in ("admin", "super_admin", "manager") else []
     return {
         "server_time": datetime.now(timezone.utc).isoformat(),
-        "count": len(rows) + len(gcs) + len(cms) + len(notices) + len(gaps),
+        "count": len(rows) + len(gcs) + len(cms) + len(notices) + len(gaps) + len(replies),
         "gift_cards": gcs,
         "memberships": cms,
         "bookings": rows,
         "notices": notices,
         "pending": gaps,
+        "replies": replies,
     }
+
+
+async def _campaign_replies_since(t: dict, since: str) -> list:
+    """Inbound WhatsApp texts (official channel) from guests who received a campaign in the last 30 days — for the dashboard bell."""
+    from database import _raw_db
+    import re as _re
+    rows = await _raw_db.whatsapp_messages.find({"tenant_id": t["id"], "direction": "inbound", "created_at": {"$gt": since}, "text": {"$nin": [None, ""]}},
+                                                 {"_id": 0, "message_id": 1, "wa_id": 1, "text": 1, "created_at": 1}).sort("created_at", -1).limit(20).to_list(20)
+    if not rows:
+        return []
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    campaigned: dict = {}
+    async for c in _raw_db.wa_campaigns.find({"tenant_id": t["id"], "created_at": {"$gte": cutoff}}, {"_id": 0, "name": 1, "recipients.phone": 1, "recipients.status": 1, "recipients.name": 1, "recipients.customer_id": 1}):
+        for r in c.get("recipients") or []:
+            if r.get("status") == "sent":
+                campaigned[_re.sub(r"\D", "", r.get("phone") or "")[-10:]] = {"campaign": c.get("name"), "name": r.get("name"), "customer_id": r.get("customer_id")}
+    out = []
+    for m in rows:
+        hit = campaigned.get((m.get("wa_id") or "")[-10:])
+        if hit:
+            out.append({"id": f"reply:{m.get('message_id') or m['created_at']}", "phone": m.get("wa_id"), "customer_name": hit["name"] or "Guest",
+                        "customer_id": hit.get("customer_id"), "campaign": hit["campaign"], "text": (m.get("text") or "")[:160], "created_at": m["created_at"]})
+    return out
 
 
 def _ist_when(raw) -> str:

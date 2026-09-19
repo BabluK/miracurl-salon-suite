@@ -188,3 +188,7 @@
 - routes/customers.py list_customers to_list 500→5000 (CRM stats are client-side from the list; prod showed "Total Customers 500" for MDM).
 - Guide: /app/frontend/public/guides/mdm-whatsapp-campaign-guide.pdf (6 pages: cover + 5 steps w/ screenshots from MDM demo tenant). Screenshot tool saves to /root/.emergent/automation_output/<ts>/<name>.jpeg, NOT /tmp — copy from there.
 - MDM demo tenant (preview) wa_points restored to 19; all AB-TEST seeds removed. autobatch_e2e ALL PASS.
+
+## 2026-09-20 — Reply Inbox Alert (build 2026-09-19.319); Guide Auto-Send SKIPPED by user
+- `_campaign_replies_since()` in routes/appointments_pos.py; bell kind "reply" in NewBookingNotifier.jsx; deep link /customers?view=campaign&inbox=1. Verified via seeded inbound message (Bablu → linked to 'Thank You · 19 Sep'), seed removed.
+- User asked for PayPal + Image-Generation AI model integrations; scoping questions (usage, PayPal creds, which models) sent via ask_human — user replied "skip" (interpreted: skip Guide Auto-Send). PayPal/image-gen answers still pending → next agent must re-ask A–D before implementing (integration_expert required).

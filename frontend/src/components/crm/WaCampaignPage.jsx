@@ -39,7 +39,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
   const [festPick, setFestPick] = useState("");
   const [meta, setMeta] = useState({ festival: "", offer: "", valid_till: "" });
   const [showHistory, setShowHistory] = useState(false);
-  const [showInbox, setShowInbox] = useState(false);
+  const [showInbox, setShowInbox] = useState(() => new URLSearchParams(window.location.search).get("inbox") === "1");
 
   const loadCamps = () => api.get("/whatsapp-link/campaigns").then(r => setCamps(r.data)).catch(() => {});
   useEffect(() => {
