@@ -207,3 +207,9 @@
 - MDM overrides now {festival: mdm_festival_offer_call, thank_you: mdm_thank_you_call_v2} (preview set directly; prod via startup migration on deploy). Sent v2 Call-now Thank-You to 7406869271 (accepted).
 - miracurl_owner_guide APPROVED → guide WhatsApp'd to MDM owner 919608424704 from HQ (wamid…QjC1AA==). send-guide now tries APP_PUBLIC_URL → https://<x-forwarded-host> → base_url for a live PDF.
 - Still pending from user: PayPal + Image-Generation AI scoping answers (A–D).
+
+## 2026-09-20 — Code-review fixes (no build bump; behaviour unchanged)
+- Report items #1 (hardcoded secret security.py:231), #2 (96 undefined vars), #4 (524 `is` comparisons) verified FALSE POSITIVES: ruff F821/F632 + eslint no-undef = 0; the flagged string is the CSRF KDF label (renamed `_CSRF_KDF_LABEL`, key material still JWT_SECRET only); `is` only used with None.
+- Refactored (radon ≤10 now): appointments_pos.new_bookings/_campaign_replies_since (→ _booking_query, _new_memberships, _recent_campaign_recipients, _reply_item, _last10), briefings._staff_today_status (→ _bucket_staff), hq_credit_wallet.hq_wallet_view (→ _channel_margin, _ledger_with_names), hq_documents._recipient_is_intl (→ _location_is_india, _phone_is_intl) + _annotate_staleness (→ _never_engaged), lead_gen._find_candidates (→ _ai_candidates), auth.google_session (→ _google_session_email, _google_linked_user), hair_colors.upload_color_result (→ _read_result_photo). Route decorators preserved (/appointments/{appt_id}/color-result, /auth/google/session, /super-admin/credit-wallet).
+- F841 in tests/test_iter148 fixed. Smoke: new-bookings, credit-wallet, morning-briefing 200; google/session bad id → 401; unit asserts for intl + bucket helpers pass.
+- Not done (low value / risk): import-count splitting of server.py etc., type hints in scripts/tests.

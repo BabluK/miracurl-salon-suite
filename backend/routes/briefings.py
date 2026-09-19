@@ -29,20 +29,24 @@ def _revenue_sentence(yesterday: float, last_week: float) -> str:
     return s
 
 
+def _bucket_staff(staff_list: list, checked: set, on_leave: set) -> dict:
+    out = {"checked_in": [], "checked_in_staff": [], "on_leave": [], "not_checked_in": []}
+    for s in staff_list:
+        if s["id"] in checked:
+            out["checked_in"].append(s["name"])
+            out["checked_in_staff"].append({"id": s["id"], "name": s["name"], "photo_url": s.get("image_url") or s.get("photo_url") or ""})
+        else:
+            out["on_leave" if s["id"] in on_leave else "not_checked_in"].append(s["name"])
+    return out
+
+
 async def _staff_today_status(day: str) -> dict:
     staff_list = await db.staff.find({"active": {"$ne": False}}, {"_id": 0, "id": 1, "name": 1, "image_url": 1, "photo_url": 1}).to_list(200)
     att = await db.attendance.find({"date": day}, {"_id": 0, "staff_id": 1}).to_list(300)
-    checked = {a["staff_id"] for a in att}
     leaves = await db.leave_requests.find(
         {"status": "approved", "from_date": {"$lte": day}, "to_date": {"$gte": day}},
         {"_id": 0, "staff_id": 1}).to_list(100)
-    on_leave = {lv["staff_id"] for lv in leaves}
-    return {
-        "checked_in": [s["name"] for s in staff_list if s["id"] in checked],
-        "checked_in_staff": [{"id": s["id"], "name": s["name"], "photo_url": s.get("image_url") or s.get("photo_url") or ""} for s in staff_list if s["id"] in checked],
-        "on_leave": [s["name"] for s in staff_list if s["id"] in on_leave and s["id"] not in checked],
-        "not_checked_in": [s["name"] for s in staff_list if s["id"] not in checked and s["id"] not in on_leave],
-    }
+    return _bucket_staff(staff_list, {a["staff_id"] for a in att}, {lv["staff_id"] for lv in leaves})
 
 
 async def _briefing_notifications(today_str: str) -> dict:

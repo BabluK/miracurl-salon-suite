@@ -211,17 +211,29 @@ _INDIA_WORDS = {"india", "in", "ind", "bharat", "bengaluru", "bangalore", "mumba
                 "karnataka", "maharashtra", "tamil nadu", "telangana", "gujarat", "rajasthan", "punjab", "haryana", "up", "mp", "bihar", "odisha", "assam"}
 
 
+def _location_is_india(loc: str) -> bool:
+    last = re.split(r"[,/|-]", loc)[-1].strip()
+    words = loc.replace(",", " ").split()
+    return loc in _INDIA_WORDS or last in _INDIA_WORDS or any(w in _INDIA_WORDS for w in words)
+
+
+def _phone_is_intl(phone: str) -> bool | None:
+    """True/False when the number carries a country code, None when it can't tell."""
+    digits = re.sub(r"\D", "", phone or "")
+    has_code = (phone or "").strip().startswith("+") or len(digits) > 10
+    if not digits or not has_code:
+        return None
+    return not digits.startswith("91")
+
+
 def _recipient_is_intl(email: str, country: str = "", phone: str = "") -> bool:
     """Never show ₹ pricing outside India. Priority: explicit country/city → phone code → email TLD."""
     loc = (country or "").strip().lower()
     if loc:
-        last = re.split(r"[,/|-]", loc)[-1].strip()
-        return not (loc in _INDIA_WORDS or last in _INDIA_WORDS or any(w in _INDIA_WORDS for w in loc.replace(",", " ").split()))
-    digits = re.sub(r"\D", "", phone or "")
-    if (phone or "").strip().startswith("+") and digits:
-        return not digits.startswith("91")
-    if len(digits) > 10:
-        return not digits.startswith("91")
+        return not _location_is_india(loc)
+    by_phone = _phone_is_intl(phone)
+    if by_phone is not None:
+        return by_phone
     return _is_intl_email(email)
 
 
@@ -1388,15 +1400,18 @@ def _annotate_signup(i: dict, su: dict | None) -> None:
         i["status"] = "trial_started"
 
 
+def _never_engaged(i: dict, has_signup: bool) -> bool:
+    return not (i["opened"] or i["clicked"] or i.get("preferred_slot") or has_signup)
+
+
 def _annotate_staleness(i: dict, has_signup: bool, stale_cutoff: str, purge_cutoff: str) -> None:
     """Engagement flags: resend suggestion, stale-no-reply, and purge candidates (never seen, never replied)."""
     waiting = i["status"] in ("awaiting", "reminded")
     first_sent = i.get("first_sent_at") or ""
-    stale = first_sent <= stale_cutoff
-    i["resend_suggested"] = waiting and not i["opened"] and stale
-    i["stale_no_reply"] = waiting and i["opened"] and stale
-    never_engaged = not i["opened"] and not i["clicked"] and not i.get("preferred_slot") and not has_signup
-    i["stale_unseen"] = waiting and never_engaged and first_sent <= purge_cutoff
+    stale = waiting and first_sent <= stale_cutoff
+    i["resend_suggested"] = stale and not i["opened"]
+    i["stale_no_reply"] = stale and i["opened"]
+    i["stale_unseen"] = waiting and first_sent <= purge_cutoff and _never_engaged(i, has_signup)
 
 
 def _annotate_invite(i: dict, signups: dict, tenant_emails: set, stale_cutoff: str, purge_cutoff: str) -> None:

@@ -546,17 +546,7 @@ async def _next_localities(city: str, k: int = 3) -> list:
     return picked
 
 
-async def _find_candidates(client: httpx.AsyncClient, city: str, target: int, existing: set,
-                           areas: list | None = None, vertical: str = "salon") -> tuple:
-    """Returns (source, candidates, note). Google Maps when available, else Mira AI research."""
-    noun = "restaurant" if vertical == "restaurant" else "salon"
-    raw, note = await _places_search(client, city, max(target * 3, 40), areas=areas, vertical=vertical)
-    places = [p for p in raw if p["name"] and p["name"].lower() not in existing][:target]
-    if places:
-        return "maps", [{"name": p["name"], "website": p["website"], "area": p["address"], "_place": p}
-                        for p in places], ""
-    if raw and not places:
-        note = "all Maps results already contacted"
+async def _ai_candidates(city: str, target: int, existing: set, noun: str) -> list:
     from routes.mira_common import _ask_json
     plan = await _ask_json(
         f"You are the Lead Finder agent for a {noun}-software company targeting {noun}s worldwide. "
@@ -567,8 +557,20 @@ async def _find_candidates(client: httpx.AsyncClient, city: str, target: int, ex
         f"Already contacted (skip these): {sorted(existing)[:40]}\n"
         f'Return JSON: {{"salons": [{{"name": "<{noun} name>", "website": "<https://… or empty>", '
         f'"area": "<locality if known>"}}]}} with up to {target + 6} {noun}s.')
-    return "ai", [c for c in (plan.get("salons") or [])
-                  if c.get("name") and c["name"].strip().lower() not in existing][:target], note
+    return [c for c in (plan.get("salons") or []) if c.get("name") and c["name"].strip().lower() not in existing][:target]
+
+
+async def _find_candidates(client: httpx.AsyncClient, city: str, target: int, existing: set,
+                           areas: list | None = None, vertical: str = "salon") -> tuple:
+    """Returns (source, candidates, note). Google Maps when available, else Mira AI research."""
+    noun = "restaurant" if vertical == "restaurant" else "salon"
+    raw, note = await _places_search(client, city, max(target * 3, 40), areas=areas, vertical=vertical)
+    places = [p for p in raw if p["name"] and p["name"].lower() not in existing][:target]
+    if places:
+        return "maps", [{"name": p["name"], "website": p["website"], "area": p["address"], "_place": p} for p in places], ""
+    if raw:
+        note = "all Maps results already contacted"
+    return "ai", await _ai_candidates(city, target, existing, noun), note
 
 
 async def _build_candidate_lead(client: httpx.AsyncClient, cand: dict, city: str, run_id: str,

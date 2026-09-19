@@ -266,7 +266,7 @@ def test_social_history_has_color_reel(admin):
 def test_reel_without_color_pick_400(admin):
     # Create a plain appointment (no color_code) to hit "No colour pick"
     ps = requests.get(f"{BASE}/api/public/services/{SLUG}")
-    _pj = ps.json(); services = _pj if isinstance(_pj, list) else (_pj.get("services") or [])
+    assert ps.status_code == 200
     sid = STATE["pub_base_service_id"]
     br = requests.post(f"{BASE}/api/public/book/{SLUG}", json={
         "customer_name": "QA Link NoColor",

@@ -788,17 +788,9 @@ async def _vision_check(image_b64: str, which: str) -> tuple[bool, str]:
         return True, "unverified"
 
 
-@router.post("/appointments/{appt_id}/color-result")
-async def upload_color_result(appt_id: str, which: str = "front", consent: bool = False, file: UploadFile = File(...),
-                              admin=Depends(require_admin), t=Depends(current_tenant)):
-    """Stylist uploads the finished look: `front` = the client's face, `back` = the hair from behind. Photos are stored as-is."""
-    from services.storage import _put_object, validate_image_bytes, APP_NAME
-    which = {"after": "front", "before": "back"}.get(which, which)
-    if which not in ("front", "back"):
-        raise HTTPException(400, "which must be front|back")
-    appt = await _raw_db.appointments.find_one({"tenant_id": t["id"], "id": appt_id}, {"_id": 0, "color_pick": 1})
-    if not appt or not appt.get("color_pick"):
-        raise HTTPException(404, "No colour pick on this appointment")
+async def _read_result_photo(file: UploadFile, which: str) -> tuple[bytes, str]:
+    """Validate size / type / vision check; returns (bytes, ext)."""
+    from services.storage import validate_image_bytes
     data = await file.read()
     if len(data) > 8 * 1024 * 1024:
         raise HTTPException(400, "Photo must be under 8 MB")
@@ -808,8 +800,23 @@ async def upload_color_result(appt_id: str, which: str = "front", consent: bool 
     validate_image_bytes(ext, data)
     ok, reason = await _vision_check(base64.b64encode(data).decode(), which)
     if not ok:
-        raise HTTPException(400, ("This doesn't look like the client's face from the front" if which == "front"
-                                  else "This doesn't look like the back of the head / hair") + (f" — {reason}" if reason else "") + ". Please retake.")
+        what = "This doesn't look like the client's face from the front" if which == "front" else "This doesn't look like the back of the head / hair"
+        raise HTTPException(400, what + (f" — {reason}" if reason else "") + ". Please retake.")
+    return data, ext
+
+
+@router.post("/appointments/{appt_id}/color-result")
+async def upload_color_result(appt_id: str, which: str = "front", consent: bool = False, file: UploadFile = File(...),
+                              admin=Depends(require_admin), t=Depends(current_tenant)):
+    """Stylist uploads the finished look: `front` = the client's face, `back` = the hair from behind. Photos are stored as-is."""
+    from services.storage import _put_object, APP_NAME
+    which = {"after": "front", "before": "back"}.get(which, which)
+    if which not in ("front", "back"):
+        raise HTTPException(400, "which must be front|back")
+    appt = await _raw_db.appointments.find_one({"tenant_id": t["id"], "id": appt_id}, {"_id": 0, "color_pick": 1})
+    if not appt or not appt.get("color_pick"):
+        raise HTTPException(404, "No colour pick on this appointment")
+    data, ext = await _read_result_photo(file, which)
     fid = str(uuid.uuid4())
     path = f"{APP_NAME}/{t['id']}/color-results/{appt_id}-{which}.{ext}"
     mime = f"image/{'jpeg' if ext in ('jpg', 'jpeg') else ext}"

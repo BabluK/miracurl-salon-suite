@@ -57,45 +57,55 @@ async def dismiss_tenant_notice(nid: str, user=Depends(get_current_user), t=Depe
     return {"ok": True}
 
 
-@router.get("/notifications/new-bookings")
-async def new_bookings(since: str, branch: str = "", user=Depends(get_current_user), t=Depends(current_tenant)):
-    """Lightweight polling endpoint — returns bookings created after `since`
-    (ISO 8601 datetime). Used by the admin/manager UI to play a chime + list
-    notifications when a customer self-books via the public link."""
-    if user.get("role") not in ("admin", "super_admin", "manager", "staff"):
-        raise HTTPException(403, "Not allowed")
-    try:
-        datetime.fromisoformat(since.replace("Z", "+00:00"))
-    except Exception:
-        raise HTTPException(400, "`since` must be an ISO datetime")
+def _booking_query(user: dict, branch: str, since: str) -> dict:
     branch = branch_lock(user, branch)
     q = {"created_at": {"$gt": since}}
     if branch == "__main__":
         q["$or"] = [{"branch_name": {"$exists": False}}, {"branch_name": None}, {"branch_name": "__main__"}]
     elif branch:
         q["branch_name"] = branch
-    rows = await db.appointments.find(
-        q, {"_id": 0, "id": 1, "customer_name": 1, "staff_name": 1, "branch_name": 1,
-            "service_names": 1, "scheduled_at": 1, "total": 1, "created_at": 1},
-    ).sort("created_at", -1).limit(20).to_list(20)
+    return q
+
+
+async def _new_memberships(tenant_id: str, since: str) -> list:
     from database import _raw_db
-    gcs = await _raw_db.gift_cards.find(
-        {"tenant_id": t["id"], "issued_at": {"$gt": since}, "status": {"$in": ["active", "scheduled"]}},
-        {"_id": 0, "id": 1, "amount": 1, "buyer_name": 1, "recipient_name": 1,
-         "occasion": 1, "issued_at": 1},
-    ).sort("issued_at", -1).limit(10).to_list(10)
     cms = await _raw_db.customer_memberships.find(
-        {"tenant_id": t["id"], "purchased_at": {"$gt": since}},
-        {"_id": 0, "id": 1, "member_id": 1, "name": 1, "tier": 1, "amount": 1,
-         "purchased_at": 1, "customer_id": 1},
+        {"tenant_id": tenant_id, "purchased_at": {"$gt": since}},
+        {"_id": 0, "id": 1, "member_id": 1, "name": 1, "tier": 1, "amount": 1, "purchased_at": 1, "customer_id": 1},
     ).sort("purchased_at", -1).limit(10).to_list(10)
     for cm in cms:
         c = await db.customers.find_one({"id": cm.get("customer_id")}, {"_id": 0, "name": 1})
         cm["customer_name"] = (c or {}).get("name") or "New member"
+    return cms
+
+
+@router.get("/notifications/new-bookings")
+async def new_bookings(since: str, branch: str = "", user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Lightweight polling endpoint — returns bookings created after `since`
+    (ISO 8601 datetime). Used by the admin/manager UI to play a chime + list
+    notifications when a customer self-books via the public link."""
+    role = user.get("role")
+    if role not in ("admin", "super_admin", "manager", "staff"):
+        raise HTTPException(403, "Not allowed")
+    try:
+        datetime.fromisoformat(since.replace("Z", "+00:00"))
+    except Exception:
+        raise HTTPException(400, "`since` must be an ISO datetime")
+    rows = await db.appointments.find(
+        _booking_query(user, branch, since),
+        {"_id": 0, "id": 1, "customer_name": 1, "staff_name": 1, "branch_name": 1, "service_names": 1, "scheduled_at": 1, "total": 1, "created_at": 1},
+    ).sort("created_at", -1).limit(20).to_list(20)
+    from database import _raw_db
+    gcs = await _raw_db.gift_cards.find(
+        {"tenant_id": t["id"], "issued_at": {"$gt": since}, "status": {"$in": ["active", "scheduled"]}},
+        {"_id": 0, "id": 1, "amount": 1, "buyer_name": 1, "recipient_name": 1, "occasion": 1, "issued_at": 1},
+    ).sort("issued_at", -1).limit(10).to_list(10)
+    cms = await _new_memberships(t["id"], since)
     from services.tenant_notices import notices_open, staff_profile_gaps
     notices = await notices_open(t["id"], user.get("id") or "")
-    gaps = await staff_profile_gaps(t) if user.get("role") in ("admin", "super_admin") else []
-    replies = await _campaign_replies_since(t, since) if user.get("role") in ("admin", "super_admin", "manager") else []
+    is_admin, is_mgr = role in ("admin", "super_admin"), role in ("admin", "super_admin", "manager")
+    gaps = await staff_profile_gaps(t) if is_admin else []
+    replies = await _campaign_replies_since(t, since) if is_mgr else []
     return {
         "server_time": datetime.now(timezone.utc).isoformat(),
         "count": len(rows) + len(gcs) + len(cms) + len(notices) + len(gaps) + len(replies),
@@ -108,27 +118,37 @@ async def new_bookings(since: str, branch: str = "", user=Depends(get_current_us
     }
 
 
+def _last10(phone: str | None) -> str:
+    return re.sub(r"\D", "", phone or "")[-10:]
+
+
+async def _recent_campaign_recipients(tenant_id: str, days: int = 30) -> dict[str, dict]:
+    """phone(last 10 digits) → {campaign, name, customer_id} for guests actually reached in the last <days>."""
+    from database import _raw_db
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    out: dict[str, dict] = {}
+    async for c in _raw_db.wa_campaigns.find({"tenant_id": tenant_id, "created_at": {"$gte": cutoff}},
+                                             {"_id": 0, "name": 1, "recipients.phone": 1, "recipients.status": 1, "recipients.name": 1, "recipients.customer_id": 1}):
+        for r in c.get("recipients") or []:
+            if r.get("status") == "sent":
+                out[_last10(r.get("phone"))] = {"campaign": c.get("name"), "name": r.get("name"), "customer_id": r.get("customer_id")}
+    return out
+
+
+def _reply_item(m: dict, hit: dict) -> dict:
+    return {"id": f"reply:{m.get('message_id') or m['created_at']}", "phone": m.get("wa_id"), "customer_name": hit["name"] or "Guest",
+            "customer_id": hit.get("customer_id"), "campaign": hit["campaign"], "text": (m.get("text") or "")[:160], "created_at": m["created_at"]}
+
+
 async def _campaign_replies_since(t: dict, since: str) -> list:
     """Inbound WhatsApp texts (official channel) from guests who received a campaign in the last 30 days — for the dashboard bell."""
     from database import _raw_db
-    import re as _re
     rows = await _raw_db.whatsapp_messages.find({"tenant_id": t["id"], "direction": "inbound", "created_at": {"$gt": since}, "text": {"$nin": [None, ""]}},
                                                  {"_id": 0, "message_id": 1, "wa_id": 1, "text": 1, "created_at": 1}).sort("created_at", -1).limit(20).to_list(20)
     if not rows:
         return []
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
-    campaigned: dict = {}
-    async for c in _raw_db.wa_campaigns.find({"tenant_id": t["id"], "created_at": {"$gte": cutoff}}, {"_id": 0, "name": 1, "recipients.phone": 1, "recipients.status": 1, "recipients.name": 1, "recipients.customer_id": 1}):
-        for r in c.get("recipients") or []:
-            if r.get("status") == "sent":
-                campaigned[_re.sub(r"\D", "", r.get("phone") or "")[-10:]] = {"campaign": c.get("name"), "name": r.get("name"), "customer_id": r.get("customer_id")}
-    out = []
-    for m in rows:
-        hit = campaigned.get((m.get("wa_id") or "")[-10:])
-        if hit:
-            out.append({"id": f"reply:{m.get('message_id') or m['created_at']}", "phone": m.get("wa_id"), "customer_name": hit["name"] or "Guest",
-                        "customer_id": hit.get("customer_id"), "campaign": hit["campaign"], "text": (m.get("text") or "")[:160], "created_at": m["created_at"]})
-    return out
+    campaigned = await _recent_campaign_recipients(t["id"])
+    return [_reply_item(m, hit) for m in rows if (hit := campaigned.get(_last10(m.get("wa_id"))))]
 
 
 def _ist_when(raw) -> str:

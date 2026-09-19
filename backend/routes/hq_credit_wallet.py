@@ -114,27 +114,33 @@ async def hq_wallet_sync(admin=Depends(require_super_admin)):
     return {"ok": True, "sms_stock": bal, "delta": delta}
 
 
+async def _channel_margin(ch: str, w: dict, pr: dict) -> dict:
+    """Margin so far = what tenants paid − (messages sold × HQ unit cost)."""
+    sold = 0
+    async for r in _raw_db.hq_wallet_ledger.find({"channel": ch, "kind": "tenant_purchase"}, {"_id": 0, "delta": 1}):
+        sold += abs(int(r.get("delta") or 0))
+    revenue, unit_cost = int(w.get(f"{ch}_revenue_paise") or 0), pr[f"{ch}_cost_paise"]
+    return {"sold": sold, "revenue_paise": revenue, "cost_paise": sold * unit_cost, "margin_paise": revenue - sold * unit_cost, "unit_cost_paise": unit_cost}
+
+
+async def _ledger_with_names(limit: int = 40) -> list[dict]:
+    ledger = await _raw_db.hq_wallet_ledger.find({}, {"_id": 0}).sort("at", -1).to_list(limit)
+    tids = list({r["tenant_id"] for r in ledger if r.get("tenant_id")})
+    names = {t["id"]: t["name"] async for t in _raw_db.tenants.find({"id": {"$in": tids}}, {"_id": 0, "id": 1, "name": 1})} if tids else {}
+    for r in ledger:
+        r["tenant_name"] = names.get(r.get("tenant_id"), "")
+    return ledger
+
+
 @router.get("/super-admin/credit-wallet")
 async def hq_wallet_view(admin=Depends(require_super_admin)):
     w = await _wallet()
     w["whatsapp_postpaid"] = True  # Meta bills per message to the card on WABA 1627056435755219
     w["msg91_balance"] = await _msg91_balance()
-    ledger = await _raw_db.hq_wallet_ledger.find({}, {"_id": 0}).sort("at", -1).to_list(40)
-    tids = list({r["tenant_id"] for r in ledger if r.get("tenant_id")})
-    names = {t["id"]: t["name"] async for t in _raw_db.tenants.find({"id": {"$in": tids}}, {"_id": 0, "id": 1, "name": 1})} if tids else {}
-    for r in ledger:
-        r["tenant_name"] = names.get(r.get("tenant_id"), "")
     low = {ch: int(w.get(f"{ch}_stock") or 0) < LOW_STOCK for ch in FIELD}
-    # Margin so far = what tenants paid − (messages sold × HQ unit cost)
     pr = await pack_pricing()
-    margin = {}
-    for ch in FIELD:
-        sold = 0
-        async for r in _raw_db.hq_wallet_ledger.find({"channel": ch, "kind": "tenant_purchase"}, {"_id": 0, "delta": 1}):
-            sold += abs(int(r.get("delta") or 0))
-        margin[ch] = {"sold": sold, "revenue_paise": int(w.get(f"{ch}_revenue_paise") or 0), "cost_paise": sold * pr[f"{ch}_cost_paise"],
-                      "margin_paise": int(w.get(f"{ch}_revenue_paise") or 0) - sold * pr[f"{ch}_cost_paise"], "unit_cost_paise": pr[f"{ch}_cost_paise"]}
-    return {**w, "ledger": ledger, "low_stock": low, "low_threshold": LOW_STOCK, "mira_note": low_stock_line(w), "margin": margin}
+    margin = {ch: await _channel_margin(ch, w, pr) for ch in FIELD}
+    return {**w, "ledger": await _ledger_with_names(), "low_stock": low, "low_threshold": LOW_STOCK, "mira_note": low_stock_line(w), "margin": margin}
 
 
 class TopupIn(BaseModel):

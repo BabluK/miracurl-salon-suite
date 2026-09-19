@@ -614,17 +614,13 @@ class GoogleSessionIn(BaseModel):
     session_id: str = Field(min_length=8, max_length=500)
 
 
-@router.post("/auth/google/session")
-async def google_session(body: GoogleSessionIn, request: Request, response: Response):
-    """Emergent-managed Google sign-in: exchange the one-time session_id server-side, then log the
-    matching Miracurl user in (same JWT cookies as password login). No account is auto-created."""
+async def _google_session_email(session_id: str) -> tuple[str, dict]:
+    """Exchange the Emergent one-time session_id for the Google profile; returns (email, info)."""
     import httpx
-    from security import durable_rate_limit
-    await durable_rate_limit(request, f"google-login:{client_ip(request)}", limit=20, window_sec=600)
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             r = await client.get("https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-                                 headers={"X-Session-ID": body.session_id})
+                                 headers={"X-Session-ID": session_id})
     except httpx.HTTPError:
         raise HTTPException(502, "Google sign-in service unavailable — please try again")
     if r.is_error:
@@ -633,11 +629,26 @@ async def google_session(body: GoogleSessionIn, request: Request, response: Resp
     email = (info.get("email") or "").lower().strip()
     if not email:
         raise HTTPException(401, "Google did not return an email address")
+    return email, info
+
+
+async def _google_linked_user(email: str) -> dict:
     user = await db.users.find_one({"email": email})
     if not user:
         raise HTTPException(403, f"No Miracurl account uses {email}. Ask your salon admin to add you, or start a free trial.")
     if user.get("disabled"):
         raise HTTPException(403, "Your account has been disabled by the salon admin. Please contact them.")
+    return user
+
+
+@router.post("/auth/google/session")
+async def google_session(body: GoogleSessionIn, request: Request, response: Response):
+    """Emergent-managed Google sign-in: exchange the one-time session_id server-side, then log the
+    matching Miracurl user in (same JWT cookies as password login). No account is auto-created."""
+    from security import durable_rate_limit
+    await durable_rate_limit(request, f"google-login:{client_ip(request)}", limit=20, window_sec=600)
+    email, info = await _google_session_email(body.session_id)
+    user = await _google_linked_user(email)
     patch = {"google_sub": info.get("id"), "google_linked_at": datetime.now(timezone.utc).isoformat()}
     if info.get("picture") and not user.get("avatar_url"):
         patch["avatar_url"] = info["picture"]
