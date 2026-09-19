@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.308"
-BUILD_TIME = "19 Sep 2026, 06:15 PM IST"
+BUILD = "2026-09-19.309"
+BUILD_TIME = "19 Sep 2026, 06:30 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.309", "note": "Public navbar TenantLogo: square/circular uploads (e.g. MDM gold monogram on black) auto-render in a gold-ringed circle with the tenant name + Unisex Salon/Restaurant beside it; wide wordmark logos render as-is (detected from natural aspect ratio or logo_shape=circle). /api/files logo paths resolved via REACT_APP_BACKEND_URL."},
     {"build": "2026-09-19.308", "note": "Sidebar brand never falls back to the Miracurl platform mark for a logged-in owner: AppLayout brands with the active salon from /auth/me (user.salons) until the tenant profile loads; TenantBrandMark no-logo placeholder is now a gold plaque with scissors/fork icon + Caveat tenant name + Unisex Salon/Restaurant label (matches public-page wordmark fallback)."},
     {"build": "2026-09-19.307", "note": "Every tenant's public /salon/{slug} page gets the white curved glass navbar (uploaded logo or Caveat wordmark fallback, tagline, Powered by Miracurl AI Salon/Restaurant Suite, Home/About Us/Services/Our Work/Offers/Contact, branch selector → ?branch=, gold Book Appointment); hero uses generated luxe backdrop (/assets/salon/hero-luxe.jpg, restaurants: welcome-bg) when tenant has no hero image, with Caveat script phrases on both sides. Table feedback: POST /public/table-order/{slug}/{id}/feedback (served/billed only, once) → reviews (source table_order) + order.feedback; status screen shows Rate-your-experience card after serving, thank-you state persists."},
     {"build": "2026-09-19.306", "note": "Dashboard hero: booking/salon links fall back to the active salon slug from /auth/me (user.salons) when the tenant profile has not loaded — fixes empty Public booking link seen on MDM Luxury Salon in prod. Favicon + PWA icons (favicon.ico/svg/32/192/512, apple-touch, icon(-admin)(-maskable)) regenerated as the gold MS ring on white; cache-busted v=6/v=7."},

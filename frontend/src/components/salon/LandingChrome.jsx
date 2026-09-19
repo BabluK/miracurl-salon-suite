@@ -5,6 +5,21 @@ import { Calendar, Menu, X, MapPin, Phone, Clock, Instagram, Facebook, Youtube, 
 const NAV = [["Home", "#home"], ["About Us", "#about"], ["Services", "#services"], ["Our Work", "#gallery"], ["Offers", "#offers"], ["Contact", "#contact"]];
 const scrollTo = (hash) => (e) => { e.preventDefault(); document.querySelector(hash)?.scrollIntoView({ behavior: "smooth", block: "start" }); };
 
+function TenantLogo({ s }) {
+  // Square/circular logos (e.g. gold monogram on black) sit in a gold-ringed circle so they read well on the white bar;
+  // wide wordmark logos render as-is.
+  const [square, setSquare] = useState((s.logo_shape || "") === "circle");
+  const src = s.logo_url.startsWith("/api/") ? `${process.env.REACT_APP_BACKEND_URL}${s.logo_url}` : s.logo_url;
+  const onLoad = (e) => { const { naturalWidth: w, naturalHeight: h } = e.target; if (w && h && Math.abs(w / h - 1) < 0.25) setSquare(true); };
+  return square ? (
+    <span className="w-14 h-14 sm:w-16 sm:h-16 rounded-full p-[2.5px] bg-gradient-to-br from-[#e8c56a] via-[#d4af37] to-[#8a6d1f] shadow-[0_8px_22px_-8px_rgba(201,154,46,.8)] flex-shrink-0 block" data-testid="salon-header-logo-circle">
+      <img src={src} alt={s.name} onLoad={onLoad} className="w-full h-full rounded-full object-cover bg-[#0b0a09]" />
+    </span>
+  ) : (
+    <img src={src} alt={s.name} onLoad={onLoad} className="h-12 sm:h-16 w-auto max-w-[170px] sm:max-w-[240px] object-contain flex-shrink-0" data-testid="salon-header-logo" />
+  );
+}
+
 export function SalonNavbar({ s, bookHref, resto }) {
   const [open, setOpen] = useState(false);
   const [solid, setSolid] = useState(false);
@@ -25,7 +40,13 @@ export function SalonNavbar({ s, bookHref, resto }) {
         <div className="px-4 sm:px-8 h-[72px] sm:h-[88px] flex items-center gap-4 sm:gap-6">
           <a href="#home" onClick={scrollTo("#home")} className="flex items-center gap-3 min-w-0" data-testid="salon-header-tenant-brand">
             {s.logo_url ? (
-              <img src={s.logo_url} alt={s.name} className="h-12 sm:h-16 w-auto max-w-[170px] sm:max-w-[240px] object-contain flex-shrink-0" />
+              <>
+                <TenantLogo s={s} />
+                <span className="leading-none hidden sm:block min-w-0">
+                  <span className="block font-playfair text-[#1f1a10] text-xl xl:text-2xl leading-none truncate max-w-[300px]">{s.name}</span>
+                  <span className="block text-[9px] tracking-[0.35em] uppercase text-[#7a6a45] mt-1.5 truncate max-w-[220px]">{resto ? "Restaurant" : "Unisex Salon"}</span>
+                </span>
+              </>
             ) : (
               <span className="leading-none">
                 <span className="block font-caveat text-[#b8863b] text-3xl sm:text-[34px] leading-none whitespace-nowrap max-w-[300px] truncate">{s.name}</span>
