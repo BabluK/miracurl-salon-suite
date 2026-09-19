@@ -11,7 +11,7 @@ export const WA_DEMO_URL = "https://wa.me/919180261256?text=" + encodeURICompone
 export function SparkleLogo({ className = "w-12 h-12", testid = "brand-logo-sparkle" }) {
   return (
     <span className="ms-logo-sparkle" data-testid={testid}>
-      <img src="/assets/brand/ms-logo-dark.png" alt="Miracurl" className={`${className} rounded-full shadow-md ring-2 ring-[#d4af37]/60`} />
+      <img src="/assets/ms-logo-ring.png" alt="Miracurl Suite" className={`${className} object-contain drop-shadow-[0_6px_18px_rgba(212,175,55,0.45)]`} draggable="false" />
       <span className="ms-star s1" /><span className="ms-star s2" /><span className="ms-star s3" />
     </span>
   );

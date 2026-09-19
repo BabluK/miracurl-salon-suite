@@ -12,7 +12,7 @@ export function LoginShowcase() {
     <div className="hidden lg:flex flex-col gap-3 min-w-0" data-testid="login-showcase">
       <div className="flex items-start justify-between gap-6">
         <div className="flex items-center gap-4">
-          <SparkleLogo className="w-28 h-28 shadow-xl shadow-amber-900/25" testid="login-brand-logo" />
+          <SparkleLogo className="w-28 h-28" testid="login-brand-logo" />
           <div>
             <div className="font-playfair text-[2rem] leading-none tracking-wide text-[#8a6a1c]">MIRACURL SUITE</div>
             <div className="text-[11px] tracking-[0.22em] font-semibold text-slate-700 mt-1.5">AI-POWERED BUSINESS MANAGEMENT PLATFORM</div>

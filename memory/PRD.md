@@ -3491,3 +3491,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-19 — Logo unification (login mobile/tablet)
 - Desktop login showcase already used `/assets/ms-logo-emblem.png`; mobile/tablet `BrandMark` still used old `/assets/brand/ms-ring.png`. BrandMark now uses the MS emblem (no Sparkles overlay), subtitle "AI-Powered Business Management Platform"; also swapped in SuperAdmin.jsx header, SiteInfoPanel fallback, OnboardingStudio emblem. Build 2026-09-19.293.
 - Tablet: LandingNav md:pl-24 + gap-4/text-xs at md, BrandMark wordmark hidden on md via `md:[&_.brand-word]:hidden` in Login.jsx. Build .294.
+
+## 2026-09-19 — Gold-ring logo + SMS OTP live
+- User clarified: logo = gold MS ring on white (not the dark-circle emblem). Created `/public/assets/ms-logo-ring.png` (white→transparent, 640px) from the uploaded asset; used in `SparkleLogo` (LandingBits — login desktop showcase + landing mobile nav) and `BrandMark`. Dark emblem still used on Landing hero/footer/BrandSplash/SuperAdmin.
+- MSG91 OTP: `MSG91_TPL_OTP=6aae14594f99d7fba7049633` in backend/.env (also default in sms_service "otp" kind, var name `var1`). Verified `send_sms_template(..., "otp", [code])` → sent:true; reset-request → channel "sms". Build 2026-09-19.295.

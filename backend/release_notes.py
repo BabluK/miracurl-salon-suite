@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.294"
-BUILD_TIME = "19 Sep 2026, 12:20 PM IST"
+BUILD = "2026-09-19.295"
+BUILD_TIME = "19 Sep 2026, 12:30 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.295", "note": "Login logo switched to the gold-ring MS monogram (/assets/ms-logo-ring.png, transparent bg derived from user asset) in SparkleLogo (desktop showcase + landing nav) and BrandMark (mobile/tablet + sidebar). Staff-portal OTP now goes by SMS via DLT template miracurl_otp (MSG91_TPL_OTP=6aae14594f99d7fba7049633, var1=code) — verified sent; email remains fallback."},
     {"build": "2026-09-19.294", "note": "Login page tablet (md) layout: nav gaps/text tightened + left padding so the MS emblem no longer overlaps Features; wordmark hidden on md (emblem only), full mark on mobile and desktop showcase."},
     {"build": "2026-09-19.293", "note": "Brand: BrandMark (login page mobile/tablet, sidebar) and Super Admin header/site-info/onboarding studio now use the gold MS emblem (/assets/ms-logo-emblem.png) matching the landing page; subtitle → AI-Powered Business Management Platform; mobile login brand mark shrunk to avoid overlapping Get Started."},
     {"build": "2026-09-19.292", "note": "Login/dashboard double-repaint fixed: AuthContext now resolves the tenant BEFORE exposing the user (login, bootstrap and refresh paths) so the workspace mounts once with full context — dashboard is fetched exactly once (was twice: tenant-less first render + refetch)."},
