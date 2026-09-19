@@ -9,6 +9,9 @@ export default function CreditWalletCard() {
   const [w, setW] = useState(null);
   const [busy, setBusy] = useState("");
   const [audit, setAudit] = useState(null);
+  const [meta, setMeta] = useState(null);
+  const loadMeta = (refresh = false) => api.get(`/super-admin/meta-usage${refresh ? "?refresh=1" : ""}`).then(r => setMeta(r.data)).catch(() => setMeta({ available: false, reason: "Couldn't reach server" }));
+  useEffect(() => { loadMeta(); }, []);
   const runAudit = async () => {
     setBusy("audit");
     try { const { data } = await api.get("/super-admin/credit-wallet/audit"); setAudit(data); if (!data.dummy_count) toast.success("All tenant credits are legit — nothing to remove"); }
@@ -72,6 +75,26 @@ export default function CreditWalletCard() {
           <div className="text-[11px] text-slate-500 mt-1">Revenue {inr(w.whatsapp_revenue_paise)} · <span className="text-emerald-700 font-semibold" data-testid="hq-wa-margin">Margin {inr(w.margin?.whatsapp?.margin_paise)}</span> <span className="text-slate-400">({w.margin?.whatsapp?.sold ?? 0} sold @ {w.margin?.whatsapp?.unit_cost_paise}p Meta cost)</span></div>
           <button onClick={() => topup("whatsapp")} className="mt-2 text-xs text-[#b58a2c] font-semibold hover:underline">+ Set budget stock</button>
         </div>
+      </div>
+      <div className="rounded-xl border border-slate-200 p-4 bg-gradient-to-br from-emerald-50/60 to-white" data-testid="hq-meta-usage">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="text-xs text-slate-500 flex items-center gap-1"><MessageCircle className="w-3.5 h-3.5 text-emerald-600" /> Meta WhatsApp · {meta?.month || "this month"} · {meta?.phone?.display_phone_number || "HQ number"}</div>
+          <button onClick={() => loadMeta(true)} data-testid="hq-meta-refresh" className="text-[11px] text-slate-500 hover:text-slate-800 inline-flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Refresh</button>
+        </div>
+        {!meta ? <div className="text-xs text-slate-400 mt-2">Loading Meta usage…</div>
+          : !meta.available ? <div className="text-xs text-amber-700 mt-2" data-testid="hq-meta-unavailable">Meta usage unavailable — {meta.reason}</div>
+          : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+              <div><div className="text-2xl font-bold text-slate-800" data-testid="hq-meta-messages">{meta.messages_total.toLocaleString("en-IN")}</div><div className="text-[11px] text-slate-500">billable messages sent</div></div>
+              <div><div className="text-2xl font-bold text-emerald-700" data-testid="hq-meta-cost">₹{Number(meta.cost_inr).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</div><div className="text-[11px] text-slate-500">Meta spend month-to-date</div></div>
+              <div><div className="text-2xl font-bold text-slate-800">{meta.free_service.toLocaleString("en-IN")}</div><div className="text-[11px] text-slate-500">free guest conversations</div></div>
+              <div><div className="text-sm font-semibold text-slate-800 mt-1">{meta.phone?.status || "—"} · Q {meta.phone?.quality_rating || "—"}</div><div className="text-[11px] text-slate-500">number status · quality {meta.phone?.messaging_limit_tier ? `· ${meta.phone.messaging_limit_tier.replace("TIER_", "")}/day` : ""}</div></div>
+            </div>
+          )}
+        {meta?.available && Object.keys(meta.messages_by_category || {}).length > 0 && (
+          <div className="text-[11px] text-slate-500 mt-2">{Object.entries(meta.messages_by_category).map(([k, v]) => `${k.toLowerCase()} ${v}`).join(" · ")}</div>
+        )}
+        <div className="text-[11px] text-slate-400 mt-2">Pay-as-you-go: Meta charges the card on file monthly. Service (guest-first) chats are free; marketing ≈ ₹0.78, utility ≈ ₹0.115 per message.</div>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
         <button onClick={runAudit} disabled={!!busy} data-testid="hq-wallet-audit" className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50"><SearchCheck className="w-3.5 h-3.5" /> Audit tenant credits</button>

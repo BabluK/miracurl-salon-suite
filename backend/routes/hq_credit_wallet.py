@@ -1,4 +1,5 @@
 """HQ credit wallet: Miracurl's stock of SMS/WhatsApp credits handed to tenants on purchase or by manual grant."""
+import os
 import uuid
 from datetime import datetime, timezone
 
@@ -239,3 +240,51 @@ async def hq_credit_remove_dummy(admin=Depends(require_super_admin)):
         removed.append({"name": r["name"], "sms_removed": r["sms_points"] if "sms_points" in unset else 0,
                         "wa_removed": r["wa_points"] if "wa_points" in unset else 0})
     return {"ok": True, "removed": removed}
+
+
+# ---------------- Meta WhatsApp month-to-date usage & spend ----------------
+_meta_cache: dict = {"at": 0.0, "data": None}
+
+
+def _sum_points(payload: dict, key: str, cat_key: str, count_keys: tuple) -> tuple[dict, float]:
+    by_cat, cost = {}, 0.0
+    for block in (payload.get(key) or {}).get("data", []):
+        for p in block.get("data_points", []):
+            cat = (p.get(cat_key) or "OTHER").upper()
+            by_cat[cat] = by_cat.get(cat, 0) + sum(int(p.get(k) or 0) for k in count_keys)
+            cost += float(p.get("cost") or 0)
+    return by_cat, round(cost, 2)
+
+
+@router.get("/super-admin/meta-usage")
+async def hq_meta_usage(refresh: bool = False, admin=Depends(require_super_admin)):
+    """Month-to-date WhatsApp messages + Meta's own ₹ cost (pricing_analytics) for the HQ number. Cached 10 min."""
+    import time
+    import httpx
+    if _meta_cache["data"] and not refresh and time.time() - _meta_cache["at"] < 600:
+        return _meta_cache["data"]
+    tok, waba, pid = os.environ.get("WHATSAPP_ACCESS_TOKEN"), os.environ.get("WHATSAPP_BUSINESS_ACCOUNT_ID"), os.environ.get("WHATSAPP_PHONE_NUMBER_ID")
+    if not (tok and waba):
+        return {"available": False, "reason": "WhatsApp Cloud API not configured"}
+    now = datetime.now(timezone.utc)
+    start = int(now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
+    end = int(now.timestamp())
+    G, H = "https://graph.facebook.com/v22.0", {"Authorization": f"Bearer {tok}"}
+    out = {"available": True, "month": now.strftime("%B %Y"), "fetched_at": now.isoformat(), "currency": "INR"}
+    try:
+        async with httpx.AsyncClient(timeout=20) as http:
+            pr = (await http.get(f"{G}/{waba}", headers=H, params={"fields": f"pricing_analytics.start({start}).end({end}).granularity(DAILY).dimensions(PRICING_CATEGORY)"})).json()
+            cv = (await http.get(f"{G}/{waba}", headers=H, params={"fields": f"conversation_analytics.start({start}).end({end}).granularity(DAILY).dimensions(CONVERSATION_CATEGORY)"})).json()
+            ph = (await http.get(f"{G}/{pid}", headers=H, params={"fields": "display_phone_number,quality_rating,messaging_limit_tier,status"})).json() if pid else {}
+    except Exception as e:  # noqa: BLE001
+        return {"available": False, "reason": f"Meta unreachable: {str(e)[:120]}"}
+    if "error" in pr and "error" in cv:
+        return {"available": False, "reason": pr["error"].get("message", "Meta analytics denied")[:160]}
+    msgs, cost = _sum_points(pr, "pricing_analytics", "pricing_category", ("volume",))
+    convs, cost2 = _sum_points(cv, "conversation_analytics", "conversation_category", ("conversation",))
+    out.update({"messages_by_category": msgs, "messages_total": sum(msgs.values()), "conversations_by_category": convs,
+                "conversations_total": sum(convs.values()), "cost_inr": cost or cost2,
+                "free_service": convs.get("SERVICE", 0), "phone": {k: ph.get(k) for k in ("display_phone_number", "quality_rating", "messaging_limit_tier", "status")},
+                "note": "Service (guest-initiated) conversations are free; Meta bills marketing ₹0.78 / utility ₹0.115 per message to the card on file."})
+    _meta_cache.update(at=time.time(), data=out)
+    return out
