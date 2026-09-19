@@ -145,7 +145,7 @@ export default function Kitchen() {
   }
 
   const open = orders.filter(o => ["new", "preparing"].includes(o.status));
-  const closed = orders.filter(o => !["new", "preparing", "billed"].includes(o.status)).slice(0, 20);
+  const closed = orders.filter(o => !["new", "preparing"].includes(o.status)).slice(0, 20);
 
   const Ticket = ({ o }) => (
     <div data-testid={`kitchen-ticket-${o.id}`} className={`rounded-2xl border-2 p-4 ${STATUS_STYLE[o.status]}`}>
@@ -154,6 +154,11 @@ export default function Kitchen() {
         <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-500">#{o.id} · {age(o.created_at)}</span>
       </div>
       {o.customer_name && <p className="text-[11px] text-slate-500 mt-0.5">for {o.customer_name}</p>}
+      {o.status === "billed" && (
+        <p data-testid={`ticket-billed-${o.id}`} className={`mt-2 text-[11px] font-bold px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5 ${o.paid ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-amber-100 text-amber-800 border border-amber-200"}`}>
+          {o.paid ? "✅ Bill completed & paid" : "🧾 Billed — payment pending"}{o.invoice_no ? ` · ${o.invoice_no}` : ""}{o.bill_total != null ? ` · ₹${Math.round(o.bill_total).toLocaleString("en-IN")}` : ""}
+        </p>
+      )}
       <ul className="mt-2 space-y-1">
         {o.items.map((i, idx) => (
           <li key={idx} className="flex justify-between text-sm text-slate-700">

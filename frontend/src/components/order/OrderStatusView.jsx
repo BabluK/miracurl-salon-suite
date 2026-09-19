@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Check, FileText, Flame, UtensilsCrossed, ChefHat, Bell } from "lucide-react";
 import { WaitGames } from "./WaitGames";
 
-const GAMES_AFTER_MS = 10 * 60 * 1000;
+const GAMES_AFTER_MS = 3 * 60 * 1000;
 const STEPS = [
   ["new", FileText, "Order received", "The kitchen has your ticket"],
   ["preparing", Flame, "Cooking now", "Our chefs are on it"],

@@ -40,6 +40,14 @@ export default function OrderPublic() {
   const [entered, setEntered] = useState(() => sessionStorage.getItem(`mc_order_gate:${slug}`) === "1" || !!readActive(slug));
 
   useEffect(() => {
+    // Same table QR re-scanned (any browser/phone) → land on the live order until it is served/billed
+    const tno = Number(params.get("table"));
+    if (done || !tno) return;
+    axios.get(`${BACKEND_URL}/api/public/table-active-order/${slug}/${tno}`)
+      .then(r => { if (r.data.order) { localStorage.setItem(ACTIVE_KEY(slug), JSON.stringify(r.data.order)); setDone(r.data.order); setEntered(true); } })
+      .catch(() => {});
+  }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
     let d = phone.replace(/\D/g, "");
     if (d.length === 12 && d.startsWith("91")) d = d.slice(2);
     if (d.length === 11 && d.startsWith("0")) d = d.slice(1);

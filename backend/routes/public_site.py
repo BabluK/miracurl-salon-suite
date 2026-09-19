@@ -891,6 +891,18 @@ async def create_table_order(slug: str, body: TableOrderIn, request: Request):
     return {"ok": True, "order": order}
 
 
+@router.get("/public/table-active-order/{slug}/{table_no}")
+async def public_table_active_order(slug: str, table_no: int, request: Request):
+    """Re-scan of the same table QR (any browser) lands the diner on their live order until it is served/billed."""
+    await public_rate_limit(request, key_suffix="table-active", limit=60, window_sec=600)
+    t = await resolve_tenant_from_slug(slug)
+    since = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
+    o = await db.table_orders.find_one(
+        {"tenant_id": t["id"], "table_no": table_no, "status": {"$in": ["new", "preparing"]}, "created_at": {"$gte": since}},
+        {"_id": 0}, sort=[("created_at", -1)])
+    return {"order": o}
+
+
 @router.get("/public/table-order-status/{slug}/{order_id}")
 async def public_table_order_status(slug: str, order_id: str, request: Request):
     """Diner-facing live status of their table order (new → preparing → served → billed)."""

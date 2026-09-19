@@ -933,6 +933,9 @@ async def list_table_orders(admin=Depends(require_admin)):
 
 class MarkBilledIn(BaseModel):
     ids: list = []
+    paid: bool = True
+    invoice_no: Optional[str] = None
+    total: Optional[float] = None
 
 
 @router.put("/table-orders/mark-billed")
@@ -941,9 +944,11 @@ async def mark_table_orders_billed(body: MarkBilledIn, admin=Depends(require_adm
     ids = [str(i) for i in body.ids][:50]
     if not ids:
         raise HTTPException(400, "No order ids given")
+    now = datetime.now(timezone.utc).isoformat()
     r = await db.table_orders.update_many(
         {"id": {"$in": ids}, "status": {"$ne": "cancelled"}},
-        {"$set": {"status": "billed", "updated_at": datetime.now(timezone.utc).isoformat()}})
+        {"$set": {"status": "billed", "updated_at": now, "billed_at": now, "paid": body.paid,
+                  "paid_at": now if body.paid else None, "invoice_no": body.invoice_no, "bill_total": body.total}})
     return {"ok": True, "billed": r.modified_count}
 
 

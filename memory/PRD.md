@@ -3511,3 +3511,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-19 — Code review round 3 (recurring scanner)
 - Refactored `_retry_failed_batch` (→ `_latest_failed_calls`, `_retry_target`) and `run_loyalty_nudges` (→ `_nudge_targets`, `_nudge_text`); unit-checked helpers. security.py:231 comment reworded again (pure comment; scanner keyword match). ruff F821/F632/E711/E712 → 0 across backend, so "undefined variables"/"is vs ==" reports are false positives (utils.py:8 is `v is None`). Remaining C901=11 functions (auth.google_session, briefings, hair_colors, lead_gen, mira_builder, mira_calls._converse_llm) left as-is — live flows, low value/risk ratio; type-hint coverage on tests not pursued. Build .304.
+
+## 2026-09-19 — Table QR resume (server-side), games @3min, kitchen billed history
+- `GET /public/table-active-order/{slug}/{table_no}` → newest order with status new/preparing (<3h) for that table; OrderPublic effect on mount sets `done` + localStorage, skipping the phone gate (fixes "closed browser, re-scanned, asked for number again" — QR scanners open different browser contexts). Served/billed → null → gate asks number again. GAMES_AFTER_MS = 3 min.
+- `PUT /table-orders/mark-billed` body now {ids, paid, invoice_no, total} → sets billed_at/paid/paid_at/invoice_no/bill_total; POS passes paid=!!complete + invoice. Kitchen `closed` includes billed; badge `ticket-billed-<id>`. Verified E2E (order 798dd80e table 7). Build .305.

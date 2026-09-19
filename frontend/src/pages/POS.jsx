@@ -601,7 +601,7 @@ export default function POS() {
         force_duplicate: forceDup,
       });
       if (kitchenOrderIdsRef.current.length > 0) {
-        api.put("/table-orders/mark-billed", { ids: kitchenOrderIdsRef.current }).catch(() => {});
+        api.put("/table-orders/mark-billed", { ids: kitchenOrderIdsRef.current, paid: !!complete, invoice_no: data.invoice_no || null, total: data.total ?? null }).catch(() => {});
         kitchenOrderIdsRef.current = [];
       }
       if (!complete) {

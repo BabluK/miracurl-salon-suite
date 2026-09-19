@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.304"
-BUILD_TIME = "19 Sep 2026, 04:45 PM IST"
+BUILD = "2026-09-19.305"
+BUILD_TIME = "19 Sep 2026, 05:00 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.305", "note": "QR ordering: re-scanning the same table QR from ANY browser lands on the live order (GET /public/table-active-order/{slug}/{table}: newest new/preparing order <3h) — once served/billed the gate asks for the number again; wait-games panel now appears 3 min after ordering (was 10). Kitchen: mark-billed records paid/invoice_no/bill_total/billed_at; Recently closed keeps billed tickets with a '✅ Bill completed & paid · INV · ₹' (or 'Billed — payment pending') badge so the chef sees history."},
     {"build": "2026-09-19.304", "note": "Code-quality pass: mira_calls._retry_failed_batch split into _latest_failed_calls/_retry_target (C 20→<10); loyalty_stamps.run_loyalty_nudges split into _nudge_targets/_nudge_text (C 16→<10); CSRF comment reworded (scanner keyword false positive). ruff F821/F632/E711/E712 = 0 ('95 undefined vars' and '515 is-comparisons' are scanner false positives)."},
     {"build": "2026-09-19.303", "note": "Chef's Picks For You: guest-lookup returns up to 3 dishes the returning diner hasn't ordered (ranked: favourite categories → best sellers → price) with a reason line; shown under the last-order card on the QR welcome screen with one-tap ADD (adds to cart and opens the menu)."},
     {"build": "2026-09-19.302", "note": "QR menu page restyled to match the welcome screen: photo header with gold-framed logo tile, TABLE n, Playfair title, tagline + gold rule, crown welcome-back pill (or new-guest pill), compact row [guests ▾][Call waiter][water], name/phone inputs hidden (captured on welcome screen), gold gradient chips, Playfair section titles, glass dish cards, gold gradient View Cart bar."},
@@ -111,6 +112,7 @@ RELEASES = [
         "changes": [
             "🛠️ 'Ask Miracurl to fix this' got a concierge makeover — a premium popup with a live 500-character counter and a direct Miracurl Support link, now available on your phone too. Every request becomes a numbered HQ ticket",
             "📱 Phone fix: the app no longer reloads when you swipe down at the top of a page (pull-to-refresh is off inside Miracurl), and login → dashboard now paints once instead of twice",
+            "🧾 Kitchen history: closed tickets now show 'Bill completed & paid' with the invoice number once the table is billed in POS; re-scanning a table QR always reopens the live order until it's served",
             "👨‍🍳 Chef's Picks: returning diners get 2–3 personalised dish suggestions (based on what they've ordered before) with one-tap ADD on the welcome screen",
             "🔁 Returning diners see their last order on the welcome screen and can tap 'Order the same again' to refill the cart instantly",
             "🎮 Diners who close the menu and come back land straight on their live order ('Your order is on the way'); after 10 minutes of waiting they can play Tic Tac Toe or Bubble Pop right on the page",
