@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.303"
-BUILD_TIME = "19 Sep 2026, 04:20 PM IST"
+BUILD = "2026-09-19.304"
+BUILD_TIME = "19 Sep 2026, 04:45 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.304", "note": "Code-quality pass: mira_calls._retry_failed_batch split into _latest_failed_calls/_retry_target (C 20→<10); loyalty_stamps.run_loyalty_nudges split into _nudge_targets/_nudge_text (C 16→<10); CSRF comment reworded (scanner keyword false positive). ruff F821/F632/E711/E712 = 0 ('95 undefined vars' and '515 is-comparisons' are scanner false positives)."},
     {"build": "2026-09-19.303", "note": "Chef's Picks For You: guest-lookup returns up to 3 dishes the returning diner hasn't ordered (ranked: favourite categories → best sellers → price) with a reason line; shown under the last-order card on the QR welcome screen with one-tap ADD (adds to cart and opens the menu)."},
     {"build": "2026-09-19.302", "note": "QR menu page restyled to match the welcome screen: photo header with gold-framed logo tile, TABLE n, Playfair title, tagline + gold rule, crown welcome-back pill (or new-guest pill), compact row [guests ▾][Call waiter][water], name/phone inputs hidden (captured on welcome screen), gold gradient chips, Playfair section titles, glass dish cards, gold gradient View Cart bar."},
     {"build": "2026-09-19.301", "note": "QR welcome screen rebuilt to user mock-ups: full-bleed generated restaurant photo (/assets/order/welcome-bg.jpg), gold-framed logo tile, TABLE n, Playfair title + tagline + gold rule, +91 pill input, gold Continue, 3 feature icons, Call waiter, footer. Returning guest: Welcome back headline, loyalty-points pill, last-order card with dish thumbnails/descriptions, outline Order-the-same-again, gold Proceed to order, 4 feature icons, footer tagline."},

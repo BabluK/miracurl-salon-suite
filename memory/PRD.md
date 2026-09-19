@@ -3508,3 +3508,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - .301: WelcomeGate rebuilt to mock-ups (new-guest + returning-guest states). Props now include menu (for last-order thumbnails/descriptions). BG image generated (Gemini) → /public/assets/order/welcome-bg.jpg.
 - .302: OrderPublic menu header restyled to welcome-screen language; name/phone inputs hidden (still in DOM, readOnly, testids kept).
 - .303: Chef's Picks — public_site._chef_picks(phone,last) (history from table_orders, ranks fav-category → trending → price, excludes had items, reason text); WelcomeGate chef-picks-card + onAddPick in OrderPublic. Verified add → cart 1.
+
+## 2026-09-19 — Code review round 3 (recurring scanner)
+- Refactored `_retry_failed_batch` (→ `_latest_failed_calls`, `_retry_target`) and `run_loyalty_nudges` (→ `_nudge_targets`, `_nudge_text`); unit-checked helpers. security.py:231 comment reworded again (pure comment; scanner keyword match). ruff F821/F632/E711/E712 → 0 across backend, so "undefined variables"/"is vs ==" reports are false positives (utils.py:8 is `v is None`). Remaining C901=11 functions (auth.google_session, briefings, hair_colors, lead_gen, mira_builder, mira_calls._converse_llm) left as-is — live flows, low value/risk ratio; type-hint coverage on tests not pursued. Build .304.

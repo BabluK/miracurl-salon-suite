@@ -649,24 +649,29 @@ async def retry_failed_calls(request: Request, user=Depends(require_super_admin)
     return {"ok": True, "queued": queued}
 
 
-async def _retry_failed_batch(base: str) -> int:
-    logs = await _raw_db.mira_call_logs.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+def _latest_failed_calls(logs: list) -> list:
+    """Most recent log per phone/lead, keeping only those whose latest attempt failed."""
     latest = {}
     for c in logs:
         key = c.get("phone") or c.get("lead_id")
         if key and key not in latest:
             latest[key] = c
-    failed = [c for c in latest.values() if c.get("status") == "failed"]
-    targets = []
-    for c in failed:
-        if c.get("lead_id"):
-            lead = await _raw_db.mira_leads.find_one({"id": c["lead_id"]}, {"_id": 0})
-            if not lead or lead.get("do_not_call") or lead.get("call_result") in ("interested", "opt_out"):
-                continue
-            targets.append(lead)
-        else:
-            targets.append({"id": "", "name": c.get("lead_name") or "", "phone": c.get("phone")})
-    targets = targets[:50]
+    return [c for c in latest.values() if c.get("status") == "failed"]
+
+
+async def _retry_target(c: dict) -> dict | None:
+    """Lead doc for a failed call log (None when the lead opted out / already interested)."""
+    if not c.get("lead_id"):
+        return {"id": "", "name": c.get("lead_name") or "", "phone": c.get("phone")}
+    lead = await _raw_db.mira_leads.find_one({"id": c["lead_id"]}, {"_id": 0})
+    if not lead or lead.get("do_not_call") or lead.get("call_result") in ("interested", "opt_out"):
+        return None
+    return lead
+
+
+async def _retry_failed_batch(base: str) -> int:
+    logs = await _raw_db.mira_call_logs.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    targets = [t for t in [await _retry_target(c) for c in _latest_failed_calls(logs)] if t][:50]
     now_ok = [t for t in targets if not t.get("id") or _in_call_window(t.get("phone") or "")]
     for t in targets:
         if t.get("id") and t not in now_ok:

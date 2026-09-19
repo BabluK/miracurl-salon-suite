@@ -488,21 +488,10 @@ async def loyalty_qr_poster_pdf(origin: str = "", design: str = "", logo_shape: 
                     headers={"Content-Disposition": 'attachment; filename="loyalty-club-qr.pdf"'})
 
 
-async def run_loyalty_nudges(t: dict, base: str) -> dict:
-    """SMS every member who is 1-2 stamps from their surprise gift (max once per 14 days each)."""
-    import asyncio as _asyncio
-    from sms_service import send_tenant_sms
-    cfg = _cfg(t)
-    if not cfg["enabled"]:
-        return {"ok": False, "sent": 0, "skipped": 0}
+def _nudge_targets(cands: list, cfg: dict, cutoff: str) -> tuple[list, int]:
+    """Members 1–2 stamps from the gift with no pending reward; returns (targets, skipped_recently_nudged)."""
     needed = int(cfg["stamps_needed"])
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
-    cands = await _raw_db.customers.find(
-        {"tenant_id": t["id"], "stamps": {"$gt": 0}, "phone": {"$regex": r"\d{10}$"}},
-        {"_id": 0, "id": 1, "name": 1, "phone": 1, "stamps": 1, "stamp_rewards_redeemed": 1,
-         "loyalty_nudged_at": 1}).to_list(2000)
-    club = f"{t.get('name')} {t.get('location')}".strip() if t.get("location") else t.get("name")
-    sent = skipped = 0
+    targets, skipped = [], 0
     for c in cands:
         card = _card(c, cfg)
         away = needed - card["stamps"]
@@ -511,13 +500,34 @@ async def run_loyalty_nudges(t: dict, base: str) -> dict:
         if (c.get("loyalty_nudged_at") or "") > cutoff:
             skipped += 1
             continue
-        if sent >= 50:
-            break
-        first = (c.get("name") or "there").split(" ")[0]
+        targets.append((c, away))
+    return targets[:50], skipped
+
+
+def _nudge_text(t: dict, c: dict, away: int, base: str) -> str:
+    club = f"{t.get('name')} {t.get('location')}".strip() if t.get("location") else t.get("name")
+    first = (c.get("name") or "there").split(" ")[0]
+    return (f"Hi {first}! You're just {away} visit{'s' if away > 1 else ''} away from your "
+            f"surprise gift at {club}. Book your next visit: {base}/book/{t.get('slug') or ''}")
+
+
+async def run_loyalty_nudges(t: dict, base: str) -> dict:
+    """SMS every member who is 1-2 stamps from their surprise gift (max once per 14 days each)."""
+    import asyncio as _asyncio
+    from sms_service import send_tenant_sms
+    cfg = _cfg(t)
+    if not cfg["enabled"]:
+        return {"ok": False, "sent": 0, "skipped": 0}
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
+    cands = await _raw_db.customers.find(
+        {"tenant_id": t["id"], "stamps": {"$gt": 0}, "phone": {"$regex": r"\d{10}$"}},
+        {"_id": 0, "id": 1, "name": 1, "phone": 1, "stamps": 1, "stamp_rewards_redeemed": 1,
+         "loyalty_nudged_at": 1}).to_list(2000)
+    targets, skipped = _nudge_targets(cands, cfg, cutoff)
+    sent = 0
+    for c, away in targets:
         digits = re.sub(r"[^0-9]", "", c["phone"])[-10:]
-        body_txt = (f"Hi {first}! You're just {away} visit{'s' if away > 1 else ''} away from your "
-                    f"surprise gift at {club}. Book your next visit: {base}/book/{t.get('slug') or ''}")
-        res = await send_tenant_sms(t["id"], digits, body_txt, kind="loyalty_nudge")
+        res = await send_tenant_sms(t["id"], digits, _nudge_text(t, c, away, base), kind="loyalty_nudge")
         if res.get("sent"):
             sent += 1
             await _raw_db.customers.update_one(
