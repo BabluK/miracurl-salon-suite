@@ -15,7 +15,6 @@ import { PromoCards, TransformCTA } from "@/components/salon/LandingPromos";
 import { trackBooking } from "@/lib/analytics";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const DEFAULT_SLUG = "miracurl-marathahalli";
 const TOASTER_STYLE = { background: '#121212', color: '#fff', border: '1px solid rgba(212,175,55,0.3)' };
 const TOASTER_OPTIONS = { style: TOASTER_STYLE };
 const STEP_LABELS = ["Services", "Stylist", "Date & Time", "Your Details", "Confirm"];
@@ -214,7 +213,7 @@ export default function BookPublic() {
   const { slug: routeSlug } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const [pickedColor, setPickedColor] = useState(null); // from /color/{slug} try-on
-  const slug = routeSlug || DEFAULT_SLUG;
+  const slug = routeSlug || "";
   const PUBLIC = useMemo(() => axios.create({ baseURL: `${BACKEND_URL}/api/public` }), []);
 
   const [step, setStep] = useState(0);
@@ -981,7 +980,7 @@ export default function BookPublic() {
           </a>
         )}
         <div>
-          © Miracurl · Crafted with care in Marathahalli ·{" "}
+          © Miracurl · Crafted with care in Bengaluru ·{" "}
           <a href={`/success-stories?ref=${slug}`} target="_blank" rel="noreferrer" data-testid="powered-by-miracurl-link"
             className="text-gold/80 hover:text-gold underline underline-offset-2">
             Powered by Miracurl — get this for your salon ✦

@@ -152,10 +152,12 @@ export default function Dashboard() {
   if (!data) return <BrandSplash fullscreen />;
 
   const inr = (n) => `₹${(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-  const slug = tenant?.slug || "miracurl-marathahalli";
-  const bookingUrl = `${window.location.origin}/book/${slug}`;
+  // Never fall back to another salon's slug — an empty link is safer than a wrong one.
+  const slug = tenant?.slug || "";
+  const bookingUrl = slug ? `${window.location.origin}/book/${slug}` : "";
 
   const copyLink = async () => {
+    if (!bookingUrl) { toast.error("Your salon's booking link isn't ready yet — set the salon URL slug in Settings → Salon profile"); return; }
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(bookingUrl);
@@ -219,7 +221,7 @@ export default function Dashboard() {
       {isOwner && <SmsPointsWidget />}
       {isOwner && <MiraSocialNudge />}
       {isOwner && <MiraDayOffer />}
-      {isOwner && <CircleBonusCard slug={tenant?.slug || "miracurl-marathahalli"} />}
+      {isOwner && slug && <CircleBonusCard slug={slug} />}
       <CelebrationsCard />
       {isOwner && <WinbackNudges />}
       {isOwner && <WeeklyDigestCard />}

@@ -3448,3 +3448,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - RULE (user complained twice): EVERY deploy-worthy change must (1) bump `backend/release_notes.py` BUILD + BUILD_TIME, (2) prepend a BUILD_LOG line, (3) add/extend the RELEASES entry for the day (owner-facing highlights → What's New popup + Super Admin deploy tag MIRA-DEPLOYED-<date>). Do this in the same batch as the code change, never defer.
 - Bumped to 2026-09-19.284 with BUILD_LOG 281–284 and RELEASES "2026-09-19 (Faster app, smarter SMS & tighter HQ control ⚡)" (7 highlights). /public/build, /super/version, /whats-new verified.
 - Fix-request modal: scrollable on small screens, HQ-managed support copy; POST /support/fix-request no longer blocked by support_access. Tickets are visible in Super Admin → HQ Inbox tab (hq_messages kind fix_request, numbered ticket_no) + Notifications bell.
+
+## 2026-09-19 — Per-tenant public links (no cross-salon fallback)
+- Removed hardcoded "miracurl-marathahalli" fallbacks: Dashboard slug/bookingUrl (empty → copy shows guidance; CircleBonusCard hidden), BookPublic DEFAULT_SLUG, GiftCardPublic. server.py startup assigns unique slug to tenants missing one. Build 2026-09-19.285.
+- USER FEEDBACK: page design quality — for any new page/modal design, call `design_agent` first (user wants advanced design). Tenant Features modal flagged as plain → candidate for redesign.

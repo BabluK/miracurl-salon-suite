@@ -42,7 +42,7 @@ const CardPreview = ({ cfg, occ, amount, recipient, buyer }) => {
 
 export default function GiftCardPublic() {
   const { slug: routeSlug } = useParams();
-  const slug = routeSlug || "miracurl-marathahalli";
+  const slug = routeSlug || "";
   const API = useMemo(() => axios.create({ baseURL: `${BACKEND_URL}/api/public/gift-cards` }), []);
   const [cfg, setCfg] = useState(null);
   const [occKey, setOccKey] = useState("birthday");

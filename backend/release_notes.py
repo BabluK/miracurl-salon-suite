@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.284"
+BUILD = "2026-09-19.285"
 BUILD_TIME = "19 Sep 2026, 08:30 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.285", "note": "Public pages are strictly per-tenant: removed hardcoded miracurl-marathahalli fallbacks (Dashboard booking link, CircleBonusCard, /book, /gift) — an empty link + guidance is shown instead of another salon; startup migration assigns a unique slug to any tenant missing one; fix-request modal scroll + copy; support tickets visible in HQ Inbox."},
     {"build": "2026-09-19.284", "note": "HQ: Meta WhatsApp month-to-date usage & ₹ spend panel (GET /super-admin/meta-usage) in Credit Wallet; Super Admin 'Open salon' asks 'Turn on & open' when support access is OFF (no more 403 splash); Meta JS SDK loader hardened (guaranteed FB.init, blocked-script detection, real error text); Fix-request modal scrolls on small screens, no longer blocked by support access; SMS log shows human error labels (sms_disabled → enable in Features)."},
     {"build": "2026-09-19.283", "note": "Strict opt-in: SMS/WhatsApp OFF for tenants until Super Admin enables (credits/own number no longer auto-enable); support access OFF by default, tenant card removed, HQ toggle in Features; bulk 'Reset SMS/WA flags' (GET /super-admin/features/enabled, POST /super-admin/features/reset) with approve-list modal; Super Admin profile drops personal notify_email (startup migration unsets it); high-contrast favicon; TenantCreditPills (SMS+WA balance, one-tap grant from HQ stock)."},
     {"build": "2026-09-18.282", "note": "MSG91 DLT live (sender MIRACU, 8 approved templates mapped in sms_service.MSG91_TEMPLATES; send_tenant_sms(sms_vars=…)); booking/reminder/cancel/reschedule (new PUT /appointments/{id}/reschedule)/review/birthday wired; campaign SMS fallback when WhatsApp credits are 0 (festival/special templates); HQ Credit Wallet: LOW_STOCK 200 → Mira 'Hey Boss' alert (wallet card, HQ notifications, briefing, admin@ email), Record MSG91 ₹ wallet → SMS stock, audit + remove dummy tenant credits, legacy per-tenant grant routed through HQ stock; pack pricing editor (GET/PUT /super-admin/pack-pricing, floors +10p SMS / +15p WA, margin per pack) + realised margin in wallet; paid-plan +1/+2 month extension (POST /super-admin/tenants/{id}/extend-plan) replaces trial card for paid tenants; typing-loss bug fixed (inline components hoisted: HqTaxCard, AutoColourServices, ContactUs, PayLinkPublic)."},
@@ -95,6 +96,7 @@ RELEASES = [
             "🎧 Mira Receptionist: guests who message Miracurl's shared number without your link now get a 'Pick a salon' list and are connected to you; the Receptionist page shows the last guest message and whether Mira replied",
             "🖼️ WhatsApp Campaign: upload your own poster/flyer — Mira reads it and writes the message to match the offer, dates and services in the image",
             "🗓️ Book-a-demo page rebuilt as one simple form (Live demo or Onboarding assistance) with a calendar and IST time slots",
+            "🔗 Your booking, gift-card and loyalty links are strictly your own salon's — never another salon's page",
             "🔒 HQ control: SMS/WhatsApp sending and Miracurl support access are OFF until HQ switches them on for your salon — nothing goes out without approval",
         ],
     },

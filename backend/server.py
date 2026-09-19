@@ -162,6 +162,15 @@ async def on_startup():
         await _db0.mira_image_batches.update_many({"status": "running"}, {"$set": {"status": "interrupted"}})
         # HQ hygiene: super-admin records never carry a personal notification inbox (all HQ mail → @miracurl-suite.com aliases).
         r = await _db0.users.update_many({"role": "super_admin", "notify_email": {"$exists": True}}, {"$unset": {"notify_email": ""}})
+        # Every tenant must own a unique slug — public booking/gift/loyalty pages are addressed by it (never fall back to another salon).
+        import re as _re
+        async for _t in _db0.tenants.find({"$or": [{"slug": {"$exists": False}}, {"slug": None}, {"slug": ""}]}, {"_id": 0, "id": 1, "name": 1}):
+            base = _re.sub(r"[^a-z0-9]+", "-", (_t.get("name") or "salon").lower()).strip("-")[:40] or "salon"
+            cand, n = base, 2
+            while await _db0.tenants.find_one({"slug": cand, "id": {"$ne": _t["id"]}}, {"_id": 1}):
+                cand, n = f"{base}-{n}", n + 1
+            await _db0.tenants.update_one({"id": _t["id"]}, {"$set": {"slug": cand}})
+            logging.warning(f"tenant {_t['id']} had no slug — assigned '{cand}'")
         if r.modified_count:
             logging.info(f"cleared personal notify_email from {r.modified_count} super-admin record(s)")
     except Exception as e:
