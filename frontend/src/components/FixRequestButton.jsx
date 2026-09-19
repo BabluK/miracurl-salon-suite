@@ -30,8 +30,8 @@ export function FixRequestButton() {
         <Wrench className="w-3.5 h-3.5" /> Ask Miracurl to fix this
       </button>
       {open && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setOpen(false)} data-testid="fix-request-modal">
-          <div className="relative w-full max-w-lg rounded-3xl bg-white shadow-2xl p-6 space-y-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[120] flex items-start sm:items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto" onClick={() => setOpen(false)} data-testid="fix-request-modal">
+          <div className="relative w-full max-w-lg my-4 sm:my-auto max-h-[calc(100vh-2rem)] overflow-y-auto rounded-3xl bg-white shadow-2xl p-5 sm:p-6 space-y-4" onClick={e => e.stopPropagation()}>
             <button onClick={() => setOpen(false)} className="absolute top-4 right-4 w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center" data-testid="fix-request-close"><X className="w-4 h-4" /></button>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center"><Wrench className="w-5 h-5" /></div>
@@ -43,7 +43,7 @@ export function FixRequestButton() {
             <textarea value={issue} onChange={e => setIssue(e.target.value)} rows={5} autoFocus data-testid="fix-request-issue"
               placeholder="What's wrong or what should be changed? e.g. 'Haircut price shows ₹400, should be ₹450' or 'Branch address is wrong'"
               className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-300" />
-            <p className="text-[11px] text-slate-500">Every change HQ makes is listed in Settings → Audit log as “Miracurl Support”. You can switch off support access any time in Settings.</p>
+            <p className="text-[11px] text-slate-500">Your request lands in Miracurl HQ Inbox as a numbered ticket; you'll get a reply here and by email. Every change HQ makes is listed in Settings → Audit log as “Miracurl Support”.</p>
             <div className="flex justify-end gap-2">
               <button onClick={() => setOpen(false)} className="h-10 px-4 rounded-full border border-slate-200 text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
               {issue.trim().length < 5 && <span className="text-xs text-amber-700 mr-auto self-center" data-testid="fix-request-hint">Type what's wrong above (a few words) to enable Send</span>}

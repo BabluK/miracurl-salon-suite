@@ -31,8 +31,6 @@ def _clean_page(p: str) -> str:
 async def create_fix_request(body: FixRequestIn, request: Request, user=Depends(require_admin), t=Depends(current_tenant)):
     await public_rate_limit(request, key_suffix=f"fix-{t['id']}", limit=10, window_sec=3600)
     from routes.lead_gen import _next_ticket_no
-    if t.get("support_access") is False:
-        raise HTTPException(400, "Turn on 'Miracurl support access' in Settings first so HQ can open your workspace and fix it")
     no = await _next_ticket_no()
     page = _clean_page(body.page)
     subject = f"Fix request · {body.page_title or page}"
