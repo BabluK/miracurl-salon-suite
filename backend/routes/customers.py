@@ -101,7 +101,7 @@ async def list_customers(q: Optional[str] = None, user=Depends(get_current_user)
         safe_q = re.escape(q)
         flt["$or"] = [{"name": {"$regex": safe_q, "$options": "i"}}, {"phone": {"$regex": safe_q}}]
     proj = _customer_projection(user)
-    docs = await db.customers.find(flt, proj).sort("created_at", -1).to_list(500)
+    docs = await db.customers.find(flt, proj).sort("created_at", -1).to_list(5000)
     digits = re.sub(r"\D", "", q or "")
     if q and len(digits) >= 4:
         # also match normalized digits so formatted numbers ('+91 98765 …') are found

@@ -181,3 +181,10 @@
 - CampaignHistory: `groupBatches()` + `<BatchSummary>` gold card per parent (guests · done/N · next slot / "batch n waiting for you" / "sending now") with progress bar; batch rows nested under it. Chip no longer shows "sends …" on done/cancelled rows.
 - Send-Time Advisor: `send_time_advice(t)` in routes/whatsapp_link.py (reads: outbound status=read wa_timestamp epoch; replies: inbound created_at; tenant tz; 8–21h window; salon ≥20 samples else platform else default 11:00). Exposed via GET /whatsapp-link/send-time-advice and inside GET /whatsapp-link/batch-settings (`advice`, `time_is_default`; batch_time defaults to the advice when tenant never chose). Composer: "Mira suggests 19:00 · why · Use" (data-testid wa-send-time-advice / wa-use-advice).
 - Verified: seeded 60 read receipts (40 @19h IST) → advice 19:00 medium; UI pre-filled 19:00; summary card "2,104 guests · 2 of 5 batches done · next tomorrow 5:30 pm" (seed used UTC slot). autobatch_e2e.py ALL PASS; all seeds cleaned.
+
+## 2026-09-20 — 'Ready to send' dedupe audience, low-credit alert, CRM cap, owner guide (build 2026-09-19.318)
+- Audience "fresh": `_messaged_ids(t, 30)` = customer_ids with recipient status "sent" in tenant campaigns created in last 30 days; `_audience_all_ids` now handles all|loyal|fresh, `_audience_ids` = first 500 of it (sort last_visited desc). Verified: 1,151 guests, 301 messaged → fresh 850, campaign recipients 850 with 0 overlap.
+- credit_alert in GET /whatsapp-link/campaigns (aggregation counts pending recipients across queued/running/paused/capped). Banner data-testid wa-credit-alert; link /settings#credits (WhatsAppLinkCard got id="credits").
+- routes/customers.py list_customers to_list 500→5000 (CRM stats are client-side from the list; prod showed "Total Customers 500" for MDM).
+- Guide: /app/frontend/public/guides/mdm-whatsapp-campaign-guide.pdf (6 pages: cover + 5 steps w/ screenshots from MDM demo tenant). Screenshot tool saves to /root/.emergent/automation_output/<ts>/<name>.jpeg, NOT /tmp — copy from there.
+- MDM demo tenant (preview) wa_points restored to 19; all AB-TEST seeds removed. autobatch_e2e ALL PASS.

@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.317"
-BUILD_TIME = "19 Sep 2026, 11:45 PM IST"
+BUILD = "2026-09-19.318"
+BUILD_TIME = "20 Sep 2026, 12:20 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.318", "note": "WA campaigns: new audience 'fresh' (Ready to send — next 500 not yet messaged; excludes recipients with status=sent in any campaign of the last 30 days via _messaged_ids; audience-counts returns fresh/fresh_total/messaged_30d). Low-credit alert: GET /campaigns returns credit_alert {credits, needed, short_by, pending_batches, next_batch} when wa_points < pending recipients across active campaigns; amber banner + 'Top up credits' (→ /settings#credits, WhatsAppLinkCard id=credits). CRM list cap 500 → 5000 so Total Customers shows the real count. Owner guide PDF at /guides/mdm-whatsapp-campaign-guide.pdf (scripts/build_mdm_guide.py)."},
     {"build": "2026-09-19.317", "note": "WA campaigns: Batch Summary card (CampaignHistory groups batch rows under parent: '2,104 guests · 2 of 5 batches done · next tomorrow 11 PM' + progress bar). Send-Time Advisor: send_time_advice() buckets read receipts (wa_timestamp) + inbound replies by tenant-tz hour (8–21 only), salon → platform → 11:00 fallback; GET /whatsapp-link/send-time-advice; batch-settings pre-fills batch_time with the advice when the tenant hasn't set one; composer shows 'Mira suggests HH:00' + Use button."},
     {"build": "2026-09-19.316", "note": "WA auto-batch release modes: CampaignIn.batch_mode hourly|daily|manual + batch_time (HH:MM, tenant timezone via _tenant_tz). daily → follow-up batches at the next N days' slot; manual → batches created paused+manual, released via /campaigns/{id}/resume (stamps released_by/released_at). GET /whatsapp-link/batch-settings returns the tenant default (persisted on each send). New 'Thank You' campaign type (offer_type=thankyou) → Meta template miracurl_thank_you (submitted, PENDING) — send blocked with 409 until APPROVED (template_status cached 5 min). Composer: mode selector + time picker + 'Send this batch now' button for manual batches."},
     {"build": "2026-09-19.315", "note": "WA campaigns Auto-batch: fixed 500 on POST /whatsapp-link/campaigns (auto_batch missing from CampaignIn); 'All'/'Loyal' + auto_batch now sends 500 immediately and queues the rest in 500-guest batches, each scheduled +1h (verified: 1,151 guests → 500 + 500 + 151, no overlap, worker due-check honours scheduled_at). Campaign history shows 'Batch n of N · sends at HH:MM' chip."},
@@ -122,6 +123,9 @@ RELEASES = [
     {
         "date": "2026-09-19 (Faster app, smarter SMS & tighter HQ control ⚡)",
         "changes": [
+            "✅ 'Ready to send' audience: one radio picks the next 500 guests who have NOT been messaged in the last 30 days — send again tomorrow and the same guests are never messaged twice",
+            "⚠️ Low-credit alert: the campaign page warns you the moment WhatsApp credits drop below what your waiting batches need, with a one-tap 'Top up credits' button — so a blast never stalls mid-way",
+            "👥 CRM now lists your full client base (was capped at 500) — Total Customers shows the real number",
             "📊 Batch Summary: big campaigns now show one gold summary card — '2,104 guests · 2 of 5 batches done · next tomorrow 11 PM' with a progress bar — above the individual batch rows",
             "🕖 Mira's Send-Time Advisor: when you pick 'Daily at a fixed time', Mira suggests the hour your guests actually read and reply to WhatsApp (from past read receipts) and pre-fills it — one tap to use her pick",
             "⏰ Choose how the follow-up batches go out: every hour, daily at a fixed time in YOUR local time (e.g. 11 PM IST for India, your own timezone abroad), or manually — each waiting batch shows a gold 'Send this batch now' button and is marked 'sent manually by you' once released",

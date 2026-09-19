@@ -17,7 +17,7 @@ export const WhatsAppLinkCard = () => {
     catch (e) { toast.error(e.response?.data?.detail || "Couldn't save limit"); }
   };
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4" data-testid="whatsapp-link-card">
+    <div id="credits" className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4 scroll-mt-24" data-testid="whatsapp-link-card">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center"><MessageCircle className="w-5 h-5" /></div>

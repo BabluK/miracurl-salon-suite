@@ -77,22 +77,30 @@ async def link_daily_cap(body: CapIn, user=Depends(require_tenant_admin), t=Depe
     return {"ok": True, "daily_cap": body.daily_cap}
 
 
+async def _messaged_ids(t: dict, days: int = 30) -> set[str]:
+    """Guests who already received a WhatsApp campaign (status sent) in the last <days> — never message them twice."""
+    from datetime import timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    out: set[str] = set()
+    async for c in _raw_db.wa_campaigns.find({"tenant_id": t["id"], "created_at": {"$gte": cutoff}}, {"_id": 0, "recipients.customer_id": 1, "recipients.status": 1}):
+        out.update(r["customer_id"] for r in c.get("recipients") or [] if r.get("status") == "sent" and r.get("customer_id"))
+    return out
+
+
 async def _audience_all_ids(t: dict, audience: str) -> list[str]:
     q = {"tenant_id": t["id"], "phone": {"$nin": [None, ""]}}
     if audience == "loyal":
         q["visits"] = {"$gte": 3}
-    rows = await _raw_db.customers.find(q, {"_id": 0, "id": 1}).sort("visits" if audience == "loyal" else "last_visit", -1).to_list(20000)
+    if audience == "fresh":
+        q["id"] = {"$nin": list(await _messaged_ids(t))}
+    rows = await _raw_db.customers.find(q, {"_id": 0, "id": 1}).sort("visits" if audience == "loyal" else "last_visited", -1).to_list(20000)
     return [r["id"] for r in rows]
 
 
 async def _audience_ids(t: dict, audience: str, ids: list[str]) -> list[str]:
-    if audience == "all":
-        rows = await _raw_db.customers.find({"tenant_id": t["id"], "phone": {"$nin": [None, ""]}}, {"_id": 0, "id": 1}).sort("last_visit", -1).to_list(500)
-    elif audience == "loyal":
-        rows = await _raw_db.customers.find({"tenant_id": t["id"], "phone": {"$nin": [None, ""]}, "visits": {"$gte": 3}}, {"_id": 0, "id": 1}).sort("visits", -1).to_list(500)
-    else:
+    if audience == "selected":
         return ids
-    return [r["id"] for r in rows]
+    return (await _audience_all_ids(t, audience))[:500]
 
 
 @router.get("/festivals")
@@ -159,12 +167,14 @@ async def audience_counts(user=Depends(require_tenant_admin), t=Depends(current_
     base = {"tenant_id": t["id"], "phone": {"$nin": [None, ""]}}
     total = await _raw_db.customers.count_documents(base)
     loyal = await _raw_db.customers.count_documents({**base, "visits": {"$gte": 3}})
+    fresh = await _raw_db.customers.count_documents({**base, "id": {"$nin": list(await _messaged_ids(t))}})
     # One campaign sends to at most 500 guests (Meta pacing) — expose totals so the UI can say "500 of 2,060 per send"
-    return {"all": min(500, total), "loyal": min(500, loyal), "all_total": total, "loyal_total": loyal, "per_send_limit": 500}
+    return {"all": min(500, total), "loyal": min(500, loyal), "fresh": min(500, fresh), "all_total": total, "loyal_total": loyal, "fresh_total": fresh,
+            "messaged_30d": total - fresh, "per_send_limit": 500}
 
 
 class ComposeIn(BaseModel):
-    audience: str = Field("selected", pattern="^(selected|all|loyal)$")
+    audience: str = Field("selected", pattern="^(selected|all|loyal|fresh)$")
     customer_ids: list[str] = Field(default_factory=list, max_length=500)
     brief: str = Field("", max_length=600)
     offer_type: str = Field("general", pattern="^(general|festive|discount|new_service|winback|thankyou)$")
@@ -241,7 +251,7 @@ async def campaign_compose(body: ComposeIn, request: Request, user=Depends(requi
 
 
 class CampaignIn(BaseModel):
-    audience: str = Field("selected", pattern="^(selected|all|loyal)$")
+    audience: str = Field("selected", pattern="^(selected|all|loyal|fresh)$")
     customer_ids: list[str] = Field(default_factory=list, max_length=500)
     auto_batch: bool = False
     batch_mode: str = Field("hourly", pattern="^(hourly|daily|manual)$")
@@ -288,7 +298,7 @@ async def campaign_create(body: CampaignIn, request: Request, user=Depends(requi
     batches = 0
     mode, btime = body.batch_mode, body.batch_time
     await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"wa_batch_mode": mode, "wa_batch_time": btime}})
-    if body.auto_batch and body.audience in ("all", "loyal") and not sched:
+    if body.auto_batch and body.audience in ("all", "loyal", "fresh") and not sched:
         sent_ids = set(ids)
         rest = [i for i in await _audience_all_ids(t, body.audience) if i not in sent_ids]
         slots = _batch_slots(t, mode, btime, len(range(0, len(rest), 500)))
@@ -385,7 +395,23 @@ async def send_time_advice_ep(user=Depends(require_tenant_admin), t=Depends(curr
 @router.get("/campaigns")
 async def campaign_list(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     rows = await camp.list_campaigns(t["id"])
-    return {"campaigns": await camp.refresh_results(t, rows[:10]) + rows[10:], "usage": await camp.usage_today(t)}
+    return {"campaigns": await camp.refresh_results(t, rows[:10]) + rows[10:], "usage": await camp.usage_today(t), "credit_alert": await _credit_alert(t)}
+
+
+async def _credit_alert(t: dict) -> dict | None:
+    """Warn before a queued/scheduled batch stalls: credits < pending recipients still to send."""
+    from services import whatsapp_official as official
+    credits = await official.credits(t["id"])
+    pipeline = [{"$match": {"tenant_id": t["id"], "status": {"$in": ["queued", "running", "paused", "capped"]}}},
+                {"$project": {"_id": 0, "id": 1, "name": 1, "batch_no": 1, "scheduled_at": 1, "status": 1,
+                              "pending": {"$size": {"$filter": {"input": {"$ifNull": ["$recipients", []]}, "as": "r", "cond": {"$eq": ["$$r.status", "pending"]}}}}}}]
+    active = [c for c in await _raw_db.wa_campaigns.aggregate(pipeline).to_list(200) if c["pending"] > 0]
+    needed = sum(c["pending"] for c in active)
+    if not active or credits >= needed:
+        return None
+    nxt = sorted(active, key=lambda c: (c.get("scheduled_at") or ""))[0]
+    return {"credits": credits, "needed": needed, "short_by": needed - credits, "pending_batches": len(active),
+            "next_batch": {"name": nxt["name"], "size": nxt["pending"], "scheduled_at": nxt.get("scheduled_at"), "covered": credits >= nxt["pending"]}}
 
 
 @router.get("/campaigns/{cid}")

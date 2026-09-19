@@ -22,8 +22,8 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
   const [batchTime, setBatchTime] = useState("23:00");
   const [batchTz, setBatchTz] = useState("Asia/Kolkata");
   const [advice, setAdvice] = useState(null);
-  const audienceTotal = audience === "all" ? counts.all_total : audience === "loyal" ? counts.loyal_total : 0;
-  const canBatch = (audience === "all" || audience === "loyal") && audienceTotal > (counts.per_send_limit || 500);
+  const audienceTotal = audience === "all" ? counts.all_total : audience === "loyal" ? counts.loyal_total : audience === "fresh" ? counts.fresh_total : 0;
+  const canBatch = ["all", "loyal", "fresh"].includes(audience) && audienceTotal > (counts.per_send_limit || 500);
   const [tpl, setTpl] = useState("festive");
   const [brief, setBrief] = useState(TEMPLATES.festive.brief);
   const [discount, setDiscount] = useState(20);
@@ -172,7 +172,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" data-testid="wa-campaign-kpis">
         {[
-          [Users, "bg-rose-50 text-rose-500", recipients, "Recipients", audience === "selected" ? "Selected customers" : audience === "loyal" ? "Loyal guests (3+ visits)" : "All customers"],
+          [Users, "bg-rose-50 text-rose-500", recipients, "Recipients", audience === "selected" ? "Selected customers" : audience === "loyal" ? "Loyal guests (3+ visits)" : audience === "fresh" ? "Not yet messaged (30 days)" : "All customers"],
           [Mail, "bg-emerald-50 text-emerald-600", Math.min(recipients, Math.max(0, (usage?.remaining ?? 200))), "Ready to Send", usage ? `${usage.remaining} left in today's limit` : "…"],
           [Send, "bg-sky-50 text-sky-600", sentToday, "Sent today", usage ? `of ${usage.cap} daily limit` : "…"],
           [Clock, "bg-amber-50 text-amber-600", when === "later" && schedAt ? new Date(schedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "Now", "Scheduled Time", when === "later" ? "Scheduled for later" : "Sends as soon as you confirm"],
@@ -185,6 +185,17 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
       </div>
 
       <MiraDrafts camps={camps} onChange={loadCamps} />
+      {camps?.credit_alert && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 text-sm" data-testid="wa-credit-alert">
+          <div className="flex-1">
+            <div className="font-semibold text-amber-900">⚠️ WhatsApp credits are running low — {camps.credit_alert.credits.toLocaleString("en-IN")} left, but {camps.credit_alert.needed.toLocaleString("en-IN")} guests are still waiting across {camps.credit_alert.pending_batches} batch{camps.credit_alert.pending_batches > 1 ? "es" : ""}.</div>
+            <div className="text-xs text-amber-800 mt-0.5">
+              {camps.credit_alert.next_batch.covered ? `The next batch (${camps.credit_alert.next_batch.size}) is covered, but later batches will pause.` : `The next batch needs ${camps.credit_alert.next_batch.size} credits and will pause mid-way.`} Top up {camps.credit_alert.short_by.toLocaleString("en-IN")}+ credits so the blast never stalls.
+            </div>
+          </div>
+          <a href="/settings#credits" className="shrink-0 px-3 py-2 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700" data-testid="wa-credit-alert-topup">Top up credits</a>
+        </div>
+      )}
       {showInbox && <RepliesInbox />}
       {showHistory && <CampaignHistory camps={camps} onChange={loadCamps} />}
 
@@ -192,7 +203,9 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
         <div className="space-y-4">
           <Step n={1} title={`Select Recipients (${recipients})`} right={<button onClick={onViewCustomers} className="text-xs text-rose-600 font-semibold inline-flex items-center gap-1 hover:underline" data-testid="wa-view-all-customers">View All Customers <ArrowRight className="w-3 h-3" /></button>}>
             <div className="flex gap-4 flex-wrap text-sm" data-testid="wa-audience">
-              {[["all", counts.all_total > counts.all ? `All Customers (${counts.all} of ${counts.all_total.toLocaleString("en-IN")} per send)` : `All Customers (${counts.all})`], ["loyal", counts.loyal_total > counts.loyal ? `Loyal Customers (${counts.loyal} of ${counts.loyal_total.toLocaleString("en-IN")} per send)` : `Loyal Customers (${counts.loyal})`], ["selected", `Selected Customers (${selectedCustomers.length})`]].map(([k, l]) => (
+              {[["all", counts.all_total > counts.all ? `All Customers (${counts.all} of ${counts.all_total.toLocaleString("en-IN")} per send)` : `All Customers (${counts.all})`],
+                ["fresh", counts.fresh_total > counts.fresh ? `Ready to send — next ${counts.fresh} not yet messaged (${counts.fresh_total.toLocaleString("en-IN")} left)` : `Ready to send — not yet messaged (${counts.fresh ?? 0})`],
+                ["loyal", counts.loyal_total > counts.loyal ? `Loyal Customers (${counts.loyal} of ${counts.loyal_total.toLocaleString("en-IN")} per send)` : `Loyal Customers (${counts.loyal})`], ["selected", `Selected Customers (${selectedCustomers.length})`]].map(([k, l]) => (
                 <label key={k} className={`inline-flex items-center gap-2 cursor-pointer ${k === "selected" && !selectedCustomers.length ? "opacity-40" : ""}`}>
                   <input type="radio" name="aud" value={k} checked={audience === k} disabled={k === "selected" && !selectedCustomers.length} onChange={() => setAudience(k)} data-testid={`wa-audience-${k}`} className="accent-rose-600 w-4 h-4" /> {l}
                 </label>
