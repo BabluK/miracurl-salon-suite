@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.301"
-BUILD_TIME = "19 Sep 2026, 03:40 PM IST"
+BUILD = "2026-09-19.302"
+BUILD_TIME = "19 Sep 2026, 04:00 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.302", "note": "QR menu page restyled to match the welcome screen: photo header with gold-framed logo tile, TABLE n, Playfair title, tagline + gold rule, crown welcome-back pill (or new-guest pill), compact row [guests ▾][Call waiter][water], name/phone inputs hidden (captured on welcome screen), gold gradient chips, Playfair section titles, glass dish cards, gold gradient View Cart bar."},
     {"build": "2026-09-19.301", "note": "QR welcome screen rebuilt to user mock-ups: full-bleed generated restaurant photo (/assets/order/welcome-bg.jpg), gold-framed logo tile, TABLE n, Playfair title + tagline + gold rule, +91 pill input, gold Continue, 3 feature icons, Call waiter, footer. Returning guest: Welcome back headline, loyalty-points pill, last-order card with dish thumbnails/descriptions, outline Order-the-same-again, gold Proceed to order, 4 feature icons, footer tagline."},
     {"build": "2026-09-19.300", "note": "QR ordering on desktop/tablet: welcome, menu and status screens now render as a centred phone-width column (max-w-md) with a darker photo overlay, so text stays readable on wide screens; cart bar follows the column."},
     {"build": "2026-09-19.299", "note": "QR welcome screen: returning diners see 'Your last order' (latest non-cancelled table_order for their phone, via guest-lookup.last_order) with one-tap 'Order the same again · ₹total' → cart prefilled with qty + spice (sold-out/removed dishes skipped with a note) → straight to Send to kitchen."},
