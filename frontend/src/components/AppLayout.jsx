@@ -75,6 +75,8 @@ const NAV_MANAGER = NAV_ADMIN.filter((i) => i.to !== "/assistant");
 
 export default function AppLayout() {
   const { user, tenant, logout } = useAuth();
+  // Until the tenant profile arrives, brand the sidebar with the owner's active salon from /auth/me (never the platform mark)
+  const brandTenant = (user?.salons || []).find(s => s.id === (user?.active_tenant_id || user?.tenant_id)) || null;
 
   // Remote cache purge: when super admin clears a salon's cache, every device
   // of that salon gets a one-time full cache wipe + reload on next app open.
@@ -181,7 +183,7 @@ export default function AppLayout() {
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
         <div className="p-6 border-b border-white/5 flex items-center justify-between">
-          {tenant ? <TenantBrandMark tenant={tenant} /> : <BrandMark variant="dark" size="xs" />}
+          {(tenant || brandTenant) ? <TenantBrandMark tenant={tenant || brandTenant} /> : <BrandMark variant="dark" size="xs" />}
           <button
             className="lg:hidden text-white/60 hover:text-white p-1"
             onClick={() => setSidebarOpen(false)}

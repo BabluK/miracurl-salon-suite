@@ -1,4 +1,4 @@
-import { Scissors } from "lucide-react";
+import { Scissors, UtensilsCrossed } from "lucide-react";
 
 /**
  * Sidebar brand mark that shows the tenant's own logo & name (per-tenant white-label).
@@ -37,8 +37,12 @@ export default function TenantBrandMark({ tenant }) {
           </div>
         )
       ) : (
-        <div className="brand-pill tenant-logo-glow w-12 h-12 rounded-xl flex items-center justify-center relative overflow-hidden flex-shrink-0">
-          <Scissors className="w-5 h-5 text-white brand-scissors relative z-10" />
+        <div className="tenant-logo-glow w-full rounded-2xl p-[2px] bg-gradient-to-br from-[#d4af37]/80 via-[#f3e3ae]/40 to-[#b08d3f]/80" data-testid="tenant-logo-placeholder">
+          <div className="rounded-[14px] bg-gradient-to-b from-[#1c1722] to-[#131017] px-3 py-3 flex flex-col items-center justify-center gap-1">
+            {tenant?.business_type === "restaurant" ? <UtensilsCrossed className="w-5 h-5 text-[#d4af37]" /> : <Scissors className="w-5 h-5 text-[#d4af37]" />}
+            <span className="font-caveat text-[#e8c56a] text-2xl leading-none text-center break-words max-w-full">{name || "Miracurl"}</span>
+            <span className="text-[8px] tracking-[0.3em] uppercase text-white/50">{tenant?.business_type === "restaurant" ? "Restaurant" : "Unisex Salon"}</span>
+          </div>
         </div>
       )}
       <div className="leading-tight min-w-0 w-full">
