@@ -112,6 +112,8 @@ def _campaign_params(camp: dict, t: dict, first: str) -> tuple[str, list[str]]:
     offer = camp.get("offer") or camp.get("headline") or camp.get("text", "")[:120]
     if camp.get("source") == "winback" or camp.get("offer_type") == "winback":
         return "winback", [first, salon, offer]
+    if camp.get("offer_type") == "thankyou":
+        return "thank_you", [first, salon, offer or f"With gratitude — {salon} ♡"]
     fest = camp.get("festival") or "festive season"
     valid = camp.get("valid_till") or (datetime.now(timezone.utc) + timedelta(days=7)).strftime("%d %b")
     return "festival", [first, salon, fest, offer, valid]

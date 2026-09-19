@@ -9,6 +9,7 @@ const TEMPLATES = {
   promo: { label: "General Promo", offer_type: "discount", brief: "Limited-period promo on our most popular services" },
   rebook: { label: "Rebooking", offer_type: "winback", brief: "Friendly reminder that it's time for their next visit; make rebooking effortless" },
   loyalty: { label: "Loyalty", offer_type: "general", brief: "Thank loyal guests and share a members-only perk" },
+  thankyou: { label: "Thank You", offer_type: "thankyou", brief: "A heartfelt thank-you to every guest — you are not just a client, you are a part of our journey. No offer, just gratitude, signed by the salon" },
   custom: { label: "Custom Message", offer_type: "general", brief: "" },
 };
 

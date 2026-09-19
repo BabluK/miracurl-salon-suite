@@ -112,7 +112,7 @@ async def link_festivals(user=Depends(require_tenant_admin), t=Depends(current_t
 
 class PosterIn(BaseModel):
     festival: str = Field("", max_length=60)
-    offer_type: str = Field("festive", pattern="^(general|festive|discount|new_service|winback)$")
+    offer_type: str = Field("festive", pattern="^(general|festive|discount|new_service|winback|thankyou)$")
     discount_pct: Optional[int] = Field(None, ge=5, le=70)
     service_ids: list[str] = Field(default_factory=list, max_length=10)
     headline: str = Field("", max_length=80)
@@ -134,11 +134,12 @@ async def campaign_poster(body: PosterIn, user=Depends(require_tenant_admin), t=
         "discount": "a bold premium sale poster, clean typography-led layout, gold and black",
         "new_service": "an elegant launch poster spotlighting a new signature service",
         "winback": "a warm 'we miss you' poster, soft blush and gold, welcoming mood",
+        "thankyou": "a heartfelt gratitude poster — black and gold luxury, warm glow, elegant script feel, 'part of our journey' mood",
         "general": "an elegant premium brand poster, soft cream and gold",
     }[body.offer_type]
     subject = "a beautifully plated gourmet dish and ambient restaurant table" if resto else "a radiant model with glossy styled hair and flawless skin"
     headline = body.headline or (f"Happy {fest}" if fest else {"discount": "Limited-Time Offer", "new_service": "Now at " + t.get("name", "our salon"),
-                                                                "winback": "We Miss You", "general": t.get("name", "Special Offer")}[body.offer_type])
+                                                                "winback": "We Miss You", "thankyou": "Thank You", "general": t.get("name", "Special Offer")}[body.offer_type])
     sub = " · ".join(x["name"] for x in svcs[:3]) if svcs else ("Hair · Skin · Nails · Spa" if not resto else "Dine-in · Takeaway · Celebrations")
     badge = f"FLAT {body.discount_pct}% OFF" if body.discount_pct else ""
     prompt = (f"Design {theme}, for a {'restaurant' if resto else 'unisex salon'} WhatsApp campaign. Square 1:1, photorealistic {subject} "
@@ -166,7 +167,7 @@ class ComposeIn(BaseModel):
     audience: str = Field("selected", pattern="^(selected|all|loyal)$")
     customer_ids: list[str] = Field(default_factory=list, max_length=500)
     brief: str = Field("", max_length=600)
-    offer_type: str = Field("general", pattern="^(general|festive|discount|new_service|winback)$")
+    offer_type: str = Field("general", pattern="^(general|festive|discount|new_service|winback|thankyou)$")
     service_ids: list[str] = Field(default_factory=list, max_length=10)
     discount_pct: Optional[int] = Field(None, ge=5, le=70)
     image_url: Optional[str] = Field(None, max_length=200, pattern=r"^/api/files/[A-Za-z0-9-]{8,64}$")
@@ -212,6 +213,7 @@ async def campaign_compose(body: ComposeIn, request: Request, user=Depends(requi
         "discount": f"DISCOUNT OFFER — exactly {body.discount_pct or 15}% off; show original → offer price for each service.",
         "new_service": "NEW / FEATURED SERVICE announcement — make guests curious to try it.",
         "winback": "WIN-BACK — warm 'we miss you' tone with a small comeback perk.",
+        "thankyou": "THANK-YOU / GRATITUDE — no discount, no sales push. Heartfelt 'you are not just a client, you are part of our journey' tone; the 'offer' field must be a warm closing line signed by the salon (e.g. 'With gratitude — MDM Luxury Salon, Harmu, Ranchi ♡').",
         "general": "General campaign.",
     }[body.offer_type]
     svc_line = (" Services to feature (real catalogue, use these exact names & prices): "
@@ -249,7 +251,7 @@ class CampaignIn(BaseModel):
     festival: str = Field("", max_length=60)
     offer: str = Field("", max_length=160)
     valid_till: str = Field("", max_length=30)
-    offer_type: str = Field("festive", pattern="^(general|festive|discount|new_service|winback)$")
+    offer_type: str = Field("festive", pattern="^(general|festive|discount|new_service|winback|thankyou)$")
 
 
 @router.post("/campaigns")
@@ -257,6 +259,8 @@ async def campaign_create(body: CampaignIn, request: Request, user=Depends(requi
     from services import whatsapp_official as official
     if await official.credits(t["id"]) < 1:
         raise HTTPException(409, "No WhatsApp credits — top up in Settings → Credits")
+    if body.offer_type == "thankyou" and (st := await official.template_status("thank_you")) != "APPROVED":
+        raise HTTPException(409, f"The Thank-You WhatsApp template is still {(st or 'pending').lower()} with Meta — usually approved within a few hours. Try again soon or pick another campaign type.")
     ids = await _audience_ids(t, body.audience, body.customer_ids)
     if not ids:
         raise HTTPException(400, "Pick at least one guest")

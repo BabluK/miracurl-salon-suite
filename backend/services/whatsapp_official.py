@@ -14,8 +14,31 @@ TEMPLATES = {
     "booking": os.environ.get("WHATSAPP_BOOKING_TEMPLATE", "miracurl_booking_confirmed"),
     "reminder": os.environ.get("WHATSAPP_REMINDER_TEMPLATE", "miracurl_reminder_1h"),
     "review": os.environ.get("WHATSAPP_REVIEW_TEMPLATE", "miracurl_review_request"),
+    "thank_you": os.environ.get("WHATSAPP_THANKYOU_TEMPLATE", "miracurl_thank_you"),
 }
-BUTTON_SLUG = {"festival", "winback", "birthday", "review"}  # templates whose URL button takes the tenant slug
+BUTTON_SLUG = {"festival", "winback", "birthday", "review", "thank_you"}  # templates whose URL button takes the tenant slug
+_tpl_status_cache: dict[str, tuple[float, str]] = {}
+
+
+async def template_status(kind: str) -> str | None:
+    """Meta review status of a platform template (APPROVED / PENDING / REJECTED), cached 5 min."""
+    import time
+    import httpx
+    from services.whatsapp_cloud import GRAPH_API_VERSION
+    hit = _tpl_status_cache.get(kind)
+    if hit and time.time() - hit[0] < 300 and hit[1] == "APPROVED":
+        return hit[1]
+    waba, tok = os.environ.get("WHATSAPP_BUSINESS_ACCOUNT_ID", ""), os.environ.get("WHATSAPP_ACCESS_TOKEN", "")
+    if not waba or not tok:
+        return None
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r = await client.get(f"https://graph.facebook.com/{GRAPH_API_VERSION}/{waba}/message_templates",
+                             params={"name": TEMPLATES[kind], "fields": "name,status", "access_token": tok})
+    rows = (r.json().get("data") or []) if not r.is_error else []
+    st = next((x.get("status") for x in rows if x.get("name") == TEMPLATES[kind]), None)
+    if st:
+        _tpl_status_cache[kind] = (time.time(), st)
+    return st
 
 
 def _abs(url: str) -> str:
