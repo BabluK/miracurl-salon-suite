@@ -148,8 +148,10 @@ async def campaign_poster(body: PosterIn, user=Depends(require_tenant_admin), t=
 @router.get("/audience-counts")
 async def audience_counts(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     base = {"tenant_id": t["id"], "phone": {"$nin": [None, ""]}}
-    return {"all": min(500, await _raw_db.customers.count_documents(base)),
-            "loyal": min(500, await _raw_db.customers.count_documents({**base, "visits": {"$gte": 3}}))}
+    total = await _raw_db.customers.count_documents(base)
+    loyal = await _raw_db.customers.count_documents({**base, "visits": {"$gte": 3}})
+    # One campaign sends to at most 500 guests (Meta pacing) — expose totals so the UI can say "500 of 2,060 per send"
+    return {"all": min(500, total), "loyal": min(500, loyal), "all_total": total, "loyal_total": loyal, "per_send_limit": 500}
 
 
 class ComposeIn(BaseModel):

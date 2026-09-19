@@ -226,11 +226,15 @@ async def refresh_results(tenant: dict, camps: list[dict]) -> list[dict]:
                 delivered += 1
             if st == "read":
                 read += 1
+        phones = [str(r.get("phone") or "")[-10:] for r in rcps if r.get("status") == "sent" and r.get("phone")]
+        replied = await _raw_db.whatsapp_messages.count_documents(
+            {"tenant_id": tenant["id"], "direction": "inbound", "created_at": {"$gte": (full or {}).get("created_at", "")},
+             "wa_id": {"$regex": f"({'|'.join(phones)})$"}}) if phones else 0
         ids = [r["customer_id"] for r in rcps if r.get("status") == "sent"]
         booked = await _raw_db.appointments.count_documents(
             {"tenant_id": tenant["id"], "customer_id": {"$in": ids}, "created_at": {"$gte": (full or {}).get("created_at", "")},
              "status": {"$ne": "cancelled"}}) if ids else 0
-        out.append({**c, "delivered": delivered, "read": read, "booked": booked})
+        out.append({**c, "delivered": delivered, "read": read, "replied": replied, "booked": booked})
     return out
 
 

@@ -180,7 +180,7 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
         <div className="space-y-4">
           <Step n={1} title={`Select Recipients (${recipients})`} right={<button onClick={onViewCustomers} className="text-xs text-rose-600 font-semibold inline-flex items-center gap-1 hover:underline" data-testid="wa-view-all-customers">View All Customers <ArrowRight className="w-3 h-3" /></button>}>
             <div className="flex gap-4 flex-wrap text-sm" data-testid="wa-audience">
-              {[["all", `All Customers (${counts.all})`], ["loyal", `Loyal Customers (${counts.loyal})`], ["selected", `Selected Customers (${selectedCustomers.length})`]].map(([k, l]) => (
+              {[["all", counts.all_total > counts.all ? `All Customers (${counts.all} of ${counts.all_total.toLocaleString("en-IN")} per send)` : `All Customers (${counts.all})`], ["loyal", counts.loyal_total > counts.loyal ? `Loyal Customers (${counts.loyal} of ${counts.loyal_total.toLocaleString("en-IN")} per send)` : `Loyal Customers (${counts.loyal})`], ["selected", `Selected Customers (${selectedCustomers.length})`]].map(([k, l]) => (
                 <label key={k} className={`inline-flex items-center gap-2 cursor-pointer ${k === "selected" && !selectedCustomers.length ? "opacity-40" : ""}`}>
                   <input type="radio" name="aud" value={k} checked={audience === k} disabled={k === "selected" && !selectedCustomers.length} onChange={() => setAudience(k)} data-testid={`wa-audience-${k}`} className="accent-rose-600 w-4 h-4" /> {l}
                 </label>

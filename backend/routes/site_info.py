@@ -46,7 +46,7 @@ class SiteInfoIn(BaseModel):
 
 async def _get_info() -> dict:
     doc = await _raw_db.platform_settings.find_one({"key": "site_info"}, {"_id": 0}) or {}
-    info = {**_DEFAULTS, **{k: v for k, v in doc.items() if k in _DEFAULTS and v is not None}}
+    info = {**_DEFAULTS, **{k: v for k, v in doc.items() if k in _DEFAULTS and v not in (None, "")}}  # blank → default (HQ WhatsApp never "not set")
     if not info.get("instagram"):
         # fall back to the super-admin's Instagram handle (HQ → Edit Profile)
         sa = await _raw_db.users.find_one({"role": "super_admin", "instagram": {"$nin": [None, ""]}}, {"_id": 0, "instagram": 1})

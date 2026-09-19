@@ -77,7 +77,7 @@ export function CampaignHistory({ camps, onChange }) {
           <span className="text-xs text-slate-600 shrink-0 text-right" data-testid={`wa-history-results-${c.id}`}>
             {c.sent}/{c.total} sent
             {c.sent_sms > 0 && <span className="block text-[11px] text-amber-700 font-semibold" data-testid={`wa-campaign-sms-${c.id}`} title="WhatsApp credits ran out — these guests got the DLT SMS version instead">📱 {c.sent_sms} by SMS</span>}
-            {c.sent > 0 && <span className="block text-[11px] text-slate-400"><span className="text-sky-600">✓✓ {c.read ?? 0} read</span> · {c.delivered ?? 0} delivered · <span className={c.booked ? "text-emerald-600 font-semibold" : ""}>{c.booked ?? 0} booked</span></span>}
+            {c.sent > 0 && <span className="block text-[11px] text-slate-400"><span className="text-sky-600">✓✓ {c.read ?? 0} read</span> · {c.delivered ?? 0} delivered · <span className={c.replied ? "text-violet-600 font-semibold" : ""} data-testid={`camp-replied-${c.id}`}>{c.replied ?? 0} replied</span> · <span className={c.booked ? "text-emerald-600 font-semibold" : ""}>{c.booked ?? 0} booked</span></span>}
           </span>
           {c.status === "draft" && <button onClick={() => act(c.id, "approve")} data-testid={`wa-approve-${c.id}`} className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700">Approve & send</button>}
           {c.status === "draft" && <button onClick={() => act(c.id, "cancel")} className="text-xs text-slate-500">Dismiss</button>}
