@@ -260,3 +260,7 @@
 ## 2026-09-20 — HQ WhatsApp channel override (build 2026-09-19.330)
 - routes/hq_credit_wallet.py: HqChannelIn, apply_hq_channel_override() (sets WHATSAPP_PHONE_NUMBER_ID/BUSINESS_ACCOUNT_ID/ACCESS_TOKEN in os.environ from hq_settings doc), PUT/DELETE /super-admin/whatsapp-channel; server.py _boot_wa_campaigns applies it at startup. Health `source` field.
 - Preview: override set to live number (+91 91803 79552) — health green. TODO after user deploys .330: run the same PUT against https://miracurl-suite.com with values from workspace backend/.env (super@miracurl.com / Super@Miracurl123), then health check + 'Retry failed' on Marathahalli campaigns. Never paste the token in chat.
+
+## 2026-09-20 — CORS trim, invoice resend→current email, void invoice (build 2026-09-19.331)
+- CORS_ORIGINS no longer includes miracurl.com/www.miracurl.com (.env line 3 + server.py default).
+- Infinity (tenant 83913a55, owner now ranjitdebnath84@gmail.com) has 2 subscription invoices from 08 Sep manual plan change 25 s apart: eb9e98e6 ₹8,000 'half_year' (WRONG, salon plan) and 2c0975d6 ₹6,000 'resto_half' (correct). Both stored owner_email infinity.admin@miracurl.com → emails failed. TODO after .331 deploys on prod: DELETE /super-admin/invoices/eb9e98e6-fa0f-4ed4-9f14-ad535112769d?reason=duplicate+plan+change and POST /super-admin/invoices/2c0975d6-5ccf-4e65-ac52-ad3ad2bcdd5e/resend (now uses current owner_email). Also PUT /super-admin/whatsapp-channel with live creds from workspace .env, then health + retry Marathahalli campaigns.

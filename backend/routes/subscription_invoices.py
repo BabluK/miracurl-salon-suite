@@ -36,7 +36,7 @@ def _pdf_response(inv: dict, kind: str) -> Response:
 
 @router.get("/billing/invoices")
 async def my_invoices(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    rows = await _raw_db.subscription_invoices.find({"tenant_id": t["id"]}, _PUBLIC_FIELDS).sort("created_at", -1).to_list(100)
+    rows = await _raw_db.subscription_invoices.find({"tenant_id": t["id"], "status": {"$ne": "void"}}, _PUBLIC_FIELDS).sort("created_at", -1).to_list(100)
     return {"invoices": rows}
 
 
@@ -52,7 +52,7 @@ async def my_invoice_pdf(iid: str, kind: str, user=Depends(require_tenant_admin)
 
 @router.get("/super-admin/invoices")
 async def hq_invoices(tenant_id: str | None = None, user=Depends(require_super_admin)):
-    flt = {"tenant_id": tenant_id} if tenant_id else {}
+    flt = {"status": {"$ne": "void"}, **({"tenant_id": tenant_id} if tenant_id else {})}
     rows = await _raw_db.subscription_invoices.find(flt, _PUBLIC_FIELDS).sort("created_at", -1).to_list(500)
     return {"invoices": rows}
 
@@ -72,11 +72,25 @@ async def hq_invoice_resend(iid: str, user=Depends(require_super_admin)):
     inv = await _raw_db.subscription_invoices.find_one({"id": iid}, {"_id": 0})
     if not inv:
         raise HTTPException(404, "Invoice not found")
+    t = await _raw_db.tenants.find_one({"id": inv.get("tenant_id")}, {"_id": 0, "owner_email": 1, "owner_name": 1})
+    if t and t.get("owner_email"):  # always resend to the tenant's CURRENT owner email, not the one frozen on the invoice
+        inv["owner_email"], inv["notify_email"] = t["owner_email"].strip().lower(), None
+        await _raw_db.subscription_invoices.update_one({"id": iid}, {"$set": {"owner_email": inv["owner_email"]}})
     inv["biller"] = await get_biller()
     rec = await email_invoice_kit(inv, resend=True)
     if not rec["sent"]:
         raise HTTPException(400, rec.get("error") or "Email failed")
     return {"ok": True, "sent_to": rec["to"], "hq_to": rec.get("hq_to")}
+
+
+@router.delete("/super-admin/invoices/{iid}")
+async def hq_invoice_void(iid: str, reason: str = "duplicate", user=Depends(require_super_admin)):
+    """Void a wrongly issued subscription invoice (e.g. duplicate from a corrected plan change). Kept for audit, hidden from lists."""
+    from datetime import datetime, timezone
+    r = await _raw_db.subscription_invoices.update_one({"id": iid}, {"$set": {"status": "void", "void_reason": reason[:120], "voided_at": datetime.now(timezone.utc).isoformat(), "voided_by": user.get("email")}})
+    if not r.matched_count:
+        raise HTTPException(404, "Invoice not found")
+    return {"ok": True}
 
 
 @router.post("/super-admin/invoices/backfill")

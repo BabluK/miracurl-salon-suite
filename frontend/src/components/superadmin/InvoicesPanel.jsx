@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Building2, FileText, Loader2, RefreshCw, Save, Send } from "lucide-react";
+import { Building2, FileText, Loader2, RefreshCw, Save, Send, Trash2 } from "lucide-react";
 import api from "@/lib/api";
 import { InvoiceDocButtons, fmtAmt } from "@/lib/invoiceDocs";
 
@@ -52,6 +52,10 @@ export function InvoicesPanel() {
   const load = useCallback(() => api.get("/super-admin/invoices").then(r => setRows(r.data.invoices)).catch(() => {}), []);
   useEffect(() => { load(); }, [load]);
 
+  const voidInv = async (inv) => {
+    if (!window.confirm(`Void ${inv.invoice_no} (₹${Number(inv.total || inv.amount || 0).toLocaleString("en-IN")})? It stays for audit but disappears from lists and the tenant's Billing.`)) return;
+    try { await api.delete(`/super-admin/invoices/${inv.id}`); toast.success(`${inv.invoice_no} voided`); load(); } catch (e) { toast.error(e.response?.data?.detail || "Couldn't void"); }
+  };
   const resend = async (inv) => {
     setBusy(inv.id);
     try { const { data } = await api.post(`/super-admin/invoices/${inv.id}/resend`); toast.success(`Sent to ${data.sent_to} + HQ copies`); load(); }
@@ -98,8 +102,11 @@ export function InvoicesPanel() {
                   <td>
                     <div className="flex items-center gap-2 justify-end">
                       <InvoiceDocButtons base="/super-admin/invoices" inv={inv} testPrefix="hq-dl" />
-                      <button onClick={() => resend(inv)} disabled={!!busy} data-testid={`hq-invoice-resend-${inv.id}`} title="Resend documents by email" className="p-1.5 text-sky-600 hover:text-sky-800 disabled:opacity-50">
+                      <button onClick={() => resend(inv)} disabled={!!busy} data-testid={`hq-invoice-resend-${inv.id}`} title="Resend documents by email (to the tenant's current owner email)" className="p-1.5 text-sky-600 hover:text-sky-800 disabled:opacity-50">
                         {busy === inv.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      </button>
+                      <button onClick={() => voidInv(inv)} disabled={!!busy} data-testid={`hq-invoice-void-${inv.id}`} title="Void this invoice (duplicate / issued by mistake)" className="p-1.5 text-rose-500 hover:text-rose-700 disabled:opacity-50">
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </td>

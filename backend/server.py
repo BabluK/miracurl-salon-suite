@@ -467,7 +467,7 @@ app.include_router(api)
 
 _cors_env = os.environ.get(
     "CORS_ORIGINS",
-    "https://miracurl-suite.com,https://www.miracurl-suite.com,https://miracurl.com,https://www.miracurl.com,https://hair-hub-system.preview.emergentagent.com",
+    "https://miracurl-suite.com,https://www.miracurl-suite.com,https://hair-hub-system.preview.emergentagent.com",
 ).strip()
 _cors_origins = (["*"] if _cors_env == "*" or not _cors_env
                  else list(dict.fromkeys(o.strip().rstrip("/") for o in _cors_env.split(",") if o.strip())))
