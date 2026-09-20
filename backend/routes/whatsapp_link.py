@@ -469,6 +469,14 @@ async def campaign_approve(cid: str, user=Depends(require_tenant_admin), t=Depen
 @router.post("/campaigns/{cid}/{action}")
 async def campaign_action(cid: str, action: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     status = {"pause": "paused", "resume": "queued", "cancel": "cancelled"}.get(action)
+    if action == "retry":
+        r = await _raw_db.wa_campaigns.update_one(
+            {"id": cid, "tenant_id": t["id"], "recipients.status": "failed"},
+            {"$set": {"status": "queued", "recipients.$[r].status": "pending", "recipients.$[r].error": None, "failed": 0, "retried_at": datetime.now(timezone.utc).isoformat()}},
+            array_filters=[{"r.status": "failed"}])
+        if not r.matched_count:
+            raise HTTPException(409, "Nothing to retry — no failed recipients")
+        return {"ok": True, "status": "queued"}
     if not status:
         raise HTTPException(400, "Unknown action")
     if not await camp.set_status(t["id"], cid, status):

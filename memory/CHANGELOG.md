@@ -235,3 +235,10 @@
 - routes/appointments_pos.py: POST /invoices/{id}/send-receipt (staff → sms/email; admin/manager/super_admin → +whatsapp; 409 if invoice open), GET/PUT /settings/receipts. customers/{cid}/history now returns invoice id + receipts.
 - Frontend: components/pos/SendBillButtons.jsx (role-aware, uses useAuth), used in InvoiceReceiptModal + CustomerHistoryModal(compact); components/settings/GuestReceiptsCard.jsx in Settings (Lazy, below Colour Try-On). Verified: admin send → email sent, sms no_sms_points (preview), whatsapp template_pending→wa.me; staff whatsapp → 403; toggle persists.
 - sms_service.py: Twilio code deleted; _provider() = msg91 or "". Marathahalli Settings is PIN-gated in preview (PIN unknown; 4321 is X-Owner-Pin header for staff writes).
+
+## 2026-09-20 — Retry failed sends + Meta error detail + CRM Send-last-bill (build 2026-09-19.326)
+- Prod Marathahalli campaigns (600b8e1a win-back 10 real numbers, a611c29e rebooking) failed with bare "Meta API 400" on 18–19 Sep; identical payload from preview (same HQ number 919180379552, template miracurl_winback, hair.jpg header) → 200 accepted. Root cause NOT confirmed (no prod logs; deployment_agent cannot fetch runtime logs; prod test-send returned Cloudflare 502 twice). Suspects: prod env WHATSAPP_ACCESS_TOKEN/PHONE_NUMBER_ID stale (Meta code 190 returns HTTP 400) or egress. Fix path: send() now raises "Meta API 400 · #<code> <message>" → visible in recipient.error after deploy; owner clicks 'Retry 17 failed' → error text tells us.
+- campaign_action "retry": failed recipients → pending via array_filters, status queued. Verified live on preview (1 failed → sent).
+- ReachOutMenu.jsx: LastBillRow (fetches /customers/{id}/history, first non-open invoice) + SendBillButtons compact.
+- MSG91 billing receipt: addTemplateVersion with DLT id 1777178984459367154 → version 457078 (status 0 pending MSG91 approval; markActive refused until approved). Test sends accepted by MSG91 (req 3669743049…) but not delivered until approved.
+- Prod WA stock explained to user: 5,000 budget set → −2,200 MDM → −100 Marathahalli = 2,700 (Meta post-paid; budget is a self-set ceiling).

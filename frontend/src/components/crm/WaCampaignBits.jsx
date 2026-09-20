@@ -134,6 +134,7 @@ export function CampaignHistory({ camps, onChange }) {
           {c.status === "paused" && c.manual && <button onClick={() => act(c.id, "resume")} data-testid={`wa-release-${c.id}`} className="px-2.5 py-1 rounded-lg bg-[#b8863b] text-white text-xs font-semibold hover:bg-[#a0722f]">Send this batch now</button>}
           {c.status === "paused" && !c.manual && <button onClick={() => act(c.id, "resume")} className="text-xs text-emerald-700 font-semibold">Resume</button>}
           {["queued", "paused", "capped"].includes(c.status) && <button onClick={() => act(c.id, "cancel")} className="text-xs text-rose-600">Cancel</button>}
+          {c.status === "done" && c.failed > 0 && <button onClick={() => act(c.id, "retry")} data-testid={`wa-retry-${c.id}`} className="px-2.5 py-1 rounded-lg bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600" title="Re-send to the failed guests only">Retry {c.failed} failed</button>}
         </li>
   );
   return (

@@ -110,7 +110,12 @@ async def send(kind: str, t: dict, to: str, params: list[str], image_url: str | 
         if not ch["own"]:
             await _raw_db.tenants.update_one({"id": t["id"]}, {"$inc": {"wa_points": 1}})  # refund
         log.warning("official send failed %s: %.300s", resp.status_code, resp.text)
-        raise RuntimeError(f"Meta API {resp.status_code}")
+        try:
+            err = resp.json().get("error") or {}
+            detail = f" · #{err.get('code')} {err.get('message', '')}".rstrip() + (f" — {err['error_data']['details']}" if err.get("error_data", {}).get("details") else "")
+        except Exception:  # noqa: BLE001
+            detail = ""
+        raise RuntimeError(f"Meta API {resp.status_code}{detail}"[:220])
     mid = ((resp.json().get("messages") or [{}])[0]).get("id")
     await _raw_db.whatsapp_messages.insert_one({
         "direction": "outbound", "provider": "meta", "message_id": mid, "wa_id": digits, "type": "template", "template": tpl_name,
