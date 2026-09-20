@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.326"
-BUILD_TIME = "20 Sep 2026, 10:30 AM IST"
+BUILD = "2026-09-19.327"
+BUILD_TIME = "20 Sep 2026, 11:30 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.327", "note": "WA: test-send / cta / compose Meta failures now return HTTP 400 with Meta's reason (was 502 → Cloudflare swallowed it as 'invalid response'). Call button label = 'Call <Salon name>' (25-char cap); per-tenant templates renamed *_call2; tenant.wa_template_overrides_prev keeps the last approved variant live while the relabelled one is in review. MDM: t_mdmluxurysalon_{festival,thank_you}_call2 created (thank_you APPROVED), startup migration sets overrides+prev on every env."},
     {"build": "2026-09-19.326", "note": "WA campaigns: POST /campaigns/{id}/retry re-queues only failed recipients (array_filters) → 'Retry N failed' button on done campaigns; whatsapp_official.send now surfaces Meta's error code+message in recipient.error (was bare 'Meta API 400') so prod failures are diagnosable from the campaign report. CRM Message menu: 'Send last bill' row (LastBillRow → SendBillButtons) sends via Miracurl (WhatsApp/SMS/Email), no OS app-picker. MSG91 billing template got DLT id 1777178984459367154 as version 457078 (MSG91 approval pending)."},
     {"build": "2026-09-19.325", "note": "Guest bill delivery: tenant.receipt_auto {email,sms,whatsapp} default all OFF (_send_billing_receipts only auto-sends enabled channels; wa.me link always returned). POST /invoices/{id}/send-receipt {channels} — staff: sms+email only (403 on whatsapp), admin/manager: all; stamps invoice.receipts.<ch> with by/at. GET/PUT /settings/receipts. New Meta UTILITY template miracurl_receipt (text-only, 5 vars; TEXT_ONLY set skips header) — wa.me fallback while PENDING. UI: SendBillButtons (POS InvoiceReceiptModal + CRM CustomerHistoryModal compact), Settings → Guest bill delivery card. Twilio removed from sms_service entirely (MSG91 only)."},
     {"build": "2026-09-19.324", "note": "SMS: MSG91 is always the route when configured (Twilio only if MSG91 absent) — fixes prod 401s from the suspended Twilio account; kinds without a DLT template are skipped with a clear reason (no point burn). New MSG91 template miracurl_billing_receipt (6aaed912…, 5 vars name/invoice/amount/salon/points) wired as kind 'billing'; services/billing.py passes sms_vars so POS receipts go via DLT template. Prod: dummy SMS/WA balances zeroed (Marathahalli, AECS), real grants 300 SMS each + 100 WA; HQ SMS stock recorded from MSG91 wallet ₹1,048.80."},
@@ -131,6 +132,7 @@ RELEASES = [
     {
         "date": "2026-09-19 (Faster app, smarter SMS & tighter HQ control ⚡)",
         "changes": [
+            "📞 Call button now carries your salon name — 'Call MDM Luxury Salon' instead of a generic 'Call now' — and WhatsApp send errors show the real reason instead of a Cloudflare page",
             "🔁 Retry failed WhatsApp sends: any finished campaign with failures now shows 'Retry N failed' — only the failed guests are re-sent, and each failure now shows Meta's exact reason in the delivery report",
             "🧾 Send the bill only when the guest asks: after billing (and later from the guest's CRM history) tap Send bill → WhatsApp / SMS / Email. Auto-send is OFF by default — switch any channel on in Settings → Guest bill delivery. Staff can send SMS & Email; WhatsApp sending is reserved for admins",
             "🧾 Receipt SMS now delivers: after every POS bill the guest gets a DLT-approved SMS — 'Thank you Akash! Your receipt INV-… for Rs 1,250 at <salon> is ready. You earned 25 loyalty points' — and SMS never touches the old Twilio route again",

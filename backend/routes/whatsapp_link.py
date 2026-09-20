@@ -365,7 +365,7 @@ async def cta_put(body: CtaIn, user=Depends(require_tenant_admin), t=Depends(cur
     Meta approves in minutes; campaigns keep using Book Now until then."""
     from services.wa_cta import cta_status, ensure_call_templates
     if body.mode == "book":
-        await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"wa_cta_mode": "book"}, "$unset": {"wa_template_overrides": ""}})
+        await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"wa_cta_mode": "book"}, "$unset": {"wa_template_overrides": "", "wa_template_overrides_prev": ""}})
         return await cta_status({**t, "wa_cta_mode": "book", "wa_template_overrides": None})
     digits = re.sub(r"\D", "", body.phone)
     if len(digits) == 10:
@@ -375,7 +375,7 @@ async def cta_put(body: CtaIn, user=Depends(require_tenant_admin), t=Depends(cur
     try:
         names = await ensure_call_templates(t, f"+{digits}")
     except Exception as e:
-        raise HTTPException(502, f"Meta couldn't create the Call-now template: {e}")
+        raise HTTPException(400, f"Meta couldn't create the Call-now template: {e}")
     patch = {"wa_cta_mode": "call", "wa_cta_phone": f"+{digits}", "wa_template_overrides": names}
     await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": patch})
     return await cta_status({**t, **patch})
@@ -511,7 +511,7 @@ async def link_test_send(body: TestSendIn, user=Depends(require_tenant_admin), t
     try:
         r = await official.send("festival", t, digits, params, image_url=body.image_url)
     except RuntimeError as e:
-        raise HTTPException(409 if "credits" in str(e) else 502, str(e))
+        raise HTTPException(409 if "credits" in str(e) else 400, f"WhatsApp send failed — {e}")
     return {"ok": True, "message_id": r.get("message_id"), "with_image": bool(body.image_url), "credits": await official.credits(t["id"])}
 
 
@@ -649,7 +649,7 @@ async def receptionist_reply(wa_id: str, body: ReplyIn, user=Depends(require_ten
         data = await send_text(wa_id, body.text, tenant_id=t["id"])
     except RuntimeError as e:
         await _raw_db.tenants.update_one({"id": t["id"]}, {"$inc": {"wa_points": 1}})
-        raise HTTPException(502, str(e))
+        raise HTTPException(400, f"WhatsApp send failed — {e}")
     mid = ((data.get("messages") or [{}])[0]).get("id")
     await _raw_db.whatsapp_messages.update_one({"message_id": mid}, {"$set": {"sent_by": user.get("email") or "staff"}})
     await rec.set_human_mode(wa_id, t["id"], True, by=user.get("email") or "staff")

@@ -17,7 +17,7 @@ def _env() -> tuple[str, str, str]:
 
 def call_template_name(t: dict, kind: str) -> str:
     slug = re.sub(r"[^a-z0-9]", "", (t.get("slug") or t["id"]).lower())[:18]
-    return f"t_{slug}_{kind}_call"
+    return f"t_{slug}_{kind}_call2"
 
 
 async def _header_handle(client: httpx.AsyncClient, tok: str, app: str) -> str:
@@ -35,14 +35,14 @@ async def _platform_components(client: httpx.AsyncClient, tok: str, waba: str, k
     return rows[0]["components"]
 
 
-def _with_call_button(components: list, handle: str, phone_e164: str) -> list:
+def _with_call_button(components: list, handle: str, phone_e164: str, label: str = "Call now") -> list:
     out = []
     for c in components:
         c = dict(c)
         if c["type"] == "HEADER":
             c = {"type": "HEADER", "format": "IMAGE", "example": {"header_handle": [handle]}}
         elif c["type"] == "BUTTONS":
-            c = {"type": "BUTTONS", "buttons": [{"type": "PHONE_NUMBER", "text": "Call now", "phone_number": phone_e164},
+            c = {"type": "BUTTONS", "buttons": [{"type": "PHONE_NUMBER", "text": label, "phone_number": phone_e164},
                                                 {"type": "QUICK_REPLY", "text": "Stop promotions"}]}
         elif c["type"] == "BODY":
             c = {"type": "BODY", "text": c["text"], "example": c.get("example") or {}}
@@ -64,7 +64,7 @@ async def ensure_call_templates(t: dict, phone_e164: str) -> dict[str, str]:
             if await official.template_status(name):
                 continue
             handle = handle or await _header_handle(client, tok, app)
-            comps = _with_call_button(await _platform_components(client, tok, waba, kind), handle, phone_e164)
+            comps = _with_call_button(await _platform_components(client, tok, waba, kind), handle, phone_e164, f"Call {t.get('name') or 'us'}"[:25].strip())
             r = await client.post(f"{G}/{waba}/message_templates", params={"access_token": tok},
                                   json={"name": name, "language": "en", "category": "MARKETING", "components": comps})
             if r.is_error:

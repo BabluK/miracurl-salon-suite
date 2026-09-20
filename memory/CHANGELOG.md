@@ -242,3 +242,8 @@
 - ReachOutMenu.jsx: LastBillRow (fetches /customers/{id}/history, first non-open invoice) + SendBillButtons compact.
 - MSG91 billing receipt: addTemplateVersion with DLT id 1777178984459367154 → version 457078 (status 0 pending MSG91 approval; markActive refused until approved). Test sends accepted by MSG91 (req 3669743049…) but not delivered until approved.
 - Prod WA stock explained to user: 5,000 budget set → −2,200 MDM → −100 Marathahalli = 2,700 (Meta post-paid; budget is a self-set ceiling).
+
+## 2026-09-20 — Call-<Salon> label, 400 not 502, overrides_prev (build 2026-09-19.327)
+- Prod "origin returned invalid response" on test-send = OUR backend raising HTTPException(502) with the Meta error → Cloudflare masks 502/520 with its own page. Changed to 400 "WhatsApp send failed — Meta API 400 · #code message" (whatsapp_link.py test-send, cta, compose). After deploy the real Meta reason is visible in the toast.
+- wa_cta: button label f"Call {salon}"[:25]; names t_<slug18>_<kind>_call2. resolve_template: override (approved) → overrides_prev (approved) → platform. MDM demo + prod (via startup $set): overrides=t_mdmluxurysalon_*_call2, prev=mdm_festival_offer_call/mdm_thank_you_call_v2. thank_you_call2 APPROVED within a minute; festival_call2 PENDING. Live test to 7406869271 via t_mdmluxurysalon_thank_you_call2 accepted.
+- PDF in owner's WhatsApp = the one-time owner guide (miracurl_owner_guide, sent 19 Sep at user's request); campaigns never attach PDFs — image header only. Do not resend the guide unless asked.
