@@ -132,6 +132,58 @@ async def _ledger_with_names(limit: int = 40) -> list[dict]:
     return ledger
 
 
+@router.get("/super-admin/whatsapp-health")
+async def hq_whatsapp_health(admin=Depends(require_super_admin)):
+    """One-tap check of the HQ Meta channel: token validity, phone-number status/quality, WABA reach, template count."""
+    import httpx
+    from services.whatsapp_cloud import GRAPH_API_VERSION, channel_for
+    ch = await channel_for(None)
+    out = {"phone_number_id": ch.get("phone_number_id"), "graph_version": GRAPH_API_VERSION, "checks": [], "ok": False}
+    if not ch.get("token") or not ch.get("phone_number_id"):
+        out["checks"].append({"name": "Config", "ok": False, "detail": "WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID missing in this environment"})
+        return out
+    hdr = {"Authorization": f"Bearer {ch['token']}"}
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        for name, path, fields in (
+            ("Access token", "/debug_token", None),
+            ("Phone number", f"/{ch['phone_number_id']}", "display_phone_number,verified_name,quality_rating,code_verification_status,messaging_limit_tier,platform_type"),
+            ("Business account", f"/{os.environ.get('WHATSAPP_BUSINESS_ACCOUNT_ID', '')}", "name,account_review_status,message_template_namespace"),
+            ("Templates", f"/{os.environ.get('WHATSAPP_BUSINESS_ACCOUNT_ID', '')}/message_templates", "name,status"),
+        ):
+            params = {"fields": fields} if fields else {"input_token": ch["token"]}
+            if name == "Templates":
+                params["limit"] = 100
+            try:
+                r = await client.get(f"https://graph.facebook.com/{GRAPH_API_VERSION}{path}", headers=hdr, params=params)
+                body = r.json()
+            except Exception as e:  # noqa: BLE001
+                out["checks"].append({"name": name, "ok": False, "detail": f"network: {e}"[:200]})
+                continue
+            if r.is_error:
+                err = body.get("error") or {}
+                out["checks"].append({"name": name, "ok": False, "detail": f"#{err.get('code')} {err.get('message', '')}"[:220]})
+                continue
+            out["checks"].append({"name": name, "ok": True, "detail": _health_detail(name, body)})
+    out["ok"] = all(c["ok"] for c in out["checks"])
+    out["checked_at"] = datetime.now(timezone.utc).isoformat()
+    return out
+
+
+def _health_detail(name: str, body: dict) -> str:
+    if name == "Access token":
+        d = body.get("data") or {}
+        exp = d.get("expires_at")
+        when = "never expires (system user)" if not exp else datetime.fromtimestamp(exp, tz=timezone.utc).strftime("expires %d %b %Y")
+        return f"valid · {when} · scopes: {', '.join(d.get('scopes') or [])[:120]}"
+    if name == "Phone number":
+        return f"{body.get('display_phone_number')} · {body.get('verified_name')} · quality {body.get('quality_rating')} · tier {body.get('messaging_limit_tier')} · {body.get('code_verification_status')}"
+    if name == "Business account":
+        return f"{body.get('name')} · review {body.get('account_review_status')}"
+    rows = body.get("data") or []
+    approved = sum(1 for t in rows if t.get("status") == "APPROVED")
+    return f"{approved} approved / {len(rows)} total" + (f" · pending: {', '.join(t['name'] for t in rows if t.get('status') == 'PENDING')[:120]}" if any(t.get('status') == 'PENDING' for t in rows) else "")
+
+
 @router.get("/super-admin/credit-wallet")
 async def hq_wallet_view(admin=Depends(require_super_admin)):
     w = await _wallet()

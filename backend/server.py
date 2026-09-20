@@ -9,12 +9,23 @@ import logging
 from datetime import datetime, timezone, timedelta
 
 from fastapi import FastAPI, APIRouter, Request
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 
 from database import client, _raw_db, db, _current_tenant_id
 
 # ---------------- App ----------------
 app = FastAPI(title="Miracurl Salon Management API")
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _no_gateway_codes(request: Request, exc: StarletteHTTPException):
+    """Cloudflare replaces origin 502/503/504/52x with its own error page, hiding our message.
+    Re-map those app-raised codes to 424 (Failed Dependency) so the real reason reaches the UI."""
+    status = 424 if exc.status_code in (502, 503, 504, 520, 521, 522, 523, 524) else exc.status_code
+    return JSONResponse({"detail": exc.detail}, status_code=status, headers=getattr(exc, "headers", None))
+
 api = APIRouter(prefix="/api")
 
 from services.storage import _init_storage  # noqa: E402

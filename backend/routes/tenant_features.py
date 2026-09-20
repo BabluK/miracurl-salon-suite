@@ -110,45 +110,35 @@ async def sa_features_reset(body: FeaturesResetIn, user=Depends(require_super_ad
 
 @router.post("/super-admin/tenants/{tid}/send-guide")
 async def sa_send_guide(tid: str, request: Request, user=Depends(require_super_admin)):
-    """WhatsApp the 5-step campaign guide (PDF) to the owner via the HQ number using the miracurl_owner_guide template."""
-    import httpx
-    from services import whatsapp_official as official
-    from services.whatsapp_cloud import GRAPH_API_VERSION, channel_for, _now
+    """Email the 5-step campaign guide (PDF attached) to the owner. WhatsApp is reserved for campaign images only."""
+    import base64
+    from email_service import _send_email
     t = await _tenant(tid)
-    to = re.sub(r"\D", "", t.get("owner_phone") or t.get("whatsapp_number") or t.get("phone") or "")
-    if len(to) < 10:
-        raise HTTPException(400, "This tenant has no owner/WhatsApp number on file — add it in Edit first")
-    if len(to) == 10:
-        to = "91" + to
-    if await official.template_status("owner_guide") != "APPROVED":
-        raise HTTPException(409, "The guide template is still pending Meta approval — try again in a few minutes")
-    ch = await channel_for(None)
-    base = os.environ.get("APP_PUBLIC_URL", "").rstrip("/") or str(request.base_url).rstrip("/")
-    guide_path = "/guides/mdm-whatsapp-campaign-guide.pdf"
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
-    async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-        for cand in (base, f"https://{host}" if host else "", str(request.base_url).rstrip("/")):
-            if not cand:
-                continue
-            h = await client.head(f"{cand}{guide_path}")
-            if h.status_code == 200 and "pdf" in (h.headers.get("content-type") or ""):
-                base = cand
-                break
-        else:
-            raise HTTPException(409, "Guide PDF isn't live on this domain yet — deploy the latest build first")
+    to = (t.get("owner_email") or "").strip().lower()
+    if not to:
+        raise HTTPException(400, "This tenant has no owner email on file — add it in Edit first")
+    pdf_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "frontend", "public", "guides", "mdm-whatsapp-campaign-guide.pdf")
+    pdf_path = os.path.normpath(pdf_path)
+    if not os.path.exists(pdf_path):
+        raise HTTPException(409, "Guide PDF missing on this server — deploy the latest build first")
+    with open(pdf_path, "rb") as fh:
+        pdf_b64 = base64.b64encode(fh.read()).decode()
     first = (t.get("owner_name") or t.get("name") or "there").split()[0]
-    payload = {"messaging_product": "whatsapp", "to": to, "type": "template", "template": {"name": official.TEMPLATES["owner_guide"], "language": {"code": "en"}, "components": [
-        {"type": "header", "parameters": [{"type": "document", "document": {"link": f"{base}{guide_path}", "filename": "Miracurl-WhatsApp-Campaign-Guide.pdf"}}]},
-        {"type": "body", "parameters": [{"type": "text", "text": first}, {"type": "text", "text": t.get("name", "your salon")}]}]}}
-    async with httpx.AsyncClient(timeout=25.0) as client:
-        r = await client.post(f"https://graph.facebook.com/{GRAPH_API_VERSION}/{ch['phone_number_id']}/messages", json=payload, headers={"Authorization": f"Bearer {ch['token']}"})
-    if r.is_error:
-        raise HTTPException(502, f"Meta rejected the send: {r.text[:200]}")
-    mid = ((r.json().get("messages") or [{}])[0]).get("id")
-    await _raw_db.whatsapp_messages.insert_one({"direction": "outbound", "provider": "meta", "message_id": mid, "wa_id": to, "type": "template", "template": official.TEMPLATES["owner_guide"],
-                                                "kind": "owner_guide", "text": f"Owner guide → {t.get('name')}", "tenant_id": None, "hq": True, "status": "accepted", "created_at": _now()})
-    await _raw_db.tenants.update_one({"id": tid}, {"$set": {"guide_sent_at": _now(), "guide_sent_to": to}})
-    return {"ok": True, "to": to, "message_id": mid}
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com").rstrip("/")
+    html = f"""<div style="font-family:Georgia,serif;max-width:560px;margin:auto;color:#2b2b2b">
+      <h2 style="color:#8a6425;margin-bottom:4px">Hi {first}, welcome to Miracurl Suite ✦</h2>
+      <p>Attached is your <b>5-step guide</b> to send WhatsApp offers to every guest of <b>{t.get('name', 'your salon')}</b> —
+      500 per batch, nobody messaged twice, delivered/read/replied for every send.</p>
+      <ol style="line-height:1.7"><li>Login at <a href="{base}/login">{base.replace('https://', '')}/login</a></li>
+      <li>CRM → WhatsApp Campaign</li><li>Pick “Ready to send” + Auto-batch</li>
+      <li>Let Mira write it (or upload your poster) · test on your own number</li><li>Send &amp; track in Campaign history</li></ol>
+      <p style="color:#666;font-size:13px">Need a hand? WhatsApp Miracurl Support at +91 91803 79552.</p></div>"""
+    res = await _send_email([to], f"Your Miracurl WhatsApp campaign guide — {t.get('name', '')}", html,
+                            attachments=[{"filename": "Miracurl-WhatsApp-Campaign-Guide.pdf", "content": pdf_b64}], from_name="Miracurl Suite")
+    if not res.get("sent", res.get("ok", True)):
+        raise HTTPException(400, f"Email failed: {res.get('error', 'unknown')}")
+    await _raw_db.tenants.update_one({"id": tid}, {"$set": {"guide_sent_at": datetime.now(timezone.utc).isoformat(), "guide_sent_to": to}})
+    return {"ok": True, "to": to, "channel": "email"}
 
 
 class TemplateOverridesIn(BaseModel):

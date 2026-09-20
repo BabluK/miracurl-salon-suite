@@ -247,3 +247,8 @@
 - Prod "origin returned invalid response" on test-send = OUR backend raising HTTPException(502) with the Meta error → Cloudflare masks 502/520 with its own page. Changed to 400 "WhatsApp send failed — Meta API 400 · #code message" (whatsapp_link.py test-send, cta, compose). After deploy the real Meta reason is visible in the toast.
 - wa_cta: button label f"Call {salon}"[:25]; names t_<slug18>_<kind>_call2. resolve_template: override (approved) → overrides_prev (approved) → platform. MDM demo + prod (via startup $set): overrides=t_mdmluxurysalon_*_call2, prev=mdm_festival_offer_call/mdm_thank_you_call_v2. thank_you_call2 APPROVED within a minute; festival_call2 PENDING. Live test to 7406869271 via t_mdmluxurysalon_thank_you_call2 accepted.
 - PDF in owner's WhatsApp = the one-time owner guide (miracurl_owner_guide, sent 19 Sep at user's request); campaigns never attach PDFs — image header only. Do not resend the guide unless asked.
+
+## 2026-09-20 — WhatsApp Health Check, guide via email, no-502 handler (build 2026-09-19.328)
+- GET /super-admin/whatsapp-health (routes/hq_credit_wallet.py) + <WaHealth/> in CreditWalletCard (data-testid hq-wa-health-run / hq-wa-health-results). Preview result: token valid never-expires, +91 91803 79552 quality GREEN VERIFIED, WABA APPROVED, 18/18 templates approved.
+- send-guide → email (email_service._send_email with attachments) to tenant.owner_email; SuperAdmin.jsx copy updated. Sent to thakur007amitesh@gmail.com from preview (ok).
+- server.py: StarletteHTTPException handler remaps 502/503/504/52x → 424 (Cloudflare masks 5xx gateway codes). Prod was still .326 at the time of the user's screenshot → the 502 they saw is expected until .328 deploys.

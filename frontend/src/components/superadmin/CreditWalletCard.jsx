@@ -1,7 +1,32 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Wallet, RefreshCw, MessageCircle, MessageSquare, IndianRupee, AlertTriangle, SearchCheck, Trash2 } from "lucide-react";
+import { Wallet, RefreshCw, MessageCircle, MessageSquare, IndianRupee, AlertTriangle, SearchCheck, Trash2, Stethoscope, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+
+function WaHealth() {
+  const [res, setRes] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const run = () => { setBusy(true); api.get("/super-admin/whatsapp-health").then(r => { setRes(r.data); toast[r.data.ok ? "success" : "error"](r.data.ok ? "HQ WhatsApp connection healthy ✓" : "WhatsApp connection has a problem — see details"); }).catch(e => toast.error(e.response?.data?.detail || "Health check failed")).finally(() => setBusy(false)); };
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3" data-testid="hq-wa-health">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="text-xs text-slate-600"><b className="text-slate-800">HQ WhatsApp connection</b> — validates the Meta token, phone-number ID, business account and templates on <i>this</i> server.</div>
+        <button onClick={run} disabled={busy} data-testid="hq-wa-health-run" className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-emerald-700 text-white font-semibold hover:bg-emerald-800 disabled:opacity-60">{busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Stethoscope className="w-3.5 h-3.5" />} Test HQ WhatsApp connection</button>
+      </div>
+      {res && (
+        <ul className="mt-2 space-y-1" data-testid="hq-wa-health-results">
+          {res.checks.map(c => (
+            <li key={c.name} className="flex items-start gap-2 text-xs">
+              {c.ok ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 text-rose-600 mt-0.5 shrink-0" />}
+              <span><b className="text-slate-800">{c.name}:</b> <span className={c.ok ? "text-slate-600" : "text-rose-700 font-medium"}>{c.detail}</span></span>
+            </li>
+          ))}
+          <li className="text-[10px] text-slate-400 pl-5">phone_number_id {res.phone_number_id} · Graph {res.graph_version}</li>
+        </ul>
+      )}
+    </div>
+  );
+}
 
 const inr = (p) => `₹${Math.round((p || 0) / 100).toLocaleString("en-IN")}`;
 
@@ -57,6 +82,7 @@ export default function CreditWalletCard() {
           <button onClick={sync} disabled={!!busy} data-testid="hq-wallet-sync" className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50"><RefreshCw className={`w-3.5 h-3.5 ${busy ? "animate-spin" : ""}`} /> Sync MSG91 route</button>
         </div>
       </div>
+      <WaHealth />
       {w.mira_note && (
         <div className="flex items-start gap-2 rounded-xl border-2 border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-800" data-testid="hq-wallet-low-alert">
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /><span><b>Mira:</b> {w.mira_note}</span>

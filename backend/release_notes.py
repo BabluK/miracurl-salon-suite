@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.327"
-BUILD_TIME = "20 Sep 2026, 11:30 AM IST"
+BUILD = "2026-09-19.328"
+BUILD_TIME = "20 Sep 2026, 12:30 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.328", "note": "Super Admin → Message Credits: 'Test HQ WhatsApp connection' (GET /super-admin/whatsapp-health: debug_token, phone-number status/quality, WABA review, template counts; each check ok/detail). Owner guide now goes by EMAIL with the PDF attached (Resend) — WhatsApp carries campaign images only. Global exception handler remaps app-raised 502/503/504/52x → 424 so Cloudflare never masks our error text."},
     {"build": "2026-09-19.327", "note": "WA: test-send / cta / compose Meta failures now return HTTP 400 with Meta's reason (was 502 → Cloudflare swallowed it as 'invalid response'). Call button label = 'Call <Salon name>' (25-char cap); per-tenant templates renamed *_call2; tenant.wa_template_overrides_prev keeps the last approved variant live while the relabelled one is in review. MDM: t_mdmluxurysalon_{festival,thank_you}_call2 created (thank_you APPROVED), startup migration sets overrides+prev on every env."},
     {"build": "2026-09-19.326", "note": "WA campaigns: POST /campaigns/{id}/retry re-queues only failed recipients (array_filters) → 'Retry N failed' button on done campaigns; whatsapp_official.send now surfaces Meta's error code+message in recipient.error (was bare 'Meta API 400') so prod failures are diagnosable from the campaign report. CRM Message menu: 'Send last bill' row (LastBillRow → SendBillButtons) sends via Miracurl (WhatsApp/SMS/Email), no OS app-picker. MSG91 billing template got DLT id 1777178984459367154 as version 457078 (MSG91 approval pending)."},
     {"build": "2026-09-19.325", "note": "Guest bill delivery: tenant.receipt_auto {email,sms,whatsapp} default all OFF (_send_billing_receipts only auto-sends enabled channels; wa.me link always returned). POST /invoices/{id}/send-receipt {channels} — staff: sms+email only (403 on whatsapp), admin/manager: all; stamps invoice.receipts.<ch> with by/at. GET/PUT /settings/receipts. New Meta UTILITY template miracurl_receipt (text-only, 5 vars; TEXT_ONLY set skips header) — wa.me fallback while PENDING. UI: SendBillButtons (POS InvoiceReceiptModal + CRM CustomerHistoryModal compact), Settings → Guest bill delivery card. Twilio removed from sms_service entirely (MSG91 only)."},
@@ -132,6 +133,8 @@ RELEASES = [
     {
         "date": "2026-09-19 (Faster app, smarter SMS & tighter HQ control ⚡)",
         "changes": [
+            "🩺 Super Admin → Message Credits: one tap 'Test HQ WhatsApp connection' checks the Meta token, phone number (quality/tier), business account and all templates — green ticks or the exact Meta error",
+            "📧 The owner onboarding guide is emailed as a PDF attachment — WhatsApp is reserved for campaign posters only",
             "📞 Call button now carries your salon name — 'Call MDM Luxury Salon' instead of a generic 'Call now' — and WhatsApp send errors show the real reason instead of a Cloudflare page",
             "🔁 Retry failed WhatsApp sends: any finished campaign with failures now shows 'Retry N failed' — only the failed guests are re-sent, and each failure now shows Meta's exact reason in the delivery report",
             "🧾 Send the bill only when the guest asks: after billing (and later from the guest's CRM history) tap Send bill → WhatsApp / SMS / Email. Auto-send is OFF by default — switch any channel on in Settings → Guest bill delivery. Staff can send SMS & Email; WhatsApp sending is reserved for admins",
