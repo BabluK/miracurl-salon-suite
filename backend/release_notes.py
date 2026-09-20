@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-20.332"
-BUILD_TIME = "20 Sep 2026, 6:30 PM IST"
+BUILD = "2026-09-20.333"
+BUILD_TIME = "20 Sep 2026, 10:15 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-20.333", "note": "Multi-business managers: users.tenant_ids honoured for role=manager (POST /managers with an email that is already a manager of another of the owner's businesses → link, DELETE unlinks when shared, GET lists linked); GPS gate lists the login's other businesses (option value salon:<tid>) and POST /branch/pick switches tenant_id without owner PIN; SalonSwitcher shown to managers with >1 salons. HQ: GET/DELETE /super-admin/tenants/{tid}/test-logins (…@test.com purge), PUT /super-admin/users/{uid}/role (admin⇄manager, tenant_ids). Composer CTA copy → 'Call now → salon number'. Prod run: WA live number override + billing_v2 ID set + owner→bablukumar.cs14 on both Miracurl tenants (placeholder miracurl.aecs deleted)."},
     {"build": "2026-09-20.332", "note": "Owner-email change rewritten (services/owner_email.py): existing OWNER login → branch linked to it (tenant_ids); manager/staff login → 409 email_in_use with Take-over option (owner_email_takeover); shared login → owner_email_scope all|this (rename vs separate login w/ temp password); placeholder logins owning nothing are deleted. NEW PATCH /managers/{uid}/email (owner), GET /super-admin/tenants/{tid}/logins + PUT /super-admin/users/{uid}/email (HQ) — rename any login keeping password/branch. UI: EditTenantModal scope radio + conflict panel + Logins card; Managers → click email to change. GPS branch gate: POST /branch/locate (haversine vs tenant/branch lat-lng, radius tenant.geo_login_m|100) + POST /branch/pick (users.last_branch_pick + audit) — GeoBranchGate.jsx in AppLayout for unlocked managers & staff, pick remembered 15 d. branch_logins collection + GET /attendance/branch-logins?date, GET /branches/unpinned (BranchPinNudge on Dashboard), GET /super-admin/sms-templates-health (MSG91 getTemplateVersions; billing v1.1 DLT-rejected: Template Id not found on DLT)."},
     {"build": "2026-09-19.331", "note": "CORS: dropped https://miracurl.com + www (.env + server.py default). Subscription invoices: resend now re-reads the tenant's CURRENT owner_email (was frozen on the invoice → Infinity mails went to placeholder infinity.admin@); DELETE /super-admin/invoices/{id} voids (status=void, hidden from HQ + tenant lists) with Trash button in InvoicesPanel."},
     {"build": "2026-09-19.330", "note": "HQ WhatsApp channel override stored in Mongo (hq_settings.whatsapp_channel, token encrypted via wa_coexist.encrypt_token): PUT/DELETE /super-admin/whatsapp-channel (validated against Meta before save) → applied to os.environ at boot + on save, so production stops using the Meta test number without editing deployment Secrets. Health check shows `source`."},
@@ -134,6 +135,14 @@ BUILD_LOG = [
 ]
 
 RELEASES = [
+    {
+        "date": "2026-09-20 (One manager login for all your businesses 🏬)",
+        "changes": [
+            "🏬 A manager can now cover several of your businesses with ONE login: add the same manager email in the second business and it links instead of failing. At sign-in the branch picker shows every branch and business — GPS opens the one they're standing in — and the device remembers it for 15 days",
+            "🧹 Super Admin → Edit → Logins: one tap removes junk test logins left by automated runs, and ⇄ flips a login between owner and manager without changing its password",
+            "📞 Campaign composer: the button is now clearly 'Call now → salon number' — guests see 'Call <your salon>' and your salon phone rings",
+        ],
+    },
     {
         "date": "2026-09-20 (Real emails for every login 📧)",
         "changes": [

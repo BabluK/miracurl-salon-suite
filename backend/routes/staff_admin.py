@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field, EmailStr, field_validator
 from database import _raw_db, db, _clean
 from security import (
     hash_pw, get_current_user, require_admin, require_tenant_admin, current_tenant,
-    require_owner_pin,
+    require_owner_pin, log_audit,
 )
 from email_service import (
     _send_email,
@@ -677,17 +677,40 @@ class ManagerCreateIn(BaseModel):
             raise ValueError("Enter a valid email")
         return v
 
+def _owner_tenant_ids(admin: dict, t: dict) -> set[str]:
+    ids = set(admin.get("tenant_ids") or [])
+    ids.add(t["id"])
+    if admin.get("tenant_id"):
+        ids.add(admin["tenant_id"])
+    return ids
+
+
 @router.get("/managers")
 async def list_managers(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     rows = await _raw_db.users.find(
-        {"tenant_id": t["id"], "role": "manager"},
+        {"$or": [{"tenant_id": t["id"]}, {"tenant_ids": t["id"]}], "role": "manager"},
         {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(100)
+    for r in rows:
+        r["salon_count"] = len(set(r.get("tenant_ids") or []) | ({r["tenant_id"]} if r.get("tenant_id") else set()))
     return rows
+
+
+async def _link_manager_here(existing: dict, t: dict, admin: dict) -> dict:
+    """Same manager, another of the owner's businesses → one login for both (branch picker chooses at sign-in)."""
+    if existing.get("role") != "manager" or existing.get("tenant_id") not in _owner_tenant_ids(admin, t):
+        raise HTTPException(400, "Email already registered")
+    ids = sorted(set(existing.get("tenant_ids") or []) | {existing["tenant_id"], t["id"]})
+    await _raw_db.users.update_one({"id": existing["id"]}, {"$set": {"tenant_ids": ids, "branch": ""}})
+    await log_audit(t["id"], admin, "manager_link", f"Manager {existing['email']} linked to {t.get('name')} — one login for {len(ids)} businesses")
+    u = await _raw_db.users.find_one({"id": existing["id"]}, {"_id": 0, "password_hash": 0})
+    return {**u, "linked": True, "salon_count": len(ids)}
+
 
 @router.post("/managers")
 async def create_manager(body: ManagerCreateIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    if await _raw_db.users.find_one({"email": body.email}):
-        raise HTTPException(400, "Email already registered")
+    existing = await _raw_db.users.find_one({"email": body.email}, {"_id": 0, "password_hash": 0})
+    if existing:
+        return await _link_manager_here(existing, t, admin)
     temp_pw = _generate_temp_password()
     new_user = {
         "id": str(uuid.uuid4()), "email": body.email, "name": body.name.strip(),
@@ -812,9 +835,19 @@ async def reset_manager(uid: str, admin=Depends(require_tenant_admin), t=Depends
 
 @router.delete("/managers/{uid}")
 async def delete_manager(uid: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    res = await _raw_db.users.delete_one({"id": uid, "tenant_id": t["id"], "role": "manager"})
-    if res.deleted_count == 0:
+    u = await _raw_db.users.find_one({"id": uid, "role": "manager", "$or": [{"tenant_id": t["id"]}, {"tenant_ids": t["id"]}]}, {"_id": 0, "password_hash": 0})
+    if not u:
         raise HTTPException(404, "Manager not found")
+    others = (set(u.get("tenant_ids") or []) | ({u["tenant_id"]} if u.get("tenant_id") else set())) - {t["id"]}
+    if others:  # shared login: only unlink this business, the manager keeps working elsewhere
+        sets = {"tenant_ids": sorted(others)}
+        if u.get("tenant_id") == t["id"]:
+            sets["tenant_id"] = sorted(others)[0]
+        await _raw_db.users.update_one({"id": uid}, {"$set": sets})
+        await db.staff.update_many({"user_id": uid, "tenant_id": t["id"]}, {"$unset": {"user_id": ""}})
+        return {"ok": True, "unlinked": True, "remaining_salons": len(others)}
+    await _raw_db.users.delete_one({"id": uid})
+    await _raw_db.sessions.delete_many({"user_id": uid})
     await db.staff.delete_one({"user_id": uid})
     return {"ok": True}
 

@@ -262,7 +262,7 @@ export default function AppLayout() {
             <div className="hidden sm:block"><NetSpeedIndicator /></div>
             <div className="hidden md:flex items-center px-3 py-1 rounded-full border border-white/10 bg-white/5 text-xs text-white/60 tracking-wider">{today}</div>
             {user?.role === "admin" ? <FixRequestButton /> : null}
-            {isAdmin ? <SalonSwitcher /> : null}
+            {isAdmin || (user?.salons?.length || 0) > 1 ? <SalonSwitcher /> : null}
             {(isAdmin || user?.role === "manager") ? <BranchSwitcher /> : null}
             {canNotify ? (
               <div className="flex-shrink-0">

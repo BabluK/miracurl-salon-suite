@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import api, { formatApiError } from "@/lib/api";
-import { setSelectedBranch, mainSalonLabel } from "@/lib/branch";
+import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import api, { formatApiError, setTenantSlug } from "@/lib/api";
+import { setSelectedBranch } from "@/lib/branch";
 import { toast } from "sonner";
 import { Check, Loader2, LocateFixed, MapPin, MapPinOff, Store } from "lucide-react";
 
@@ -34,21 +36,25 @@ function getPosition() {
 // luxe card list and remembers it for 15 days. With GPS, only the branch you're standing in
 // (≤100 m) is selectable; without GPS every branch is offered (pick is recorded as unverified).
 export function GeoBranchGate() {
-  const { user, tenant } = useAuth();
+  const { user, tenant, refresh } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [geo, setGeo] = useState({ state: "idle", data: null }); // idle | locating | ready | off
   const [picking, setPicking] = useState("");
 
   const branches = tenant?.branches || [];
-  const eligible = user && tenant && branches.length > 0
+  const otherSalons = (user?.salons || []).filter(s => s.id !== tenant?.id);
+  const eligible = user && tenant && (branches.length > 0 || otherSalons.length > 0)
     && ((user.role === "manager" && !user.branch) || user.role === "staff");
 
   useEffect(() => {
     if (!eligible) return;
     const saved = readBranchPick(user.id);
+    if (saved && saved.tenant_id && saved.tenant_id !== tenant.id) { localStorage.removeItem(pickKey(user.id)); setOpen(true); return; }
     if (saved) { setSelectedBranch(saved.branch); return; }
     setOpen(true);
-  }, [eligible, user]);
+  }, [eligible, user, tenant]);
 
   const locate = useCallback(async () => {
     setGeo({ state: "locating", data: null });
@@ -71,6 +77,7 @@ export function GeoBranchGate() {
   const cards = [
     { value: "__main__", label: tenant?.name || "Main salon", sub: tenant?.location || "Main salon", main: true },
     ...branches.map(b => ({ value: b.name, label: b.name, sub: b.address || b.location || "Branch" })),
+    ...otherSalons.map(sl => ({ value: `salon:${sl.id}`, label: sl.name, sub: sl.location || "Another business on your login", salon: sl })),
   ].map(c => {
     const g = byValue[c.value];
     return { ...c, distance_m: g?.distance_m ?? null, pinned: !!g?.pinned, within: !!g?.within, disabled: gpsHit && !g?.within };
@@ -79,9 +86,22 @@ export function GeoBranchGate() {
   async function pick(c) {
     setPicking(c.value);
     try {
-      await api.post("/branch/pick", { branch: c.value, distance_m: c.distance_m, gps_verified: !!c.within });
+      const { data } = await api.post("/branch/pick", { branch: c.value, distance_m: c.distance_m, gps_verified: !!c.within });
+      const until = Date.now() + PICK_DAYS * 86400000;
+      if (data.switched) {
+        setTenantSlug(data.switched.slug);
+        localStorage.setItem("miracurl_tenant", data.switched.slug);
+        setSelectedBranch("__main__");
+        localStorage.setItem(pickKey(user.id), JSON.stringify({ branch: "__main__", tenant_id: data.switched.id, until }));
+        toast.success(`Welcome to ${data.switched.name} ✦ this device stays here for ${PICK_DAYS} days`);
+        setOpen(false);
+        queryClient.clear();
+        await refresh();
+        navigate("/dashboard", { replace: true });
+        return;
+      }
       setSelectedBranch(c.value);
-      localStorage.setItem(pickKey(user.id), JSON.stringify({ branch: c.value, until: Date.now() + PICK_DAYS * 86400000 }));
+      localStorage.setItem(pickKey(user.id), JSON.stringify({ branch: c.value, tenant_id: tenant.id, until }));
       toast.success(`Welcome to ${c.label} ✦ this device stays on this branch for ${PICK_DAYS} days`);
       setOpen(false);
     } catch (e) {
@@ -97,7 +117,7 @@ export function GeoBranchGate() {
         <div className="absolute inset-x-0 top-0 h-40 bg-[radial-gradient(ellipse_at_top,rgba(212,175,55,0.22),transparent_65%)] pointer-events-none" />
         <div className="relative p-7 sm:p-8">
           <div className="text-[10px] uppercase tracking-[0.35em] text-[#d4af37]/80">{tenant?.name}</div>
-          <h3 className="font-playfair text-2xl sm:text-3xl text-white mt-2 leading-tight">Which branch are you<br />working from today?</h3>
+          <h3 className="font-playfair text-2xl sm:text-3xl text-white mt-2 leading-tight">{otherSalons.length && !branches.length ? <>Which salon are you<br />working from today?</> : <>Which branch are you<br />working from today?</>}</h3>
           <p className="text-xs text-white/50 mt-2">
             Choose once — this device remembers your branch for {PICK_DAYS} days.
             {geo.state === "locating" && <span className="inline-flex items-center gap-1 ml-1 text-[#d4af37]/80" data-testid="geo-branch-locating"><Loader2 className="w-3 h-3 animate-spin" /> checking your location…</span>}
@@ -118,7 +138,7 @@ export function GeoBranchGate() {
                 <div className="min-w-0 flex-1">
                   <div className="font-playfair text-lg text-white truncate">{c.label}</div>
                   <div className="text-[11px] text-white/45 truncate">
-                    {c.main ? "Main salon" : "Branch"}{c.sub && c.sub !== c.label ? ` · ${c.sub}` : ""}
+                    {c.main ? "Main salon" : c.salon ? "Salon" : "Branch"}{c.sub && c.sub !== c.label ? ` · ${c.sub}` : ""}
                     {c.pinned && c.distance_m != null && <span className={c.within ? " text-emerald-300/90" : " text-white/40"}> · {c.within ? `you're here (${c.distance_m} m)` : fmt(c.distance_m)}</span>}
                   </div>
                 </div>

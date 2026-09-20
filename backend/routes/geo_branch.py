@@ -22,7 +22,7 @@ class LocateIn(BaseModel):
 
 
 class PickIn(BaseModel):
-    branch: str = Field("", max_length=120)  # "__main__" | branch name
+    branch: str = Field("", max_length=160)  # "__main__" | branch name | "salon:<tenant_id>" (another business on this login)
     distance_m: Optional[float] = None
     gps_verified: bool = False
 
@@ -46,6 +46,15 @@ def _named_branches(t: dict) -> list[dict]:
     return [b for b in (t.get("branches") or []) if b.get("name")]
 
 
+async def _other_salons(user: dict, tid: str) -> list[dict]:
+    """Multi-business logins (owner or manager with tenant_ids): the other businesses are pickable too."""
+    ids = (set(user.get("tenant_ids") or []) | ({user["tenant_id"]} if user.get("tenant_id") else set())) - {tid}
+    if not ids:
+        return []
+    return await _raw_db.tenants.find({"id": {"$in": sorted(ids)}}, {"_id": 0, "id": 1, "name": 1, "slug": 1, "location": 1,
+                                                                    "latitude": 1, "longitude": 1}).sort("name", 1).to_list(20)
+
+
 def _main_label(t: dict) -> str:
     return f"{t.get('name') or 'Main salon'} — {t['location']}" if t.get("location") else (t.get("name") or "Main salon")
 
@@ -57,17 +66,41 @@ def _option(value: str, label: str, lat, lng, here: LocateIn, radius: int) -> di
     return {"value": value, "label": label, "pinned": True, "distance_m": round(d), "within": d <= radius}
 
 
-@router.post("/branch/locate")
-async def locate_branch(body: LocateIn, user=Depends(get_current_user), t=Depends(current_tenant)):
-    """Distance from the phone to the main salon and every branch; `within` = selectable at login."""
-    radius = int(t.get("geo_login_m") or GEO_LOGIN_M)
+async def _all_options(body: LocateIn, user: dict, t: dict, radius: int) -> list[dict]:
     opts = [_option("__main__", _main_label(t), t.get("latitude"), t.get("longitude"), body, radius)]
     opts += [_option(b["name"], b["name"], b.get("latitude"), b.get("longitude"), body, radius) for b in _named_branches(t)]
+    for o in await _other_salons(user, t["id"]):
+        opt = _option(f"salon:{o['id']}", o.get("name") or o.get("slug"), o.get("latitude"), o.get("longitude"), body, radius)
+        opts.append({**opt, "salon": {"id": o["id"], "slug": o.get("slug"), "location": o.get("location") or ""}})
+    return opts
+
+
+@router.post("/branch/locate")
+async def locate_branch(body: LocateIn, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Distance from the phone to the main salon, every branch and the login's other businesses; `within` = selectable."""
+    radius = int(t.get("geo_login_m") or GEO_LOGIN_M)
+    opts = await _all_options(body, user, t, radius)
     pinned = [o for o in opts if o["pinned"]]
     nearest = min(pinned, key=lambda o: o["distance_m"]) if pinned else None
     return {"radius_m": radius, "options": opts, "nearest": nearest["value"] if nearest else None,
             "any_within": any(o["within"] for o in opts), "any_pinned": bool(pinned),
             "locked_branch": user.get("branch") or ""}
+
+
+async def _switch_salon_pick(body: PickIn, user: dict, t: dict, request: Request) -> dict:
+    """Pick = another of this login's businesses → switch the active salon (GPS gate is the trusted path, no owner PIN)."""
+    target_id = body.branch.strip()[6:]
+    allowed = set(user.get("tenant_ids") or []) | ({user["tenant_id"]} if user.get("tenant_id") else set())
+    if target_id not in allowed:
+        raise HTTPException(403, "That business is not linked to your login")
+    target = await _raw_db.tenants.find_one({"id": target_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "Business not found")
+    await _raw_db.users.update_one({"id": user["id"]}, {"$set": {"tenant_id": target_id}})
+    inner = PickIn(branch="__main__", distance_m=body.distance_m, gps_verified=body.gps_verified)
+    await _record_pick(inner, user, target, request, "__main__", _main_label(target))
+    return {"ok": True, "switched": {"id": target_id, "slug": target.get("slug"), "name": target.get("name")},
+            "branch": "__main__", "gps_verified": body.gps_verified}
 
 
 def _validate_pick(body: PickIn, user: dict, t: dict) -> str:
@@ -86,20 +119,27 @@ def _pick_audit_line(user: dict, label: str, body: PickIn) -> str:
     return f"{who} signed in at {label} · no GPS"
 
 
-@router.post("/branch/pick")
-async def pick_branch(body: PickIn, request: Request, user=Depends(get_current_user), t=Depends(current_tenant)):
-    """Record which branch this device/login works from (remembered 15 days on the device)."""
-    branch = _validate_pick(body, user, t)
+async def _record_pick(body: PickIn, user: dict, t: dict, request: Request, branch: str, label: str) -> dict:
     now = datetime.now(timezone.utc)
     pick = {"branch": branch, "distance_m": body.distance_m, "gps_verified": body.gps_verified, "at": now.isoformat()}
     await _raw_db.users.update_one({"id": user["id"]}, {"$set": {"last_branch_pick": pick}})
-    label = _main_label(t) if branch == "__main__" else (branch or "all branches")
     await log_audit(t["id"], user, "branch_login", _pick_audit_line(user, label, body))
     await _raw_db.branch_logins.insert_one({
         "id": str(uuid.uuid4()), "tenant_id": t["id"], "user_id": user["id"], "name": user.get("name"), "email": user.get("email"),
         "role": user.get("role"), "branch": branch, "branch_label": label, "gps_verified": body.gps_verified,
         "distance_m": body.distance_m, "device": _device_label(request.headers.get("user-agent", "")),
         "ip": client_ip(request), "at": now.isoformat(), "date": (now + IST).date().isoformat()})
+    return pick
+
+
+@router.post("/branch/pick")
+async def pick_branch(body: PickIn, request: Request, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Record which branch (or which of the login's businesses) this device works from — remembered 15 days on the device."""
+    if body.branch.strip().startswith("salon:"):
+        return await _switch_salon_pick(body, user, t, request)
+    branch = _validate_pick(body, user, t)
+    label = _main_label(t) if branch == "__main__" else (branch or "all branches")
+    pick = await _record_pick(body, user, t, request, branch, label)
     return {"ok": True, **pick}
 
 
