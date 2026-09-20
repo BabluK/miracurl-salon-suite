@@ -723,25 +723,28 @@ async def update_tenant(tid: str, body: TenantUpdateIn, user=Depends(require_sup
     if not t:
         raise HTTPException(404, "Tenant not found")
     upd = {k: v for k, v in body.model_dump().items() if v is not None}
+    scope = upd.pop("owner_email_scope", None) or "all"
+    takeover = bool(upd.pop("owner_email_takeover", False))
     if not upd:
         raise HTTPException(400, "No fields to update")
     for f in ("owner_email", "salon_email"):
         if f in upd:
             upd[f] = upd[f].strip().lower()
 
+    owner_login = None
     old_email = (t.get("owner_email") or "").lower()
     if upd.get("owner_email") and upd["owner_email"] != old_email:
-        new_email = upd["owner_email"]
-        if await db.users.find_one({"email": new_email}):
-            raise HTTPException(400, "That email is already used by another login — pick a different one.")
-        owner = await db.users.find_one({"email": old_email, "role": "admin"})
-        if owner:
-            await db.users.update_one({"id": owner["id"]}, {"$set": {"email": new_email}})
-            # Keep every salon of this owner consistent (multi-salon logins share one email)
-            await db.tenants.update_many({"owner_email": old_email}, {"$set": {"owner_email": new_email}})
+        from services.owner_email import change_owner_email
+        owner_login = await change_owner_email(t, upd.pop("owner_email"), scope=scope, takeover=takeover, by=user.get("email", "hq"))
+    elif "owner_email" in upd:
+        upd.pop("owner_email")
 
-    await db.tenants.update_one({"id": tid}, {"$set": upd})
-    return await db.tenants.find_one({"id": tid}, {"_id": 0})
+    if upd:
+        await db.tenants.update_one({"id": tid}, {"$set": upd})
+    out = await db.tenants.find_one({"id": tid}, {"_id": 0})
+    if owner_login:
+        out["owner_login"] = owner_login
+    return out
 
 
 @router.post("/super-admin/tenants/{tid}/resend-credentials")

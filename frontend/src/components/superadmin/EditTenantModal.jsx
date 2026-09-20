@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import api from "@/lib/api";
+import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
-import { X, Save, KeyRound, Mail, Copy, Link2, Unlink, Store, Loader2, Fingerprint, CreditCard } from "lucide-react";
+import { X, Save, KeyRound, Mail, Copy, Link2, Unlink, Store, Loader2, Fingerprint, CreditCard, AlertTriangle } from "lucide-react";
 import { confirmAsync } from "@/components/ConfirmDialog";
 import { TrialControlCard } from "@/components/superadmin/TrialControlCard";
 import { PaidPlanCard } from "./PaidPlanCard";
+import { TenantLoginsCard } from "./TenantLoginsCard";
 
 const inputCls = "mt-1 w-full px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-sky-200";
 
@@ -48,6 +49,18 @@ export function EditTenantModal({ tenant, onClose, onSaved, onRefresh }) {
   const [planRef, setPlanRef] = useState("");
   const [planBusy, setPlanBusy] = useState(false);
   const [currentPlan, setCurrentPlan] = useState({ plan: tenant.plan, end: tenant.subscription_end_date });
+  const [ownerScope, setOwnerScope] = useState("all");
+  const [conflict, setConflict] = useState(null);
+  const [loginsKey, setLoginsKey] = useState(0);
+  const ownerEmailChanged = form.owner_email.trim().toLowerCase() !== (tenant.owner_email || "").toLowerCase();
+  const sharedLogin = (linked?.salons?.length || 0) > 1;
+
+  const OWNER_MODE_MSG = {
+    renamed_login: (r) => `Owner login renamed to ${r.owner_email}${r.branches_updated > 1 ? ` across ${r.branches_updated} businesses` : ""} — same password ✦`,
+    linked_existing_owner: (r) => `${tenant.name} linked to the existing owner login ${r.owner_email} (${r.owner_salon_count} businesses, one password) ✦`,
+    created_login: (r) => `New owner login created for ${r.owner_email} — temp password shown below ✦`,
+    unchanged_login: () => "Owner email updated ✦",
+  };
 
   const loadLinked = () => api.get(`/super-admin/tenants/${tenant.id}/linked-branches`)
     .then(r => setLinked(r.data)).catch(() => {});
@@ -76,8 +89,8 @@ export function EditTenantModal({ tenant, onClose, onSaved, onRefresh }) {
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
-  async function save(e) {
-    e.preventDefault();
+  async function save(e, takeover = false) {
+    e?.preventDefault();
     setBusy(true);
     try {
       const patch = {};
@@ -93,12 +106,34 @@ export function EditTenantModal({ tenant, onClose, onSaved, onRefresh }) {
         else patch.branch_limit = Math.max(1, parseInt(patch.branch_limit, 10) || 1);
       }
       if (Object.keys(patch).length === 0) { toast.info("Nothing changed"); setBusy(false); return; }
-      await api.put(`/super-admin/tenants/${tenant.id}`, patch);
-      toast.success("Salon details updated ✦");
-      onSaved();
+      if (patch.owner_email) {
+        if (sharedLogin) patch.owner_email_scope = ownerScope;
+        if (takeover) patch.owner_email_takeover = true;
+      }
+      const { data } = await api.put(`/super-admin/tenants/${tenant.id}`, patch);
+      setConflict(null);
+      const ol = data.owner_login;
+      if (ol) {
+        const msg = OWNER_MODE_MSG[ol.mode] || (() => `Owner login switched to ${ol.owner_email} (${ol.mode.replace(/_/g, " ")}) ✦`);
+        toast.success(msg(ol) + (ol.removed_login ? ` · old login ${ol.removed_login} removed` : ""), { duration: 9000 });
+        if (ol.temp_password) setCreds({ temp_password: ol.temp_password, email_recipients: [ol.owner_email], email_status: ol.email_status, affects_salons: 1 });
+        loadLinked();
+        setLoginsKey(k => k + 1);
+        onRefresh?.();
+      } else {
+        toast.success("Salon details updated ✦");
+        onSaved();
+      }
     } catch (err) {
-      toast.error(err.response?.data?.detail || `Couldn't update ${nounL}`);
+      const d = err.response?.data?.detail;
+      if (err.response?.status === 409 && d?.code === "email_in_use") setConflict(d);
+      else toast.error(formatApiError(d) || `Couldn't update ${nounL}`);
     } finally { setBusy(false); }
+  }
+
+  async function takeOver() {
+    if (!await confirmAsync(`Turn the ${conflict.role} login of ${conflict.name || conflict.email} into the OWNER login for ${tenant.name}?\n\nThey keep their password. The ${conflict.role} role and branch lock are removed.`)) return;
+    await save(null, true);
   }
 
   async function resetCredentials() {
@@ -184,8 +219,33 @@ export function EditTenantModal({ tenant, onClose, onSaved, onRefresh }) {
               <input data-testid="edit-tenant-branch-limit" type="number" min="1" max="50" value={form.branch_limit} onChange={set("branch_limit")} placeholder="e.g. 5" className={inputCls} />
               <p className="text-[10px] text-slate-400 mt-1">Max branches the {nounL} can add in Settings — raise it after payment.</p></div>
             <div className="sm:col-span-2"><label className="text-xs text-slate-500 font-medium">Owner login email</label>
-              <input data-testid="edit-tenant-owner-email" type="email" value={form.owner_email} onChange={set("owner_email")} className={inputCls} />
-              <p className="text-[10px] text-amber-600 mt-1">⚠ Changing this changes the owner&apos;s LOGIN email (applies to all their linked {nounL}s).</p></div>
+              <input data-testid="edit-tenant-owner-email" type="email" value={form.owner_email} onChange={e => { set("owner_email")(e); setConflict(null); }} className={inputCls} />
+              {ownerEmailChanged && sharedLogin ? (
+                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 space-y-1.5" data-testid="owner-email-scope">
+                  <p className="text-[11px] text-amber-800 font-medium">This owner login is shared by {linked.salons.length} {nounL}s. What should happen?</p>
+                  <label className="flex items-start gap-2 text-[11px] text-slate-700 cursor-pointer">
+                    <input type="radio" name="owner-scope" data-testid="owner-scope-all" checked={ownerScope === "all"} onChange={() => setOwnerScope("all")} className="mt-0.5 accent-amber-600" />
+                    <span><b>Rename the login for all {linked.salons.length}</b> — same person, same password, every branch follows</span>
+                  </label>
+                  <label className="flex items-start gap-2 text-[11px] text-slate-700 cursor-pointer">
+                    <input type="radio" name="owner-scope" data-testid="owner-scope-this" checked={ownerScope === "this"} onChange={() => setOwnerScope("this")} className="mt-0.5 accent-amber-600" />
+                    <span><b>Separate login just for {tenant.name}</b> — new owner login (temp password emailed); other branches keep the current login</span>
+                  </label>
+                </div>
+              ) : (
+                <p className="text-[10px] text-slate-500 mt-1">If this email already belongs to an owner login, {tenant.name} is simply added to that login (one password, branch switcher). Placeholder logins that end up owning nothing are removed.</p>
+              )}
+              {conflict && (
+                <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 p-3 space-y-2" data-testid="owner-email-conflict">
+                  <div className="flex items-start gap-2 text-[11px] text-rose-800"><AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" /><span>{conflict.message}</span></div>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" data-testid="owner-email-takeover-btn" onClick={takeOver} disabled={busy}
+                      className="text-[11px] px-3 py-1.5 rounded-md bg-rose-600 text-white font-semibold hover:bg-rose-700 disabled:opacity-60">Take over as owner login</button>
+                    <button type="button" data-testid="owner-email-conflict-dismiss" onClick={() => setConflict(null)}
+                      className="text-[11px] px-3 py-1.5 rounded-md border border-rose-200 text-rose-700 bg-white hover:bg-rose-100">Keep the {conflict.role} login — I&apos;ll change its email below</button>
+                  </div>
+                </div>
+              )}</div>
           </div>
           <button type="submit" data-testid="edit-tenant-save" disabled={busy}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-sky-500 to-blue-500 text-white text-sm font-semibold disabled:opacity-60">
@@ -241,6 +301,8 @@ export function EditTenantModal({ tenant, onClose, onSaved, onRefresh }) {
             </div>
           )}
         </div>
+
+        <TenantLoginsCard tenantId={tenant.id} refreshKey={loginsKey} onChanged={() => { loadLinked(); onRefresh?.(); }} />
 
         {/* Branch linking */}
         <div className="border-t border-slate-100 pt-4">

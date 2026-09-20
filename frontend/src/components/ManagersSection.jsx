@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
-import { ShieldCheck, Plus, KeyRound, Trash2, X, GitBranch, UserMinus } from "lucide-react";
+import { ShieldCheck, Plus, KeyRound, Trash2, X, GitBranch, UserMinus, Pencil, Check } from "lucide-react";
 import pinApi from "@/lib/ownerPin";
 import { mainSalonLabel } from "@/lib/branch";
 import { useAuth } from "@/context/AuthContext";
@@ -87,6 +87,20 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
     }
   }
 
+  const [emailEdit, setEmailEdit] = useState(null); // { id, value }
+  async function saveEmail(m) {
+    const email = (emailEdit?.value || "").trim().toLowerCase();
+    if (!email || email === m.email) { setEmailEdit(null); return; }
+    try {
+      const { data } = await api.patch(`/managers/${m.id}/email`, { email });
+      toast.success(`${m.name} now signs in as ${data.email} — same password, same branch ✦`);
+      setEmailEdit(null);
+      load();
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail) || "Couldn't change email");
+    }
+  }
+
   return (
     <div className="card-light" data-testid="managers-section">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -114,14 +128,27 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
             <div key={m.id} className="flex flex-col sm:flex-row sm:items-center gap-2 border border-slate-200 rounded-xl px-4 py-3" data-testid={`manager-row-${m.id}`}>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold text-slate-800">{m.name}</div>
-                <div className="text-xs text-slate-500">{m.email}</div>
+                {emailEdit?.id === m.id ? (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <input autoFocus type="email" value={emailEdit.value} onChange={e => setEmailEdit({ id: m.id, value: e.target.value })}
+                      onKeyDown={e => { if (e.key === "Enter") saveEmail(m); if (e.key === "Escape") setEmailEdit(null); }}
+                      data-testid={`manager-email-input-${m.id}`} className="input-light text-xs py-1 px-2 w-full max-w-[280px]" placeholder="new login email" />
+                    <button type="button" data-testid={`manager-email-save-${m.id}`} onClick={() => saveEmail(m)} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"><Check className="w-4 h-4" /></button>
+                    <button type="button" onClick={() => setEmailEdit(null)} className="p-1 text-slate-400 hover:bg-slate-100 rounded"><X className="w-4 h-4" /></button>
+                  </div>
+                ) : (
+                  <button type="button" data-testid={`manager-email-edit-${m.id}`} onClick={() => setEmailEdit({ id: m.id, value: m.email })}
+                    title="Change login email — password & branch stay the same" className="text-xs text-slate-500 hover:text-violet-700 inline-flex items-center gap-1 group">
+                    {m.email} <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
+                )}
               </div>
               {branches.length > 0 && (
                 <div className="flex items-center gap-1.5 shrink-0" title="Lock this login to one branch — they'll only see that branch's data">
                   <GitBranch className="w-3.5 h-3.5 text-slate-400" />
                   <select data-testid={`manager-branch-${m.id}`} value={m.branch || ""} onChange={e => setBranch(m, e.target.value)}
                     className={`text-xs border rounded-lg px-2 py-1.5 bg-white max-w-[230px] ${m.branch ? "border-violet-300 text-violet-700 font-semibold" : "border-slate-200 text-slate-500"}`}>
-                    <option value="">🌐 All branches</option>
+                    <option value="">📍 GPS picks branch at login</option>
                     <option value="__main__">🏠 {mainSalonLabel(tenant)} (Main)</option>
                     {branches.map(b => <option key={b.id || b.name} value={b.name}>🔒 {b.name}</option>)}
                   </select>
@@ -181,11 +208,11 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
                 <div>
                   <label className="text-xs text-slate-500 mb-1 block">Branch (lock this login to one location)</label>
                   <select data-testid="manager-branch-input" value={form.branch} onChange={e => setForm(f => ({ ...f, branch: e.target.value }))} className="input-light w-full">
-                    <option value="">🌐 All branches (not locked)</option>
+                    <option value="">📍 GPS picks the branch at login (recommended)</option>
                     <option value="__main__">🏠 {mainSalonLabel(tenant)} (Main only)</option>
                     {branches.map(b => <option key={b.id || b.name} value={b.name}>🔒 {b.name} only</option>)}
                   </select>
-                  <p className="text-[11px] text-slate-500 mt-1">A branch-locked login only ever sees its own branch — no switching. Only your owner login can switch branches (PIN protected).</p>
+                  <p className="text-[11px] text-slate-500 mt-1">GPS mode: at every login the manager is asked for their location and can only pick the branch within 100 m — the others are disabled. A branch-locked login always sees one branch, wherever they are.</p>
                 </div>
               )}
               <div>

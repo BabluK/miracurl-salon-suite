@@ -153,6 +153,17 @@ async def sa_template_overrides(tid: str, body: TemplateOverridesIn, user=Depend
     return {"ok": True, "overrides": clean}
 
 
+@router.get("/super-admin/users/lookup")
+async def sa_user_lookup(email: str, user=Depends(require_super_admin)):
+    """Where is this login email used? (role, tenant, created) — for 'email already used by another account' questions."""
+    em = (email or "").strip().lower()
+    rows = await _raw_db.users.find({"email": em}, {"_id": 0, "id": 1, "role": 1, "tenant_id": 1, "name": 1, "created_at": 1, "disabled": 1}).to_list(10)
+    for r in rows:
+        t = await _raw_db.tenants.find_one({"id": r.get("tenant_id")}, {"_id": 0, "name": 1, "slug": 1})
+        r["tenant"] = (t or {}).get("name"), (t or {}).get("slug")
+    return {"email": em, "accounts": rows}
+
+
 @router.put("/super-admin/tenants/{tid}/features")
 async def sa_put_features(tid: str, body: FeaturesIn, user=Depends(require_super_admin)):
     t = await _tenant(tid)

@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.331"
-BUILD_TIME = "20 Sep 2026, 2:45 PM IST"
+BUILD = "2026-09-20.332"
+BUILD_TIME = "20 Sep 2026, 6:30 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-20.332", "note": "Owner-email change rewritten (services/owner_email.py): existing OWNER login → branch linked to it (tenant_ids); manager/staff login → 409 email_in_use with Take-over option (owner_email_takeover); shared login → owner_email_scope all|this (rename vs separate login w/ temp password); placeholder logins owning nothing are deleted. NEW PATCH /managers/{uid}/email (owner), GET /super-admin/tenants/{tid}/logins + PUT /super-admin/users/{uid}/email (HQ) — rename any login keeping password/branch. UI: EditTenantModal scope radio + conflict panel + Logins card; Managers → click email to change. GPS branch gate: POST /branch/locate (haversine vs tenant/branch lat-lng, radius tenant.geo_login_m|100) + POST /branch/pick (users.last_branch_pick + audit) — GeoBranchGate.jsx in AppLayout for unlocked managers & staff, once per session."},
     {"build": "2026-09-19.331", "note": "CORS: dropped https://miracurl.com + www (.env + server.py default). Subscription invoices: resend now re-reads the tenant's CURRENT owner_email (was frozen on the invoice → Infinity mails went to placeholder infinity.admin@); DELETE /super-admin/invoices/{id} voids (status=void, hidden from HQ + tenant lists) with Trash button in InvoicesPanel."},
     {"build": "2026-09-19.330", "note": "HQ WhatsApp channel override stored in Mongo (hq_settings.whatsapp_channel, token encrypted via wa_coexist.encrypt_token): PUT/DELETE /super-admin/whatsapp-channel (validated against Meta before save) → applied to os.environ at boot + on save, so production stops using the Meta test number without editing deployment Secrets. Health check shows `source`."},
     {"build": "2026-09-19.329", "note": "ROOT CAUSE of prod WhatsApp failures found via health check: production Secrets point at Meta TEST number +1 555-143-4552 (phone_number_id 1304080032789047, Test WABA) → #131030 recipient not in allowed list. Health check now flags a Test Number as FAIL with the fix. Action for owner: Publish → Secrets → set live WHATSAPP_PHONE_NUMBER_ID / WHATSAPP_BUSINESS_ACCOUNT_ID / WHATSAPP_ACCESS_TOKEN (values in workspace backend/.env) → redeploy."},
@@ -133,6 +134,16 @@ BUILD_LOG = [
 ]
 
 RELEASES = [
+    {
+        "date": "2026-09-20 (Real emails for every login 📧)",
+        "changes": [
+            "📍 GPS branch sign-in: managers (not locked to a branch) and staff are asked for their location right after login — only the branch within 100 m can be chosen, branches further away are greyed out. Works with the GPS pins you already set for check-in (Attendance → GPS fence)",
+            "📧 Managers can keep their login and just get a real email: Staff → Managers → click the email → type the new one. Password, branch lock and history stay exactly as they were",
+            "🏢 Super Admin → Edit → Logins: every owner, manager and staff login of a business in one list — swap any placeholder (name@miracurl.com) for a real inbox with one tap",
+            "🔗 Owner login email: if the new email already belongs to an owner, the branch is simply added to that login (one password, branch switcher) — no more 'already used by another account'. If it belongs to a manager, you get the exact name & branch plus a Take-over option",
+            "🧹 Shared owner logins: choose to rename the login for all branches, or give one branch its own login (temp password emailed). Placeholder logins left owning nothing are removed automatically",
+        ],
+    },
     {
         "date": "2026-09-19 (Faster app, smarter SMS & tighter HQ control ⚡)",
         "changes": [

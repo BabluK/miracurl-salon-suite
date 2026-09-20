@@ -18,6 +18,7 @@ import BrandMark from "./BrandMark";
 import TenantBrandMark from "./TenantBrandMark";
 import { TenantMiraAssistant } from "./TenantMiraAssistant";
 import InstallAppPrompt from "./InstallAppPrompt";
+import GeoBranchGate from "./GeoBranchGate";
 import { PasskeyNudge } from "./PasskeyNudge";
 import TrialReminder from "./TrialReminder";
 import ActAsBanner from "./ActAsBanner";
@@ -357,6 +358,7 @@ export default function AppLayout() {
           the "Install app" menu item. Copy tuned for the logged-in salon app. */}
       <InstallAppPrompt variant="app" />
       <PasskeyNudge />
+      <GeoBranchGate />
 
       {/* Act-as-salon banner for super-admin */}
       {user?.role === "super_admin" && <ActAsBanner tenant={tenant} />}

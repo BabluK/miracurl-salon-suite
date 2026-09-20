@@ -63,6 +63,8 @@ class TenantUpdateIn(BaseModel):
     whatsapp_number: Optional[str] = None
     owner_name: Optional[str] = None
     owner_email: Optional[str] = None
+    owner_email_scope: Optional[str] = Field(None, pattern="^(all|this)$")  # shared login: rename for all branches, or own login for this one
+    owner_email_takeover: Optional[bool] = None  # convert a manager/staff login using that email into the owner login
     owner_phone: Optional[str] = None
     branch_limit: Optional[int] = None
 

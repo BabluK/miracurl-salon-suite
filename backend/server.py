@@ -121,6 +121,8 @@ from routes.wallet_pass import router as wallet_pass_router  # noqa: E402
 from routes.site_info import router as site_info_router  # noqa: E402
 from routes.whatsapp_webhook import router as whatsapp_webhook_router  # noqa: E402
 from routes.blog import router as blog_router  # noqa: E402
+from routes.login_emails import router as login_emails_router  # noqa: E402
+from routes.geo_branch import router as geo_branch_router  # noqa: E402
 
 from seeds import backfill_tenant_ids, seed_super_admin, seed_default_tenant, seed_admin, seed_data  # noqa: E402
 from schedulers import (  # noqa: E402
@@ -156,6 +158,7 @@ for _r in (
     passkeys_router, eod_digests_router, wallet_pass_router, site_info_router,
     blog_router, cash_register_router, rewards_campaign_router, growth_advisory_router,
     subscription_invoices_router, rewards_settlements_router, campaign_agreement_router, tenant_features_router, support_tickets_router,
+    login_emails_router, geo_branch_router,
 ):
     api.include_router(_r)
 
