@@ -1,5 +1,6 @@
 """HQ credit wallet: Miracurl's stock of SMS/WhatsApp credits handed to tenants on purchase or by manual grant."""
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -433,7 +434,7 @@ def _sms_template_row(kind: str, tpl_id: str, versions: list) -> dict:
 async def hq_sms_templates_health(admin=Depends(require_super_admin)):
     """Every MSG91 DLT template used by the platform: verified & active, or the exact reason it won't deliver."""
     import httpx
-    from sms_service import MSG91_TEMPLATES, msg91_template_id
+    from sms_service import MSG91_TEMPLATES, msg91_template_id, receipt_sms_kind
     key = os.environ.get("MSG91_AUTHKEY", "")
     if not key:
         raise HTTPException(400, "MSG91_AUTHKEY missing in this environment")
@@ -441,6 +442,11 @@ async def hq_sms_templates_health(admin=Depends(require_super_admin)):
     async with httpx.AsyncClient(timeout=20.0) as client:
         for kind in MSG91_TEMPLATES:
             tpl_id = msg91_template_id(kind)
+            if not tpl_id:
+                rows.append({"kind": kind, "template_id": "", "name": kind, "ok": False, "missing": True, "dlt_state": "not registered yet",
+                             "reason": "", "fix": "Create this template on DLT + MSG91, then paste the MSG91 Template ID here.",
+                             "text": _TEMPLATE_HINTS.get(kind, "")})
+                continue
             try:
                 r = await client.get("https://control.msg91.com/api/v5/sms/getTemplateVersions",
                                      params={"template_id": tpl_id}, headers={"authkey": key})
@@ -448,5 +454,36 @@ async def hq_sms_templates_health(admin=Depends(require_super_admin)):
                 rows.append(_sms_template_row(kind, tpl_id, data if isinstance(data, list) else []))
             except Exception as e:  # noqa: BLE001 — one bad template must not hide the others
                 rows.append({"kind": kind, "template_id": tpl_id, "name": kind, "ok": False, "reason": str(e), "fix": "MSG91 API unreachable — retry", "dlt_state": "?"})
-    return {"ok": all(r["ok"] for r in rows), "sender": os.environ.get("MSG91_SENDER_ID", ""), "templates": rows,
-            "checked_at": datetime.now(timezone.utc).isoformat()}
+    receipt_kind = receipt_sms_kind()
+    for r in rows:
+        if r["kind"] in ("billing", "billing_v2"):
+            r["in_use"] = r["kind"] == receipt_kind
+    return {"ok": all(r["ok"] for r in rows if not (r.get("missing") and r["kind"] == "billing_v2")),
+            "sender": os.environ.get("MSG91_SENDER_ID", ""), "templates": rows, "checked_at": datetime.now(timezone.utc).isoformat()}
+
+
+_TEMPLATE_HINTS = {
+    "billing_v2": "Thank you ##var1##! Your receipt ##var2## for Rs ##var3## is ready. You earned ##var4## loyalty points. - ##var5##",
+}
+
+
+class SmsTemplateIdIn(BaseModel):
+    kind: str = Field(..., max_length=40)
+    template_id: str = Field("", max_length=40)  # blank = clear the HQ override
+
+
+@router.put("/super-admin/sms-template-id")
+async def hq_set_sms_template_id(body: SmsTemplateIdIn, admin=Depends(require_super_admin)):
+    """Register/replace the MSG91 template ID for a kind without touching deployment Secrets."""
+    from sms_service import MSG91_TEMPLATES, apply_hq_sms_template_ids, receipt_sms_kind
+    if body.kind not in MSG91_TEMPLATES:
+        raise HTTPException(400, f"Unknown SMS kind '{body.kind}'")
+    tpl = body.template_id.strip()
+    if tpl and not re.fullmatch(r"[a-f0-9]{24}", tpl):
+        raise HTTPException(400, "MSG91 Template IDs are 24 hex characters (copy it from MSG91 → SMS → Templates)")
+    op = {"$set": {f"ids.{body.kind}": tpl}} if tpl else {"$unset": {f"ids.{body.kind}": ""}}
+    await _raw_db.hq_settings.update_one({"id": "sms_templates"}, {**op, "$set": {**op.get("$set", {}), "updated_at": datetime.now(timezone.utc).isoformat(), "updated_by": admin.get("email")}}, upsert=True)
+    if not tpl:
+        os.environ.pop(MSG91_TEMPLATES[body.kind][0], None)
+    await apply_hq_sms_template_ids()
+    return {"ok": True, "kind": body.kind, "template_id": tpl, "receipt_kind_in_use": receipt_sms_kind()}

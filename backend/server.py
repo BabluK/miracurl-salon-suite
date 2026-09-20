@@ -167,6 +167,9 @@ async def _boot_wa_campaigns():
     from routes.hq_credit_wallet import apply_hq_channel_override
     if await apply_hq_channel_override():
         logging.getLogger("wa").info("HQ WhatsApp channel override applied from hq_settings")
+    from sms_service import apply_hq_sms_template_ids
+    if await apply_hq_sms_template_ids():
+        logging.getLogger("sms").info("HQ MSG91 template IDs applied from hq_settings")
     from services.wa_campaigns import start_worker
     start_worker()
     # MDM asked for a 'Call MDM Luxury Salon' button (their number) instead of 'Book Now' — apply the per-tenant templates on every env.

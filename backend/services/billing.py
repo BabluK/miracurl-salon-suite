@@ -306,11 +306,14 @@ async def send_receipt_channels(inv: dict, cust: dict, t: dict, points_earned: i
             if not cust.get("phone"):
                 out["sms"] = {"sent": False, "error": "no_phone"}
             else:
-                from sms_service import send_tenant_sms
+                from sms_service import receipt_sms_kind, send_tenant_sms
                 first = (inv.get("customer_name") or "Guest").split()[0][:30]
+                kind = receipt_sms_kind()
+                salon, pts = (t.get("name") or "your salon")[:30], str(points_earned or 0)
+                tail = [pts, salon] if kind == "billing_v2" else [salon, pts]
                 out["sms"] = await send_tenant_sms(
-                    t["id"], cust["phone"], _receipt_sms_text(t, inv, points_earned), kind="billing",
-                    sms_vars=[first, str(inv.get("invoice_no") or "")[:30], f"{inv['total']:.0f}", (t.get("name") or "your salon")[:30], str(points_earned or 0)])
+                    t["id"], cust["phone"], _receipt_sms_text(t, inv, points_earned), kind=kind,
+                    sms_vars=[first, str(inv.get("invoice_no") or "")[:30], f"{inv['total']:.0f}", *tail])
         except Exception as e:  # noqa: BLE001
             out["sms"] = {"sent": False, "error": str(e)[:200]}
     if "whatsapp" in channels:

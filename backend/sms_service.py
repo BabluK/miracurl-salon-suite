@@ -24,7 +24,9 @@ MSG91_TEMPLATES: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "birthday":     ("MSG91_TPL_BIRTHDAY",     "6aad49f494e67f01f40b14a2", ("name", "offer")),
     "festival":     ("MSG91_TPL_FESTIVAL",     "6aad491cd077278ca60eae23", ("name", "festival", "offer")),
     "special":      ("MSG91_TPL_SPECIAL",      "6aad4a4adf4726e0d1013f14", ("name", "offer", "valid_till")),
-    "billing":      ("MSG91_TPL_BILLING",      "6aaed91266b259e2920c73d3", ("name", "invoice", "amount", "salon", "points")),  # receipt after POS bill
+    "billing":      ("MSG91_TPL_BILLING",      "6aaed91266b259e2920c73d3", ("name", "invoice", "amount", "salon", "points")),  # legacy receipt (signs off "Miracurl AI Salon Suite")
+    # v2 receipt signs off with the SALON name: "Thank you ##var1##! Your receipt ##var2## for Rs ##var3## is ready. You earned ##var4## loyalty points. - ##var5##"
+    "billing_v2":   ("MSG91_TPL_BILLING_V2",   "", ("name", "invoice", "amount", "points", "salon")),
     "otp":          ("MSG91_TPL_OTP",          "6aae14594f99d7fba7049633", ("var1",)),  # miracurl_otp (DLT verified): "…verification code is ##var1##…"
 }
 
@@ -32,6 +34,23 @@ MSG91_TEMPLATES: dict[str, tuple[str, str, tuple[str, ...]]] = {
 def msg91_template_id(kind: str) -> str:
     env_key, default, _ = MSG91_TEMPLATES.get(kind) or ("", "", ())
     return os.environ.get(env_key, default) if env_key else ""
+
+
+def receipt_sms_kind() -> str:
+    """Prefer the salon-branded v2 receipt template once HQ has registered it on MSG91/DLT."""
+    return "billing_v2" if msg91_template_id("billing_v2") else "billing"
+
+
+async def apply_hq_sms_template_ids() -> int:
+    """HQ-entered MSG91 template IDs (hq_settings.sms_templates) beat .env — no redeploy needed. Boot + on save."""
+    from database import _raw_db
+    doc = await _raw_db.hq_settings.find_one({"id": "sms_templates"}, {"_id": 0, "ids": 1})
+    ids = (doc or {}).get("ids") or {}
+    for kind, tpl in ids.items():
+        env_key = (MSG91_TEMPLATES.get(kind) or ("",))[0]
+        if env_key and tpl:
+            os.environ[env_key] = tpl
+    return len(ids)
 
 
 def _msg91_ready() -> bool:

@@ -3,6 +3,25 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { Wallet, RefreshCw, MessageCircle, MessageSquare, IndianRupee, AlertTriangle, SearchCheck, Trash2, Stethoscope, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
+function TemplateIdInput({ kind, current, onSaved }) {
+  const [val, setVal] = useState(current || "");
+  const [busy, setBusy] = useState(false);
+  const save = () => {
+    setBusy(true);
+    api.put("/super-admin/sms-template-id", { kind, template_id: val.trim() })
+      .then(r => { toast.success(val.trim() ? `Template ID saved — receipts now use '${r.data.receipt_kind_in_use}'` : "Override cleared"); onSaved(); })
+      .catch(e => toast.error(e.response?.data?.detail || "Couldn't save")).finally(() => setBusy(false));
+  };
+  return (
+    <div className="ml-5 mt-1 flex items-center gap-1.5" data-testid={`sms-tpl-id-form-${kind}`}>
+      <input value={val} onChange={e => setVal(e.target.value)} placeholder="Paste MSG91 Template ID (24 chars)" data-testid={`sms-tpl-id-input-${kind}`}
+        className="flex-1 max-w-[300px] border border-slate-300 rounded-lg px-2.5 py-1 text-[11px] font-mono bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-200" />
+      <button onClick={save} disabled={busy || (val.trim() === (current || ""))} data-testid={`sms-tpl-id-save-${kind}`}
+        className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 text-white font-semibold disabled:opacity-40">{busy ? "…" : "Save"}</button>
+    </div>
+  );
+}
+
 function SmsTemplatesHealth() {
   const [res, setRes] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -18,10 +37,12 @@ function SmsTemplatesHealth() {
           {res.templates.map(t => (
             <li key={t.kind} className="text-xs" data-testid={`sms-tpl-${t.kind}`}>
               <div className="flex items-start gap-2">
-                {t.ok ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 text-rose-600 mt-0.5 shrink-0" />}
-                <span><b className="text-slate-800">{t.name}</b> <span className="text-slate-400">({t.kind} · {t.version || "—"})</span> — <span className={t.ok ? "text-slate-600" : "text-rose-700 font-medium"}>{t.dlt_state}{t.dlt_id ? ` · DLT ${t.dlt_id}` : ""}{t.reason ? ` · ${t.reason}` : ""}</span></span>
+                {t.ok ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" /> : <XCircle className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${t.missing ? "text-slate-300" : "text-rose-600"}`} />}
+                <span><b className="text-slate-800">{t.name}</b> <span className="text-slate-400">({t.kind}{t.version ? ` · ${t.version}` : ""})</span>{t.in_use && <span className="ml-1 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">in use for receipts</span>} — <span className={t.ok ? "text-slate-600" : t.missing ? "text-slate-500" : "text-rose-700 font-medium"}>{t.dlt_state}{t.dlt_id ? ` · DLT ${t.dlt_id}` : ""}{t.reason ? ` · ${t.reason}` : ""}</span></span>
               </div>
               {!t.ok && t.fix && <p className="ml-5 mt-0.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">{t.fix}</p>}
+              {t.missing && t.text && <p className="ml-5 mt-0.5 text-[11px] text-slate-600 bg-white border border-slate-200 rounded-md px-2 py-1 font-mono break-all" data-testid={`sms-tpl-text-${t.kind}`}>{t.text}</p>}
+              {(t.missing || t.kind === "billing_v2") && <TemplateIdInput kind={t.kind} current={t.template_id} onSaved={run} />}
             </li>
           ))}
           <li className="text-[10px] text-slate-400 pl-5">sender {res.sender} · checked {new Date(res.checked_at).toLocaleTimeString()}</li>
