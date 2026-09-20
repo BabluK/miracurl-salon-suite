@@ -17,7 +17,7 @@ BODY = ("Hi {{1}}! \u2764\ufe0f To our wonderful {{2}} family, thank you for you
 EX = [["Bablu", "MDM Luxury Salon", "MDM Luxury Salon, Ranchi"]]
 
 
-def create(name, buttons):
+def create(name: str, buttons: list[dict]) -> None:
     payload = {"name": name, "language": "en", "category": "MARKETING", "components": [
         {"type": "HEADER", "format": "IMAGE", "example": {"header_handle": [handle]}},
         {"type": "BODY", "text": BODY, "example": {"body_text": EX}},

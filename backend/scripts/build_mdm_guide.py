@@ -34,14 +34,14 @@ STEPS = [
 ]
 
 
-def _font(name, size):
+def _font(name: str, size: int) -> str | None:
     for cand in (f"{FONT_DIR}/{name}", f"{FONT_DIR}/PlayfairDisplay-Bold.ttf"):
         if os.path.exists(cand):
             return cand
     return None
 
 
-def main():
+def main() -> None:
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     c = canvas.Canvas(OUT, pagesize=A4)
     W, H = A4

@@ -191,48 +191,69 @@ async def hq_whatsapp_health(admin=Depends(require_super_admin)):
     if not ch.get("token") or not ch.get("phone_number_id"):
         out["checks"].append({"name": "Config", "ok": False, "detail": "WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID missing in this environment"})
         return out
-    hdr = {"Authorization": f"Bearer {ch['token']}"}
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        for name, path, fields in (
-            ("Access token", "/debug_token", None),
-            ("Phone number", f"/{ch['phone_number_id']}", "display_phone_number,verified_name,quality_rating,code_verification_status,messaging_limit_tier,platform_type"),
-            ("Business account", f"/{os.environ.get('WHATSAPP_BUSINESS_ACCOUNT_ID', '')}", "name,account_review_status,message_template_namespace"),
-            ("Templates", f"/{os.environ.get('WHATSAPP_BUSINESS_ACCOUNT_ID', '')}/message_templates", "name,status"),
-        ):
-            params = {"fields": fields} if fields else {"input_token": ch["token"]}
-            if name == "Templates":
-                params["limit"] = 100
-            try:
-                r = await client.get(f"https://graph.facebook.com/{GRAPH_API_VERSION}{path}", headers=hdr, params=params)
-                body = r.json()
-            except Exception as e:  # noqa: BLE001
-                out["checks"].append({"name": name, "ok": False, "detail": f"network: {e}"[:200]})
-                continue
-            if r.is_error:
-                err = body.get("error") or {}
-                out["checks"].append({"name": name, "ok": False, "detail": f"#{err.get('code')} {err.get('message', '')}"[:220]})
-                continue
-            out["checks"].append({"name": name, "ok": not (name == "Phone number" and "TEST NUMBER" in _health_detail(name, body)), "detail": _health_detail(name, body)})
+    async with httpx.AsyncClient(timeout=20.0, headers={"Authorization": f"Bearer {ch['token']}"}) as client:
+        for name, path, params in _wa_health_checks(ch):
+            out["checks"].append(await _wa_health_check(client, GRAPH_API_VERSION, name, path, params))
     out["ok"] = all(c["ok"] for c in out["checks"])
     out["checked_at"] = datetime.now(timezone.utc).isoformat()
     return out
 
 
-def _health_detail(name: str, body: dict) -> str:
-    if name == "Access token":
-        d = body.get("data") or {}
-        exp = d.get("expires_at")
-        when = "never expires (system user)" if not exp else datetime.fromtimestamp(exp, tz=timezone.utc).strftime("expires %d %b %Y")
-        return f"valid · {when} · scopes: {', '.join(d.get('scopes') or [])[:120]}"
-    if name == "Phone number":
-        test_no = (body.get("verified_name") or "").lower() == "test number" or str(body.get("display_phone_number", "")).startswith("+1 555")
-        warn = " ⚠️ META TEST NUMBER — only 5 pre-approved recipients can receive messages (#131030). Set the live WHATSAPP_PHONE_NUMBER_ID / WHATSAPP_BUSINESS_ACCOUNT_ID / WHATSAPP_ACCESS_TOKEN in Publish → Secrets and redeploy." if test_no else ""
-        return f"{body.get('display_phone_number')} · {body.get('verified_name')} · quality {body.get('quality_rating')} · tier {body.get('messaging_limit_tier')} · {body.get('code_verification_status')}{warn}"
-    if name == "Business account":
-        return f"{body.get('name')} · review {body.get('account_review_status')}"
+def _wa_health_checks(ch: dict) -> list[tuple[str, str, dict]]:
+    waba = os.environ.get("WHATSAPP_BUSINESS_ACCOUNT_ID", "")
+    return [
+        ("Access token", "/debug_token", {"input_token": ch["token"]}),
+        ("Phone number", f"/{ch['phone_number_id']}",
+         {"fields": "display_phone_number,verified_name,quality_rating,code_verification_status,messaging_limit_tier,platform_type"}),
+        ("Business account", f"/{waba}", {"fields": "name,account_review_status,message_template_namespace"}),
+        ("Templates", f"/{waba}/message_templates", {"fields": "name,status", "limit": 100}),
+    ]
+
+
+async def _wa_health_check(client, graph_version: str, name: str, path: str, params: dict) -> dict:
+    try:
+        r = await client.get(f"https://graph.facebook.com/{graph_version}{path}", params=params)
+        body = r.json()
+    except Exception as e:  # noqa: BLE001
+        return {"name": name, "ok": False, "detail": f"network: {e}"[:200]}
+    if r.is_error:
+        err = body.get("error") or {}
+        return {"name": name, "ok": False, "detail": f"#{err.get('code')} {err.get('message', '')}"[:220]}
+    detail = _health_detail(name, body)
+    return {"name": name, "ok": not (name == "Phone number" and "TEST NUMBER" in detail), "detail": detail}
+
+
+def _detail_token(body: dict) -> str:
+    d = body.get("data") or {}
+    exp = d.get("expires_at")
+    when = "never expires (system user)" if not exp else datetime.fromtimestamp(exp, tz=timezone.utc).strftime("expires %d %b %Y")
+    return f"valid · {when} · scopes: {', '.join(d.get('scopes') or [])[:120]}"
+
+
+def _detail_phone(body: dict) -> str:
+    test_no = (body.get("verified_name") or "").lower() == "test number" or str(body.get("display_phone_number", "")).startswith("+1 555")
+    warn = (" ⚠️ META TEST NUMBER — only 5 pre-approved recipients can receive messages (#131030). Set the live WHATSAPP_PHONE_NUMBER_ID / "
+            "WHATSAPP_BUSINESS_ACCOUNT_ID / WHATSAPP_ACCESS_TOKEN in Publish → Secrets and redeploy." if test_no else "")
+    return (f"{body.get('display_phone_number')} · {body.get('verified_name')} · quality {body.get('quality_rating')} · "
+            f"tier {body.get('messaging_limit_tier')} · {body.get('code_verification_status')}{warn}")
+
+
+def _detail_waba(body: dict) -> str:
+    return f"{body.get('name')} · review {body.get('account_review_status')}"
+
+
+def _detail_templates(body: dict) -> str:
     rows = body.get("data") or []
     approved = sum(1 for t in rows if t.get("status") == "APPROVED")
-    return f"{approved} approved / {len(rows)} total" + (f" · pending: {', '.join(t['name'] for t in rows if t.get('status') == 'PENDING')[:120]}" if any(t.get('status') == 'PENDING' for t in rows) else "")
+    pending = [t["name"] for t in rows if t.get("status") == "PENDING"]
+    return f"{approved} approved / {len(rows)} total" + (f" · pending: {', '.join(pending)[:120]}" if pending else "")
+
+
+_HEALTH_DETAIL = {"Access token": _detail_token, "Phone number": _detail_phone, "Business account": _detail_waba}
+
+
+def _health_detail(name: str, body: dict) -> str:
+    return _HEALTH_DETAIL.get(name, _detail_templates)(body)
 
 
 @router.get("/super-admin/credit-wallet")
@@ -409,58 +430,72 @@ async def hq_meta_usage(refresh: bool = False, admin=Depends(require_super_admin
 _DLT_STATE = {"10": "DLT verified", "0": "not sent to DLT", "5": "DLT rejected", "1": "pending at DLT"}
 
 
+def _dlt_fix_hint(v: dict, reason: str) -> str:
+    if reason.lower().startswith("template id not found"):
+        return (f"DLT ID {v.get('DLT_ID') or '—'} is not registered/approved on your operator DLT portal (Jio TrueConnect / Vi / Airtel). "
+                "Open the DLT portal → Templates → check the template is APPROVED and copy its exact Template ID, then on MSG91 → "
+                "SMS → Templates → this template → 'Add version' with that DLT ID and the identical text.")
+    if str(v.get("dlt_verified")) == "0":
+        return "No DLT ID attached on MSG91 — add a version with the approved DLT Template ID."
+    return f"MSG91 says: {reason or 'pending DLT verification'} — wait for approval or re-submit."
+
+
+def _pick_template_version(versions: list) -> tuple[dict, bool]:
+    verified = [v for v in versions if str(v.get("dlt_verified")) == "10" and str(v.get("active_status")) == "1"]
+    if verified:
+        return verified[0], True
+    return (versions[-1] if versions else {}), False
+
+
 def _sms_template_row(kind: str, tpl_id: str, versions: list) -> dict:
     """Pick the best version: a DLT-verified active one wins; else surface the newest and why it fails."""
-    verified = [v for v in versions if str(v.get("dlt_verified")) == "10" and str(v.get("active_status")) == "1"]
-    v = verified[0] if verified else (versions[-1] if versions else {})
-    ok = bool(verified)
+    v, ok = _pick_template_version(versions)
     reason = (v.get("dlt_reason") or v.get("reject_reason") or "").strip()
-    fix = ""
-    if not ok and versions:
-        if reason.lower().startswith("template id not found"):
-            fix = (f"DLT ID {v.get('DLT_ID') or '—'} is not registered/approved on your operator DLT portal (Jio TrueConnect / Vi / Airtel). "
-                   "Open the DLT portal → Templates → check 'miracurl_billing_receipt' is APPROVED and copy its exact Template ID, then on MSG91 → "
-                   "SMS → Templates → this template → 'Add version' with that DLT ID and the identical text.")
-        elif str(v.get("dlt_verified")) == "0":
-            fix = "No DLT ID attached on MSG91 — add a version with the approved DLT Template ID."
-        else:
-            fix = f"MSG91 says: {reason or 'pending DLT verification'} — wait for approval or re-submit."
+    dlt_code = str(v.get("dlt_verified"))
     return {"kind": kind, "template_id": tpl_id, "name": v.get("template_name") or kind, "ok": ok,
-            "version": v.get("version"), "dlt_id": v.get("DLT_ID") or "", "dlt_state": _DLT_STATE.get(str(v.get("dlt_verified")), str(v.get("dlt_verified"))),
-            "active": str(v.get("active_status")) == "1", "reason": reason, "fix": fix, "text": v.get("template_data", "")}
+            "version": v.get("version"), "dlt_id": v.get("DLT_ID") or "", "dlt_state": _DLT_STATE.get(dlt_code, dlt_code),
+            "active": str(v.get("active_status")) == "1", "reason": reason,
+            "fix": "" if ok or not versions else _dlt_fix_hint(v, reason), "text": v.get("template_data", "")}
+
+
+def _missing_template_row(kind: str) -> dict:
+    return {"kind": kind, "template_id": "", "name": kind, "ok": False, "missing": True, "dlt_state": "not registered yet",
+            "reason": "", "fix": "Create this template on DLT + MSG91, then paste the MSG91 Template ID here.",
+            "text": _TEMPLATE_HINTS.get(kind, "")}
+
+
+async def _fetch_template_row(client, key: str, kind: str, tpl_id: str) -> dict:
+    try:
+        r = await client.get("https://control.msg91.com/api/v5/sms/getTemplateVersions", params={"template_id": tpl_id}, headers={"authkey": key})
+        data = r.json().get("data") or []
+        return _sms_template_row(kind, tpl_id, data if isinstance(data, list) else [])
+    except Exception as e:  # noqa: BLE001 — one bad template must not hide the others
+        return {"kind": kind, "template_id": tpl_id, "name": kind, "ok": False, "reason": str(e), "fix": "MSG91 API unreachable — retry", "dlt_state": "?"}
+
+
+def _mark_receipt_rows(rows: list[dict], receipt_kind: str) -> None:
+    for r in rows:
+        if r["kind"] not in ("billing", "billing_v2"):
+            continue
+        r["in_use"] = r["kind"] == receipt_kind
+        if r["kind"] == "billing_v2" and r.get("template_id") and not r["ok"]:
+            r["fix"] = ("Saved ✓ — receipts switch to this template automatically the moment MSG91 marks it DLT-verified "
+                        "(checked every 10 min). Until then the legacy receipt is used.")
 
 
 @router.get("/super-admin/sms-templates-health")
 async def hq_sms_templates_health(admin=Depends(require_super_admin)):
     """Every MSG91 DLT template used by the platform: verified & active, or the exact reason it won't deliver."""
     import httpx
-    from sms_service import MSG91_TEMPLATES, msg91_template_id, receipt_sms_kind
+    from sms_service import _V2_READY, MSG91_TEMPLATES, msg91_template_id, receipt_sms_kind
     key = os.environ.get("MSG91_AUTHKEY", "")
     if not key:
         raise HTTPException(400, "MSG91_AUTHKEY missing in this environment")
-    rows = []
     async with httpx.AsyncClient(timeout=20.0) as client:
-        for kind in MSG91_TEMPLATES:
-            tpl_id = msg91_template_id(kind)
-            if not tpl_id:
-                rows.append({"kind": kind, "template_id": "", "name": kind, "ok": False, "missing": True, "dlt_state": "not registered yet",
-                             "reason": "", "fix": "Create this template on DLT + MSG91, then paste the MSG91 Template ID here.",
-                             "text": _TEMPLATE_HINTS.get(kind, "")})
-                continue
-            try:
-                r = await client.get("https://control.msg91.com/api/v5/sms/getTemplateVersions",
-                                     params={"template_id": tpl_id}, headers={"authkey": key})
-                data = r.json().get("data") or []
-                rows.append(_sms_template_row(kind, tpl_id, data if isinstance(data, list) else []))
-            except Exception as e:  # noqa: BLE001 — one bad template must not hide the others
-                rows.append({"kind": kind, "template_id": tpl_id, "name": kind, "ok": False, "reason": str(e), "fix": "MSG91 API unreachable — retry", "dlt_state": "?"})
-    _V2 = __import__("sms_service")._V2_READY; _V2["at"] = 0.0  # force a fresh v2 check on every health run
-    receipt_kind = await receipt_sms_kind()
-    for r in rows:
-        if r["kind"] in ("billing", "billing_v2"):
-            r["in_use"] = r["kind"] == receipt_kind
-            if r["kind"] == "billing_v2" and r.get("template_id") and not r["ok"]:
-                r["fix"] = "Saved ✓ — receipts switch to this template automatically the moment MSG91 marks it DLT-verified (checked every 10 min). Until then the legacy receipt is used."
+        rows = [await _fetch_template_row(client, key, kind, tpl_id) if (tpl_id := msg91_template_id(kind)) else _missing_template_row(kind)
+                for kind in MSG91_TEMPLATES]
+    _V2_READY["at"] = 0.0  # force a fresh v2 check on every health run
+    _mark_receipt_rows(rows, await receipt_sms_kind())
     return {"ok": all(r["ok"] for r in rows if not (r.get("missing") and r["kind"] == "billing_v2")),
             "sender": os.environ.get("MSG91_SENDER_ID", ""), "templates": rows, "checked_at": datetime.now(timezone.utc).isoformat()}
 

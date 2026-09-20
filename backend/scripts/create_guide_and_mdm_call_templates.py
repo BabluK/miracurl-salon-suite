@@ -8,14 +8,14 @@ G = "https://graph.facebook.com/v21.0"
 MDM_PHONE = "+919608424704"
 
 
-def upload(path, mime):
+def upload(path: str, mime: str) -> str:
     data = open(path, "rb").read()
     s = httpx.post(f"{G}/{APP}/uploads", params={"file_length": len(data), "file_type": mime, "access_token": TOK}, timeout=30).json()
     u = httpx.post(f"{G}/{s['id']}", content=data, headers={"Authorization": f"OAuth {TOK}", "file_offset": "0", "Content-Type": "application/octet-stream"}, timeout=120).json()
     return u["h"]
 
 
-def create(payload):
+def create(payload: dict) -> None:
     r = httpx.post(f"{G}/{WABA}/message_templates", json=payload, params={"access_token": TOK}, timeout=60)
     print(payload["name"], r.status_code, r.json())
 
