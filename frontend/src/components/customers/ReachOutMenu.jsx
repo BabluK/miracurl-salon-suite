@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { MessageCircle, MessageSquare, Instagram, Facebook, Send, Mail, Phone, Copy, Plus } from "lucide-react";
 import { phoneDisplay } from "@/lib/countryCodes";
 import { useAuth } from "@/context/AuthContext";
+import api from "@/lib/api";
+import { SendBillButtons } from "@/components/pos/SendBillButtons";
 
 const handle = (v) => (v || "").trim().replace(/^@/, "").replace(/^https?:\/\/(www\.)?(instagram\.com|facebook\.com|m\.me|t\.me|ig\.me\/m)\//i, "").replace(/\/.*$/, "");
 
@@ -32,6 +34,25 @@ const CHANNELS = (c, msg, isIOS) => {
     { id: "call", label: "Call", hint: e164, icon: Phone, tone: "text-slate-600 bg-slate-100", href: `tel:${e164}`, ready: true },
   ];
 };
+
+function LastBillRow({ customer, onDone }) {
+  const [inv, setInv] = useState(undefined);
+  useEffect(() => {
+    api.get(`/customers/${customer.id}/history`).then(r => {
+      const rows = r.data?.invoices || r.data?.bills || r.data || [];
+      setInv((Array.isArray(rows) ? rows : []).find(i => i.status !== "open") || null);
+    }).catch(() => setInv(null));
+  }, [customer.id]);
+  if (inv === undefined) return null;
+  if (!inv) return <p className="px-3 py-2 text-[10px] text-slate-400 border-t border-slate-100">No paid bill yet — bill them in POS first.</p>;
+  return (
+    <div className="px-3 py-2.5 border-t border-slate-100 bg-emerald-50/50" data-testid={`reach-lastbill-${customer.id}`}>
+      <div className="text-[11px] font-semibold text-slate-700 mb-1.5">Send last bill · {inv.invoice_no} · ₹{Number(inv.total || 0).toLocaleString("en-IN")}</div>
+      <SendBillButtons invoice={inv} customer={customer} compact onSent={onDone} />
+    </div>
+  );
+}
+
 
 export const ReachOutMenu = ({ customer, onAddHandles }) => {
   const { tenant } = useAuth();
@@ -96,6 +117,7 @@ export const ReachOutMenu = ({ customer, onAddHandles }) => {
             ))}
           </div>
           <p className="px-3 py-2 text-[10px] text-slate-400 bg-slate-50 border-t border-slate-100">Opens the app on your device — nothing is sent automatically.</p>
+          <LastBillRow customer={customer} onDone={() => setOpen(false)} />
         </div>,
         document.body
       )}
