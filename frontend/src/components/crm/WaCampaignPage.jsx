@@ -3,6 +3,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { MessageCircle, Users, Mail, Send, Clock, Sparkles, ImageIcon, X, ArrowRight, History, Loader2, Upload } from "lucide-react";
 import { PhonePreview, CampaignHistory, Step, MiraDrafts, RepliesInbox } from "./WaCampaignBits";
+import { useAuth } from "@/context/AuthContext";
 
 const TEMPLATES = {
   festive: { label: "Festival Offer", offer_type: "festive", brief: "Festive season offer with a flat discount on hair, skin and nail services + special festive packages" },
@@ -14,6 +15,7 @@ const TEMPLATES = {
 };
 
 export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
+  const { tenant } = useAuth();
   const [status, setStatus] = useState(null);
   const [counts, setCounts] = useState({ all: 0, loyal: 0 });
   const [audience, setAudience] = useState(selectedCustomers.length ? "selected" : "all");
@@ -273,10 +275,12 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
                 <button type="button" onClick={() => saveCta("book")} disabled={ctaBusy} data-testid="wa-cta-book"
                   className={`px-2.5 py-1 rounded-full border font-semibold ${cta.mode === "book" ? "bg-emerald-700 text-white border-emerald-700" : "bg-white border-slate-200 text-slate-600"}`}>Book Now → booking page</button>
                 <button type="button" onClick={() => (cta.mode === "call" ? null : saveCta("call"))} disabled={ctaBusy} data-testid="wa-cta-call"
-                  className={`px-2.5 py-1 rounded-full border font-semibold ${cta.mode === "call" ? "bg-emerald-700 text-white border-emerald-700" : "bg-white border-slate-200 text-slate-600"}`}>Call now → my number</button>
-                {cta.mode !== "call" && <input value={ctaPhone} onChange={e => setCtaPhone(e.target.value)} placeholder="+91 98765 43210" data-testid="wa-cta-phone"
-                  className="w-40 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800" />}
-                {cta.mode === "call" && <span className="text-emerald-800">{cta.phone}{cta.live ? " · live ✓" : " · awaiting Meta approval (minutes) — Book Now used until then"}</span>}
+                  className={`px-2.5 py-1 rounded-full border font-semibold ${cta.mode === "call" ? "bg-emerald-700 text-white border-emerald-700" : "bg-white border-slate-200 text-slate-600"}`}>Call now → salon number</button>
+                {cta.mode !== "call" && <label className="inline-flex items-center gap-1.5 text-slate-600">salon phone
+                  <input value={ctaPhone} onChange={e => setCtaPhone(e.target.value)} placeholder="+91 98765 43210" data-testid="wa-cta-phone"
+                    className="w-40 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800" /></label>}
+                {cta.mode === "call" && <span className="text-emerald-800" data-testid="wa-cta-live">Guests see a “Call {tenant?.name || "us"}” button → rings {cta.phone}{cta.live ? " · live ✓" : " · awaiting Meta approval (minutes) — Book Now used until then"}</span>}
+                <span className="basis-full text-[10px] text-slate-500">The number comes from your salon phone in Settings → Salon profile. Change it there (or here before switching) if a different line should ring.</span>
                 {ctaBusy && <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-700" />}
               </div>
             )}
