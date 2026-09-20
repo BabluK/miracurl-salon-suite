@@ -25,9 +25,9 @@ MSG91_TEMPLATES: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "festival":     ("MSG91_TPL_FESTIVAL",     "6aad491cd077278ca60eae23", ("name", "festival", "offer")),
     "special":      ("MSG91_TPL_SPECIAL",      "6aad4a4adf4726e0d1013f14", ("name", "offer", "valid_till")),
     "billing":      ("MSG91_TPL_BILLING",      "6aaed91266b259e2920c73d3", ("name", "invoice", "amount", "salon", "points")),  # legacy receipt (signs off "Miracurl AI Salon Suite")
-    # v2 receipt (user's DLT template 1777178990962910600, salon-branded, no software name):
-    # "Hi ##var1##, your payment of Rs. ##var2## has been received by ##var3##. Invoice No: ##var4##. Thank you."
-    "billing_v2":   ("MSG91_TPL_BILLING_V2",   "", ("name", "amount", "salon", "invoice")),
+    # v2 receipt — salon-branded, DLT wording with an explicit purpose ("salon bill"):
+    # "Dear ##var1##, thank you for visiting ##var2##. Payment of Rs ##var3## received for salon bill No ##var4##. You earned ##var5## loyalty points. Visit again soon!"
+    "billing_v2":   ("MSG91_TPL_BILLING_V2",   "", ("name", "salon", "amount", "invoice", "points")),
     "otp":          ("MSG91_TPL_OTP",          "6aae14594f99d7fba7049633", ("var1",)),  # miracurl_otp (DLT verified): "…verification code is ##var1##…"
 }
 
