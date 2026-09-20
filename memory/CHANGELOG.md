@@ -256,3 +256,7 @@
 ## 2026-09-20 — PROD WHATSAPP ROOT CAUSE (build 2026-09-19.329)
 - Prod health check: phone_number_id 1304080032789047 = Meta TEST number +1 555-143-4552, "Test WhatsApp Business Account", 11 templates. Preview/live = WHATSAPP_PHONE_NUMBER_ID 141827… (+91 91803 79552, VERIFIED, 18 templates). All prod campaign failures (Meta API 400 #131030) + "Meta API 400" on 18–19 Sep were this. Deployment Secrets override repo .env (per support agent): Publish → Secrets → Custom Keys → edit 3 WHATSAPP_* keys → Save → redeploy. Health check now marks Test Number as ❌ with instructions. NOT fixable from the workspace — user action.
 - Owner typed 7407869272 in test box; their number is 7406869271.
+
+## 2026-09-20 — HQ WhatsApp channel override (build 2026-09-19.330)
+- routes/hq_credit_wallet.py: HqChannelIn, apply_hq_channel_override() (sets WHATSAPP_PHONE_NUMBER_ID/BUSINESS_ACCOUNT_ID/ACCESS_TOKEN in os.environ from hq_settings doc), PUT/DELETE /super-admin/whatsapp-channel; server.py _boot_wa_campaigns applies it at startup. Health `source` field.
+- Preview: override set to live number (+91 91803 79552) — health green. TODO after user deploys .330: run the same PUT against https://miracurl-suite.com with values from workspace backend/.env (super@miracurl.com / Super@Miracurl123), then health check + 'Retry failed' on Marathahalli campaigns. Never paste the token in chat.

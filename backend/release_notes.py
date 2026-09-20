@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-19.329"
-BUILD_TIME = "20 Sep 2026, 1:15 PM IST"
+BUILD = "2026-09-19.330"
+BUILD_TIME = "20 Sep 2026, 2:00 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-19.330", "note": "HQ WhatsApp channel override stored in Mongo (hq_settings.whatsapp_channel, token encrypted via wa_coexist.encrypt_token): PUT/DELETE /super-admin/whatsapp-channel (validated against Meta before save) → applied to os.environ at boot + on save, so production stops using the Meta test number without editing deployment Secrets. Health check shows `source`."},
     {"build": "2026-09-19.329", "note": "ROOT CAUSE of prod WhatsApp failures found via health check: production Secrets point at Meta TEST number +1 555-143-4552 (phone_number_id 1304080032789047, Test WABA) → #131030 recipient not in allowed list. Health check now flags a Test Number as FAIL with the fix. Action for owner: Publish → Secrets → set live WHATSAPP_PHONE_NUMBER_ID / WHATSAPP_BUSINESS_ACCOUNT_ID / WHATSAPP_ACCESS_TOKEN (values in workspace backend/.env) → redeploy."},
     {"build": "2026-09-19.328", "note": "Super Admin → Message Credits: 'Test HQ WhatsApp connection' (GET /super-admin/whatsapp-health: debug_token, phone-number status/quality, WABA review, template counts; each check ok/detail). Owner guide now goes by EMAIL with the PDF attached (Resend) — WhatsApp carries campaign images only. Global exception handler remaps app-raised 502/503/504/52x → 424 so Cloudflare never masks our error text."},
     {"build": "2026-09-19.327", "note": "WA: test-send / cta / compose Meta failures now return HTTP 400 with Meta's reason (was 502 → Cloudflare swallowed it as 'invalid response'). Call button label = 'Call <Salon name>' (25-char cap); per-tenant templates renamed *_call2; tenant.wa_template_overrides_prev keeps the last approved variant live while the relabelled one is in review. MDM: t_mdmluxurysalon_{festival,thank_you}_call2 created (thank_you APPROVED), startup migration sets overrides+prev on every env."},

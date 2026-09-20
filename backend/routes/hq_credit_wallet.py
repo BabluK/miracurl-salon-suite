@@ -132,13 +132,61 @@ async def _ledger_with_names(limit: int = 40) -> list[dict]:
     return ledger
 
 
+class HqChannelIn(BaseModel):
+    phone_number_id: str = Field(..., min_length=6, max_length=40)
+    waba_id: str = Field(..., min_length=6, max_length=40)
+    access_token: str = Field(..., min_length=20, max_length=600)
+
+
+async def apply_hq_channel_override() -> bool:
+    """DB-stored live HQ channel beats deployment Secrets (prod once shipped with Meta's test number). Called at boot + on save."""
+    from services.wa_coexist import decrypt_token
+    doc = await _raw_db.hq_settings.find_one({"id": "whatsapp_channel"}, {"_id": 0})
+    if not doc:
+        return False
+    os.environ["WHATSAPP_PHONE_NUMBER_ID"] = doc["phone_number_id"]
+    os.environ["WHATSAPP_BUSINESS_ACCOUNT_ID"] = doc["waba_id"]
+    os.environ["WHATSAPP_ACCESS_TOKEN"] = decrypt_token(doc["token_enc"])
+    return True
+
+
+@router.put("/super-admin/whatsapp-channel")
+async def hq_whatsapp_channel_set(body: HqChannelIn, admin=Depends(require_super_admin)):
+    """Point HQ sending at the live Meta number without touching deployment Secrets; verified against Meta before saving."""
+    import httpx
+    from services.wa_coexist import encrypt_token
+    from services.whatsapp_cloud import GRAPH_API_VERSION
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        r = await client.get(f"https://graph.facebook.com/{GRAPH_API_VERSION}/{body.phone_number_id}",
+                             params={"fields": "display_phone_number,verified_name,code_verification_status"}, headers={"Authorization": f"Bearer {body.access_token}"})
+    if r.is_error:
+        raise HTTPException(400, f"Meta rejected these credentials: {(r.json().get('error') or {}).get('message', r.text[:120])}")
+    info = r.json()
+    await _raw_db.hq_settings.update_one({"id": "whatsapp_channel"}, {"$set": {"id": "whatsapp_channel", "phone_number_id": body.phone_number_id, "waba_id": body.waba_id,
+                                                                            "token_enc": encrypt_token(body.access_token), "display": info.get("display_phone_number"),
+                                                                            "verified_name": info.get("verified_name"), "updated_at": datetime.now(timezone.utc).isoformat(),
+                                                                            "updated_by": admin.get("email")}}, upsert=True)
+    await apply_hq_channel_override()
+    from services import whatsapp_official as official
+    official._tpl_status_cache.clear()
+    return {"ok": True, "display_phone_number": info.get("display_phone_number"), "verified_name": info.get("verified_name")}
+
+
+@router.delete("/super-admin/whatsapp-channel")
+async def hq_whatsapp_channel_clear(admin=Depends(require_super_admin)):
+    await _raw_db.hq_settings.delete_one({"id": "whatsapp_channel"})
+    return {"ok": True, "note": "Override removed — restart/redeploy to fall back to deployment Secrets"}
+
+
 @router.get("/super-admin/whatsapp-health")
 async def hq_whatsapp_health(admin=Depends(require_super_admin)):
     """One-tap check of the HQ Meta channel: token validity, phone-number status/quality, WABA reach, template count."""
     import httpx
     from services.whatsapp_cloud import GRAPH_API_VERSION, channel_for
     ch = await channel_for(None)
-    out = {"phone_number_id": ch.get("phone_number_id"), "graph_version": GRAPH_API_VERSION, "checks": [], "ok": False}
+    ovr = await _raw_db.hq_settings.find_one({"id": "whatsapp_channel"}, {"_id": 0, "display": 1, "updated_at": 1})
+    out = {"phone_number_id": ch.get("phone_number_id"), "graph_version": GRAPH_API_VERSION, "checks": [], "ok": False,
+           "source": f"HQ override ({ovr.get('display')}, set {ovr.get('updated_at', '')[:10]})" if ovr else "deployment Secrets / .env"}
     if not ch.get("token") or not ch.get("phone_number_id"):
         out["checks"].append({"name": "Config", "ok": False, "detail": "WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID missing in this environment"})
         return out
