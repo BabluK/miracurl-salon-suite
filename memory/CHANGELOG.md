@@ -301,3 +301,4 @@
 - Prod WA test from Miracurl to 7406869271 fails with Meta #131049 (marketing frequency cap on that personal number) — not a config issue; utility messages deliver. Guidance to MDM: guests who reply/tap once become reachable; use hourly batches; expect some skips.
 - Gate → centred popup modal with locked/dimmed background + Sign out button (user request). Verified screenshot.
 - Gate: design_agent blueprint applied (glow 0.6, logo sparkle: logoGlow + 4 drifting ✦ particles, prefers-reduced-motion off). Verified screenshot.
+- .335: strict deny popup for managers/staff outside every branch ("Sorry, you can't sign in from this location", Retry GPS + Sign out → /login); back-button hardening (logout replaceState → /login, Login popstate guard, AuthContext pageshow/popstate refresh → 401 clears user). Verified: denied popup → Sign out → back stays on /login.

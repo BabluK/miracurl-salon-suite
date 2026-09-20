@@ -127,6 +127,35 @@ export function GeoBranchGate() {
 
   if (!open) return null;
 
+  // Strict roles outside every branch (or with GPS off / no pins): no picker at all — a clear refusal + sign out.
+  const denied = strict && geo.state !== "locating" && !gpsHit;
+  if (denied) {
+    const reason = geo.state === "off"
+      ? "We couldn't read your phone's location. Turn on location for this site and try again."
+      : geo.state === "ready" && geo.data.any_pinned
+        ? "You are trying to sign in from a different location — we can't find you at any place where this business operates."
+        : "We can't find the location where this business operates yet — ask the owner to pin the branch GPS.";
+    return (
+      <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md" data-testid="geo-branch-gate">
+        <div className="relative w-full max-w-lg rounded-[28px] overflow-hidden border border-[#e8c97a]/30 shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9)] bg-[#0b0a0c]" data-testid="geo-branch-denied">
+          <img src="/assets/branch-gate/thumb-main.jpg" alt="" className="w-full h-44 object-cover opacity-80" />
+          <div className="absolute inset-x-0 top-0 h-44 bg-gradient-to-b from-transparent to-[#0b0a0c]" />
+          <div className="relative -mt-10 px-7 pb-7 text-center">
+            <div className="mx-auto w-16 h-16 rounded-full bg-[#1a160d] border-2 border-[#d4af37] flex items-center justify-center shadow-[0_0_25px_rgba(232,201,122,0.45)]"><MapPin className="w-8 h-8 text-[#e8c97a]" /></div>
+            <h3 className="font-playfair text-2xl sm:text-3xl text-white mt-4 leading-tight">Sorry, you can&apos;t sign in<br /><span className="text-[#e8c97a]">from this location</span></h3>
+            <p className="mt-3 text-sm sm:text-base text-white/80" data-testid="geo-branch-denied-reason">{reason}</p>
+            <p className="mt-2 text-xs text-white/55">Manager & staff logins open only inside a branch (within {geo.data?.radius_m || 100} m). Owners can sign in from anywhere.</p>
+            <div className="mt-6 flex flex-col sm:flex-row gap-2.5 justify-center">
+              <button type="button" onClick={locate} data-testid="geo-branch-retry" className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[#e8c97a]/60 text-[#e8c97a] hover:bg-[#e8c97a]/10 px-5 py-2.5 text-sm font-semibold"><LocateFixed className="w-4 h-4" /> Retry GPS</button>
+              <button type="button" onClick={async () => { setOpen(false); await logout(); navigate("/login", { replace: true }); }} data-testid="geo-branch-logout"
+                className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#e8c97a] text-[#1a160d] hover:bg-[#f3d98a] px-5 py-2.5 text-sm font-bold"><LogOut className="w-4 h-4" /> Sign out</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const gateTitle = otherSalons.length && !branches.length ? ["Which salon are you", "working from today?"] : ["Which branch are you", "working from today?"];
   const footNote = geo.state === "locating" ? "Checking your location…"
     : gpsHit ? "GPS found you — only the branch you're standing in is open."
@@ -146,7 +175,7 @@ export function GeoBranchGate() {
       <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.1),rgba(0,0,0,0.8)_90%)]" />
 
-      <button type="button" onClick={() => { setOpen(false); logout(); }} data-testid="geo-branch-logout"
+      <button type="button" onClick={async () => { setOpen(false); await logout(); navigate("/login", { replace: true }); }} data-testid="geo-branch-logout"
         className="absolute top-4 right-4 z-10 inline-flex items-center gap-1.5 text-xs font-semibold text-white/80 hover:text-white bg-black/50 hover:bg-black/70 border border-white/15 rounded-full px-3 py-1.5 backdrop-blur transition-colors">
         <LogOut className="w-3.5 h-3.5" /> Sign out
       </button>
