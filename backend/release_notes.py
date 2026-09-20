@@ -142,6 +142,7 @@ RELEASES = [
             "🧾 Attendance → Branch sign-ins: see who opened which branch each day, from which device, with a green GPS-verified tick",
             "📨 Super Admin → Message Credits → 'Check SMS templates': every MSG91 DLT template with its verification state and the exact fix when one is rejected",
             "🔐 Stay signed in for 15 days: 'Keep me signed in' is on by default and sessions now last 15 days (was 7) — branch devices don't need a daily login",
+            "🧑‍💼 One manager, one login for every branch: if you type an email that already belongs to another manager of your salon, Miracurl offers to MERGE the two — one login stays (branch unlocked, GPS picks it at sign-in), the duplicate is removed, staff history kept",
             "📧 Managers can keep their login and just get a real email: Staff → Managers → click the email → type the new one. Password, branch lock and history stay exactly as they were",
             "🏢 Super Admin → Edit → Logins: every owner, manager and staff login of a business in one list — swap any placeholder (name@miracurl.com) for a real inbox with one tap",
             "🔗 Owner login email: if the new email already belongs to an owner, the branch is simply added to that login (one password, branch switcher) — no more 'already used by another account'. If it belongs to a manager, you get the exact name & branch plus a Take-over option",

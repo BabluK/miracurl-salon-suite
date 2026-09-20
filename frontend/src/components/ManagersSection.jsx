@@ -88,16 +88,24 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
   }
 
   const [emailEdit, setEmailEdit] = useState(null); // { id, value }
-  async function saveEmail(m) {
+  async function saveEmail(m, merge = false) {
     const email = (emailEdit?.value || "").trim().toLowerCase();
     if (!email || email === m.email) { setEmailEdit(null); return; }
     try {
-      const { data } = await api.patch(`/managers/${m.id}/email`, { email });
-      toast.success(`${m.name} now signs in as ${data.email} — same password, same branch ✦`);
+      const { data } = await api.patch(`/managers/${m.id}/email`, { email, merge });
+      if (data.merged) toast.success(`Merged — ${data.email} is now the single manager login for every branch (GPS picks the branch at sign-in). ${data.removed} removed.`, { duration: 9000 });
+      else toast.success(`${m.name} now signs in as ${data.email} — same password, same branch ✦`);
       setEmailEdit(null);
       load();
+      onChanged?.();
     } catch (err) {
-      toast.error(formatApiError(err.response?.data?.detail) || "Couldn't change email");
+      const d = err.response?.data?.detail;
+      if (err.response?.status === 409 && d?.code === "manager_email_in_use") {
+        const ok = await confirmAsync(`${d.message}\n\nMerge into ONE login?\n• ${d.name}'s login (${email}) stays and gets unlocked from its branch — GPS picks the branch at every sign-in\n• ${m.name}'s login (${m.email}) is removed (staff history is kept)`);
+        if (ok) return saveEmail(m, true);
+        return;
+      }
+      toast.error(formatApiError(d) || "Couldn't change email");
     }
   }
 
@@ -111,6 +119,7 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
           <div>
             <h2 className="font-playfair text-xl">Managers</h2>
             <p className="text-xs text-slate-500 mt-0.5">Restricted logins — daily operations only. No Reports, Settings or Plans. WhatsApp messages need your approval.</p>
+            <p className="text-[11px] text-violet-700 mt-1">One manager = one login for every branch: leave the branch on “📍 GPS picks branch at login” and the device chooses its branch at sign-in (remembered 15 days). You don&apos;t need a separate login per branch.</p>
           </div>
         </div>
         <button data-testid="add-manager-btn" onClick={() => setOpen(true)} className="btn-blue flex items-center justify-center gap-2 text-sm">
