@@ -138,6 +138,8 @@ RELEASES = [
     {
         "date": "2026-09-20 (One manager login for all your businesses 🏬)",
         "changes": [
+            "🎨 Sign-in branch picker redesigned to the Miracurl luxe look: salon photo background, gold lockup, branch photo cards with address & distance, handwritten accents. Managers & staff can ONLY open the branch GPS confirms (≤100 m) — the others are greyed out; owners are never gated and switch from the header",
+            "🧑‍💼 One manager profile for the whole group: create a manager once at the main business and it automatically covers every other business on your login — no re-creating per branch",
             "🏬 A manager can now cover several of your businesses with ONE login: add the same manager email in the second business and it links instead of failing. At sign-in the branch picker shows every branch and business — GPS opens the one they're standing in — and the device remembers it for 15 days",
             "🧹 Super Admin → Edit → Logins: one tap removes junk test logins left by automated runs, and ⇄ flips a login between owner and manager without changing its password",
             "📞 Campaign composer: the button is now clearly 'Call now → salon number' — guests see 'Call <your salon>' and your salon phone rings",

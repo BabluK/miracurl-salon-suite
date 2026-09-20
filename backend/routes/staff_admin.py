@@ -712,9 +712,12 @@ async def create_manager(body: ManagerCreateIn, admin=Depends(require_tenant_adm
     if existing:
         return await _link_manager_here(existing, t, admin)
     temp_pw = _generate_temp_password()
+    # One manager profile for the whole group: a manager created here also covers every other
+    # business on the owner's login (GPS picker chooses the place at sign-in) — no re-creating per branch.
     new_user = {
         "id": str(uuid.uuid4()), "email": body.email, "name": body.name.strip(),
-        "role": "manager", "tenant_id": t["id"], "status": "active", "disabled": False,
+        "role": "manager", "tenant_id": t["id"], "tenant_ids": sorted(_owner_tenant_ids(admin, t)),
+        "status": "active", "disabled": False,
         "branch": body.branch.strip(),
         "password_hash": hash_pw(temp_pw), "must_change_password": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -839,7 +842,7 @@ async def delete_manager(uid: str, admin=Depends(require_tenant_admin), t=Depend
     if not u:
         raise HTTPException(404, "Manager not found")
     others = (set(u.get("tenant_ids") or []) | ({u["tenant_id"]} if u.get("tenant_id") else set())) - {t["id"]}
-    if others:  # shared login: only unlink this business, the manager keeps working elsewhere
+    if others and not others <= _owner_tenant_ids(admin, t):  # shared with a business this owner doesn't hold → only unlink here
         sets = {"tenant_ids": sorted(others)}
         if u.get("tenant_id") == t["id"]:
             sets["tenant_id"] = sorted(others)[0]
