@@ -498,6 +498,27 @@ class TestSendIn(BaseModel):
     image_url: Optional[str] = Field(None, max_length=600, pattern=r"^(/api/files/[A-Za-z0-9-]{8,64}|/assets/[A-Za-z0-9_./-]+\.(jpe?g|png|webp)|https://[^\s]+)$")
 
 
+META_SKIP_HINT = {
+    131049: "Meta skipped this MARKETING message for this number (frequency cap — the person already gets many promotional WhatsApps). "
+            "Not a fault in your salon's setup: utility messages (bookings, reminders, receipts) still deliver. "
+            "Fix for a test number: send any WhatsApp (e.g. 'Hi') from that phone to your salon number first, then retry.",
+    131026: "This number can't receive WhatsApp messages right now (no WhatsApp on that SIM, or they haven't accepted the new terms).",
+    131047: "More than 24 h since this person last wrote to you — only approved templates can be sent (that's what we did); check the template is approved.",
+    131030: "Meta test number in use — only pre-approved recipients can receive messages. HQ must switch to the live number.",
+}
+
+
+@router.get("/message-status/{message_id}")
+async def link_message_status(message_id: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Delivery status Meta posted back for one message (accepted → sent → delivered → read, or failed + why)."""
+    m = await _raw_db.whatsapp_messages.find_one({"message_id": message_id, "tenant_id": t["id"]}, {"_id": 0, "status": 1, "errors": 1, "created_at": 1})
+    if not m:
+        return {"status": "accepted", "errors": []}
+    errs = m.get("errors") or []
+    code = (errs[0].get("code") if errs else None)
+    return {"status": m.get("status"), "errors": errs, "code": code, "hint": META_SKIP_HINT.get(code, errs[0].get("title") if errs else "")}
+
+
 @router.post("/test-send")
 async def link_test_send(body: TestSendIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Send the festival campaign template to the owner's own number (1 credit)."""

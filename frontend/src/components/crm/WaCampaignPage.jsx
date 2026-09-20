@@ -131,9 +131,25 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
     setBusy("test");
     try {
       const { data } = await api.post("/whatsapp-link/test-send", { phone: testPhone, festival: meta.festival, offer: meta.offer, valid_till: meta.valid_till, image_url: image?.url || null });
-      toast.success(data.with_image ? "Test sent with the image ✦" : "Test sent to your number ✦");
+      toast.success(data.with_image ? "Test handed to WhatsApp with the image ✦ watching delivery…" : "Test handed to WhatsApp ✦ watching delivery…");
+      if (data.message_id) watchDelivery(data.message_id);
     } catch (e) { toast.error(e.response?.data?.detail || "Test failed"); }
     finally { setBusy(""); }
+  };
+
+  // Meta reports delivery a few seconds later via webhook — surface it so "sent" never hides a silent skip.
+  const watchDelivery = (id) => {
+    let tries = 0;
+    const tick = async () => {
+      tries += 1;
+      try {
+        const { data } = await api.get(`/whatsapp-link/message-status/${id}`);
+        if (data.status === "failed") return toast.error(`WhatsApp did NOT deliver the test (Meta #${data.code}). ${data.hint || ""}`, { duration: 20000 });
+        if (data.status === "delivered" || data.status === "read") return toast.success(`Test ${data.status} on your phone ✓`);
+      } catch { /* keep polling */ }
+      if (tries < 8) setTimeout(tick, 3000);
+    };
+    setTimeout(tick, 3000);
   };
 
   const queue = async () => {
