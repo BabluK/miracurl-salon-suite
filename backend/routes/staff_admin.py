@@ -695,22 +695,49 @@ async def list_managers(admin=Depends(require_tenant_admin), t=Depends(current_t
     return rows
 
 
-async def _link_manager_here(existing: dict, t: dict, admin: dict) -> dict:
-    """Same manager, another of the owner's businesses → one login for both (branch picker chooses at sign-in)."""
-    if existing.get("role") != "manager" or existing.get("tenant_id") not in _owner_tenant_ids(admin, t):
+def _manager_staff_doc(body: ManagerCreateIn, user_id: str, name: str) -> dict:
+    doc = Staff(
+        name=name, role=body.role or "Manager", phone=body.phone,
+        email=body.email, specialties=body.specialties, commission_pct=body.commission_pct,
+        monthly_base_salary=body.monthly_base_salary, salary_visible=body.salary_visible,
+        user_id=user_id,
+    ).model_dump()
+    doc["branch"] = "" if body.branch.strip() == "__main__" else body.branch.strip()
+    return doc
+
+
+async def _ensure_manager_staff_profile(body: ManagerCreateIn, user: dict) -> bool:
+    """Managers must show up in Staff → create the profile here if this business doesn't have one yet."""
+    if await db.staff.find_one({"user_id": user["id"]}, {"_id": 1}):
+        return False
+    await db.staff.insert_one(_manager_staff_doc(body, user["id"], body.name.strip() or user.get("name") or "Manager"))
+    return True
+
+
+async def _adopt_existing_login(existing: dict, body: ManagerCreateIn, t: dict, admin: dict) -> dict:
+    """Email already has a login inside the owner's group → make it THE group manager instead of failing.
+    Manager elsewhere → link here. Non-owner admin login (e.g. a leftover seed login) → convert to manager."""
+    group = _owner_tenant_ids(admin, t)
+    in_group = existing.get("tenant_id") in group or bool(set(existing.get("tenant_ids") or []) & group)
+    is_owner = bool(await _raw_db.tenants.find_one({"owner_email": existing["email"]}, {"_id": 1}))
+    if existing.get("role") not in ("manager", "admin") or not in_group or is_owner:
         raise HTTPException(400, "Email already registered")
-    ids = sorted(set(existing.get("tenant_ids") or []) | {existing["tenant_id"], t["id"]})
-    await _raw_db.users.update_one({"id": existing["id"]}, {"$set": {"tenant_ids": ids, "branch": ""}})
-    await log_audit(t["id"], admin, "manager_link", f"Manager {existing['email']} linked to {t.get('name')} — one login for {len(ids)} businesses")
+    ids = sorted(set(existing.get("tenant_ids") or []) | {existing.get("tenant_id")} | group - {None})
+    sets = {"role": "manager", "tenant_ids": ids, "branch": body.branch.strip(), "name": body.name.strip() or existing.get("name")}
+    await _raw_db.users.update_one({"id": existing["id"]}, {"$set": sets, "$unset": {"staff_id": ""}})
+    created = await _ensure_manager_staff_profile(body, existing)
+    mode = "converted" if existing.get("role") == "admin" else "linked"
+    await log_audit(t["id"], admin, "manager_link", f"Manager {existing['email']} {mode} — one login for {len(ids)} businesses")
     u = await _raw_db.users.find_one({"id": existing["id"]}, {"_id": 0, "password_hash": 0})
-    return {**u, "linked": True, "salon_count": len(ids)}
+    return {**u, "ok": True, mode: True, "salon_count": len(ids), "staff_profile_created": created,
+            "note": "Existing login kept its password" + (" — it was an owner-level login and is now a manager" if mode == "converted" else "")}
 
 
 @router.post("/managers")
 async def create_manager(body: ManagerCreateIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     existing = await _raw_db.users.find_one({"email": body.email}, {"_id": 0, "password_hash": 0})
     if existing:
-        return await _link_manager_here(existing, t, admin)
+        return await _adopt_existing_login(existing, body, t, admin)
     temp_pw = _generate_temp_password()
     # One manager profile for the whole group: a manager created here also covers every other
     # business on the owner's login (GPS picker chooses the place at sign-in) — no re-creating per branch.
@@ -725,14 +752,7 @@ async def create_manager(body: ManagerCreateIn, admin=Depends(require_tenant_adm
     await _raw_db.users.insert_one(new_user)
     # A manager is also a team member: create a linked staff profile so they appear
     # in Staff/booking and get salary slips (all details captured up-front, like staff).
-    staff_doc = Staff(
-        name=new_user["name"], role=body.role or "Manager", phone=body.phone,
-        email=body.email, specialties=body.specialties, commission_pct=body.commission_pct,
-        monthly_base_salary=body.monthly_base_salary, salary_visible=body.salary_visible,
-        user_id=new_user["id"],
-    ).model_dump()
-    staff_doc["branch"] = "" if body.branch.strip() == "__main__" else body.branch.strip()
-    await db.staff.insert_one(staff_doc)
+    await db.staff.insert_one(_manager_staff_doc(body, new_user["id"], new_user["name"]))
     mail = await _send_staff_welcome(new_user["name"], t.get("name"), body.email, temp_pw, "manager")
     return {"ok": True, "id": new_user["id"], "email": body.email, "name": new_user["name"],
             "temp_password": temp_pw, "must_change_password": True,

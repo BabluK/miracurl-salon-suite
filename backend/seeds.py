@@ -145,14 +145,19 @@ async def seed_default_tenant():
 
 async def seed_admin():
     """Seed default salon admin ONCE. Never re-writes an existing hash so the owner can rotate it."""
+    from database import _raw_db
     admin_email = os.environ["ADMIN_EMAIL"].lower()
     default_tenant = await db.tenants.find_one({"slug": DEFAULT_TENANT_SLUG}, {"_id": 0})
     tenant_id = default_tenant["id"] if default_tenant else None
+    # Seed exactly once per install. Once the default salon has ANY owner login (or the seed ran before),
+    # never recreate — otherwise deleting/renaming the ADMIN_EMAIL login on prod resurrects it on every boot.
+    if await _raw_db.app_migrations.find_one({"_id": "admin-seed-done"}):
+        return
     existing = await db.users.find_one({"email": admin_email})
-    if existing:
-        # Only auto-heal missing tenant link. Do NOT overwrite the password.
-        if not existing.get("tenant_id") and tenant_id:
+    if existing or (tenant_id and await _raw_db.users.find_one({"role": "admin", "$or": [{"tenant_id": tenant_id}, {"tenant_ids": tenant_id}]}, {"_id": 1})):
+        if existing and not existing.get("tenant_id") and tenant_id:
             await db.users.update_one({"email": admin_email}, {"$set": {"tenant_id": tenant_id}})
+        await _raw_db.app_migrations.update_one({"_id": "admin-seed-done"}, {"$set": {"at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
         return
     seed_pw = os.environ.get("ADMIN_PASSWORD")
     if not seed_pw:
@@ -168,6 +173,7 @@ async def seed_admin():
         "must_change_password": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
+    await _raw_db.app_migrations.update_one({"_id": "admin-seed-done"}, {"$set": {"at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
     logging.info("Seeded admin user — MUST rotate password on first login")
 
 async def seed_data():
