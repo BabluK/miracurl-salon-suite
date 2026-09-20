@@ -1,0 +1,27 @@
+{
+  "summary": "Frontend-only testing for iteration 180 (Miracurl Suite). All three new owner/HQ features validated end-to-end + regression on login remember checkbox. 5/5 test scenarios PASSED.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Global (React console)", "issues": ["React hydration warning: <span> cannot be a child of <option> in multiple <select> components (MiraDayOffer, Attendance geo-target select, MessageCreditsCard give-tenant select). Non-blocking but polluting console."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Optional: clean the <span> inside <option> pattern (data-ve-dynamic instrumentation) causing React hydration warnings on select/options across the app. Non-blocking."
+  ],
+  "critical_code_review_comments": [
+    "SmsTemplatesHealth click reliability: with playwright .click(force=True) the button did not always trigger the handler because a fixed bottom-right 'Mira · HQ Assistant' popup + 'Deploy banner' overlap the click area in some viewport heights. Using native JS .click() works. Consider making the assistant popup opaque with pointer-events:none on its wrapper except the toggle, or ensuring z-index does not intercept card buttons.",
+    "Hydration warnings from ve-dynamic <span> children inside <option> should be cleaned to avoid hiding real hydration issues."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (skipped per request)", "frontend": "100% (5/5 scenarios)"},
+  "test_credentials": "Owner admin@miracurl.com / q6QY@tn3p#9DtL (tenant miracurl-marathahalli), Manager manager@miracurl.com / Manager@1234, Super super@miracurl.com / og9T@41Es#OQb6",
+  "seed_data_creation": "Temporarily unpinned branch 'Miracurl Unisex Family Salon- AECS' via DELETE /api/tenants/current/geo to exercise nudge, then re-pinned via pin button (12.965, 77.715) and again via PUT restore. Manager pick generated a fresh 05:48 pm sign-in row (Chrome · Linux · No GPS) in addition to the existing 05:42 pm row.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Verified: (1) Dashboard BranchPinNudge — nudge shows when unpinned exists, pin-branch-<name> button uses browser geolocation, success toast 'Miracurl Unisex Family Salon- AECS pinned — staff there can now be GPS-verified' appears, nudge disappears, GET /api/tenants/current shows latitude=12.965 longitude=77.715 persisted; pin-branch-maps-link visible; branch-pin-nudge-dismiss hides the nudge for the session. (2) Attendance branch-logins-card visible below GPS fence card; today shows 2 sign-ins · 1 GPS ✓ (Salon Manager, Main salon rows with 'Verified · 42 m' and 'No GPS' variants); yesterday shows branch-logins-empty 'No branch sign-ins recorded for this day.'. (3) Manager login with fresh localStorage triggers geo-branch-gate with two enabled options (main + AECS since not within 100m of either pinned branch — user is 12.9569, 77.7011). Clicking geo-branch-option-main fires toast '15 days' and closes modal; reload does NOT re-open. (4) Super Admin → Message Credits → hq-sms-health-run returns 10 sms-tpl-* rows, sms-tpl-billing shows red X 'DLT rejected · Template Id not found on DLT' plus amber fix hint referencing DLT portal; error variant toast \"Some SMS templates won't deliver — see details\" fires. (5) login-remember-checkbox is CHECKED by default on fresh /login visit. Branch pin was restored via PUT /api/tenants/current/geo so preview data is intact.",
+  "rca of the issue": "No functional issues found. Only minor observations: (a) SmsTemplatesHealth run button — Playwright force-click was intercepted by the persistent 'Mira · HQ Assistant' floating widget (bottom-right) in the exact viewport where the button rendered. Real user clicks work; only a testing-tooling nuance. (b) React hydration warnings from ve-dynamic instrumentation wrapping <span> inside <option> — cosmetic console noise."
+}
