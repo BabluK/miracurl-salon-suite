@@ -57,7 +57,7 @@ export default function Login() {
   const [showPw, setShowPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [remember, setRemember] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [personalEmail, setPersonalEmail] = useState("");
   const [farewell, setFarewell] = useState(false);
   const [blocked, setBlocked] = useState(null);
@@ -249,7 +249,7 @@ export default function Login() {
                     data-testid="login-remember-checkbox"
                     className="w-4 h-4 rounded border-slate-300 text-rose-500 focus:ring-rose-300"
                   />
-                  Keep me signed in on this device
+                  Keep me signed in on this device (15 days)
                 </label>
                 <button
                   type="button"

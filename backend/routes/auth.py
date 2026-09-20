@@ -730,9 +730,9 @@ async def logout(request: Request, response: Response):
 
 @router.get("/auth/sessions")
 async def list_sessions(request: Request, user=Depends(get_current_user)):
-    """Every device currently signed in to this account (active in the last 8 days)."""
+    """Every device currently signed in to this account (active in the last 16 days)."""
     cur = current_sid(request)
-    active_since = (datetime.now(timezone.utc) - timedelta(days=8)).isoformat()
+    active_since = (datetime.now(timezone.utc) - timedelta(days=16)).isoformat()
     rows = await _raw_db.sessions.find(
         {"user_id": user["id"], "revoked": False, "last_seen": {"$gte": active_since}},
         {"_id": 0}).sort("last_seen", -1).to_list(50)

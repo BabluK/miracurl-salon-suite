@@ -109,7 +109,7 @@ api.interceptors.response.use(
     // AuthContext already handles those explicitly.
     const isAuthBootstrap = url.includes("/auth/me") || url.includes("/auth/login");
     const isRefresh = url.includes("/auth/refresh");
-    // Access token expired (8h) but the refresh token (7d) may still be valid —
+    // Access token expired (8h) but the refresh token (15d) may still be valid —
     // silently renew once and replay the original request.
     if (status === 401 && !isRefresh && !url.includes("/auth/login") && err.config && !err.config._authRetry) {
       err.config._authRetry = true;

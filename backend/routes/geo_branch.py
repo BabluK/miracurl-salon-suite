@@ -22,6 +22,7 @@ class LocateIn(BaseModel):
 class PickIn(BaseModel):
     branch: str = Field("", max_length=120)  # "__main__" | branch name
     distance_m: Optional[float] = None
+    gps_verified: bool = False
 
 
 def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -59,16 +60,17 @@ async def locate_branch(body: LocateIn, user=Depends(get_current_user), t=Depend
 
 @router.post("/branch/pick")
 async def pick_branch(body: PickIn, user=Depends(get_current_user), t=Depends(current_tenant)):
-    """Record which branch this login is working from today (GPS-verified pick)."""
+    """Record which branch this device/login works from (remembered 15 days on the device)."""
     branch = body.branch.strip()
     names = {b.get("name") for b in (t.get("branches") or [])}
     if branch and branch != "__main__" and branch not in names:
         raise HTTPException(400, "Unknown branch")
     if user.get("branch") and user["branch"] != branch:
         raise HTTPException(403, "Your login is locked to another branch")
-    pick = {"branch": branch, "distance_m": body.distance_m, "at": datetime.now(timezone.utc).isoformat()}
+    pick = {"branch": branch, "distance_m": body.distance_m, "gps_verified": body.gps_verified,
+            "at": datetime.now(timezone.utc).isoformat()}
     await _raw_db.users.update_one({"id": user["id"]}, {"$set": {"last_branch_pick": pick}})
     label = _main_label(t) if branch == "__main__" else (branch or "all branches")
-    dist = f" · GPS {int(body.distance_m)} m" if body.distance_m is not None else ""
+    dist = f" · GPS verified, {int(body.distance_m)} m" if body.gps_verified and body.distance_m is not None else " · no GPS"
     await log_audit(t["id"], user, "branch_login", f"{user.get('name') or user.get('email')} signed in at {label}{dist}")
     return {"ok": True, **pick}

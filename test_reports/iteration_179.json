@@ -1,0 +1,25 @@
+{
+  "summary": "Frontend testing for Miracurl Suite iteration: Super Admin tenant-logins card + owner-email flow (conflict/scope), Owner-side Managers email rename with GPS branch option, and GeoBranchGate (granted + denied). All 6 requested flows PASS. State was fully restored (bablu@miracurl.com, aecs.manager@miracurl.com, admin@miracurl.com, Marathahalli location).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "EditTenantModal & several selects", "issues": ["React hydration warning: <span> is a child of <option> (x-file-name markers injected into <option>). Non-blocking but repeated in console for EditTenantModal, MiraDayOffer, ManagersSection selects."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_179.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Hydration warning: JSX visual-editor markers injecting <span> inside <option> — should be stripped for production; harmless but pollutes console.",
+    "Toast text was not detectable via generic [role=status]/[class*=toast] selectors in playwright for the Managers email save; add data-testid='toast' to global toast container for easier E2E assertions."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped)", "frontend": "100% (6/6 flows)"},
+  "test_credentials": "used /app/memory/test_credentials.md as-is",
+  "seed_data_creation": "None — all mutations restored to originals.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Detailed per-flow results: (1) Super Admin → Tenants → Edit tenant 83ab97b6-...: edit-tenant-modal opens, tenant-logins-card lists owner + 3 managers + staff with role badges. Renamed bablu@miracurl.com→bablu.renamed@example.com then restored to bablu@miracurl.com — row updated correctly both times. (2) Owner-email conflict: entering aecs.manager@miracurl.com + Save returned 409, red owner-email-conflict panel appeared with text mentioning 'manager', owner-email-takeover-btn + owner-email-conflict-dismiss present; dismiss closed the panel. Restored input to admin@miracurl.com without saving. (3) Scope radios: typing new.owner@example.com made owner-email-scope box render with owner-scope-all + owner-scope-this radios; restored to admin@miracurl.com without saving. (4) Regression: Location text edit + Save closed modal + showed 'Salon details updated ✦'; location restored. (5) Owner /staff (unlocked via Owner PIN 4321): managers-section renders 3 manager rows; each branch <select> exposes '📍 GPS picks branch at login' option (visible for the unlocked manager@miracurl.com). Clicking manager-email-edit for aecs.manager UID a9f45b13-... revealed input, saved to aecs.renamed@example.com, then restored — displayed email refreshed both times (toast text not captured but UI state confirmed). (6) GeoBranchGate: as manager@miracurl.com with geolocation granted at 12.9569,77.7011 → gate opened with heading 'Which branch are you at?'; two branches listed as options (geo-branch-option-main and geo-branch-option-Miracurl Unisex Family Salon- AECS), both disabled with 'Too far · X km away' (1406.9 km & 1.4 km — both branches pinned but outside 100 m). 'Not now' (geo-branch-skip) closed it; page reload did NOT re-show the gate (sessionStorage). Denied path: after clearing permissions, geo-branch-denied text + geo-branch-retry button appeared. NOTE: Marathahalli main-branch GPS pin distance (1406.9 km from the test coords) suggests the seeded pin lat/lng may be far from actual Marathahalli — not a bug but worth verifying seed pin coordinates in preview.",
+  "rca of the issue": "n/a — no bugs found; all functionality works as specified."
+}

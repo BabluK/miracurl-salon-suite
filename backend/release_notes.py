@@ -137,7 +137,8 @@ RELEASES = [
     {
         "date": "2026-09-20 (Real emails for every login 📧)",
         "changes": [
-            "📍 GPS branch sign-in: managers (not locked to a branch) and staff are asked for their location right after login — only the branch within 100 m can be chosen, branches further away are greyed out. Works with the GPS pins you already set for check-in (Attendance → GPS fence)",
+            "🏬 One login, every branch: managers (not locked to a branch) and staff now get a beautiful branch picker right after sign-in — tap your branch once and that device remembers it for 15 days. With GPS on, only the branch you're standing in (within 100 m) is open; the rest are greyed out",
+            "🔐 Stay signed in for 15 days: 'Keep me signed in' is on by default and sessions now last 15 days (was 7) — branch devices don't need a daily login",
             "📧 Managers can keep their login and just get a real email: Staff → Managers → click the email → type the new one. Password, branch lock and history stay exactly as they were",
             "🏢 Super Admin → Edit → Logins: every owner, manager and staff login of a business in one list — swap any placeholder (name@miracurl.com) for a real inbox with one tap",
             "🔗 Owner login email: if the new email already belongs to an owner, the branch is simply added to that login (one password, branch switcher) — no more 'already used by another account'. If it belongs to a manager, you get the exact name & branch plus a Take-over option",

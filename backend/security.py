@@ -38,11 +38,14 @@ def make_access(user_id: str, email: str, sid: str | None = None) -> str:
         payload["sid"] = sid
     return jwt.encode(payload, jwt_secret(), algorithm=JWT_ALG)
 
+REFRESH_DAYS = 15  # "keep me signed in" — branch devices stay logged in for 15 days
+
+
 def make_refresh(user_id: str, sid: str | None = None) -> str:
     payload = {"sub": user_id,
                "jti": uuid.uuid4().hex,
                "iat": int(datetime.now(timezone.utc).timestamp()),
-               "exp": datetime.now(timezone.utc) + timedelta(days=7),
+               "exp": datetime.now(timezone.utc) + timedelta(days=REFRESH_DAYS),
                "type": "refresh"}
     if sid:
         payload["sid"] = sid
@@ -223,7 +226,7 @@ def set_auth_cookies(resp: Response, access: str, refresh: str, persistent: bool
     resp.set_cookie("access_token", access, httponly=True, secure=_sec, samesite="lax",
                     max_age=28800 if persistent else None, path="/")
     resp.set_cookie("refresh_token", refresh, httponly=True, secure=_sec, samesite="lax",
-                    max_age=604800 if persistent else None, path="/")
+                    max_age=REFRESH_DAYS * 86400 if persistent else None, path="/")
     set_csrf_cookie(resp, access, persistent)
 
 
@@ -270,7 +273,7 @@ def set_csrf_cookie(resp: Response, access_token: str, persistent: bool = True, 
     anchor = payload.get("sid") or payload.get("sub") or ""
     _sec = os.environ.get("COOKIE_SECURE", "true").lower() != "false"
     resp.set_cookie(name, make_csrf_token(anchor), httponly=False, secure=_sec,
-                    samesite="lax", max_age=604800 if persistent else None, path="/")
+                    samesite="lax", max_age=REFRESH_DAYS * 86400 if persistent else None, path="/")
 
 def _extract_bearer_token(request: Request) -> str | None:
     token = request.cookies.get("access_token")
