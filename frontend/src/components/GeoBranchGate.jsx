@@ -10,12 +10,14 @@ import { ChevronRight, Loader2, LocateFixed, MapPin, Smartphone, Star, Store } f
 const PICK_DAYS = 15;
 const pickKey = (uid) => `miracurl_branch_pick:${uid}`;
 
-export function readBranchPick(uid) {
+const store = (strict) => (strict ? sessionStorage : localStorage);
+
+export function readBranchPick(uid, strict = true) {
   try {
-    const raw = localStorage.getItem(pickKey(uid));
+    const raw = store(strict).getItem(pickKey(uid));
     if (!raw) return null;
     const p = JSON.parse(raw);
-    if (!p.until || Date.now() > p.until) { localStorage.removeItem(pickKey(uid)); return null; }
+    if (!p.until || Date.now() > p.until) { store(strict).removeItem(pickKey(uid)); return null; }
     return p;
   } catch { return null; }
 }
@@ -50,8 +52,8 @@ export function GeoBranchGate() {
 
   useEffect(() => {
     if (!eligible) return;
-    const saved = readBranchPick(user.id);
-    if (saved && saved.tenant_id && saved.tenant_id !== tenant.id) { localStorage.removeItem(pickKey(user.id)); setOpen(true); return; }
+    const saved = readBranchPick(user.id, user.role !== "admin");
+    if (saved && saved.tenant_id && saved.tenant_id !== tenant.id) { store(user.role !== "admin").removeItem(pickKey(user.id)); setOpen(true); return; }
     if (saved) { setSelectedBranch(saved.branch); return; }
     setOpen(true);
   }, [eligible, user, tenant]);
@@ -97,8 +99,8 @@ export function GeoBranchGate() {
         setTenantSlug(data.switched.slug);
         localStorage.setItem("miracurl_tenant", data.switched.slug);
         setSelectedBranch("__main__");
-        localStorage.setItem(pickKey(user.id), JSON.stringify({ branch: "__main__", tenant_id: data.switched.id, until }));
-        toast.success(`Welcome to ${data.switched.name} ✦ this device stays here for ${PICK_DAYS} days`);
+        store(strict).setItem(pickKey(user.id), JSON.stringify({ branch: "__main__", tenant_id: data.switched.id, until }));
+        toast.success(strict ? `Welcome to ${data.switched.name} ✦ GPS verified` : `Welcome to ${data.switched.name} ✦ this device stays here for ${PICK_DAYS} days`);
         setOpen(false);
         queryClient.clear();
         await refresh();
@@ -106,8 +108,8 @@ export function GeoBranchGate() {
         return;
       }
       setSelectedBranch(c.value);
-      localStorage.setItem(pickKey(user.id), JSON.stringify({ branch: c.value, tenant_id: tenant.id, until }));
-      toast.success(`Welcome to ${c.label} ✦ this device stays on this branch for ${PICK_DAYS} days`);
+      store(strict).setItem(pickKey(user.id), JSON.stringify({ branch: c.value, tenant_id: tenant.id, until }));
+      toast.success(strict ? `Welcome to ${c.label} ✦ GPS verified` : `Welcome to ${c.label} ✦ this device stays on this branch for ${PICK_DAYS} days`);
       setOpen(false);
     } catch (e) {
       toast.error(formatApiError(e.response?.data?.detail) || "Couldn't select branch");
@@ -145,7 +147,7 @@ export function GeoBranchGate() {
         <h3 className="font-playfair text-center text-3xl sm:text-5xl lg:text-6xl text-white mt-8 leading-[1.08]">
           {gateTitle[0]}<br /><span className="text-[#e8c97a]">{gateTitle[1]}</span>
         </h3>
-        <p className="mt-4 text-base sm:text-lg text-white/80 text-center">Choose once — this device remembers your branch for {PICK_DAYS} days.</p>
+        <p className="mt-4 text-base sm:text-lg text-white/80 text-center">{strict ? "We check your location every time you open the app — only the branch you're standing in can be opened." : `Choose once — this device remembers your branch for ${PICK_DAYS} days.`}</p>
 
         <div className="mt-8 w-full max-w-4xl grid gap-5" data-testid="geo-branch-options">
           {cards.map((c, i) => {

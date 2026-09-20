@@ -293,3 +293,4 @@
 
 ## 2026-09-21 — build .334
 - ROOT CAUSE of "Email already registered" / "Salon Admin" login on prod: prod ADMIN_EMAIL=miracurlunisexsaloon@gmail.com and seeds.seed_admin recreated the login on every boot after deletion. Fixed with app_migrations marker `admin-seed-done` (+ skip when default tenant already has an admin). POST /managers → `_adopt_existing_login` (link manager / convert non-owner admin, `_ensure_manager_staff_profile`). Prod: user cf1df17e flipped to manager of both tenants via PUT /super-admin/users/{uid}/role (staff profile will be created when the owner re-submits Add Manager on .334).
+- Prod: manager login renamed → miracurlunisexfamilysaloon@gmail.com (manager of both tenants; owner bablukumar.cs14). Code (.334): geo pin endpoints owner-only (require_tenant_admin); strict roles' branch pick stored in sessionStorage → asked on every app open; owners never gated.

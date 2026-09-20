@@ -100,7 +100,7 @@ class TenantGeoIn(BaseModel):
 
 
 @router.put("/tenants/current/geo")
-async def set_tenant_geo(body: TenantGeoIn, admin=Depends(require_admin), t=Depends(current_tenant)):
+async def set_tenant_geo(body: TenantGeoIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Pin GPS for the main salon or a specific branch — staff check-in is geo-fenced to 200m."""
     if body.branch:
         res = await db.tenants.update_one(
@@ -246,7 +246,7 @@ async def _resolve_maps_input(text: str):
 
 
 @router.post("/tenants/current/geo/from-link")
-async def set_tenant_geo_from_link(body: TenantGeoLinkIn, admin=Depends(require_admin), t=Depends(current_tenant)):
+async def set_tenant_geo_from_link(body: TenantGeoLinkIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """Pin salon/branch GPS from a Google Maps link (full or short URL) or a typed place name."""
     found = await _resolve_maps_input(body.url)
     if not found:
@@ -268,7 +268,7 @@ async def set_tenant_geo_from_link(body: TenantGeoLinkIn, admin=Depends(require_
 
 
 @router.delete("/tenants/current/geo")
-async def clear_tenant_geo(branch: Optional[str] = None, admin=Depends(require_admin), t=Depends(current_tenant)):
+async def clear_tenant_geo(branch: Optional[str] = None, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     if branch:
         await db.tenants.update_one(
             {"id": t["id"], "branches.name": branch},
