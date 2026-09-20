@@ -454,10 +454,13 @@ async def hq_sms_templates_health(admin=Depends(require_super_admin)):
                 rows.append(_sms_template_row(kind, tpl_id, data if isinstance(data, list) else []))
             except Exception as e:  # noqa: BLE001 — one bad template must not hide the others
                 rows.append({"kind": kind, "template_id": tpl_id, "name": kind, "ok": False, "reason": str(e), "fix": "MSG91 API unreachable — retry", "dlt_state": "?"})
-    receipt_kind = receipt_sms_kind()
+    _V2 = __import__("sms_service")._V2_READY; _V2["at"] = 0.0  # force a fresh v2 check on every health run
+    receipt_kind = await receipt_sms_kind()
     for r in rows:
         if r["kind"] in ("billing", "billing_v2"):
             r["in_use"] = r["kind"] == receipt_kind
+            if r["kind"] == "billing_v2" and r.get("template_id") and not r["ok"]:
+                r["fix"] = "Saved ✓ — receipts switch to this template automatically the moment MSG91 marks it DLT-verified (checked every 10 min). Until then the legacy receipt is used."
     return {"ok": all(r["ok"] for r in rows if not (r.get("missing") and r["kind"] == "billing_v2")),
             "sender": os.environ.get("MSG91_SENDER_ID", ""), "templates": rows, "checked_at": datetime.now(timezone.utc).isoformat()}
 
@@ -486,4 +489,4 @@ async def hq_set_sms_template_id(body: SmsTemplateIdIn, admin=Depends(require_su
     if not tpl:
         os.environ.pop(MSG91_TEMPLATES[body.kind][0], None)
     await apply_hq_sms_template_ids()
-    return {"ok": True, "kind": body.kind, "template_id": tpl, "receipt_kind_in_use": receipt_sms_kind()}
+    return {"ok": True, "kind": body.kind, "template_id": tpl, "receipt_kind_in_use": await receipt_sms_kind()}

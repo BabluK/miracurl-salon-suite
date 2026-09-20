@@ -308,7 +308,7 @@ async def send_receipt_channels(inv: dict, cust: dict, t: dict, points_earned: i
             else:
                 from sms_service import receipt_sms_kind, send_tenant_sms
                 first = (inv.get("customer_name") or "Guest").split()[0][:30]
-                kind = receipt_sms_kind()
+                kind = await receipt_sms_kind()
                 salon, pts, inv_no, amt = (t.get("name") or "your salon")[:30], str(points_earned or 0), str(inv.get("invoice_no") or "")[:30], f"{inv['total']:.0f}"
                 sms_vars = [first, amt, salon, inv_no] if kind == "billing_v2" else [first, inv_no, amt, salon, pts]
                 out["sms"] = await send_tenant_sms(
