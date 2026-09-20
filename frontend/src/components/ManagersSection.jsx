@@ -12,7 +12,9 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
   const branches = tenant?.branches || [];
   const [managers, setManagers] = useState([]);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", role: "Manager", phone: "", branch: "", specialties: "", commission_pct: 10, monthly_base_salary: 0, salary_visible: true });
+  const EMPTY = { name: "", email: "", password: "", role: "Manager", phone: "", branch: "", specialties: "", commission_pct: 10, monthly_base_salary: 0, salary_visible: true };
+  const [form, setForm] = useState(EMPTY);
+  const [pwEdit, setPwEdit] = useState(null); // { id, value }
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
@@ -27,6 +29,7 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
       const { data } = await api.post("/managers", {
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
+        password: form.password.trim() || undefined,
         role: form.role.trim() || "Manager",
         phone: form.phone.trim(),
         branch: form.branch,
@@ -37,7 +40,7 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
       });
       onCredential({ name: data.name, email: data.email, temp_password: data.temp_password, email_sent: data.welcome_email_sent });
       setOpen(false);
-      setForm({ name: "", email: "", role: "Manager", phone: "", branch: "", specialties: "", commission_pct: 10, monthly_base_salary: 0, salary_visible: true });
+      setForm(EMPTY);
       load();
     } catch (err) {
       toast.error(formatApiError(err.response?.data?.detail) || "Couldn't create manager");
@@ -51,6 +54,18 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
       onCredential({ name: m.name, email: data.email, temp_password: data.temp_password, email_sent: data.welcome_email_sent });
     } catch (err) {
       toast.error(formatApiError(err.response?.data?.detail) || "Reset failed");
+    }
+  }
+
+  async function savePassword(m) {
+    const pw = (pwEdit?.value || "").trim();
+    if (pw.length < 8) return toast.error("Password needs at least 8 characters");
+    try {
+      await api.put(`/managers/${m.id}/password`, { password: pw });
+      toast.success(`${m.name}'s password set ✦ they can sign in with it right away (other devices signed out)`);
+      setPwEdit(null);
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail) || "Couldn't set password");
     }
   }
 
@@ -167,6 +182,18 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
                 <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">Awaiting first login</span>
               )}
               <div className="flex items-center gap-1.5 shrink-0">
+                {pwEdit?.id === m.id ? (
+                  <div className="flex items-center gap-1">
+                    <input autoFocus type="text" value={pwEdit.value} onChange={e => setPwEdit({ id: m.id, value: e.target.value })}
+                      onKeyDown={e => { if (e.key === "Enter") savePassword(m); if (e.key === "Escape") setPwEdit(null); }}
+                      data-testid={`manager-password-set-input-${m.id}`} className="input-light text-xs py-1 px-2 w-40 font-mono" placeholder="new password (8+)" autoComplete="off" />
+                    <button type="button" data-testid={`manager-password-set-save-${m.id}`} onClick={() => savePassword(m)} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"><Check className="w-4 h-4" /></button>
+                    <button type="button" onClick={() => setPwEdit(null)} className="p-1 text-slate-400 hover:bg-slate-100 rounded"><X className="w-4 h-4" /></button>
+                  </div>
+                ) : (
+                  <button type="button" data-testid={`manager-password-set-${m.id}`} onClick={() => setPwEdit({ id: m.id, value: "" })} title="Choose the manager's password yourself"
+                    className="text-xs py-1.5 px-3 rounded-md bg-violet-50 border border-violet-200 text-violet-700 hover:bg-violet-100 inline-flex items-center gap-1"><KeyRound className="w-3.5 h-3.5" /> Set password</button>
+                )}
                 <button
                   data-testid={`reset-manager-${m.id}`}
                   onClick={() => reset(m)}
@@ -212,6 +239,10 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
               <div>
                 <label className="text-xs text-slate-500 mb-1 block">Login email *</label>
                 <input data-testid="manager-email-input" required type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className="input-light w-full" placeholder="manager@yoursalon.com" />
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1 block">Login password <span className="text-slate-400">(optional — blank = temp password emailed)</span></label>
+                <input data-testid="manager-password-input" type="text" minLength={8} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className="input-light w-full font-mono" placeholder="Min 8 characters — you choose it" autoComplete="off" />
               </div>
               {branches.length > 0 && (
                 <div>

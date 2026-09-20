@@ -661,6 +661,7 @@ async def reset_staff_login(sid: str, admin=Depends(require_admin), t=Depends(cu
 class ManagerCreateIn(BaseModel):
     name: str = Field(..., min_length=2, max_length=80)
     email: str
+    password: Optional[str] = Field(None, min_length=8, max_length=128)  # owner-chosen; blank = random temp password emailed
     role: str = "Manager"
     phone: str = ""
     branch: str = Field("", max_length=120)
@@ -692,6 +693,9 @@ async def list_managers(admin=Depends(require_tenant_admin), t=Depends(current_t
         {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(100)
     for r in rows:
         r["salon_count"] = len(set(r.get("tenant_ids") or []) | ({r["tenant_id"]} if r.get("tenant_id") else set()))
+        if not await db.staff.find_one({"user_id": r["id"]}, {"_id": 1}):  # managers must be visible in Staff of every business they cover
+            await db.staff.insert_one(Staff(name=r.get("name") or "Manager", role="Manager", phone=r.get("phone") or "", email=r["email"],
+                                            user_id=r["id"]).model_dump() | {"branch": "" if (r.get("branch") or "") == "__main__" else (r.get("branch") or "")})
     return rows
 
 
@@ -738,7 +742,7 @@ async def create_manager(body: ManagerCreateIn, admin=Depends(require_tenant_adm
     existing = await _raw_db.users.find_one({"email": body.email}, {"_id": 0, "password_hash": 0})
     if existing:
         return await _adopt_existing_login(existing, body, t, admin)
-    temp_pw = _generate_temp_password()
+    temp_pw = body.password or _generate_temp_password()
     # One manager profile for the whole group: a manager created here also covers every other
     # business on the owner's login (GPS picker chooses the place at sign-in) — no re-creating per branch.
     new_user = {
@@ -746,7 +750,7 @@ async def create_manager(body: ManagerCreateIn, admin=Depends(require_tenant_adm
         "role": "manager", "tenant_id": t["id"], "tenant_ids": sorted(_owner_tenant_ids(admin, t)),
         "status": "active", "disabled": False,
         "branch": body.branch.strip(),
-        "password_hash": hash_pw(temp_pw), "must_change_password": True,
+        "password_hash": hash_pw(temp_pw), "must_change_password": not body.password,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await _raw_db.users.insert_one(new_user)
@@ -755,7 +759,7 @@ async def create_manager(body: ManagerCreateIn, admin=Depends(require_tenant_adm
     await db.staff.insert_one(_manager_staff_doc(body, new_user["id"], new_user["name"]))
     mail = await _send_staff_welcome(new_user["name"], t.get("name"), body.email, temp_pw, "manager")
     return {"ok": True, "id": new_user["id"], "email": body.email, "name": new_user["name"],
-            "temp_password": temp_pw, "must_change_password": True,
+            "temp_password": temp_pw, "must_change_password": not body.password,
             "welcome_email_sent": mail.get("sent", False), "welcome_email_error": mail.get("error")}
 
 class ManagerBranchIn(BaseModel):
@@ -842,6 +846,24 @@ async def demote_manager(uid: str, admin=Depends(require_tenant_admin),
     return {"ok": True, "email": u["email"]}
 
 
+class ManagerPasswordIn(BaseModel):
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+@router.put("/managers/{uid}/password")
+async def set_manager_password(uid: str, body: ManagerPasswordIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Owner sets the manager's password directly (no temp password, no forced change). Other devices are signed out."""
+    u = await _raw_db.users.find_one({"id": uid, "role": "manager", "$or": [{"tenant_id": t["id"]}, {"tenant_ids": t["id"]}]}, {"_id": 0, "id": 1, "email": 1, "name": 1})
+    if not u:
+        raise HTTPException(404, "Manager not found")
+    await _raw_db.users.update_one({"id": uid}, {"$set": {"password_hash": hash_pw(body.password), "must_change_password": False,
+                                                          "disabled": False, "status": "active", "password_set_by_owner_at": datetime.now(timezone.utc).isoformat()}})
+    await _raw_db.sessions.delete_many({"user_id": uid})
+    await _raw_db.login_attempts.delete_many({"identifier": {"$regex": f"{re.escape(u['email'])}$"}})
+    await log_audit(t["id"], admin, "manager_password_set", f"Owner set a new password for manager {u['email']}")
+    return {"ok": True, "email": u["email"]}
+
+
 @router.post("/managers/{uid}/reset")
 async def reset_manager(uid: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     u = await _raw_db.users.find_one({"id": uid, "tenant_id": t["id"], "role": "manager"}, {"_id": 0, "email": 1, "name": 1})
@@ -871,7 +893,7 @@ async def delete_manager(uid: str, admin=Depends(require_tenant_admin), t=Depend
         return {"ok": True, "unlinked": True, "remaining_salons": len(others)}
     await _raw_db.users.delete_one({"id": uid})
     await _raw_db.sessions.delete_many({"user_id": uid})
-    await db.staff.delete_one({"user_id": uid})
+    await _raw_db.staff.delete_many({"user_id": uid})  # profile in every business of the group
     return {"ok": True}
 
 
