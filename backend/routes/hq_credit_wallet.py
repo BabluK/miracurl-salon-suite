@@ -463,7 +463,7 @@ async def hq_sms_templates_health(admin=Depends(require_super_admin)):
 
 
 _TEMPLATE_HINTS = {
-    "billing_v2": "Thank you ##var1##! Your receipt ##var2## for Rs ##var3## is ready. You earned ##var4## loyalty points. - ##var5##",
+    "billing_v2": "Hi ##var1##, your payment of Rs. ##var2## has been received by ##var3##. Invoice No: ##var4##. Thank you.  (DLT ID 1777178990962910600)",
 }
 
 
