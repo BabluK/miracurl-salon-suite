@@ -3,6 +3,34 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { Wallet, RefreshCw, MessageCircle, MessageSquare, IndianRupee, AlertTriangle, SearchCheck, Trash2, Stethoscope, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
+function SmsTemplatesHealth() {
+  const [res, setRes] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const run = () => { setBusy(true); api.get("/super-admin/sms-templates-health").then(r => { setRes(r.data); toast[r.data.ok ? "success" : "error"](r.data.ok ? "All SMS DLT templates verified ✓" : "Some SMS templates won't deliver — see details"); }).catch(e => toast.error(e.response?.data?.detail || "Template check failed")).finally(() => setBusy(false)); };
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3" data-testid="hq-sms-health">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="text-xs text-slate-600"><b className="text-slate-800">SMS DLT templates (MSG91)</b> — every template must be DLT-verified & active, else that SMS silently fails.</div>
+        <button onClick={run} disabled={busy} data-testid="hq-sms-health-run" className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-sky-700 text-white font-semibold hover:bg-sky-800 disabled:opacity-60">{busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageSquare className="w-3.5 h-3.5" />} Check SMS templates</button>
+      </div>
+      {res && (
+        <ul className="mt-2 space-y-1" data-testid="hq-sms-health-results">
+          {res.templates.map(t => (
+            <li key={t.kind} className="text-xs" data-testid={`sms-tpl-${t.kind}`}>
+              <div className="flex items-start gap-2">
+                {t.ok ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 text-rose-600 mt-0.5 shrink-0" />}
+                <span><b className="text-slate-800">{t.name}</b> <span className="text-slate-400">({t.kind} · {t.version || "—"})</span> — <span className={t.ok ? "text-slate-600" : "text-rose-700 font-medium"}>{t.dlt_state}{t.dlt_id ? ` · DLT ${t.dlt_id}` : ""}{t.reason ? ` · ${t.reason}` : ""}</span></span>
+              </div>
+              {!t.ok && t.fix && <p className="ml-5 mt-0.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">{t.fix}</p>}
+            </li>
+          ))}
+          <li className="text-[10px] text-slate-400 pl-5">sender {res.sender} · checked {new Date(res.checked_at).toLocaleTimeString()}</li>
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function WaHealth() {
   const [res, setRes] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -83,6 +111,7 @@ export default function CreditWalletCard() {
         </div>
       </div>
       <WaHealth />
+      <SmsTemplatesHealth />
       {w.mira_note && (
         <div className="flex items-start gap-2 rounded-xl border-2 border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-800" data-testid="hq-wallet-low-alert">
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /><span><b>Mira:</b> {w.mira_note}</span>

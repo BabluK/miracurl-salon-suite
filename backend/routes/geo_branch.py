@@ -1,13 +1,15 @@
 """GPS branch pick at login: staff/managers see only the branch they are physically at (others disabled)."""
 import math
-from datetime import datetime, timezone
+import re
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from database import _raw_db
-from security import current_tenant, get_current_user, log_audit
+from security import client_ip, current_tenant, get_current_user, log_audit, require_admin
 
 router = APIRouter()
 GEO_LOGIN_M = 100  # a branch further than this from the phone is disabled at login
@@ -59,7 +61,7 @@ async def locate_branch(body: LocateIn, user=Depends(get_current_user), t=Depend
 
 
 @router.post("/branch/pick")
-async def pick_branch(body: PickIn, user=Depends(get_current_user), t=Depends(current_tenant)):
+async def pick_branch(body: PickIn, request: Request, user=Depends(get_current_user), t=Depends(current_tenant)):
     """Record which branch this device/login works from (remembered 15 days on the device)."""
     branch = body.branch.strip()
     names = {b.get("name") for b in (t.get("branches") or [])}
@@ -73,4 +75,45 @@ async def pick_branch(body: PickIn, user=Depends(get_current_user), t=Depends(cu
     label = _main_label(t) if branch == "__main__" else (branch or "all branches")
     dist = f" · GPS verified, {int(body.distance_m)} m" if body.gps_verified and body.distance_m is not None else " · no GPS"
     await log_audit(t["id"], user, "branch_login", f"{user.get('name') or user.get('email')} signed in at {label}{dist}")
+    now = datetime.now(timezone.utc)
+    await _raw_db.branch_logins.insert_one({
+        "id": str(uuid.uuid4()), "tenant_id": t["id"], "user_id": user["id"], "name": user.get("name"), "email": user.get("email"),
+        "role": user.get("role"), "branch": branch, "branch_label": label, "gps_verified": body.gps_verified,
+        "distance_m": body.distance_m, "device": _device_label(request.headers.get("user-agent", "")),
+        "ip": client_ip(request), "at": now.isoformat(), "date": (now + timedelta(hours=5, minutes=30)).date().isoformat()})
     return {"ok": True, **pick}
+
+
+def _device_label(ua: str) -> str:
+    """'Chrome · Android' style label from the User-Agent (no fingerprinting, just a friendly hint)."""
+    os_name = next((n for pat, n in (("iPhone", "iPhone"), ("iPad", "iPad"), ("Android", "Android"), ("Windows", "Windows"),
+                                     ("Mac OS", "Mac"), ("CrOS", "ChromeOS"), ("Linux", "Linux")) if pat in ua), "Unknown device")
+    browser = next((n for pat, n in (("EdgA", "Edge"), ("Edg/", "Edge"), ("OPR/", "Opera"), ("SamsungBrowser", "Samsung Internet"),
+                                     ("CriOS", "Chrome"), ("Chrome/", "Chrome"), ("FxiOS", "Firefox"), ("Firefox/", "Firefox"),
+                                     ("Safari/", "Safari")) if pat in ua), "")
+    pwa = " app" if re.search(r"wv\)|; wv", ua) else ""
+    return f"{browser}{pwa} · {os_name}".strip(" ·")
+
+
+@router.get("/attendance/branch-logins")
+async def branch_logins(date: Optional[str] = None, admin=Depends(require_admin), t=Depends(current_tenant)):
+    """Who signed in at which branch on a given IST day (device + GPS-verified tick)."""
+    day = date or (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date().isoformat()
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
+        raise HTTPException(400, "date must be YYYY-MM-DD")
+    q: dict = {"tenant_id": t["id"], "date": day}
+    if admin.get("role") == "manager" and admin.get("branch"):
+        q["branch"] = admin["branch"]
+    rows = await _raw_db.branch_logins.find(q, {"_id": 0, "ip": 0}).sort("at", -1).to_list(500)
+    return {"date": day, "items": rows, "gps_verified": sum(1 for r in rows if r.get("gps_verified")), "total": len(rows)}
+
+
+@router.get("/branches/unpinned")
+async def unpinned_branches(admin=Depends(require_admin), t=Depends(current_tenant)):
+    """Locations without a GPS pin — the branch picker can't verify staff there."""
+    out = []
+    if t.get("latitude") is None or t.get("longitude") is None:
+        out.append({"value": "", "label": _main_label(t), "main": True})
+    out += [{"value": b["name"], "label": b["name"], "main": False}
+            for b in (t.get("branches") or []) if b.get("name") and (b.get("latitude") is None or b.get("longitude") is None)]
+    return {"items": out, "total_locations": 1 + len(t.get("branches") or [])}

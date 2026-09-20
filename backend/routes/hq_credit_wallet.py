@@ -403,3 +403,50 @@ async def hq_meta_usage(refresh: bool = False, admin=Depends(require_super_admin
     out = {"available": True, "month": now.strftime("%B %Y"), "fetched_at": now.isoformat(), "currency": "INR", **_meta_summary(pr, cv, ph)}
     _meta_cache.update(at=time.time(), data=out)
     return out
+
+
+_DLT_STATE = {"10": "DLT verified", "0": "not sent to DLT", "5": "DLT rejected", "1": "pending at DLT"}
+
+
+def _sms_template_row(kind: str, tpl_id: str, versions: list) -> dict:
+    """Pick the best version: a DLT-verified active one wins; else surface the newest and why it fails."""
+    verified = [v for v in versions if str(v.get("dlt_verified")) == "10" and str(v.get("active_status")) == "1"]
+    v = verified[0] if verified else (versions[-1] if versions else {})
+    ok = bool(verified)
+    reason = (v.get("dlt_reason") or v.get("reject_reason") or "").strip()
+    fix = ""
+    if not ok and versions:
+        if reason.lower().startswith("template id not found"):
+            fix = (f"DLT ID {v.get('DLT_ID') or '—'} is not registered/approved on your operator DLT portal (Jio TrueConnect / Vi / Airtel). "
+                   "Open the DLT portal → Templates → check 'miracurl_billing_receipt' is APPROVED and copy its exact Template ID, then on MSG91 → "
+                   "SMS → Templates → this template → 'Add version' with that DLT ID and the identical text.")
+        elif str(v.get("dlt_verified")) == "0":
+            fix = "No DLT ID attached on MSG91 — add a version with the approved DLT Template ID."
+        else:
+            fix = f"MSG91 says: {reason or 'pending DLT verification'} — wait for approval or re-submit."
+    return {"kind": kind, "template_id": tpl_id, "name": v.get("template_name") or kind, "ok": ok,
+            "version": v.get("version"), "dlt_id": v.get("DLT_ID") or "", "dlt_state": _DLT_STATE.get(str(v.get("dlt_verified")), str(v.get("dlt_verified"))),
+            "active": str(v.get("active_status")) == "1", "reason": reason, "fix": fix, "text": v.get("template_data", "")}
+
+
+@router.get("/super-admin/sms-templates-health")
+async def hq_sms_templates_health(admin=Depends(require_super_admin)):
+    """Every MSG91 DLT template used by the platform: verified & active, or the exact reason it won't deliver."""
+    import httpx
+    from sms_service import MSG91_TEMPLATES, msg91_template_id
+    key = os.environ.get("MSG91_AUTHKEY", "")
+    if not key:
+        raise HTTPException(400, "MSG91_AUTHKEY missing in this environment")
+    rows = []
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        for kind in MSG91_TEMPLATES:
+            tpl_id = msg91_template_id(kind)
+            try:
+                r = await client.get("https://control.msg91.com/api/v5/sms/getTemplateVersions",
+                                     params={"template_id": tpl_id}, headers={"authkey": key})
+                data = r.json().get("data") or []
+                rows.append(_sms_template_row(kind, tpl_id, data if isinstance(data, list) else []))
+            except Exception as e:  # noqa: BLE001 — one bad template must not hide the others
+                rows.append({"kind": kind, "template_id": tpl_id, "name": kind, "ok": False, "reason": str(e), "fix": "MSG91 API unreachable — retry", "dlt_state": "?"})
+    return {"ok": all(r["ok"] for r in rows), "sender": os.environ.get("MSG91_SENDER_ID", ""), "templates": rows,
+            "checked_at": datetime.now(timezone.utc).isoformat()}

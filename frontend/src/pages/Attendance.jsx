@@ -6,6 +6,7 @@ import { OvertimeApprovals } from "@/components/attendance/OvertimeApprovals";
 import { ConfirmDialog, askConfirm } from "@/components/ConfirmDialog";
 import { getSelectedBranch, mainSalonLabel } from "@/lib/branch";
 import { toast } from "sonner";
+import { BranchLoginsCard } from "@/components/BranchLoginsCard";
 import {
   Clock, CheckCircle2, CircleAlert, UserCheck, Calendar, ArrowLeft, MapPin, QrCode, Download, Mail,
 } from "lucide-react";
@@ -206,6 +207,8 @@ export default function Attendance() {
       </div>
 
       <GeoFenceCard />
+
+      <BranchLoginsCard date={date} />
 
       <LeaveManager roster={data?.roster || []} onChanged={load} />
 
