@@ -1,141 +1,99 @@
 {
-  "project_name": "Miracurl Suite Salon Management System SaaS",
-  "archetype": "LUXURY & PERFORMANCE PRO (Deep Obsidian + Warm Cream & Gold Accents)",
-  "design_vision": "A ultra-polished, high-density luxury admin dashboard portal for salon owners in India. Blends deep dark sidebar navigation (#0D0D0D) with metallic gold (#D4AF37) active indicators and crisp high-contrast cards (.card-light) on an animated warm mesh canvas (.app-canvas). Features Mira AI voice & intelligence, day/week appointment calendar, staff management, loyalty CRM, inventory, POS billing, AI flyer generator, and reports.",
-  "target_audience": "Salon owners, branch managers, front-desk receptionists, and senior stylists in premium unisex salons across India.",
-  "theme_rules": {
-    "default_theme": "dark_sidebar_light_canvas",
-    "sidebar_background": "#0D0D0D",
-    "sidebar_active_accent": "#D4AF37",
-    "canvas_background": "#F8FAFC with warm gold/rose mesh drift (.app-canvas)",
-    "card_background": "#FFFFFF (.card-light) with #E2E8F0 subtle border and 0 1px 3px rgba(15,23,42,0.05) ambient shadow",
-    "primary_cta_gradient": "linear-gradient(135deg, #0EA5E9, #3B82F6) (.btn-blue) or #D4AF37 (.btn-gold)",
-    "ai_assistant_accent": "Rose-Gold (#EC4899 to #D4AF37)"
+  "project_name": "Miracurl Suite - GeoBranchGate Redesign",
+  "theme": "Dark Luxury Salon with Warm Gold Accents",
+  "component_path": "/app/frontend/src/components/GeoBranchGate.jsx",
+  "colors": {
+    "background": "#0b0a0c",
+    "gold_primary": "#e8c97a",
+    "gold_deep": "#d4af37",
+    "cream_light": "#fff4d6",
+    "cream_gold_gradient": "linear-gradient(135deg, #fff4d6 0%, #f3d98a 100%)",
+    "dark_glass_bg": "rgba(11, 10, 12, 0.65)",
+    "dark_glass_border": "rgba(255, 255, 255, 0.15)",
+    "text_dark": "#1a160d",
+    "text_gold": "#e8c97a",
+    "text_muted_gold": "#c5a454"
   },
   "typography": {
-    "headings": {
-      "font_family": "Playfair Display, serif",
-      "class": "font-playfair",
-      "h1_hero": "text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-slate-900",
-      "h2_section": "text-xl sm:text-2xl font-semibold text-slate-800 tracking-tight",
-      "h3_card": "text-lg font-medium text-slate-900"
-    },
-    "body": {
-      "font_family": "Outfit, sans-serif",
-      "class": "font-outfit",
-      "base": "text-sm text-slate-600 leading-relaxed",
-      "small_muted": "text-xs text-slate-400 font-medium"
-    },
-    "mono": {
-      "font_family": "JetBrains Mono, monospace",
-      "class": "font-mono",
-      "use_case": "Financial figures, invoice IDs, currency values (₹), timestamps"
-    }
+    "heading_font": "Playfair Display, serif",
+    "body_font": "Outfit, sans-serif",
+    "script_font": "Caveat, cursive",
+    "main_heading": "font-playfair text-4xl sm:text-5xl lg:text-6xl text-white font-normal leading-[1.08]",
+    "subheading": "font-outfit text-base sm:text-lg text-white/80 font-normal tracking-wide",
+    "card_title_selected": "font-playfair text-2xl sm:text-3xl text-[#1a160d] font-semibold leading-tight",
+    "card_title_dark": "font-playfair text-2xl sm:text-3xl text-white font-semibold leading-tight",
+    "script_accent": "font-caveat text-xl sm:text-2xl text-[#e8c97a]/90 select-none pointer-events-none"
   },
-  "color_system": {
-    "sidebar": {
-      "bg": "#0D0D0D",
-      "border_right": "1px solid rgba(255,255,255,0.08)",
-      "text_idle": "rgba(255,255,255,0.6)",
-      "text_hover": "#FFFFFF",
-      "active_bg": "rgba(212,175,55,0.12)",
-      "active_border": "#D4AF37",
-      "active_text": "#D4AF37"
+  "cards_design_recipe": {
+    "card_radius": "rounded-[26px]",
+    "thumbnail": {
+      "dimensions": "w-36 h-28 sm:w-44 sm:h-32 object-cover rounded-[18px] shrink-0",
+      "badge_gold": "absolute top-2 right-2 bg-[#e8c97a] text-[#1a160d] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1",
+      "badge_dark": "absolute top-2 right-2 bg-black/75 text-white/90 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border border-white/20 flex items-center gap-1"
     },
-    "surface": {
-      "card_light": "#FFFFFF",
-      "card_border": "#E2E8F0",
-      "table_header_bg": "#F8FAFC",
-      "input_bg": "#F8FAFC",
-      "input_focus_border": "#38BDF8"
-    },
-    "accents": {
-      "gold": "#D4AF37",
-      "gold_hover": "#F0C847",
-      "rose_mira": "#EC4899",
-      "blue_primary": "#3B82F6",
-      "emerald_success": "#10B981",
-      "amber_warning": "#F59E0B",
-      "rose_danger": "#EF4444"
-    }
+    "selected_available_card": "relative w-full text-left rounded-[26px] border-2 border-[#e8c97a] bg-gradient-to-br from-[#fff4d6] to-[#f3d98a] p-3.5 sm:p-5 flex items-center gap-4 sm:gap-6 shadow-[0_0_25px_rgba(232,201,122,0.4),0_15px_40px_rgba(0,0,0,0.5)] transition-all duration-300 hover:-translate-y-1",
+    "dark_card": "relative w-full text-left rounded-[26px] border border-white/20 bg-black/60 backdrop-blur-xl p-3.5 sm:p-5 flex items-center gap-4 sm:gap-6 transition-all duration-300 hover:border-[#e8c97a]/70 hover:bg-black/75 hover:-translate-y-1 shadow-[0_10px_30px_rgba(0,0,0,0.4)]",
+    "disabled_card": "relative w-full text-left rounded-[26px] border border-white/10 bg-black/40 backdrop-blur-md p-3.5 sm:p-5 flex items-center gap-4 sm:gap-6 opacity-45 cursor-not-allowed filter grayscale",
+    "icon_ring_selected": "w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shrink-0 border-2 border-[#d4af37] bg-[#1a160d] text-[#e8c97a]",
+    "icon_ring_dark": "w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shrink-0 border border-[#e8c97a]/50 bg-[#e8c97a]/10 text-[#e8c97a]",
+    "service_chips_selected": "bg-black/10 border border-black/15 text-[#2c2211] text-xs font-medium px-2.5 py-0.5 rounded-full",
+    "service_chips_dark": "bg-white/10 border border-white/15 text-white/85 text-xs font-medium px-2.5 py-0.5 rounded-full",
+    "chevron_button_selected": "w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#1a160d] text-[#e8c97a] border border-[#d4af37] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform",
+    "chevron_button_dark": "w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/5 border border-white/30 text-white flex items-center justify-center shrink-0 group-hover:bg-[#e8c97a] group-hover:border-[#e8c97a] group-hover:text-black transition-colors"
   },
-  "spacing_and_layout": {
-    "sidebar_width": "w-64 (256px)",
-    "top_nav_height": "h-16 (64px)",
-    "page_padding": "p-4 sm:p-6 lg:p-8 space-y-6",
-    "grid_bento": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6",
-    "table_padding": "px-4 py-3 text-xs sm:text-sm"
-  },
-  "component_guidelines": {
-    "sidebar": {
-      "treatment": "Fixed dark nav with tenant logo glow (.tenant-logo-glow), animated gold wordmark (.tenant-name-shimmer), active item gold left border + gold pill bg, compact 13+ tab list with tooltips and badge counters."
-    },
-    "cards": {
-      "treatment": "Use .card-light class with rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200. Internal padding minimum p-5 to p-6."
-    },
-    "tables": {
-      "treatment": "Use .luxe-table-light with upper-case track-wider headers (#F8FAFC bg), soft borders (#F1F5F9), inline status badges (pill-shaped with dot), and hover state #F8FAFC."
-    },
-    "buttons": {
-      "primary": ".btn-blue or .btn-gold with rounded-lg font-semibold shadow-sm hover:brightness-105 active:scale-95 transition-all",
-      "secondary": ".btn-slate with white bg, slate-200 border, hover bg slate-50",
-      "icon_action": "p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-    },
-    "inputs": {
-      "treatment": ".input-light with background #F8FAFC, border #E2E8F0, rounded-lg, focus:border-sky-400 focus:ring-2 focus:ring-sky-100. Always ensure proper pl-10 padding for icon-prefixed inputs."
-    },
-    "badges": {
-      "treatment": "Pill shaped px-2.5 py-1 text-xs font-semibold rounded-full. Green for Confirmed/Paid, Amber for Pending/Awaiting, Blue for In Progress, Red for Cancelled/Low Stock."
-    }
-  },
-  "screen_polish_passes": {
-    "dashboard": "Daily Briefing banner with Mira AI voice waveform button, 4 key KPI stat tiles (Revenue, Bookings, Clients, Avg Bill), Low stock alert banner with quick reorder button, Live SMS credits pill.",
-    "appointments": "Day/Week/Upcoming calendar toggles, quick booking drawer, status-colored appointment cards with client photo avatar & stylist assigned.",
-    "crm": "Customer roster table with loyalty points tier badges (Gold/Platinum), last visit timestamp, total spend (₹), and quick WhatsApp/SMS action buttons.",
-    "staff": "Grid of stylist cards showing profile photo, specialization tag, monthly sales vs target progress bar, and schedule status indicator.",
-    "staff_registry": "Attendance and payroll ledger table with salary breakdown, commission % calculation, and shift status.",
-    "attendance": "Weekly roster matrix with check-in/check-out timestamps, leave balance cards, and quick approval modal.",
-    "services": "Categorized service menu cards (Hair, Skin, Nails, Spa) with duration, price (₹), stylist tags, and quick edit switches.",
-    "inventory": "Stock level monitoring table with safety threshold badges, batch expiry dates, brand filters, and reorder invoice creator.",
-    "pos_billing": "Split view invoice builder: Left side fast product/service search, right side cart calculation with GST (18%), discounts, payment mode selector (UPI, Card, Cash), and thermal receipt printing preview.",
-    "reviews": "Client review feed with 5-star rating breakdowns, sentiment tag (Positive/Constructive), and AI auto-response generator.",
-    "offers_and_plans": "Active promo campaign cards, loyalty plan tier manager, and AI flyer generator (.sparkle-twinkle) with downloadable marketing posters.",
-    "reports": "Interactive Recharts revenue trends, service breakdown pie chart, top performing stylists leaderboard, and CSV export buttons.",
-    "ai_assistant": "Mira AI chat console with interactive prompt suggestion chips, real-time voice synthesis button, and salon analytics query helper."
-  },
-  "general_ui_ux_guidelines": {
-    "data_testid_rule": "ALL interactive buttons, inputs, links, tabs, and key status badges MUST include data-testid='kebab-case-name' attribute for automated test reliability.",
-    "accessibility_contrast": "All text must maintain > 4.5:1 contrast against background surfaces. Header dropdowns and overlay modals must NOT have transparent backgrounds.",
-    "micro_interactions": "Add .mi-press active scale feedback on buttons, hover lift on cards, and gentle pulse on AI floating orb.",
-    "currency_format": "Format all monetary values as ₹ (INR) using Indian numbering system (e.g. ₹1,25,000)."
-  },
-  "image_urls": {
-    "salon_interiors": [
+  "layout_and_background": {
+    "background_layers": "Full-screen dark blurred luxury salon background with dark radial vignette and warm gold lighting overlay",
+    "monogram_lockup": "Centered gold MS monogram mark with 'MIRACURL — AI SALON SUITE —' lockup, followed by 'MANAGE · AUTOMATE · GROW' with tracking-[0.42em]",
+    "script_accents_positioned": [
       {
-        "url": "https://images.unsplash.com/photo-1758188753373-5b01a0fc6d9d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHwyfHxsdXh1cnklMjBoYWlyJTIwc2Fsb24lMjBpbnRlcmlvciUyMHNwYXxlbnwwfHx8fDE3ODY1NDQ2NjN8MA&ixlib=rb-4.1.0&q=85",
-        "category": "dashboard_hero",
-        "description": "Luxury salon display shelves and ambiance"
-      }
-    ],
-    "salon_products": [
-      {
-        "url": "https://images.unsplash.com/photo-1760895535234-2c39c57cf187?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBoYWlyJTIwc2Fsb24lMjBpbnRlcmlvciUyMHNwYXxlbnwwfHx8fDE3ODY1NDQ2NjN8MA&ixlib=rb-4.1.0&q=85",
-        "category": "inventory",
-        "description": "Premium shampoo and conditioner bottles for inventory showcases"
-      }
-    ],
-    "staff_stylists": [
-      {
-        "url": "https://images.pexels.com/photos/3993455/pexels-photo-3993455.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-        "category": "staff_profile",
-        "description": "Female senior hair stylist with scissors in modern salon"
+        "text": "Beautiful Salons Brighter Businesses ♡",
+        "position": "hidden lg:block absolute left-[4%] top-[24%] font-caveat text-2xl text-[#e8c97a]/85 -rotate-6"
       },
       {
-        "url": "https://images.pexels.com/photos/26759527/pexels-photo-26759527.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-        "category": "staff_profile",
-        "description": "Stylist organizing professional haircare tools"
+        "text": "Empowering Salon Owners Worldwide ♡",
+        "position": "hidden lg:block absolute right-[4%] top-[8%] font-caveat text-2xl text-[#e8c97a]/85 rotate-6 text-right"
+      },
+      {
+        "text": "Salon Smarter Everyday ♡",
+        "position": "hidden lg:block absolute right-[5%] bottom-[8%] font-caveat text-3xl text-[#e8c97a]/90 -rotate-6 text-right"
       }
-    ]
+    ],
+    "card_script_accent": "font-caveat text-lg sm:text-xl text-[#d4af37] hidden md:block shrink-0 ml-auto mr-2",
+    "status_row": "mt-8 w-full max-w-3xl flex items-center gap-3 text-white/85 text-sm sm:text-base px-3 bg-black/40 border border-white/10 backdrop-blur-lg rounded-2xl py-3.5 px-5 shadow-lg",
+    "footer_rule": "mt-10 flex items-center gap-4 text-white/85 text-[11px] sm:text-xs tracking-[0.38em] font-semibold"
   },
-  "instructions_to_main_agent": "Use this JSON spec to apply global CSS utility enhancements in index.css and refine all admin tabs with consistent high-contrast styling, data-testid attributes, smooth micro-interactions, clear hierarchy, and luxury Indian salon aesthetics."
+  "image_urls": [
+    {
+      "category": "background",
+      "url": "https://images.unsplash.com/photo-1633681926022-84c23e8cb2d6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzl8MHwxfHNlYXJjaHwyfHxsdXh1cnklMjBoYWlyJTIwc2Fsb24lMjBpbnRlcmlvciUyMGdvbGQlMjBsaWdodGluZ3xlbnwwfHx8fDE3ODk5MTk0MzR8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Luxury hair salon with round mirrors, warm lighting, dark ambience"
+    },
+    {
+      "category": "thumb_main",
+      "url": "https://images.unsplash.com/photo-1600948836101-f9ffda59d250?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzl8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBoYWlyJTIwc2Fsb24lMjBpbnRlcmlvciUyMGdvbGQlMjBsaWdodGluZ3xlbnwwfHx8fDE3ODk5MTk0MzR8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Main salon interior with circular mirrors"
+    },
+    {
+      "category": "thumb_branch",
+      "url": "https://images.pexels.com/photos/31323301/pexels-photo-31323301.png?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Branch salon interior with gold and green decor"
+    }
+  ],
+  "required_data_testids": [
+    "geo-branch-gate",
+    "geo-branch-options",
+    "geo-branch-option-main",
+    "geo-branch-denied",
+    "geo-branch-none-within",
+    "geo-branch-status",
+    "geo-branch-locating",
+    "geo-branch-retry"
+  ],
+  "instructions_to_main_agent": "Redesign GeoBranchGate.jsx to match the user choices and mockup description EXACTLY. Ensure the selected card has the cream-to-gold gradient fill, dark text, gold border glow, service chips, thumbnail with badge pill, and handwritten script accent. Ensure the dark card has glassmorphic styling and correct chips/accent. Ensure all data-testids, geolocation logic, and picking behavior are fully preserved.",
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": {
+    "data_testid_requirement": "All interactive elements and status indicators MUST maintain exact data-testids.",
+    "typography": "Use Playfair Display for headers, Outfit for body text, and Caveat for handwritten script accents.",
+    "color_palette": "Strictly stick to black #0b0a0c, gold #e8c97a / #d4af37, cream #fff4d6.",
+    "responsive": "On screens smaller than 640px, stack elements nicely and ensure thumbnails shrink or adapt gracefully while keeping cards luxurious."
+  }
 }
