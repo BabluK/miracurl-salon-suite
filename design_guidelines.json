@@ -1,99 +1,73 @@
 {
-  "project_name": "Miracurl Suite - GeoBranchGate Redesign",
-  "theme": "Dark Luxury Salon with Warm Gold Accents",
+  "project_name": "Miracurl Suite - GeoBranchGate Popup Polish",
   "component_path": "/app/frontend/src/components/GeoBranchGate.jsx",
   "colors": {
-    "background": "#0b0a0c",
+    "black_base": "#0b0a0c",
     "gold_primary": "#e8c97a",
-    "gold_deep": "#d4af37",
-    "cream_light": "#fff4d6",
-    "cream_gold_gradient": "linear-gradient(135deg, #fff4d6 0%, #f3d98a 100%)",
-    "dark_glass_bg": "rgba(11, 10, 12, 0.65)",
-    "dark_glass_border": "rgba(255, 255, 255, 0.15)",
-    "text_dark": "#1a160d",
-    "text_gold": "#e8c97a",
-    "text_muted_gold": "#c5a454"
+    "gold_accent": "#d4af37",
+    "gold_glow_rgba": "rgba(232, 201, 122, 0.6)",
+    "cream_gradient_start": "#fff4d6",
+    "cream_gradient_end": "#f3d98a",
+    "dark_card_glass": "rgba(0, 0, 0, 0.6)",
+    "overlay_dark": "rgba(0, 0, 0, 0.8)"
   },
   "typography": {
     "heading_font": "Playfair Display, serif",
     "body_font": "Outfit, sans-serif",
-    "script_font": "Caveat, cursive",
-    "main_heading": "font-playfair text-4xl sm:text-5xl lg:text-6xl text-white font-normal leading-[1.08]",
-    "subheading": "font-outfit text-base sm:text-lg text-white/80 font-normal tracking-wide",
-    "card_title_selected": "font-playfair text-2xl sm:text-3xl text-[#1a160d] font-semibold leading-tight",
-    "card_title_dark": "font-playfair text-2xl sm:text-3xl text-white font-semibold leading-tight",
-    "script_accent": "font-caveat text-xl sm:text-2xl text-[#e8c97a]/90 select-none pointer-events-none"
+    "script_accent_font": "Caveat, cursive"
   },
-  "cards_design_recipe": {
-    "card_radius": "rounded-[26px]",
-    "thumbnail": {
-      "dimensions": "w-36 h-28 sm:w-44 sm:h-32 object-cover rounded-[18px] shrink-0",
-      "badge_gold": "absolute top-2 right-2 bg-[#e8c97a] text-[#1a160d] text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1",
-      "badge_dark": "absolute top-2 right-2 bg-black/75 text-white/90 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border border-white/20 flex items-center gap-1"
-    },
-    "selected_available_card": "relative w-full text-left rounded-[26px] border-2 border-[#e8c97a] bg-gradient-to-br from-[#fff4d6] to-[#f3d98a] p-3.5 sm:p-5 flex items-center gap-4 sm:gap-6 shadow-[0_0_25px_rgba(232,201,122,0.4),0_15px_40px_rgba(0,0,0,0.5)] transition-all duration-300 hover:-translate-y-1",
-    "dark_card": "relative w-full text-left rounded-[26px] border border-white/20 bg-black/60 backdrop-blur-xl p-3.5 sm:p-5 flex items-center gap-4 sm:gap-6 transition-all duration-300 hover:border-[#e8c97a]/70 hover:bg-black/75 hover:-translate-y-1 shadow-[0_10px_30px_rgba(0,0,0,0.4)]",
-    "disabled_card": "relative w-full text-left rounded-[26px] border border-white/10 bg-black/40 backdrop-blur-md p-3.5 sm:p-5 flex items-center gap-4 sm:gap-6 opacity-45 cursor-not-allowed filter grayscale",
-    "icon_ring_selected": "w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shrink-0 border-2 border-[#d4af37] bg-[#1a160d] text-[#e8c97a]",
-    "icon_ring_dark": "w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shrink-0 border border-[#e8c97a]/50 bg-[#e8c97a]/10 text-[#e8c97a]",
-    "service_chips_selected": "bg-black/10 border border-black/15 text-[#2c2211] text-xs font-medium px-2.5 py-0.5 rounded-full",
-    "service_chips_dark": "bg-white/10 border border-white/15 text-white/85 text-xs font-medium px-2.5 py-0.5 rounded-full",
-    "chevron_button_selected": "w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#1a160d] text-[#e8c97a] border border-[#d4af37] flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform",
-    "chevron_button_dark": "w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/5 border border-white/30 text-white flex items-center justify-center shrink-0 group-hover:bg-[#e8c97a] group-hover:border-[#e8c97a] group-hover:text-black transition-colors"
+  "logo_sparkle_recipe": {
+    "description": "CSS keyframes and Tailwind/inline styling recipe for the gold MS 'MIRACURL — AI SALON SUITE' logo lockup sparkle animation.",
+    "css_keyframes": "@keyframes logoShimmerSweep { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }\n@keyframes sparkleFloat1 { 0%, 100% { transform: translate(0, 0) scale(0.6); opacity: 0.2; } 50% { transform: translate(-6px, -10px) scale(1.1); opacity: 1; } }\n@keyframes sparkleFloat2 { 0%, 100% { transform: translate(0, 0) scale(0.5); opacity: 0.3; } 50% { transform: translate(8px, -12px) scale(1.2); opacity: 0.9; } }\n@keyframes sparkleFloat3 { 0%, 100% { transform: translate(0, 0) scale(0.7); opacity: 0.1; } 50% { transform: translate(4px, -8px) scale(1); opacity: 0.95; } }\n@media (prefers-reduced-motion: reduce) { .logo-sparkle-anim, .sparkle-particle { animation: none !important; } }",
+    "jsx_wrapper_recipe": "<div className=\"relative inline-block overflow-hidden py-1 px-3 group\">\n  <img src=\"/assets/brand/gold-lockup-transparent.png\" alt=\"MIRACURL — AI SALON SUITE\" className=\"h-14 sm:h-16 w-auto relative z-10 drop-shadow-[0_6px_24px_rgba(212,175,55,0.4)]\" />\n  <div className=\"absolute inset-0 z-20 pointer-events-none mix-blend-overlay bg-gradient-to-r from-transparent via-[#fff4d6]/80 to-transparent bg-[length:200%_100%] animate-[logoShimmerSweep_4s_infinite_linear] logo-sparkle-anim\" />\n  <span className=\"sparkle-particle absolute top-1 left-2 text-[#e8c97a] text-xs pointer-events-none animate-[sparkleFloat1_2.5s_infinite_ease-in-out]\">✦</span>\n  <span className=\"sparkle-particle absolute top-2 right-4 text-[#fff4d6] text-sm pointer-events-none animate-[sparkleFloat2_3.2s_infinite_ease-in-out_0.5s]\">✨</span>\n  <span className=\"sparkle-particle absolute bottom-2 left-1/3 text-[#d4af37] text-xs pointer-events-none animate-[sparkleFloat3_2.8s_infinite_ease-in-out_1s]\">✦</span>\n</div>"
   },
-  "layout_and_background": {
-    "background_layers": "Full-screen dark blurred luxury salon background with dark radial vignette and warm gold lighting overlay",
-    "monogram_lockup": "Centered gold MS monogram mark with 'MIRACURL — AI SALON SUITE —' lockup, followed by 'MANAGE · AUTOMATE · GROW' with tracking-[0.42em]",
-    "script_accents_positioned": [
-      {
-        "text": "Beautiful Salons Brighter Businesses ♡",
-        "position": "hidden lg:block absolute left-[4%] top-[24%] font-caveat text-2xl text-[#e8c97a]/85 -rotate-6"
-      },
-      {
-        "text": "Empowering Salon Owners Worldwide ♡",
-        "position": "hidden lg:block absolute right-[4%] top-[8%] font-caveat text-2xl text-[#e8c97a]/85 rotate-6 text-right"
-      },
-      {
-        "text": "Salon Smarter Everyday ♡",
-        "position": "hidden lg:block absolute right-[5%] bottom-[8%] font-caveat text-3xl text-[#e8c97a]/90 -rotate-6 text-right"
-      }
-    ],
-    "card_script_accent": "font-caveat text-lg sm:text-xl text-[#d4af37] hidden md:block shrink-0 ml-auto mr-2",
-    "status_row": "mt-8 w-full max-w-3xl flex items-center gap-3 text-white/85 text-sm sm:text-base px-3 bg-black/40 border border-white/10 backdrop-blur-lg rounded-2xl py-3.5 px-5 shadow-lg",
-    "footer_rule": "mt-10 flex items-center gap-4 text-white/85 text-[11px] sm:text-xs tracking-[0.38em] font-semibold"
+  "card_and_popup_corrections": {
+    "selected_card": {
+      "bg_and_border": "bg-gradient-to-br from-[#fff4d6] to-[#f3d98a] border-2 border-[#e8c97a] shadow-[0_0_25px_rgba(232,201,122,0.6),0_15px_40px_rgba(0,0,0,0.5)]",
+      "text_color": "text-[#1a160d]",
+      "subtext_color": "text-[#3a2f18]",
+      "badge": "bg-[#e8c97a] text-[#1a160d] font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full shadow-sm",
+      "icon_disc": "w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-[#d4af37] bg-[#1a160d] text-[#e8c97a]",
+      "service_chips": "bg-black/10 border border-black/15 text-[#2c2211] text-xs font-medium px-2.5 py-0.5 rounded-full",
+      "chevron_button": "bg-[#1a160d] text-[#e8c97a] border border-[#d4af37] shadow-md group-hover:scale-105 rounded-full w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center"
+    },
+    "other_card": {
+      "bg_and_border": "bg-black/60 backdrop-blur-xl border border-white/20 hover:border-[#e8c97a]/70 hover:bg-black/75 shadow-[0_10px_30px_rgba(0,0,0,0.45)]",
+      "text_color": "text-white",
+      "subtext_color": "text-white/75",
+      "badge": "bg-black/75 text-white/90 border border-white/20 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full",
+      "icon_disc": "w-12 h-12 sm:w-14 sm:h-14 rounded-full border border-[#e8c97a]/50 bg-[#e8c97a]/10 text-[#e8c97a]",
+      "service_chips": "bg-white/10 border border-white/15 text-white/85 text-xs font-medium px-2.5 py-0.5 rounded-full",
+      "chevron_button": "bg-white/5 border border-white/30 text-white group-hover:bg-[#e8c97a] group-hover:border-[#e8c97a] group-hover:text-black rounded-full w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center"
+    },
+    "handwritten_accents": "font-caveat text-lg hidden lg:block absolute -rotate-6 select-none pointer-events-none text-[#e8c97a]",
+    "status_row": "bg-black/40 border border-white/10 backdrop-blur-lg rounded-2xl py-3.5 px-5 shadow-lg text-white/85 text-sm sm:text-base flex items-center gap-3",
+    "footer_rule": "flex items-center gap-4 text-white/85 text-[10px] sm:text-xs tracking-[0.38em] font-semibold whitespace-nowrap <span className=\"h-px w-16 sm:w-28 bg-white/50\" />"
   },
-  "image_urls": [
-    {
-      "category": "background",
-      "url": "https://images.unsplash.com/photo-1633681926022-84c23e8cb2d6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzl8MHwxfHNlYXJjaHwyfHxsdXh1cnklMjBoYWlyJTIwc2Fsb24lMjBpbnRlcmlvciUyMGdvbGQlMjBsaWdodGluZ3xlbnwwfHx8fDE3ODk5MTk0MzR8MA&ixlib=rb-4.1.0&q=85",
-      "description": "Luxury hair salon with round mirrors, warm lighting, dark ambience"
-    },
-    {
-      "category": "thumb_main",
-      "url": "https://images.unsplash.com/photo-1600948836101-f9ffda59d250?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzl8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBoYWlyJTIwc2Fsb24lMjBpbnRlcmlvciUyMGdvbGQlMjBsaWdodGluZ3xlbnwwfHx8fDE3ODk5MTk0MzR8MA&ixlib=rb-4.1.0&q=85",
-      "description": "Main salon interior with circular mirrors"
-    },
-    {
-      "category": "thumb_branch",
-      "url": "https://images.pexels.com/photos/31323301/pexels-photo-31323301.png?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-      "description": "Branch salon interior with gold and green decor"
-    }
+  "popup_sizing_and_layout": {
+    "backdrop": "fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md overflow-hidden",
+    "modal_container": "relative w-full max-w-4xl max-h-[94vh] overflow-y-auto rounded-[32px] border border-[#e8c97a]/30 shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9),0_0_60px_-10px_rgba(232,201,122,0.25)] bg-[#0b0a0c]",
+    "background_image_layer": "absolute inset-0 bg-cover bg-center style={{ backgroundImage: 'url(/assets/branch-gate/bg.jpg)' }}",
+    "background_dark_layer": "absolute inset-0 bg-black/55 backdrop-blur-[2px]",
+    "radial_gradient_layer": "absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.1),rgba(0,0,0,0.8)_90%)]",
+    "edge_to_edge_fulfillment": "Ensure absolute background image covers 100% of rounded popup container without white/unfilled padding."
+  },
+  "image_urls": {
+    "background": "/assets/branch-gate/bg.jpg",
+    "thumb_main": "/assets/branch-gate/thumb-main.jpg",
+    "thumb_branch": "/assets/branch-gate/thumb-branch.jpg",
+    "gold_lockup": "/assets/brand/gold-lockup-transparent.png"
+  },
+  "instructions_to_main_agent": [
+    "Verify logo sparkle CSS keyframes are applied cleanly on the gold lockup container in GeoBranchGate.jsx.",
+    "Ensure dark locked backdrop prevents body scrolling when popup is active (useEffect setting body overflow to hidden).",
+    "Keep 'Sign out' button accessible at top-right of popup modal (data-testid='geo-branch-logout').",
+    "Maintain exact data-testid attributes for tests: 'geo-branch-gate', 'geo-branch-modal', 'geo-branch-options', 'geo-branch-logout', 'geo-branch-status', 'geo-branch-retry'.",
+    "Verify font-playfair, font-outfit, and font-caveat are loaded and utilized appropriately for headings, body, and handwritten accents."
   ],
-  "required_data_testids": [
-    "geo-branch-gate",
-    "geo-branch-options",
-    "geo-branch-option-main",
-    "geo-branch-denied",
-    "geo-branch-none-within",
-    "geo-branch-status",
-    "geo-branch-locating",
-    "geo-branch-retry"
-  ],
-  "instructions_to_main_agent": "Redesign GeoBranchGate.jsx to match the user choices and mockup description EXACTLY. Ensure the selected card has the cream-to-gold gradient fill, dark text, gold border glow, service chips, thumbnail with badge pill, and handwritten script accent. Ensure the dark card has glassmorphic styling and correct chips/accent. Ensure all data-testids, geolocation logic, and picking behavior are fully preserved.",
-  "UNIVERSAL GUIDELINES FOR MAIN AGENT": {
-    "data_testid_requirement": "All interactive elements and status indicators MUST maintain exact data-testids.",
-    "typography": "Use Playfair Display for headers, Outfit for body text, and Caveat for handwritten script accents.",
-    "color_palette": "Strictly stick to black #0b0a0c, gold #e8c97a / #d4af37, cream #fff4d6.",
-    "responsive": "On screens smaller than 640px, stack elements nicely and ensure thumbnails shrink or adapt gracefully while keeping cards luxurious."
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": {
+    "data_testid_requirement": "All interactive buttons and cards MUST have data-testid attributes.",
+    "contrast_and_legibility": "Selected card text must be high contrast dark (#1a160d) over gold gradient background; unselected cards must use crisp white text with backdrop-blur dark glass.",
+    "prefers_reduced_motion": "Wrap CSS sparkle animations with @media (prefers-reduced-motion: reduce) to turn off looping keyframes if user prefers reduced motion."
   }
 }

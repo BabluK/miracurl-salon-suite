@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
-import { Check, Loader2, Pencil, Users, X, Trash2, ArrowLeftRight } from "lucide-react";
+import { Check, Loader2, Pencil, Users, X, Trash2, ArrowLeftRight, KeyRound, Unlock } from "lucide-react";
 import { confirmAsync } from "@/components/ConfirmDialog";
 
 const ROLE_STYLE = {
@@ -28,6 +28,27 @@ function LoginRow({ u, onRenamed }) {
     } catch (err) {
       toast.error(formatApiError(err.response?.data?.detail) || "Couldn't change email");
     } finally { setBusy(false); }
+  }
+
+  const [pw, setPw] = useState(null); // string while editing
+  async function savePw() {
+    if ((pw || "").trim().length < 8) return toast.error("Password needs at least 8 characters");
+    setBusy(true);
+    try {
+      await api.put(`/super-admin/users/${u.id}/password`, { password: pw.trim() });
+      toast.success(`Password set for ${u.email} ✦ lockouts cleared, other devices signed out`);
+      setPw(null);
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail) || "Couldn't set password");
+    } finally { setBusy(false); }
+  }
+  async function unlock() {
+    try {
+      const { data } = await api.post(`/super-admin/users/${u.id}/unlock`);
+      toast.success(data.cleared ? `Unlocked ${u.email} ✦` : `${u.email} wasn't locked`);
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail) || "Couldn't unlock");
+    }
   }
 
   async function toggleRole() {
@@ -72,6 +93,22 @@ function LoginRow({ u, onRenamed }) {
         </>
       ) : (
         <>
+          {pw !== null ? (
+            <span className="flex items-center gap-1">
+              <input autoFocus type="text" value={pw} onChange={e => setPw(e.target.value)} onKeyDown={e => { if (e.key === "Enter") savePw(); if (e.key === "Escape") setPw(null); }}
+                data-testid={`tenant-login-password-input-${u.id}`} placeholder="new password (8+)" autoComplete="off"
+                className="w-40 border border-slate-300 rounded-md px-2 py-1 text-[11px] font-mono bg-white text-slate-800" />
+              <button type="button" onClick={savePw} disabled={busy} data-testid={`tenant-login-password-save-${u.id}`} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded"><Check className="w-3.5 h-3.5" /></button>
+              <button type="button" onClick={() => setPw(null)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded"><X className="w-3.5 h-3.5" /></button>
+            </span>
+          ) : (
+            <>
+              <button type="button" onClick={() => setPw("")} data-testid={`tenant-login-password-${u.id}`} title="Set this login's password"
+                className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded shrink-0"><KeyRound className="w-3.5 h-3.5" /></button>
+              <button type="button" onClick={unlock} data-testid={`tenant-login-unlock-${u.id}`} title="Clear a too-many-attempts lockout"
+                className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded shrink-0"><Unlock className="w-3.5 h-3.5" /></button>
+            </>
+          )}
           {(u.role === "manager" || (u.role === "admin" && !u.is_owner)) && (
             <button type="button" onClick={toggleRole} disabled={busy} data-testid={`tenant-login-role-${u.id}`} title={u.role === "manager" ? "Make owner login" : "Make manager login"}
               className="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded shrink-0"><ArrowLeftRight className="w-3.5 h-3.5" /></button>
@@ -125,7 +162,7 @@ export function TenantLoginsCard({ tenantId, refreshKey, onChanged }) {
           </button>
         </div>
       )}
-      <p className="text-[10px] text-slate-400 mt-1.5">Tap ✎ to swap a placeholder login (e.g. name@miracurl.com) for a real email; ⇄ flips a login between owner and manager. Password is kept either way.</p>
+      <p className="text-[10px] text-slate-400 mt-1.5">Tap ✎ to swap a placeholder login (e.g. name@miracurl.com) for a real email; ⇄ flips a login between owner and manager (password kept), 🔑 sets a password directly, 🔓 clears a lockout.</p>
     </div>
   );
 }

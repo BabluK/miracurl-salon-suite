@@ -691,8 +691,11 @@ async def list_managers(admin=Depends(require_tenant_admin), t=Depends(current_t
     rows = await _raw_db.users.find(
         {"$or": [{"tenant_id": t["id"]}, {"tenant_ids": t["id"]}], "role": "manager"},
         {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(100)
+    now = datetime.now(timezone.utc).isoformat()
     for r in rows:
         r["salon_count"] = len(set(r.get("tenant_ids") or []) | ({r["tenant_id"]} if r.get("tenant_id") else set()))
+        r["locked"] = bool(await _raw_db.login_attempts.find_one(
+            {"identifier": {"$regex": f"{re.escape(r['email'])}$"}, "locked_until": {"$gt": now}}, {"_id": 1}))
         if not await db.staff.find_one({"user_id": r["id"]}, {"_id": 1}):  # managers must be visible in Staff of every business they cover
             await db.staff.insert_one(Staff(name=r.get("name") or "Manager", role="Manager", phone=r.get("phone") or "", email=r["email"],
                                             user_id=r["id"]).model_dump() | {"branch": "" if (r.get("branch") or "") == "__main__" else (r.get("branch") or "")})
@@ -862,6 +865,17 @@ async def set_manager_password(uid: str, body: ManagerPasswordIn, admin=Depends(
     await _raw_db.login_attempts.delete_many({"identifier": {"$regex": f"{re.escape(u['email'])}$"}})
     await log_audit(t["id"], admin, "manager_password_set", f"Owner set a new password for manager {u['email']}")
     return {"ok": True, "email": u["email"]}
+
+
+@router.post("/managers/{uid}/unlock")
+async def unlock_manager(uid: str, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Too many wrong attempts locked the manager out → owner clears it in one tap."""
+    u = await _raw_db.users.find_one({"id": uid, "role": "manager", "$or": [{"tenant_id": t["id"]}, {"tenant_ids": t["id"]}]}, {"_id": 0, "email": 1})
+    if not u:
+        raise HTTPException(404, "Manager not found")
+    r = await _raw_db.login_attempts.delete_many({"identifier": {"$regex": f"{re.escape(u['email'])}$"}})
+    await log_audit(t["id"], admin, "manager_unlock", f"Owner unlocked manager login {u['email']}")
+    return {"ok": True, "cleared": r.deleted_count}
 
 
 @router.post("/managers/{uid}/reset")

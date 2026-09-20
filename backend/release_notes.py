@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-21.334"
-BUILD_TIME = "21 Sep 2026, 12:40 AM IST"
+BUILD = "2026-09-21.335"
+BUILD_TIME = "21 Sep 2026, 1:20 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-21.335", "note": "GeoBranchGate: centred modal (max-w-4xl, own scroll) over fixed dimmed overlay + body scroll lock + Sign out (auth.logout), dedupe branch vs linked business of same name. Managers: `locked` flag in GET /managers (login_attempts.locked_until), POST /managers/{uid}/unlock. HQ: PUT /super-admin/users/{uid}/password, POST /super-admin/users/{uid}/unlock; TenantLoginsCard 🔑/🔓 buttons; ManagersSection Locked·Unlock pill."},
     {"build": "2026-09-21.334", "note": "seed_admin runs once per install (app_migrations admin-seed-done; also skips when the default tenant already has any admin) — deleting the ADMIN_EMAIL login on prod no longer resurrects 'Salon Admin' on every boot. POST /managers adopts an existing login in the owner's group: manager elsewhere → link, non-owner admin (leftover seed) → convert to manager; always ensures a staff profile (salary/commission/phone from the form) so managers appear in Staff. Prod: stray admin cf1df17e flipped to manager of both Miracurl tenants and renamed to miracurlunisexfamilysaloon@gmail.com. Geo pin endpoints (PUT/POST/DELETE /tenants/current/geo) now require_tenant_admin (owner only). GeoBranchGate strict roles use sessionStorage → re-ask every app open. ManagerCreateIn.password (optional) + PUT /managers/{uid}/password (owner-set, clears sessions/lockouts); GET /managers auto-creates the manager's Staff profile per tenant; delete removes staff docs group-wide. WA test-send: GET /whatsapp-link/message-status/{id} + composer polls & explains Meta #131049/#131026."},
     {"build": "2026-09-20.333", "note": "Multi-business managers: users.tenant_ids honoured for role=manager (POST /managers with an email that is already a manager of another of the owner's businesses → link, DELETE unlinks when shared, GET lists linked); GPS gate lists the login's other businesses (option value salon:<tid>) and POST /branch/pick switches tenant_id without owner PIN; SalonSwitcher shown to managers with >1 salons. HQ: GET/DELETE /super-admin/tenants/{tid}/test-logins (…@test.com purge), PUT /super-admin/users/{uid}/role (admin⇄manager, tenant_ids). Composer CTA copy → 'Call now → salon number'. Prod run: WA live number override + billing_v2 ID set + owner→bablukumar.cs14 on both Miracurl tenants (placeholder miracurl.aecs deleted)."},
     {"build": "2026-09-20.332", "note": "Owner-email change rewritten (services/owner_email.py): existing OWNER login → branch linked to it (tenant_ids); manager/staff login → 409 email_in_use with Take-over option (owner_email_takeover); shared login → owner_email_scope all|this (rename vs separate login w/ temp password); placeholder logins owning nothing are deleted. NEW PATCH /managers/{uid}/email (owner), GET /super-admin/tenants/{tid}/logins + PUT /super-admin/users/{uid}/email (HQ) — rename any login keeping password/branch. UI: EditTenantModal scope radio + conflict panel + Logins card; Managers → click email to change. GPS branch gate: POST /branch/locate (haversine vs tenant/branch lat-lng, radius tenant.geo_login_m|100) + POST /branch/pick (users.last_branch_pick + audit) — GeoBranchGate.jsx in AppLayout for unlocked managers & staff, pick remembered 15 d. branch_logins collection + GET /attendance/branch-logins?date, GET /branches/unpinned (BranchPinNudge on Dashboard), GET /super-admin/sms-templates-health (MSG91 getTemplateVersions; billing v1.1 DLT-rejected: Template Id not found on DLT)."},
@@ -136,6 +137,14 @@ BUILD_LOG = [
 ]
 
 RELEASES = [
+    {
+        "date": "2026-09-21 (Unlock & set passwords anywhere 🔓)",
+        "changes": [
+            "🔓 Locked out after too many wrong attempts? Owners see a red 'Locked · Unlock' pill on the manager row — one tap clears it. HQ has the same on every login in Super Admin → Edit → Logins",
+            "🔑 HQ can set any login's password directly from the Logins card (owner, manager or staff) — no temp passwords, lockouts cleared, other devices signed out",
+            "🖥️ Branch picker is now a centred popup over a dimmed, locked dashboard (no scrolling behind it), with a Sign out button, the Miracurl logo sparkles softly (gold glow + drifting stars, respects reduced-motion) — and a branch that is also a linked business is listed once",
+        ],
+    },
     {
         "date": "2026-09-21 (Managers always show in Staff 👥)",
         "changes": [

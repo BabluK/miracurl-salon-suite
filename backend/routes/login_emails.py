@@ -1,4 +1,6 @@
 """Login email management: owner changes a manager's login email; HQ lists & renames any login of a tenant."""
+import re
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr, Field
 
@@ -121,3 +123,32 @@ async def sa_set_role(uid: str, body: RoleIn, user=Depends(require_super_admin))
     await _raw_db.users.update_one({"id": uid}, {"$set": sets, "$unset": {"staff_id": ""}})
     await log_audit(sets["tenant_id"], user, "role_change", f"HQ set {u['email']} → {body.role} across {len(ids)} business(es)")
     return {"ok": True, "id": uid, "email": u["email"], **sets}
+
+
+class PasswordIn(BaseModel):
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+@router.put("/super-admin/users/{uid}/password")
+async def sa_set_password(uid: str, body: PasswordIn, user=Depends(require_super_admin)):
+    """HQ sets a login's password directly (owner/manager/staff of a tenant) — clears lockouts and other sessions."""
+    from security import hash_pw
+    u = await _raw_db.users.find_one({"id": uid}, {"_id": 0, "id": 1, "email": 1, "role": 1, "tenant_id": 1})
+    if not u or u.get("role") == "super_admin":
+        raise HTTPException(404, "Login not found")
+    await _raw_db.users.update_one({"id": uid}, {"$set": {"password_hash": hash_pw(body.password), "must_change_password": False, "disabled": False,
+                                                          "status": "active", "password_set_by_hq_at": datetime.now(timezone.utc).isoformat()}})
+    await _raw_db.sessions.delete_many({"user_id": uid})
+    await _raw_db.login_attempts.delete_many({"identifier": {"$regex": f"{re.escape(u['email'])}$"}})
+    if u.get("tenant_id"):
+        await log_audit(u["tenant_id"], user, "password_set", f"HQ set a new password for {u['email']} ({u.get('role')})")
+    return {"ok": True, "email": u["email"]}
+
+
+@router.post("/super-admin/users/{uid}/unlock")
+async def sa_unlock(uid: str, user=Depends(require_super_admin)):
+    u = await _raw_db.users.find_one({"id": uid}, {"_id": 0, "email": 1})
+    if not u:
+        raise HTTPException(404, "Login not found")
+    r = await _raw_db.login_attempts.delete_many({"identifier": {"$regex": f"{re.escape(u['email'])}$"}})
+    return {"ok": True, "cleared": r.deleted_count}

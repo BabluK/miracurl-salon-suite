@@ -69,6 +69,16 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
     }
   }
 
+  async function unlock(m) {
+    try {
+      await api.post(`/managers/${m.id}/unlock`);
+      toast.success(`${m.name} unlocked — they can sign in again ✦`);
+      load();
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail) || "Couldn't unlock");
+    }
+  }
+
   async function setBranch(m, branch) {
     try {
       await api.patch(`/managers/${m.id}/branch`, { branch });
@@ -182,6 +192,10 @@ export const ManagersSection = ({ onCredential, onChanged }) => {
                 <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">Awaiting first login</span>
               )}
               <div className="flex items-center gap-1.5 shrink-0">
+                {m.locked && (
+                  <button type="button" data-testid={`manager-unlock-${m.id}`} onClick={() => unlock(m)} title="Too many wrong attempts — clear the lock"
+                    className="text-xs py-1.5 px-3 rounded-md bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 inline-flex items-center gap-1 animate-pulse">🔒 Locked · Unlock</button>
+                )}
                 {pwEdit?.id === m.id ? (
                   <div className="flex items-center gap-1">
                     <input autoFocus type="text" value={pwEdit.value} onChange={e => setPwEdit({ id: m.id, value: e.target.value })}

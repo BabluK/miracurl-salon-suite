@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import api, { formatApiError, setTenantSlug } from "@/lib/api";
 import { setSelectedBranch } from "@/lib/branch";
 import { toast } from "sonner";
-import { ChevronRight, Loader2, LocateFixed, MapPin, Smartphone, Star, Store } from "lucide-react";
+import { ChevronRight, Loader2, LocateFixed, LogOut, MapPin, Smartphone, Star, Store } from "lucide-react";
 
 const PICK_DAYS = 15;
 const pickKey = (uid) => `miracurl_branch_pick:${uid}`;
@@ -38,15 +38,17 @@ function getPosition() {
 // luxe card list and remembers it for 15 days. Managers & staff can ONLY open the branch GPS
 // confirms (≤100 m) — everything else is disabled. Owners are never gated (header switcher).
 export function GeoBranchGate() {
-  const { user, tenant, refresh } = useAuth();
+  const { user, tenant, refresh, logout } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [geo, setGeo] = useState({ state: "idle", data: null }); // idle | locating | ready | off
   const [picking, setPicking] = useState("");
 
-  const branches = tenant?.branches || [];
+  const norm = (x) => (x || "").toLowerCase().replace(/[^a-z0-9]/g, "");
   const otherSalons = (user?.salons || []).filter(s => s.id !== tenant?.id);
+  // A branch that is ALSO a linked business (same name) → show the business card only, never twice
+  const branches = (tenant?.branches || []).filter(b => !otherSalons.some(sl => norm(sl.name) === norm(b.name) || norm(sl.name).includes(norm(b.name).slice(0, 24))));
   const eligible = user && tenant && (branches.length > 0 || otherSalons.length > 0)
     && ((user.role === "manager" && !user.branch) || user.role === "staff");
 
@@ -116,6 +118,13 @@ export function GeoBranchGate() {
     } finally { setPicking(""); }
   }
 
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
   if (!open) return null;
 
   const gateTitle = otherSalons.length && !branches.length ? ["Which salon are you", "working from today?"] : ["Which branch are you", "working from today?"];
@@ -131,31 +140,38 @@ export function GeoBranchGate() {
   const showRetry = geo.state === "off" || (strict && geo.state === "ready" && !gpsHit);
 
   return (
-    <div className="fixed inset-0 z-[90] overflow-y-auto" data-testid="geo-branch-gate">
+    <div className="fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md" data-testid="geo-branch-gate" onWheel={e => e.stopPropagation()}>
+      <div className="relative w-full max-w-4xl max-h-[94vh] overflow-y-auto rounded-[32px] border border-[#e8c97a]/30 shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9),0_0_60px_-10px_rgba(232,201,122,0.25)] bg-[#0b0a0c]" data-testid="geo-branch-modal">
       <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/assets/branch-gate/bg.jpg)" }} />
       <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.15),rgba(0,0,0,0.75)_85%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.1),rgba(0,0,0,0.8)_90%)]" />
 
-      <span className="hidden lg:block absolute left-[4%] top-[24%] font-caveat text-2xl leading-tight text-[#e8c97a]/85 -rotate-6 select-none">Beautiful<br />Salons<br />Brighter<br />Businesses<br /><span className="text-xl">♡</span></span>
-      <span className="hidden lg:block absolute right-[4%] top-[8%] font-caveat text-2xl leading-tight text-[#e8c97a]/85 rotate-6 text-right select-none">Empowering<br />Salon Owners<br />Worldwide ♡</span>
-      <span className="hidden lg:block absolute right-[5%] bottom-[8%] font-caveat text-3xl leading-tight text-[#e8c97a]/90 -rotate-6 text-right select-none">Salon Smarter<br />Everyday ♡</span>
-
-      <div className="relative min-h-full flex flex-col items-center px-4 py-8 sm:py-10">
-        <img src="/assets/brand/gold-lockup-transparent.png" alt="Miracurl AI Salon Suite" className="h-16 sm:h-20 w-auto drop-shadow-[0_6px_24px_rgba(212,175,55,0.35)]" />
+      <button type="button" onClick={() => { setOpen(false); logout(); }} data-testid="geo-branch-logout"
+        className="absolute top-4 right-4 z-10 inline-flex items-center gap-1.5 text-xs font-semibold text-white/80 hover:text-white bg-black/50 hover:bg-black/70 border border-white/15 rounded-full px-3 py-1.5 backdrop-blur transition-colors">
+        <LogOut className="w-3.5 h-3.5" /> Sign out
+      </button>
+      <div className="relative flex flex-col items-center px-4 sm:px-8 py-8 sm:py-10">
+        <div className="relative inline-block py-1 px-3" data-testid="geo-branch-logo">
+          <img src="/assets/brand/gold-lockup-transparent.png" alt="Miracurl AI Salon Suite" className="h-14 sm:h-16 w-auto relative z-10 drop-shadow-[0_6px_24px_rgba(212,175,55,0.4)] logo-sparkle-anim animate-[logoGlow_3.6s_ease-in-out_infinite]" />
+          <span className="sparkle-particle absolute top-0 left-3 text-[#e8c97a] text-xs pointer-events-none animate-[sparkleFloat1_2.5s_ease-in-out_infinite]">✦</span>
+          <span className="sparkle-particle absolute top-2 right-2 text-[#fff4d6] text-sm pointer-events-none animate-[sparkleFloat2_3.2s_ease-in-out_0.5s_infinite]">✦</span>
+          <span className="sparkle-particle absolute -bottom-1 left-1/3 text-[#d4af37] text-xs pointer-events-none animate-[sparkleFloat3_2.8s_ease-in-out_1s_infinite]">✦</span>
+          <span className="sparkle-particle absolute bottom-2 right-1/4 text-[#e8c97a] text-[10px] pointer-events-none animate-[sparkleFloat1_3.6s_ease-in-out_1.6s_infinite]">✦</span>
+        </div>
         <div className="mt-1 text-[10px] sm:text-[11px] tracking-[0.42em] text-white/85 font-semibold">MANAGE · AUTOMATE · GROW</div>
 
-        <h3 className="font-playfair text-center text-3xl sm:text-5xl lg:text-6xl text-white mt-8 leading-[1.08]">
+        <h3 className="font-playfair text-center text-3xl sm:text-4xl lg:text-5xl text-white mt-6 leading-[1.08]">
           {gateTitle[0]}<br /><span className="text-[#e8c97a]">{gateTitle[1]}</span>
         </h3>
         <p className="mt-4 text-base sm:text-lg text-white/80 text-center">{strict ? "We check your location every time you open the app — only the branch you're standing in can be opened." : `Choose once — this device remembers your branch for ${PICK_DAYS} days.`}</p>
 
-        <div className="mt-8 w-full max-w-4xl grid gap-5" data-testid="geo-branch-options">
+        <div className="mt-7 w-full grid gap-4" data-testid="geo-branch-options">
           {cards.map((c, i) => {
             const hot = !c.disabled && (c.within || (!strict && !gpsHit && i === 0));
             const cardCls = c.disabled
               ? "border border-white/10 bg-black/40 backdrop-blur-md opacity-45 cursor-not-allowed grayscale"
               : hot
-                ? "border-2 border-[#e8c97a] bg-gradient-to-br from-[#fff4d6] to-[#f3d98a] shadow-[0_0_25px_rgba(232,201,122,0.45),0_15px_40px_rgba(0,0,0,0.5)] hover:-translate-y-1"
+                ? "border-2 border-[#e8c97a] bg-gradient-to-br from-[#fff4d6] to-[#f3d98a] shadow-[0_0_25px_rgba(232,201,122,0.6),0_15px_40px_rgba(0,0,0,0.5)] hover:-translate-y-1"
                 : "border border-white/20 bg-black/60 backdrop-blur-xl hover:border-[#e8c97a]/70 hover:bg-black/75 hover:-translate-y-1 shadow-[0_10px_30px_rgba(0,0,0,0.45)]";
             const chips = c.chips || [];
             return (
@@ -196,17 +212,23 @@ export function GeoBranchGate() {
           })}
         </div>
 
-        <div className="mt-8 w-full max-w-4xl flex items-center gap-3 text-white/85 text-sm sm:text-base bg-black/40 border border-white/10 backdrop-blur-lg rounded-2xl py-3.5 px-5 shadow-lg" data-testid={geo.state === "off" ? "geo-branch-denied" : geo.state === "ready" && !geo.data.any_within && geo.data.any_pinned ? "geo-branch-none-within" : "geo-branch-status"}>
+        <div className="mt-6 w-full flex items-center gap-3 text-white/85 text-sm sm:text-base bg-black/40 border border-white/10 backdrop-blur-lg rounded-2xl py-3.5 px-5 shadow-lg" data-testid={geo.state === "off" ? "geo-branch-denied" : geo.state === "ready" && !geo.data.any_within && geo.data.any_pinned ? "geo-branch-none-within" : "geo-branch-status"}>
           {geo.state === "locating" ? <Loader2 className="w-8 h-8 animate-spin text-[#e8c97a] shrink-0" data-testid="geo-branch-locating" /> : <Smartphone className="w-9 h-9 text-white/85 shrink-0" strokeWidth={1.4} />}
           <span>{footNote}</span>
           {showRetry && <button type="button" onClick={locate} data-testid="geo-branch-retry" className="ml-auto inline-flex items-center gap-1 text-[#e8c97a] hover:text-white whitespace-nowrap"><LocateFixed className="w-4 h-4" /> Retry GPS</button>}
         </div>
 
-        <div className="mt-10 flex items-center gap-4 text-white/85 text-[10px] sm:text-xs tracking-[0.3em] sm:tracking-[0.38em] font-semibold whitespace-nowrap">
+        <div className="mt-8 flex items-center gap-4 text-white/85 text-[10px] sm:text-xs tracking-[0.3em] sm:tracking-[0.38em] font-semibold whitespace-nowrap">
           <span className="h-px w-16 sm:w-28 bg-white/50" />MANAGE · AUTOMATE · GROW<span className="h-px w-16 sm:w-28 bg-white/50" />
         </div>
       </div>
-      <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}`}</style>
+      </div>
+      <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes logoGlow{0%,100%{filter:drop-shadow(0 0 6px rgba(232,201,122,.35))}50%{filter:drop-shadow(0 0 18px rgba(232,201,122,.85)) brightness(1.12)}}
+@keyframes sparkleFloat1{0%,100%{transform:translate(0,0) scale(.6);opacity:.2}50%{transform:translate(-6px,-10px) scale(1.1);opacity:1}}
+@keyframes sparkleFloat2{0%,100%{transform:translate(0,0) scale(.5);opacity:.3}50%{transform:translate(8px,-12px) scale(1.2);opacity:.9}}
+@keyframes sparkleFloat3{0%,100%{transform:translate(0,0) scale(.7);opacity:.1}50%{transform:translate(4px,-8px) scale(1);opacity:.95}}
+@media (prefers-reduced-motion: reduce){.logo-sparkle-anim,.sparkle-particle{animation:none !important}}`}</style>
     </div>
   );
 }
