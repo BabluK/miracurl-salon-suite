@@ -163,7 +163,7 @@ async def hq_whatsapp_health(admin=Depends(require_super_admin)):
                 err = body.get("error") or {}
                 out["checks"].append({"name": name, "ok": False, "detail": f"#{err.get('code')} {err.get('message', '')}"[:220]})
                 continue
-            out["checks"].append({"name": name, "ok": True, "detail": _health_detail(name, body)})
+            out["checks"].append({"name": name, "ok": not (name == "Phone number" and "TEST NUMBER" in _health_detail(name, body)), "detail": _health_detail(name, body)})
     out["ok"] = all(c["ok"] for c in out["checks"])
     out["checked_at"] = datetime.now(timezone.utc).isoformat()
     return out
@@ -176,7 +176,9 @@ def _health_detail(name: str, body: dict) -> str:
         when = "never expires (system user)" if not exp else datetime.fromtimestamp(exp, tz=timezone.utc).strftime("expires %d %b %Y")
         return f"valid · {when} · scopes: {', '.join(d.get('scopes') or [])[:120]}"
     if name == "Phone number":
-        return f"{body.get('display_phone_number')} · {body.get('verified_name')} · quality {body.get('quality_rating')} · tier {body.get('messaging_limit_tier')} · {body.get('code_verification_status')}"
+        test_no = (body.get("verified_name") or "").lower() == "test number" or str(body.get("display_phone_number", "")).startswith("+1 555")
+        warn = " ⚠️ META TEST NUMBER — only 5 pre-approved recipients can receive messages (#131030). Set the live WHATSAPP_PHONE_NUMBER_ID / WHATSAPP_BUSINESS_ACCOUNT_ID / WHATSAPP_ACCESS_TOKEN in Publish → Secrets and redeploy." if test_no else ""
+        return f"{body.get('display_phone_number')} · {body.get('verified_name')} · quality {body.get('quality_rating')} · tier {body.get('messaging_limit_tier')} · {body.get('code_verification_status')}{warn}"
     if name == "Business account":
         return f"{body.get('name')} · review {body.get('account_review_status')}"
     rows = body.get("data") or []

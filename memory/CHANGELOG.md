@@ -252,3 +252,7 @@
 - GET /super-admin/whatsapp-health (routes/hq_credit_wallet.py) + <WaHealth/> in CreditWalletCard (data-testid hq-wa-health-run / hq-wa-health-results). Preview result: token valid never-expires, +91 91803 79552 quality GREEN VERIFIED, WABA APPROVED, 18/18 templates approved.
 - send-guide → email (email_service._send_email with attachments) to tenant.owner_email; SuperAdmin.jsx copy updated. Sent to thakur007amitesh@gmail.com from preview (ok).
 - server.py: StarletteHTTPException handler remaps 502/503/504/52x → 424 (Cloudflare masks 5xx gateway codes). Prod was still .326 at the time of the user's screenshot → the 502 they saw is expected until .328 deploys.
+
+## 2026-09-20 — PROD WHATSAPP ROOT CAUSE (build 2026-09-19.329)
+- Prod health check: phone_number_id 1304080032789047 = Meta TEST number +1 555-143-4552, "Test WhatsApp Business Account", 11 templates. Preview/live = WHATSAPP_PHONE_NUMBER_ID 141827… (+91 91803 79552, VERIFIED, 18 templates). All prod campaign failures (Meta API 400 #131030) + "Meta API 400" on 18–19 Sep were this. Deployment Secrets override repo .env (per support agent): Publish → Secrets → Custom Keys → edit 3 WHATSAPP_* keys → Save → redeploy. Health check now marks Test Number as ❌ with instructions. NOT fixable from the workspace — user action.
+- Owner typed 7407869272 in test box; their number is 7406869271.
