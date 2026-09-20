@@ -113,7 +113,8 @@ async def unpinned_branches(admin=Depends(require_admin), t=Depends(current_tena
     """Locations without a GPS pin — the branch picker can't verify staff there."""
     out = []
     if t.get("latitude") is None or t.get("longitude") is None:
-        out.append({"value": "", "label": _main_label(t), "main": True})
-    out += [{"value": b["name"], "label": b["name"], "main": False}
+        out.append({"value": "", "label": _main_label(t), "main": True,
+                    "address": t.get("address") or f"{t.get('name') or ''} {t.get('location') or ''}".strip()})
+    out += [{"value": b["name"], "label": b["name"], "main": False, "address": b.get("address") or b.get("maps_url") or ""}
             for b in (t.get("branches") or []) if b.get("name") and (b.get("latitude") is None or b.get("longitude") is None)]
     return {"items": out, "total_locations": 1 + len(t.get("branches") or [])}
