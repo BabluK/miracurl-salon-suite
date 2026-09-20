@@ -52,10 +52,34 @@ function SmsTemplatesHealth() {
   );
 }
 
+const WA_STATUS_STYLE = { read: "bg-emerald-100 text-emerald-800", delivered: "bg-emerald-50 text-emerald-700", sent: "bg-sky-50 text-sky-700", accepted: "bg-slate-100 text-slate-600", failed: "bg-rose-100 text-rose-800" };
+
+function RecentWaSends({ rows }) {
+  if (!rows?.length) return null;
+  return (
+    <div className="mt-2 border-t border-slate-200 pt-2" data-testid="hq-wa-recent">
+      <p className="text-[11px] font-semibold text-slate-700 mb-1">Last outbound messages (delivery status from Meta's webhook on this server)</p>
+      <ul className="space-y-0.5">
+        {rows.map(m => (
+          <li key={m.message_id} className="flex items-center gap-2 text-[11px]" data-testid={`hq-wa-msg-${m.message_id?.slice(-8)}`}>
+            <span className={`px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wide text-[9px] ${WA_STATUS_STYLE[m.status] || "bg-slate-100 text-slate-600"}`}>{m.status || "?"}</span>
+            <span className="text-slate-500 shrink-0">{new Date(m.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+            <span className="font-mono text-slate-700">+{m.wa_id}</span>
+            <span className="text-slate-500 truncate">{m.template || m.type}</span>
+            {m.status === "failed" && <span className="text-rose-700 truncate">{(m.errors || []).map(e => `${e.code} ${e.title || ""}`).join("; ")}</span>}
+          </li>
+        ))}
+      </ul>
+      <p className="text-[10px] text-slate-400 mt-1">"accepted" = handed to Meta, no receipt yet · marketing templates can be silently dropped by Meta's frequency cap (131049); utility templates (booking, reminder, receipt) are never capped.</p>
+    </div>
+  );
+}
+
 function WaHealth() {
   const [res, setRes] = useState(null);
+  const [recent, setRecent] = useState([]);
   const [busy, setBusy] = useState(false);
-  const run = () => { setBusy(true); api.get("/super-admin/whatsapp-health").then(r => { setRes(r.data); toast[r.data.ok ? "success" : "error"](r.data.ok ? "HQ WhatsApp connection healthy ✓" : "WhatsApp connection has a problem — see details"); }).catch(e => toast.error(e.response?.data?.detail || "Health check failed")).finally(() => setBusy(false)); };
+  const run = () => { setBusy(true); api.get("/super-admin/whatsapp/messages", { params: { limit: 60 } }).then(r => setRecent((r.data.messages || []).filter(m => m.direction === "outbound" && m.template).slice(0, 10))).catch(() => {}); api.get("/super-admin/whatsapp-health").then(r => { setRes(r.data); toast[r.data.ok ? "success" : "error"](r.data.ok ? "HQ WhatsApp connection healthy ✓" : "WhatsApp connection has a problem — see details"); }).catch(e => toast.error(e.response?.data?.detail || "Health check failed")).finally(() => setBusy(false)); };
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3" data-testid="hq-wa-health">
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -73,6 +97,7 @@ function WaHealth() {
           <li className="text-[10px] text-slate-400 pl-5">phone_number_id {res.phone_number_id} · Graph {res.graph_version}</li>
         </ul>
       )}
+      {res && <RecentWaSends rows={recent} />}
     </div>
   );
 }
