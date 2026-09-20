@@ -40,7 +40,7 @@ const REMEMBER_KEY = "miracurl_remember_email";
 const SUBMIT_LABELS = { login: "Login", signup: "Create Account", forgot: "Send Reset Link" };
 
 export default function Login() {
-  const { login, register, forgot, refresh } = useAuth();
+  const { login, register, forgot, refresh, user } = useAuth();
   const nav = useNavigate();
   // Captured once at mount — PublicOnly may replace the URL (dropping ?next=) before we redirect.
   const [nextParam] = useState(() => new URLSearchParams(window.location.search).get("next") || "");
@@ -61,6 +61,15 @@ export default function Login() {
   const [personalEmail, setPersonalEmail] = useState("");
   const [farewell, setFarewell] = useState(false);
   const [blocked, setBlocked] = useState(null);
+
+  // Signed out → Back must stay on the login page (no cached dashboard/settings behind it).
+  useEffect(() => {
+    if (user) return;
+    const guard = () => { window.history.pushState(null, "", window.location.pathname); };
+    guard();
+    window.addEventListener("popstate", guard);
+    return () => window.removeEventListener("popstate", guard);
+  }, [user]);
 
   useEffect(() => {
     try {

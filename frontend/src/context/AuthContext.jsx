@@ -135,8 +135,11 @@ export function AuthProvider({ children }) {
     catch (e) { log.warn("[auth] logout failed:", e?.message || e); }
     clearSectionUnlocks();
     clearTenantStorage();
+    try { sessionStorage.clear(); } catch { /* private mode */ }
     setUser(false);
     setTenant(null);
+    // Back button must never resurrect a signed-out session: collapse history onto /login.
+    try { window.history.replaceState(null, "", "/login"); } catch { /* ignore */ }
   }, []);
 
   const forgot = useCallback(async (email, personalEmail) => {
@@ -161,9 +164,20 @@ export function AuthProvider({ children }) {
       return data;
     } catch (e) {
       log.warn("[auth] refresh failed:", e?.message || e);
+      if (e?.response?.status === 401) { setUser(false); setTenant(null); }
       return null;
     }
   }, []);
+
+  // Pages restored from the browser's back/forward cache (or reached via Back) re-check the session,
+  // so a signed-out device never shows a cached dashboard/settings page.
+  useEffect(() => {
+    const onShow = (e) => { if (e.persisted) refresh(); };
+    const onPop = () => { refresh(); };
+    window.addEventListener("pageshow", onShow);
+    window.addEventListener("popstate", onPop);
+    return () => { window.removeEventListener("pageshow", onShow); window.removeEventListener("popstate", onPop); };
+  }, [refresh]);
 
   const value = useMemo(
     () => ({ user, tenant, loading, login, googleLogin, register, logout, forgot, switchTenant, refresh }),
