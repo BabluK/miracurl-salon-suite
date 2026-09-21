@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import os
+import re
 import uuid
 import html as html_lib
 from datetime import datetime, timedelta, timezone
@@ -330,7 +331,7 @@ async def hq_email_log(limit: int = 100, q: str = "", status: str = "all", user=
     elif status == "sent":
         flt["sent"] = True
     if q:
-        rx = {"$regex": q.strip(), "$options": "i"}
+        rx = {"$regex": re.escape(q.strip()), "$options": "i"}
         flt["$or"] = [{"to": rx}, {"subject": rx}, {"error": rx}]
     rows = await _raw_db.email_log.find(flt, {"_id": 0, "html": 0, "attachments_payload": 0, "resend_opts": 0}).sort("at", -1).to_list(max(1, min(limit, 500)))
     for r in rows:

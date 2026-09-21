@@ -8,7 +8,7 @@ import os
 from datetime import datetime, timezone
 
 import httpx
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, MultiFernet
 
 from database import _raw_db
 
@@ -18,9 +18,18 @@ SYNC_KINDS = ("smb_app_state_sync", "history")
 COEXIST_WEBHOOK_FIELDS = "messages,account_update,history,smb_app_state_sync,smb_message_echoes"
 
 
-def _fernet() -> Fernet:
-    key = hashlib.sha256(f"wa-coexist:{os.environ['JWT_SECRET']}".encode()).digest()
-    return Fernet(base64.urlsafe_b64encode(key))
+def _derive(secret: str) -> bytes:
+    return base64.urlsafe_b64encode(hashlib.sha256(f"wa-coexist:{secret}".encode()).digest())
+
+
+def _fernet() -> MultiFernet:
+    """Encrypt with the current JWT_SECRET; decrypt also accepts JWT_SECRET_PREVIOUS so the secret can be rotated
+    without losing stored Meta tokens (re-save the channel once after rotation to re-encrypt)."""
+    keys = [Fernet(_derive(os.environ["JWT_SECRET"]))]
+    prev = os.environ.get("JWT_SECRET_PREVIOUS", "").strip()
+    if prev:
+        keys.append(Fernet(_derive(prev)))
+    return MultiFernet(keys)
 
 
 def encrypt_token(tok: str) -> str:

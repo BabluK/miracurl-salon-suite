@@ -142,3 +142,9 @@ frontend/node_modules/.cache/default-development/40.pack
 frontend/node_modules/.cache/default-development/44.pack
 frontend/node_modules/.cache/default-development/37.pack
 frontend/node_modules/.cache/default-development/51.pack
+
+# curl cookie jars / session dumps must never be committed
+backend/otp.txt
+*.cookies
+*.cj
+cookies*.txt

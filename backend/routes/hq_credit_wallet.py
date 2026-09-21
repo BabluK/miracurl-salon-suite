@@ -1,4 +1,5 @@
 """HQ credit wallet: Miracurl's stock of SMS/WhatsApp credits handed to tenants on purchase or by manual grant."""
+import logging
 import os
 import re
 import uuid
@@ -142,12 +143,19 @@ class HqChannelIn(BaseModel):
 async def apply_hq_channel_override() -> bool:
     """DB-stored live HQ channel beats deployment Secrets (prod once shipped with Meta's test number). Called at boot + on save."""
     from services.wa_coexist import decrypt_token
+    from cryptography.fernet import InvalidToken
     doc = await _raw_db.hq_settings.find_one({"id": "whatsapp_channel"}, {"_id": 0})
     if not doc:
         return False
+    try:
+        token = decrypt_token(doc["token_enc"])
+    except InvalidToken:
+        logging.error("[hq] stored WhatsApp channel token can't be decrypted (JWT_SECRET rotated without JWT_SECRET_PREVIOUS?) — "
+                      "falling back to deployment Secrets; re-save HQ → WhatsApp channel to fix")
+        return False
     os.environ["WHATSAPP_PHONE_NUMBER_ID"] = doc["phone_number_id"]
     os.environ["WHATSAPP_BUSINESS_ACCOUNT_ID"] = doc["waba_id"]
-    os.environ["WHATSAPP_ACCESS_TOKEN"] = decrypt_token(doc["token_enc"])
+    os.environ["WHATSAPP_ACCESS_TOKEN"] = token
     return True
 
 
