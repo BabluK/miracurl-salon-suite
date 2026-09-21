@@ -228,6 +228,15 @@ async def _validate_package_redeem_items(items: list, cust: dict):
             it.qty = 1
 
 
+def _receipt_service_label(inv: dict) -> str:
+    """##var2## of the payment_v2 receipt: first service (+ count), ≤ 30 chars, never empty."""
+    names = [str(it.get("name") or "").strip() for it in (inv.get("items") or []) if it.get("name")]
+    if not names:
+        return "salon"
+    label = names[0] if len(names) == 1 else f"{names[0]} +{len(names) - 1}"
+    return label[:30].rstrip() or "salon"
+
+
 def _receipt_sms_text(t: dict, inv: dict, points_earned: int) -> str:
     from receipt_email import _smart_review_url
     name = (t or {}).get("name") or "Your Salon"
@@ -310,9 +319,14 @@ async def send_receipt_channels(inv: dict, cust: dict, t: dict, points_earned: i
                 first = (inv.get("customer_name") or "Guest").split()[0][:30]
                 kind = await receipt_sms_kind()
                 salon, pts, inv_no, amt = (t.get("name") or "your salon")[:30], str(points_earned or 0), str(inv.get("invoice_no") or "")[:30], f"{inv['total']:.0f}"
-                sms_vars = [first, salon, amt, inv_no, pts] if kind == "billing_v2" else [first, inv_no, amt, salon, pts]
+                sms_vars = [amt, _receipt_service_label(inv)] if kind == "billing_v2" else [first, inv_no, amt, salon, pts]
                 out["sms"] = await send_tenant_sms(
                     t["id"], cust["phone"], _receipt_sms_text(t, inv, points_earned), kind=kind, sms_vars=sms_vars)
+                if kind == "billing_v2" and not out["sms"].get("sent"):
+                    # template not yet live at MSG91 → legacy receipt so the guest still gets a confirmation
+                    out["sms"] = await send_tenant_sms(
+                        t["id"], cust["phone"], _receipt_sms_text(t, inv, points_earned), kind="billing", sms_vars=[first, inv_no, amt, salon, pts])
+                    out["sms"]["fallback"] = "billing"
         except Exception as e:  # noqa: BLE001
             out["sms"] = {"sent": False, "error": str(e)[:200]}
     if "whatsapp" in channels:

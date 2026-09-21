@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-21.341"
-BUILD_TIME = "21 Sep 2026, 6:45 PM IST"
+BUILD = "2026-09-21.342"
+BUILD_TIME = "21 Sep 2026, 7:35 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-21.342", "note": "Receipt SMS → miracurl_salon_service_payment_v2 (MSG91 6ab13736d65b55eb1d09ac54, DLT 1777178999296070143, vars amount+service via _receipt_service_label); v2 send failure falls back to legacy billing; apply_hq_sms_template_ids one-shot replaces retired HQ override 6aafdd57… ; HQ template health explains MSG91 'CTA Error' (URL not CTA-whitelisted on DLT)."},
     {"build": "2026-09-21.341", "note": "Security audit: removed git-tracked curl cookie jar backend/otp.txt (live preview admin session) + .gitignore patterns; preview JWT_SECRET rotated. wa_coexist Fernet → MultiFernet(JWT_SECRET, JWT_SECRET_PREVIOUS) so the secret can rotate without losing stored Meta tokens; apply_hq_channel_override no longer crashes boot on InvalidToken (logs, falls back to env). re.escape on super-admin email-log $regex."},
     {"build": "2026-09-21.340", "note": "WA campaigns: _fill_placeholders resolves {name}/{salon}/{city}/{phone} in offer/headline/text for WA + SMS params (guests saw raw '{salon}' braces); thank_you template gets the sign-off only when the full brief was pasted (no more 'No…' truncation). Perf: lib/api GET share-cache TTL 2s → 15s (cleared on any mutation, branch switch via setSelectedBranch, tenant switch via setTenantSlug) — Dashboard ↔ CRM ↔ POS hops re-render from memory (0 network calls) instead of 17–37 requests each. HQ login = admin@miracurl-suite.com (SUPER_ADMIN_EMAIL + seed default); stray hello@miracurl.com → privacy@/info@/contact@miracurl-suite.com."},
     {"build": "2026-09-21.339", "note": "seeds.retire_default_super_admin_v2: on boot, if any other super_admin exists the dummy super@miracurl.com is set role=retired_seed (one-shot via app_migrations) — prod HQ login stays super@miracurl-suite.com. HQ import undo: POST /super-admin/tenants/{tid}/customers/import-clean {date, action: preview|delete|move, target_tid} — guests created that local day with 0 visits/₹0; move skips phones already in target (dups deleted); audit_log hq_import_clean. UI: ImportCustomersModal 'Wrong salon? Undo / move an import…' panel. WA campaigns: capped batches store capped_until (usage resets_at); history header shows '⏸ daily limit reached — resumes …' instead of 'batch N sending now'; per-row hint; composer warns when auto-batch total > tenant wa_daily_cap."},

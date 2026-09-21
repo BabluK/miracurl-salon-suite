@@ -443,6 +443,10 @@ def _dlt_fix_hint(v: dict, reason: str) -> str:
         return (f"DLT ID {v.get('DLT_ID') or '—'} is not registered/approved on your operator DLT portal (Jio TrueConnect / Vi / Airtel). "
                 "Open the DLT portal → Templates → check the template is APPROVED and copy its exact Template ID, then on MSG91 → "
                 "SMS → Templates → this template → 'Add version' with that DLT ID and the identical text.")
+    if "cta" in reason.lower():
+        return ("MSG91 rejected this version with 'CTA Error': the text contains a link (https://miracurl-suite.com) but the domain is not "
+                "CTA-whitelisted on your DLT entity. Fix either way: (a) DLT portal → CTA Whitelisting → add https://miracurl-suite.com, "
+                "then on MSG91 open this template → ⋮ → 'Re-submit for approval'; or (b) register a DLT template WITHOUT the link and add it as a new version here.")
     if str(v.get("dlt_verified")) == "0":
         return "No DLT ID attached on MSG91 — add a version with the approved DLT Template ID."
     return f"MSG91 says: {reason or 'pending DLT verification'} — wait for approval or re-submit."
@@ -486,7 +490,7 @@ def _mark_receipt_rows(rows: list[dict], receipt_kind: str) -> None:
         if r["kind"] not in ("billing", "billing_v2"):
             continue
         r["in_use"] = r["kind"] == receipt_kind
-        if r["kind"] == "billing_v2" and r.get("template_id") and not r["ok"]:
+        if r["kind"] == "billing_v2" and r.get("template_id") and not r["ok"] and not r.get("reason"):
             r["fix"] = ("Saved ✓ — receipts switch to this template automatically the moment MSG91 marks it DLT-verified "
                         "(checked every 10 min). Until then the legacy receipt is used.")
 
@@ -509,7 +513,7 @@ async def hq_sms_templates_health(admin=Depends(require_super_admin)):
 
 
 _TEMPLATE_HINTS = {
-    "billing_v2": "Dear ##var1##, thank you for visiting ##var2##. Payment of Rs ##var3## received for salon bill No ##var4##. You earned ##var5## loyalty points. Visit again soon!",
+    "billing_v2": "Miracurl AI Salon Suite: Payment of Rs ##var1## received for ##var2## service. Visit https://miracurl-suite.com  (miracurl_salon_service_payment_v2 · DLT 1777178999296070143)",
 }
 
 

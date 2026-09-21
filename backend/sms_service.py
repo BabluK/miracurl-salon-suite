@@ -24,10 +24,10 @@ MSG91_TEMPLATES: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "birthday":     ("MSG91_TPL_BIRTHDAY",     "6aad49f494e67f01f40b14a2", ("name", "offer")),
     "festival":     ("MSG91_TPL_FESTIVAL",     "6aad491cd077278ca60eae23", ("name", "festival", "offer")),
     "special":      ("MSG91_TPL_SPECIAL",      "6aad4a4adf4726e0d1013f14", ("name", "offer", "valid_till")),
-    "billing":      ("MSG91_TPL_BILLING",      "6aaed91266b259e2920c73d3", ("name", "invoice", "amount", "salon", "points")),  # legacy receipt (signs off "Miracurl AI Salon Suite")
-    # v2 receipt — salon-branded, DLT wording with an explicit purpose ("salon bill"):
-    # "Dear ##var1##, thank you for visiting ##var2##. Payment of Rs ##var3## received for salon bill No ##var4##. You earned ##var5## loyalty points. Visit again soon!"
-    "billing_v2":   ("MSG91_TPL_BILLING_V2",   "", ("name", "salon", "amount", "invoice", "points")),
+    "billing":      ("MSG91_TPL_BILLING",      "6aaed91266b259e2920c73d3", ("name", "invoice", "amount", "salon", "points")),  # legacy receipt — fallback only
+    # Current receipt: miracurl_salon_service_payment_v2 (DLT 1777178999296070143, approved 21 Sep 2026):
+    # "Miracurl AI Salon Suite: Payment of Rs ##var1## received for ##var2## service. Visit https://miracurl-suite.com"
+    "billing_v2":   ("MSG91_TPL_BILLING_V2",   "6ab13736d65b55eb1d09ac54", ("amount", "service")),
     "otp":          ("MSG91_TPL_OTP",          "6aae14594f99d7fba7049633", ("var1",)),  # miracurl_otp (DLT verified): "…verification code is ##var1##…"
 }
 
@@ -40,8 +40,12 @@ def msg91_template_id(kind: str) -> str:
 _V2_READY = {"at": 0.0, "ok": False, "tpl": ""}
 
 
+RECEIPT_TPL_V2 = "6ab13736d65b55eb1d09ac54"  # miracurl_salon_service_payment_v2
+_OLD_RECEIPT_TPLS = {"6aafdd57deb7d2ffde0d8d62"}  # miracurl_salon_bill_receipt (never cleared DLT) — auto-replaced
+
+
 async def msg91_template_verified(tpl_id: str) -> bool:
-    """True when MSG91 reports an ACTIVE, DLT-verified version for this template (getTemplateVersions)."""
+    """True when MSG91 reports an ACTIVE, DLT-verified version (dlt_verified 10). 5 = rejected by MSG91 (e.g. 'CTA Error')."""
     import httpx
     async with httpx.AsyncClient(timeout=12) as http:
         r = await http.get("https://control.msg91.com/api/v5/sms/getTemplateVersions",
@@ -72,6 +76,11 @@ async def apply_hq_sms_template_ids() -> int:
     from database import _raw_db
     doc = await _raw_db.hq_settings.find_one({"id": "sms_templates"}, {"_id": 0, "ids": 1})
     ids = (doc or {}).get("ids") or {}
+    if ids.get("billing_v2") in _OLD_RECEIPT_TPLS:
+        # one-shot: the retired salon_bill_receipt override must not shadow the approved payment_v2 template
+        ids["billing_v2"] = RECEIPT_TPL_V2
+        await _raw_db.hq_settings.update_one({"id": "sms_templates"}, {"$set": {"ids.billing_v2": RECEIPT_TPL_V2, "migrated_receipt_v2_at": datetime.now(timezone.utc).isoformat()}})
+        log.warning("[sms] HQ billing_v2 override pointed at the retired receipt template — switched to %s", RECEIPT_TPL_V2)
     for kind, tpl in ids.items():
         env_key = (MSG91_TEMPLATES.get(kind) or ("",))[0]
         if env_key and tpl:
