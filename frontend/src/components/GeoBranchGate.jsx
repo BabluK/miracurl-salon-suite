@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -117,6 +117,13 @@ export function GeoBranchGate() {
       toast.error(formatApiError(e.response?.data?.detail) || "Couldn't select branch");
     } finally { setPicking(""); }
   }
+
+  const autoRef = useRef(false);
+  useEffect(() => {
+    if (!open || !strict || geo.state !== "ready" || picking || autoRef.current) return;
+    const within = cards.filter(c => c.within && !c.disabled);
+    if (within.length === 1) { autoRef.current = true; pick(within[0]); }
+  }, [open, strict, geo.state, cards, picking]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open) return;

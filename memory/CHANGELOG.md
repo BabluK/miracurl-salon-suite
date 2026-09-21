@@ -305,3 +305,4 @@
 - Denied popup rebuilt to user mockup via design_agent blueprint (Oops! layout, 3 feature icons, phone-map illustration /assets/branch-gate/phone-map.jpg, nearest-branch card + Google Maps directions, trust row, Caveat accents). Verified screenshot.
 - .336: warm-lit background (bg-warm.jpg) for picker + denied popups (card + blurred backdrop), lighter overlays. Verified screenshots.
 - Composer: template chips set STARTERS text (so Send test is enabled), PhonePreview `disabledHint` + wa-test-hint amber note.
+- .336: Settings → BranchLocationsCard (owner pins per location, GPS or address/Maps link); GeoBranchGate auto-pick when exactly one branch within radius → manager/staff signed in directly (verified: manager at AECS pin landed on dashboard with no tap). Prod: manager login reset again (Pearl-Coral-OSkKFKNdwYM) after user changed pw & got locked.
