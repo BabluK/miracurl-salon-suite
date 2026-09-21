@@ -106,15 +106,27 @@ async def _image_payload(url: str) -> dict | None:
         return None
 
 
+def _fill_placeholders(text: str, t: dict, first: str) -> str:
+    """Resolve composer tokens ({name}, {salon}, {city}, {phone}) so guests never see raw braces."""
+    salon = t.get("name") or "our salon"
+    city = (t.get("city") or t.get("location") or "").split(",")[0].strip()
+    subs = {"{name}": first, "{salon}": salon, "{city}": city or salon, "{phone}": t.get("phone") or "", "{sign-off}": f"{salon}, {city}" if city else salon}
+    for k, v in subs.items():
+        text = text.replace(k, v)
+    return re.sub(r"\s{2,}", " ", text).strip()
+
+
 def _campaign_params(camp: dict, t: dict, first: str) -> tuple[str, list[str]]:
     """Map a campaign onto an approved Miracurl template: festival (5 vars) or winback (3 vars)."""
     salon = t.get("name", "our salon")
-    offer = camp.get("offer") or camp.get("headline") or camp.get("text", "")[:120]
+    offer = _fill_placeholders(camp.get("offer") or camp.get("headline") or camp.get("text", "")[:120], t, first)
     if camp.get("source") == "winback" or camp.get("offer_type") == "winback":
         return "winback", [first, salon, offer]
     if camp.get("offer_type") == "thankyou":
         city = (t.get("city") or t.get("location") or "").split(",")[0].strip()
-        return "thank_you", [first, salon, offer or (f"{salon}, {city}" if city else salon)]
+        sign_off = f"{salon}, {city}" if city else salon
+        # Template body is fixed; the only variable is the sign-off. Anyone who pasted the full brief gets just the sign-off.
+        return "thank_you", [first, salon, sign_off if (not offer or "thank you" in offer.lower() or len(offer) > 80) else offer]
     fest = camp.get("festival") or "festive season"
     valid = camp.get("valid_till") or (datetime.now(timezone.utc) + timedelta(days=7)).strftime("%d %b")
     return "festival", [first, salon, fest, offer, valid]
@@ -128,9 +140,9 @@ async def _send_one(t: dict, camp: dict, rcp: dict) -> dict:
     return {"messageId": r.get("message_id"), "channel": "whatsapp"}
 
 
-def _sms_campaign_vars(camp: dict, first: str) -> tuple[str, list[str]]:
+def _sms_campaign_vars(camp: dict, t: dict, first: str) -> tuple[str, list[str]]:
     """DLT SMS twin of the WhatsApp campaign: festival → (name, festival, offer); anything else → special (name, offer, valid_till)."""
-    offer = camp.get("offer") or camp.get("headline") or camp.get("text", "")[:60]
+    offer = _fill_placeholders(camp.get("offer") or camp.get("headline") or camp.get("text", "")[:60], t, first)
     if camp.get("festival"):
         return "festival", [first, camp["festival"], offer]
     valid = camp.get("valid_till") or (datetime.now(timezone.utc) + timedelta(days=7)).strftime("%d %b")
@@ -146,7 +158,7 @@ async def _sms_fallback_ready(t: dict) -> bool:
 async def _send_one_sms(t: dict, camp: dict, rcp: dict) -> dict:
     from sms_service import send_tenant_sms
     first = (rcp.get("name") or "there").split()[0]
-    kind, values = _sms_campaign_vars(camp, first)
+    kind, values = _sms_campaign_vars(camp, t, first)
     r = await send_tenant_sms(t["id"], rcp["phone"], camp.get("text") or "", kind=kind, sms_vars=values)
     if not r.get("sent"):
         raise RuntimeError(f"sms: {r.get('error') or 'failed'}")

@@ -71,7 +71,7 @@ export function SuperAdminProfileCard() {
           <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0"><Users className="w-5 h-5" /></div>
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-semibold text-slate-800">HQ logins <span className="text-xs font-normal text-rose-600">· {accounts.length} super-admin accounts exist</span></h2>
-            <p className="text-xs text-slate-500 mt-1">Only one HQ login should exist. If an old address (e.g. <code>super@miracurl.com</code>) still works after you renamed yours, remove it here.</p>
+            <p className="text-xs text-slate-500 mt-1">Only one HQ login should exist (<code>admin@miracurl-suite.com</code>). If an old address (e.g. <code>super@miracurl.com</code>) still works after you renamed yours, remove it here.</p>
             <div className="mt-3 space-y-2">
               {accounts.map(a => (
                 <div key={a.id} className={`flex items-center gap-3 rounded-xl border px-3 py-2 ${a.is_me ? "border-emerald-200 bg-emerald-50/50" : "border-slate-200"}`} data-testid={`super-admin-account-${a.id}`}>

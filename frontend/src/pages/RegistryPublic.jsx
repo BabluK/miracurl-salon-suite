@@ -161,7 +161,7 @@ const CONSENT_POINTS = [
   { icon: FileSignature, title: "Consent-first, always", text: "Every professional on this registry joined voluntarily. Staff share their details (name, phone, Aadhaar, address, work history) with their employer and give explicit written consent — recorded at onboarding — for Miracurl to verify and display their professional profile." },
   { icon: UserCheck, title: "Why verification matters", text: "Salons hire faster and safer when a professional's employment history, service duration and ratings are verified. Staff benefit too — a verified badge is a portable career passport that travels with them from salon to salon." },
   { icon: EyeOff, title: "Privacy by design", text: "Aadhaar numbers are used only to match identity — they are never stored or displayed in full (always masked, e.g. XXXX-XXXX-1234). Only employment-related information appears here; nothing else is shared." },
-  { icon: Lock, title: "Your data, your rights", text: "In line with India's Digital Personal Data Protection Act (DPDP, 2023), staff may review, correct, or withdraw consent at any time by contacting their salon or hello@miracurl.com — their profile is then removed from public search." },
+  { icon: Lock, title: "Your data, your rights", text: "In line with India's Digital Personal Data Protection Act (DPDP, 2023), staff may review, correct, or withdraw consent at any time by contacting their salon or privacy@miracurl-suite.com — their profile is then removed from public search." },
 ];
 
 export default function RegistryPublic() {
@@ -442,7 +442,7 @@ export default function RegistryPublic() {
         <p className="text-[11px] text-slate-400 text-center mt-8 max-w-xl mx-auto leading-relaxed">
           Badges are auto-computed from verified service duration and salon-owner ratings. Aadhaar numbers are never stored or shown in full.
           By using this portal you agree to use the information solely for employment verification. Miracurl processes this data as a consent-based
-          service under the Digital Personal Data Protection Act, 2023. Questions or consent withdrawal: <a href="mailto:hello@miracurl.com" className="text-pink-500 underline">hello@miracurl.com</a> · <a href="/privacy-policy" className="underline hover:text-slate-600">Privacy Policy</a> · <a href="/terms-of-service" className="underline hover:text-slate-600">Terms</a>
+          service under the Digital Personal Data Protection Act, 2023. Questions or consent withdrawal: <a href="mailto:privacy@miracurl-suite.com" className="text-pink-500 underline">privacy@miracurl-suite.com</a> · <a href="/privacy-policy" className="underline hover:text-slate-600">Privacy Policy</a> · <a href="/terms-of-service" className="underline hover:text-slate-600">Terms</a>
         </p>
       </div>
     </div>

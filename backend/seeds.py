@@ -89,7 +89,7 @@ async def backfill_tenant_ids(tenant_id: str):
 
 async def seed_super_admin():
     """Seed the super-admin ONCE from env. Never re-writes an existing hash so operators can rotate it."""
-    email = os.environ.get("SUPER_ADMIN_EMAIL", "super@miracurl.com").lower()
+    email = os.environ.get("SUPER_ADMIN_EMAIL", "admin@miracurl-suite.com").lower()
     # Auto-heal: an older seed re-created the default super-admin after the real one was renamed
     # (e.g. → admin@miracurl-suite.com). Remove the never-used duplicate so only one HQ login exists.
     # Runs ONCE (guarded by app_migrations) — never a recurring destructive step at startup.
@@ -101,7 +101,7 @@ async def seed_super_admin():
                     await db.users.update_one({"id": a["id"]}, {"$set": {"role": "retired_seed", "retired_at": datetime.now(timezone.utc).isoformat()}})
                     logging.warning("[seed] retired duplicate default super-admin %s (renamed HQ login exists)", email)
         await _raw_db.app_migrations.insert_one({"key": "dedupe_default_super_admin_v1", "at": datetime.now(timezone.utc).isoformat()})
-    # v2 (owner request): the dummy default HQ login must go as soon as a real one exists (e.g. super@miracurl-suite.com).
+    # v2 (owner request): the dummy default HQ login must go as soon as a real one exists (admin@miracurl-suite.com).
     if not await _raw_db.app_migrations.find_one({"key": "retire_default_super_admin_v2"}):
         admins = await db.users.find({"role": "super_admin"}, {"_id": 0, "id": 1, "email": 1}).to_list(10)
         real = [a for a in admins if a.get("email") != "super@miracurl.com"]

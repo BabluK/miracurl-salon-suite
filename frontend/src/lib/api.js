@@ -5,7 +5,11 @@ export const API = `${BACKEND_URL}/api`;
 
 let tenantSlug = null;
 
-export function setTenantSlug(slug) { tenantSlug = slug || null; }
+export function setTenantSlug(slug) {
+  const next = slug || null;
+  if (next !== tenantSlug) _recent.clear();
+  tenantSlug = next;
+}
 export function getTenantSlug() { return tenantSlug; }
 
 const api = axios.create({
@@ -13,10 +17,11 @@ const api = axios.create({
   withCredentials: true,
 });
 
-// Perf: identical GETs fired within a couple of seconds (StrictMode, sibling
-// widgets, polling overlap) share one network round-trip. Any mutation wipes
-// the cache so a POST → GET sequence always sees fresh data.
-const GET_TTL_MS = 2000;
+// Perf: identical GETs fired within a short window (StrictMode, sibling widgets,
+// polling overlap, hopping Dashboard ↔ CRM ↔ POS and back) share one network
+// round-trip. Any mutation wipes the cache so a POST → GET sequence always sees
+// fresh data; a branch/salon switch wipes it too (see AppLayout / branch.js).
+const GET_TTL_MS = 15000;
 const _inflight = new Map();
 const _recent = new Map();
 const _getKey = (c) => `${tenantSlug || ""}|${c.baseURL || ""}${c.url}|${JSON.stringify(c.params || {})}`;

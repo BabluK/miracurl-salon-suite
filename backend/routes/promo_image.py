@@ -25,7 +25,7 @@ SIZES = {"square": "1024x1024", "story": "1024x1536", "wide": "1536x1024"}
 class PosterIn(BaseModel):
     topic: str = "The complete Miracurl Salon Suite — everything a salon needs, powered by AI"
     size: str = "square"  # square | story | wide
-    contact: str = ""  # e.g. "+91 98765 43210 · hello@miracurl.com"
+    contact: str = ""  # e.g. "+91 98765 43210 · contact@miracurl-suite.com"
 
 
 @router.post("/super/promo-image")

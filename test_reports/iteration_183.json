@@ -1,0 +1,26 @@
+{
+  "summary": "Iter-183 — All 3 build .339 fixes verified end-to-end. (1) HQ super-admin rename: super@miracurl.com → 401, super@miracurl-suite.com/og9T@41Es#OQb6 → 200 with role=super_admin; /api/super-admin/overview reachable. (2) POST /api/super-admin/tenants/{tid}/customers/import-clean fully working: preview returns matched=3 with billed guest excluded, move → moved=2 duplicates_removed=1 (source retains only the billed customer), re-preview → 0; separate delete flow deletes 2; validation: bad-date 422, move without/target==source 400, unknown tid 404, non-super-admin (tenant admin) 403. (3) UI: super@miracurl-suite.com → Super Admin → Tenants tab → import-customers-<eleganceTid> button → modal opens → import-clean-toggle → import-clean-panel visible → date set to today (2 seeded via /import) → Preview shows import-clean-matched='2' → Delete (window.confirm auto-accepted) → toast 'Deleted 2 guests from Elegance Beauty Lounge' + import-clean-result shows '2 deleted'. (4) WhatsApp capped campaign UI: seeded parent(status=capped, capped_until=tomorrow 00:00 IST)+child(status=queued) in wa_campaigns for miracurl-marathahalli; bumped whatsapp_messages so worker keeps status=capped; History header wa-batch-summary-line-<parentId> reads '1,000 guests · 0 of 2 batches done · ⏸ daily limit reached — resumes today 6:30 pm (raise it in Settings → WhatsApp)' (no 'sending now'); row wa-capped-hint-<parentId> reads 'today's WhatsApp limit used up — continues 21 Sept, 6:30 pm'. Regression: GET /api/whatsapp-link/campaigns (tenant admin) 200; POST /super-admin/tenants/{tid}/customers/import with text still returns summary added=2.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter183_import_clean_and_wa_cap.py",
+    "/app/test_reports/pytest/iter183.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "wa_campaigns.py:_tick_tenant — `int(tenant.get('wa_daily_cap') or DEFAULT_DAILY_CAP)` treats 0 as falsy and falls back to 1000. Setting a tenant's cap to 0 (a valid 'stop-all' value) is silently ignored. Consider explicit `None`-check to allow 0.",
+    "super_admin_ops.py:super_admin_import_clean — validation branches (target missing, target==source, unknown target) only raise 400 when ids exist (rows>0). If matched=0 with action=move and no target, the endpoint returns 200 preview-like — cheap surprise. Consider validating target_tid regardless of matches for stronger contract.",
+    "import-clean $and filter uses $exists+$in checks in-place; would be much cheaper as a simple `visits: {$in:[0,null]}` when the collection uniformly stores 0. Also missing an index on (tenant_id, created_at) for large tenants.",
+    "WaCampaignBits.jsx BatchSummary — `capped` picks first row with status=capped, but 'capped_until' rendering falls back to 'at midnight' when null. Because worker never explicitly clears capped_until when returning to running via $unset, stale ISO on the child row could leak if child.status transitions back to running/queued after cap resets — not observed but worth guarding."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter183_import_clean_and_wa_cap.py"
+  ],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "100% (2/2 UI flows)"},
+  "test_credentials": "super@miracurl-suite.com / og9T@41Es#OQb6 (HQ). admin@miracurl.com / q6QY@tn3p#9DtL, tenant miracurl-marathahalli.",
+  "seed_data_creation": "All seeded docs cleaned up: TEST_UI_ImpClean_* customers (backend pytest + frontend flow), TEST_UI Cap Test wa_campaigns pair, TEST_UI_cap_bump whatsapp_messages, and legacy import (9887700001/2). Tenant miracurl-marathahalli wa_daily_cap restored to 1000.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend regression: pytest /app/backend/tests/test_iter183_import_clean_and_wa_cap.py -o addopts=''. Playwright tool caveat: DO NOT wrap the script parameter in <script>…</script> tags — the tool captures literal '</script>' into the temp file causing invalid syntax at that line. Just pass raw Python. To exercise 'capped' UI: worker interprets wa_daily_cap==0 as falsy (falls back to 1000). Use wa_daily_cap=1 + insert extra whatsapp_messages(direction=outbound, created_at=today) to force remaining<=0, then seed wa_campaigns with status='capped'. Elegance tenant id 7b63242c-4f91-4a60-b408-89ee71426561, MDM target c439b401-6d33-4d59-bac9-dac8947635ce, miracurl-marathahalli tenant 83ab97b6-b481-4172-afd7-53a46c93317d.",
+  "rca of the issue": "No functional issues found. Two edge-case comments captured under critical_code_review_comments (wa_daily_cap=0 falsy fallback; import-clean target validation only fires when matches>0)."
+}

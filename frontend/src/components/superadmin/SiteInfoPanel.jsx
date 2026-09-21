@@ -66,7 +66,7 @@ export const SiteInfoPanel = () => {
       <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
         <h2 className="font-semibold text-slate-800 flex items-center gap-2"><Mail className="w-4 h-4 text-slate-400" /> Contact & Social</h2>
         <div className="grid sm:grid-cols-2 gap-4">
-          <Input label="Contact Email" value={info.contact_email} onChange={set("contact_email")} placeholder="hello@miracurl-suite.com" testid="site-contact-email" icon={Mail} />
+          <Input label="Contact Email" value={info.contact_email} onChange={set("contact_email")} placeholder="info@miracurl-suite.com" testid="site-contact-email" icon={Mail} />
           <Input label="WhatsApp Number" value={info.whatsapp} onChange={set("whatsapp")} placeholder="+91 90000 00000" testid="site-whatsapp" />
           <Input label="Instagram URL" value={info.instagram} onChange={set("instagram")} placeholder="https://instagram.com/miracurlsuite" testid="site-instagram" icon={Instagram} />
           <Input label="Facebook URL" value={info.facebook} onChange={set("facebook")} placeholder="https://facebook.com/miracurlsuite" testid="site-facebook" icon={Facebook} />

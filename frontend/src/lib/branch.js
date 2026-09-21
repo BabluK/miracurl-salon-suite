@@ -1,4 +1,6 @@
 // Selected-branch state shared between the header switcher and dashboard/reports.
+import { invalidateGetCache } from "@/lib/api";
+
 const KEY = "miracurl_branch";
 
 export function getSelectedBranch() {
@@ -10,6 +12,7 @@ export function setSelectedBranch(name) {
     if (name) localStorage.setItem(KEY, name);
     else localStorage.removeItem(KEY);
   } catch { /* private mode */ }
+  invalidateGetCache();
   window.dispatchEvent(new CustomEvent("branch-changed", { detail: name || "" }));
 }
 
