@@ -53,7 +53,8 @@ export function InvoiceHeader({
               min={minDate}
               max={today}
               onChange={e => setBillDate(e.target.value || today)}
-              className="bg-transparent text-xs font-medium focus:outline-none cursor-pointer min-w-[7.5rem]"
+              style={{ color: backdated ? "#92400e" : "#334155", WebkitTextFillColor: backdated ? "#92400e" : "#334155", colorScheme: "light" }}
+              className="bg-transparent text-xs font-semibold focus:outline-none cursor-pointer w-[8.25rem] shrink-0"
             />
             {backdated && (
               <span data-testid="pos-backdated-badge" className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500 text-white">
