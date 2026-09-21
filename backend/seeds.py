@@ -101,6 +101,16 @@ async def seed_super_admin():
                     await db.users.update_one({"id": a["id"]}, {"$set": {"role": "retired_seed", "retired_at": datetime.now(timezone.utc).isoformat()}})
                     logging.warning("[seed] retired duplicate default super-admin %s (renamed HQ login exists)", email)
         await _raw_db.app_migrations.insert_one({"key": "dedupe_default_super_admin_v1", "at": datetime.now(timezone.utc).isoformat()})
+    # v2 (owner request): the dummy default HQ login must go as soon as a real one exists (e.g. super@miracurl-suite.com).
+    if not await _raw_db.app_migrations.find_one({"key": "retire_default_super_admin_v2"}):
+        admins = await db.users.find({"role": "super_admin"}, {"_id": 0, "id": 1, "email": 1}).to_list(10)
+        real = [a for a in admins if a.get("email") != "super@miracurl.com"]
+        if real:
+            res = await db.users.update_many({"role": "super_admin", "email": "super@miracurl.com"},
+                                             {"$set": {"role": "retired_seed", "retired_at": datetime.now(timezone.utc).isoformat()}})
+            if res.modified_count:
+                logging.warning("[seed] retired dummy super-admin super@miracurl.com — HQ login is %s", ", ".join(a["email"] for a in real))
+            await _raw_db.app_migrations.insert_one({"key": "retire_default_super_admin_v2", "at": datetime.now(timezone.utc).isoformat()})
     existing = await db.users.find_one({"$or": [{"email": email}, {"role": "super_admin"}]})
     if existing:
         # Never touch an existing super-admin (it may have been renamed, e.g. admin@miracurl-suite.com,

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, Upload, FileText, ClipboardPaste, Loader2, CheckCircle2, AlertCircle, Copy } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
@@ -19,6 +19,7 @@ export default function ImportCustomersModal({ tenant, onClose, onDone }) {
   const [format, setFormat] = useState("auto");
   const [result, setResult] = useState(null); // {summary, rows}
   const [busy, setBusy] = useState(false);
+  const [showClean, setShowClean] = useState(false);
   const fileRef = useRef(null);
 
   function onFile(e) {
@@ -136,6 +137,11 @@ export default function ImportCustomersModal({ tenant, onClose, onDone }) {
                 {busy ? <><Loader2 className="w-4 h-4 animate-spin" /> Importing…</> : "Preview & Import"}
               </button>
             </div>
+            <button type="button" onClick={() => setShowClean(v => !v)} data-testid="import-clean-toggle"
+              className="mt-3 text-[11px] text-ink-secondary hover:text-gold underline underline-offset-2">
+              {showClean ? "Hide" : "Wrong salon? Undo / move an import…"}
+            </button>
+            {showClean && <ImportCleanPanel tenant={tenant} onDone={onDone} />}
           </>
         )}
 
@@ -195,6 +201,69 @@ function Stat({ label, value, accent = "", testid }) {
     <div className="card-luxe" data-testid={testid}>
       <div className="label-luxe">{label}</div>
       <div className={`font-playfair text-3xl mt-1 ${accent}`}>{value}</div>
+    </div>
+  );
+}
+
+function ImportCleanPanel({ tenant, onDone }) {
+  const [date, setDate] = useState("");
+  const [tenants, setTenants] = useState([]);
+  const [target, setTarget] = useState("");
+  const [preview, setPreview] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.get("/super-admin/tenants").then(r => setTenants((r.data || []).filter(t => t.id !== tenant.id))).catch(() => {});
+  }, [tenant.id]);
+
+  async function run(action) {
+    if (!date) { toast.error("Pick the day the guests were added"); return; }
+    if (action === "move" && !target) { toast.error("Pick the salon to move them into"); return; }
+    if (action !== "preview" && !window.confirm(`${action === "delete" ? "Delete" : "Move"} ${preview?.matched ?? "these"} untouched guests added on ${date} ${action === "delete" ? `from ${tenant.name}` : "to the selected salon"}? This can't be undone.`)) return;
+    setBusy(true);
+    try {
+      const { data } = await api.post(`/super-admin/tenants/${tenant.id}/customers/import-clean`, { date, action, target_tid: target || null });
+      setPreview(data);
+      if (action === "delete") { toast.success(`Deleted ${data.deleted} guests from ${tenant.name}`); onDone?.(); }
+      if (action === "move") { toast.success(`Moved ${data.moved} guests to ${data.target?.name}${data.duplicates_removed ? ` · ${data.duplicates_removed} duplicates dropped` : ""}`); onDone?.(); }
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't process");
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="mt-3 card-luxe p-4 space-y-3" data-testid="import-clean-panel">
+      <div className="text-sm font-medium">Undo / move an import</div>
+      <p className="text-[11px] text-ink-secondary">Finds guests added to <span className="text-gold">{tenant.name}</span> on one day who were never billed (0 visits, ₹0). Preview first, then delete them or move them to the right salon (phones already there are skipped).</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <input type="date" value={date} onChange={e => { setDate(e.target.value); setPreview(null); }} data-testid="import-clean-date" className="input-luxe py-1.5 text-xs w-auto" />
+        <select value={target} onChange={e => setTarget(e.target.value)} data-testid="import-clean-target" className="input-luxe py-1.5 text-xs w-auto max-w-[220px]">
+          <option value="">Move to… (optional)</option>
+          {tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        <button type="button" onClick={() => run("preview")} disabled={busy || !date} className="btn-ghost py-1.5 text-xs" data-testid="import-clean-preview-btn">Preview</button>
+      </div>
+      {preview && (
+        <div className="space-y-2" data-testid="import-clean-result">
+          <div className="text-sm"><b className="text-gold" data-testid="import-clean-matched">{preview.matched}</b> untouched guests added on {preview.date}
+            {preview.deleted != null && <span className="text-red-400"> · {preview.deleted} deleted</span>}
+            {preview.moved != null && <span className="text-emerald-400"> · {preview.moved} moved to {preview.target?.name}{preview.duplicates_removed ? ` · ${preview.duplicates_removed} duplicates dropped` : ""}</span>}
+          </div>
+          {preview.sample?.length > 0 && preview.action === "preview" && (
+            <div className="text-[11px] text-ink-secondary font-mono">{preview.sample.map(s => `${s.name} · ${s.phone}`).join("  |  ")}{preview.matched > preview.sample.length ? " …" : ""}</div>
+          )}
+          {preview.action === "preview" && preview.matched > 0 && (
+            <div className="flex gap-2">
+              <button type="button" onClick={() => run("delete")} disabled={busy} className="flex-1 rounded-lg border border-red-400/40 text-red-300 text-xs font-bold py-2 hover:bg-red-500/10" data-testid="import-clean-delete-btn">
+                {busy ? "Working…" : `Delete ${preview.matched} from ${tenant.name}`}
+              </button>
+              <button type="button" onClick={() => run("move")} disabled={busy || !target} className="btn-gold flex-1 text-xs py-2" data-testid="import-clean-move-btn">
+                Move to {tenants.find(t => t.id === target)?.name || "…"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

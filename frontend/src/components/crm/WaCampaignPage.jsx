@@ -253,6 +253,12 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
                   <input type="checkbox" checked={autoBatch} onChange={e => setAutoBatch(e.target.checked)} className="mt-0.5 accent-[#b8863b]" />
                   <span><b className="text-slate-800">Auto-batch the rest</b> — send 500 now, then the remaining {(audienceTotal - (counts.per_send_limit || 500)).toLocaleString("en-IN")} guests in batches of 500 until all {audienceTotal.toLocaleString("en-IN")} are covered (needs ≈{audienceTotal.toLocaleString("en-IN")} credits).</span>
                 </label>
+                {autoBatch && usage?.cap && audienceTotal > usage.cap && (
+                  <p className="mt-2 ml-6 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5" data-testid="wa-batch-cap-hint">
+                    ⚠ Your WhatsApp daily limit is <b>{usage.cap.toLocaleString("en-IN")}</b> messages — batches beyond that pause automatically and continue after midnight, even on the hourly plan.
+                    Raise the limit in Settings → WhatsApp (max 5,000) or pick "Daily at a fixed time" to spread the sends across days.
+                  </p>
+                )}
                 {autoBatch && (
                   <div className="mt-2.5 ml-6 flex flex-wrap items-center gap-2 text-xs text-slate-600">
                     <span className="font-semibold text-slate-700">Release the next batches:</span>

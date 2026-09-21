@@ -76,8 +76,11 @@ function BatchSummary({ group }) {
   const waiting = rows.find(r => r.manual && r.status === "paused");
   const upcoming = rows.filter(r => !["done", "cancelled"].includes(r.status) && r.scheduled_at && new Date(r.scheduled_at) > new Date()).sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at))[0];
   const running = rows.find(r => ["running", "queued"].includes(r.status) && (!r.scheduled_at || new Date(r.scheduled_at) <= new Date()));
+  const capped = rows.find(r => r.status === "capped");
   const fmt = iso => { const d = new Date(iso); const day = d.toDateString() === new Date().toDateString() ? "today" : d.toDateString() === new Date(Date.now() + 864e5).toDateString() ? "tomorrow" : d.toLocaleDateString("en-IN", { day: "numeric", month: "short" }); return `${day} ${d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}`; };
-  const next = done === n ? "all batches delivered ✓" : running ? `batch ${running.batch_no} sending now` : waiting ? `batch ${waiting.batch_no} waiting for you` : upcoming ? `next ${fmt(upcoming.scheduled_at)}` : "";
+  const next = done === n ? "all batches delivered ✓"
+    : capped ? `⏸ daily limit reached — resumes ${capped.capped_until ? fmt(capped.capped_until) : "at midnight"} (raise it in Settings → WhatsApp)`
+    : running ? `batch ${running.batch_no} sending now` : waiting ? `batch ${waiting.batch_no} waiting for you` : upcoming ? `next ${fmt(upcoming.scheduled_at)}` : "";
   const pct = total ? Math.round((sent / total) * 100) : 0;
   return (
     <li className="px-4 py-3 bg-[#fbf7ee] border-b border-[#b8863b]/20" data-testid={`wa-batch-summary-${group.id}`}>
@@ -117,6 +120,9 @@ export function CampaignHistory({ camps, onChange }) {
           <div className="flex-1 min-w-0">
             <div className="font-medium text-slate-800 truncate flex items-center gap-2">
               <span className="truncate">{c.batch_no ? c.name.replace(/ · batch \d+$/, "") : c.name}</span>
+              {c.status === "capped" && <span className="shrink-0 text-[10px] font-semibold text-amber-700" data-testid={`wa-capped-hint-${c.id}`}>
+                · today's WhatsApp limit used up — continues {c.capped_until ? new Date(c.capped_until).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "after midnight"}
+              </span>}
               {c.batch_no && <span className="shrink-0 px-1.5 py-0.5 rounded bg-[#b8863b]/10 text-[#8a6425] text-[10px] font-semibold" data-testid={`wa-batch-chip-${c.id}`}>
                 Batch {c.batch_no}{c.batches_total ? ` of ${c.batches_total}` : ""}
                 {c.manual && c.status === "paused" ? " · manual — waiting for you" : c.manual && c.released_by ? ` · sent manually by ${c.released_by}` : !["done", "cancelled"].includes(c.status) && c.scheduled_at && new Date(c.scheduled_at) > new Date() ? ` · sends ${new Date(c.scheduled_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}` : ""}

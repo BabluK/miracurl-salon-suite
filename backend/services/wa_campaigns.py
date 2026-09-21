@@ -162,7 +162,7 @@ async def _tick_tenant(camp: dict) -> None:
         return
     use = await usage_today(t)
     if use["remaining"] <= 0:
-        await _raw_db.wa_campaigns.update_one({"id": camp["id"]}, {"$set": {"status": "capped", "updated_at": _now()}})
+        await _raw_db.wa_campaigns.update_one({"id": camp["id"]}, {"$set": {"status": "capped", "capped_until": use["resets_at"], "updated_at": _now()}})
         return
     via_sms = False
     if int(t.get("wa_points") or 0) < 1:
@@ -186,7 +186,7 @@ async def _tick_tenant(camp: dict) -> None:
         inc = {"failed": 1}
     remaining = sum(1 for i, r in enumerate(camp["recipients"]) if r["status"] == "pending" and i != idx)
     final = {"status": "done", "finished_at": _now()} if remaining == 0 else {"status": "running"}
-    await _raw_db.wa_campaigns.update_one({"id": camp["id"]}, {"$set": {**upd, **final, "updated_at": _now()}, "$inc": inc})
+    await _raw_db.wa_campaigns.update_one({"id": camp["id"]}, {"$set": {**upd, **final, "updated_at": _now()}, "$unset": {"capped_until": ""}, "$inc": inc})
 
 
 async def worker_loop() -> None:

@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 from database import _raw_db, db, _current_tenant_id, _clean
 from security import (
     hash_pw, verify_pw, get_current_user, public_rate_limit, require_super_admin,
-    require_tenant_admin, current_tenant,
+    require_tenant_admin, current_tenant, log_audit,
 )
 from models import (
     Tenant, Customer,
@@ -1196,6 +1196,53 @@ async def super_admin_import_customers(tid: str, body: CustomerImportIn, user=De
         }
     finally:
         _current_tenant_id.set(None)
+
+
+class ImportCleanIn(BaseModel):
+    date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")  # local day the guests were added
+    action: str = Field("preview", pattern="^(preview|delete|move)$")
+    target_tid: Optional[str] = None
+
+
+def _untouched_import_filter(tenant: dict, day: str) -> dict:
+    from services.day_window import _tenant_tz, _local_day_window
+    _d, start, end = _local_day_window(_tenant_tz(tenant), day)
+    return {"tenant_id": tenant["id"], "created_at": {"$gte": start, "$lte": end},
+            "$and": [{"$or": [{"visits": {"$in": [0, None]}}, {"visits": {"$exists": False}}]},
+                     {"$or": [{"total_spent": {"$in": [0, None]}}, {"total_spent": {"$exists": False}}]}]}
+
+
+@router.post("/super-admin/tenants/{tid}/customers/import-clean")
+async def super_admin_import_clean(tid: str, body: ImportCleanIn, user=Depends(require_super_admin)):
+    """Undo a bulk import that landed in the wrong salon: guests ADDED on that local day who were never
+    billed (0 visits, ₹0) are previewed, deleted, or moved to another tenant (phones already there are skipped)."""
+    tenant = await _raw_db.tenants.find_one({"id": tid}, {"_id": 0, "id": 1, "slug": 1, "name": 1, "timezone": 1})
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+    flt = _untouched_import_filter(tenant, body.date)
+    rows = await _raw_db.customers.find(flt, {"_id": 0, "id": 1, "name": 1, "phone": 1}).to_list(20000)
+    ids = [r["id"] for r in rows]
+    out = {"tenant": {"id": tenant["id"], "slug": tenant["slug"], "name": tenant["name"]}, "date": body.date,
+           "matched": len(rows), "sample": rows[:8], "action": body.action}
+    if body.action == "preview" or not ids:
+        return out
+    if body.action == "delete":
+        res = await _raw_db.customers.delete_many({"tenant_id": tenant["id"], "id": {"$in": ids}})
+        out["deleted"] = res.deleted_count
+    else:
+        target = await _raw_db.tenants.find_one({"id": body.target_tid or ""}, {"_id": 0, "id": 1, "slug": 1, "name": 1})
+        if not target or target["id"] == tenant["id"]:
+            raise HTTPException(400, "Pick a different target salon to move the guests into")
+        have = {c["phone"] async for c in _raw_db.customers.find({"tenant_id": target["id"], "phone": {"$in": [r["phone"] for r in rows if r.get("phone")]}}, {"_id": 0, "phone": 1})}
+        move_ids = [r["id"] for r in rows if r.get("phone") not in have]
+        dup_ids = [r["id"] for r in rows if r.get("phone") in have]
+        res = await _raw_db.customers.update_many({"tenant_id": tenant["id"], "id": {"$in": move_ids}}, {"$set": {"tenant_id": target["id"]}})
+        dup = await _raw_db.customers.delete_many({"tenant_id": tenant["id"], "id": {"$in": dup_ids}}) if dup_ids else None
+        out.update({"moved": res.modified_count, "duplicates_removed": dup.deleted_count if dup else 0,
+                    "target": target})
+    await log_audit(tenant["id"], user, "hq_import_clean", f"{body.action} {len(ids)} untouched guests added {body.date}")
+    logging.warning("[hq] import-clean %s on %s (%s): %s", body.action, tenant["slug"], body.date, {k: v for k, v in out.items() if k in ("matched", "deleted", "moved", "duplicates_removed")})
+    return out
 
 
 @router.get("/super-admin/overview")
