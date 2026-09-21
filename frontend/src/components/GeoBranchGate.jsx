@@ -147,10 +147,12 @@ export function GeoBranchGate() {
       [ShieldCheck, "This keeps your salon data safe and secure."],
     ];
     return (
-      <div className="fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md" data-testid="geo-branch-gate">
+      <div className="fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-6 bg-cover bg-center" style={{ backgroundImage: "url(/assets/branch-gate/bg-warm.jpg)" }} data-testid="geo-branch-gate">
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
         <div className="relative w-full max-w-6xl max-h-[94vh] overflow-y-auto rounded-[28px] sm:rounded-[32px] border border-[#d4af37]/30 shadow-[0_40px_120px_-20px_rgba(0,0,0,0.95),0_0_60px_-10px_rgba(232,201,122,0.2)] text-white bg-[#0b0a0c]" data-testid="geo-branch-denied">
-          <div className="absolute inset-0 bg-cover bg-center opacity-60" style={{ backgroundImage: "url(/assets/branch-gate/bg.jpg)" }} />
-          <div className="absolute inset-0 bg-[#0b0a0c]/80 backdrop-blur-[3px]" />
+          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/assets/branch-gate/bg-warm.jpg)" }} />
+          <div className="absolute inset-0 bg-[#0b0a0c]/60" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.05),rgba(0,0,0,0.55)_90%)]" />
           <div className="relative p-6 sm:p-8 lg:p-10">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -241,11 +243,12 @@ export function GeoBranchGate() {
   const showRetry = geo.state === "off" || (strict && geo.state === "ready" && !gpsHit);
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md" data-testid="geo-branch-gate" onWheel={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-6 bg-cover bg-center" style={{ backgroundImage: "url(/assets/branch-gate/bg-warm.jpg)" }} data-testid="geo-branch-gate" onWheel={e => e.stopPropagation()}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
       <div className="relative w-full max-w-4xl max-h-[94vh] overflow-y-auto rounded-[32px] border border-[#e8c97a]/30 shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9),0_0_60px_-10px_rgba(232,201,122,0.25)] bg-[#0b0a0c]" data-testid="geo-branch-modal">
-      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/assets/branch-gate/bg.jpg)" }} />
-      <div className="absolute inset-0 bg-black/55 backdrop-blur-[2px]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.1),rgba(0,0,0,0.8)_90%)]" />
+      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/assets/branch-gate/bg-warm.jpg)" }} />
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.05),rgba(0,0,0,0.6)_90%)]" />
 
       <button type="button" onClick={async () => { setOpen(false); await logout(); navigate("/login", { replace: true }); }} data-testid="geo-branch-logout"
         className="absolute top-4 right-4 z-10 inline-flex items-center gap-1.5 text-xs font-semibold text-white/80 hover:text-white bg-black/50 hover:bg-black/70 border border-white/15 rounded-full px-3 py-1.5 backdrop-blur transition-colors">

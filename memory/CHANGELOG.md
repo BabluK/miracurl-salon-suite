@@ -303,3 +303,4 @@
 - Gate: design_agent blueprint applied (glow 0.6, logo sparkle: logoGlow + 4 drifting ✦ particles, prefers-reduced-motion off). Verified screenshot.
 - .335: strict deny popup for managers/staff outside every branch ("Sorry, you can't sign in from this location", Retry GPS + Sign out → /login); back-button hardening (logout replaceState → /login, Login popstate guard, AuthContext pageshow/popstate refresh → 401 clears user). Verified: denied popup → Sign out → back stays on /login.
 - Denied popup rebuilt to user mockup via design_agent blueprint (Oops! layout, 3 feature icons, phone-map illustration /assets/branch-gate/phone-map.jpg, nearest-branch card + Google Maps directions, trust row, Caveat accents). Verified screenshot.
+- .336: warm-lit background (bg-warm.jpg) for picker + denied popups (card + blurred backdrop), lighter overlays. Verified screenshots.
