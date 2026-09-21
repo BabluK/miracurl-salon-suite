@@ -3583,3 +3583,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## STANDING RULE (user, 2026-09-21): design-first UI
 - User: "always I have to tell you to use advanced model to design something — can't you remember?" → For ANY new/changed visible UI element: (1) consult `design_agent` / `/app/design_guidelines.json`, (2) verify with a real screenshot of the rendered element (both states), (3) then test. Never ship UI verified only by data-testid/functional checks.
 - Known trap: `index.css:50` paints every `input, select, textarea` text WHITE (dark-form theme). Any input placed on a light surface needs an explicit text colour (POS bill-date fix: inline color + WebkitTextFillColor + colorScheme light).
+
+## 2026-09-21 — Gate redesign (light) + login bounce fix (build .343)
+- `components/geo/GateViews.jsx` (PickerView, DeniedView, SalonCard) replaces the dark overlay in `GeoBranchGate.jsx` (logic unchanged). Light ivory theme per user mockups; strict roles see the picker only while locating (pills "Checking location…"), then auto-pick (1 branch within) or DeniedView. Verified by screenshots: denied, picker (GPS stubbed), auto-pick → dashboard, sign-out → login.
+- Login bounce RCA (manager, GPS not detected, dashboard 2 s → login): global 401 handler in `lib/api.js` fired for a request that started on /login before sign-in (its `/auth/refresh` retry failed after the user was already on /dashboard). Fix: `_sessionEpoch` stamped on every request; 401s from a previous epoch never redirect. `bumpSessionEpoch()` in `afterAuth` + `logout`.

@@ -76,7 +76,15 @@ export function thumbUrl(url, w = 480) {
   return url;
 }
 
+// Session epoch: bumped on every login/logout. A 401 that belongs to a request
+// started BEFORE the current login (e.g. a probe fired on /login on a slow phone
+// whose /auth/refresh only fails after the user already landed on /dashboard)
+// must never bounce the freshly signed-in user back to /login.
+let _sessionEpoch = 0;
+export function bumpSessionEpoch() { _sessionEpoch += 1; _recent.clear(); }
+
 api.interceptors.request.use((config) => {
+  config._epoch = _sessionEpoch;
   if (tenantSlug) config.headers["X-Tenant-Slug"] = tenantSlug;
   const method = (config.method || "get").toUpperCase();
   if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
@@ -125,8 +133,10 @@ api.interceptors.response.use(
     }
     if (status === 401 && !isAuthBootstrap && !isRefresh && typeof window !== "undefined") {
       const path = window.location.pathname;
-      // Don't loop if we're already on /login or any public (guest-facing) route
-      if (!isPublicPath(path)) {
+      const stale = err?.config && err.config._epoch !== _sessionEpoch;
+      // Don't loop if we're already on /login or any public (guest-facing) route,
+      // and never act on a 401 from a request that predates the current session.
+      if (!stale && !isPublicPath(path)) {
         window.location.assign(`${path.startsWith("/partner/") ? "/partner" : ""}/login?next=${encodeURIComponent(path + window.location.search)}`);
       }
     }

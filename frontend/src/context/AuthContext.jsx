@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import log from "@/lib/log";
-import api, { formatApiError, setTenantSlug, detectTenantSlug, isPublicPath } from "@/lib/api";
+import api, { formatApiError, setTenantSlug, detectTenantSlug, isPublicPath, bumpSessionEpoch } from "@/lib/api";
 import { setSelectedBranch } from "@/lib/branch";
 
 const AuthContext = createContext(null);
@@ -84,6 +84,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const afterAuth = useCallback(async (data) => {
+    bumpSessionEpoch();
     clearSectionUnlocks();
     if (data.user.role === "manager" && data.user.branch) setSelectedBranch(data.user.branch);
     if (data.user.role === "super_admin") {
@@ -133,6 +134,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     try { await api.post("/auth/logout"); }
     catch (e) { log.warn("[auth] logout failed:", e?.message || e); }
+    bumpSessionEpoch();
     clearSectionUnlocks();
     clearTenantStorage();
     try { sessionStorage.clear(); } catch { /* private mode */ }

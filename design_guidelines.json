@@ -1,84 +1,179 @@
 {
-  "project_name": "Miracurl Suite - Location Denied Gate (GeoBranchGate)",
-  "context": "SaaS / Location Denied Modal Popup",
-  "theme": {
-    "background_photo": "/assets/branch-gate/bg.jpg",
-    "background_blur": "backdrop-blur-2xl bg-[#0b0a0c]/85",
-    "border": "border border-[#d4af37]/30 shadow-[0_40px_120px_-20px_rgba(0,0,0,0.95)]",
-    "colors": {
-      "bg_dark": "#0b0a0c",
-      "gold_primary": "#e8c97a",
-      "gold_accent": "#d4af37",
-      "gold_dark": "#1a160d",
-      "text_white": "#ffffff",
-      "text_muted": "rgba(255,255,255,0.75)"
-    },
+  "theme": "LIGHT",
+  "project_name": "Miracurl Suite - Multi-Tenant Salon SaaS Gate Redesign",
+  "brand_lockup": "/assets/brand/gold-lockup-transparent.png",
+  "colors": {
+    "background": "#FAF8F5",
+    "background_alt": "#F4EFEA",
+    "card_bg": "#FFFFFF",
+    "card_subtle_bg": "#F7F4EF",
+    "card_border": "#E8E2D9",
+    "card_border_focus": "#C9A24A",
+    "navy_text_primary": "#0F1E33",
+    "navy_text_secondary": "#1E324D",
+    "muted_text": "#6B7280",
+    "light_muted_text": "#9CA3AF",
+    "gold_primary": "#C9A24A",
+    "gold_dark": "#B8893A",
+    "gold_light": "#F9F3EA",
+    "gold_border": "rgba(201, 162, 74, 0.35)",
+    "gold_gradient_button": "linear-gradient(135deg, #D4AF37 0%, #C9A24A 50%, #B8893A 100%)",
+    "gold_gradient_button_hover": "linear-gradient(135deg, #E0B83E 0%, #D4AF37 50%, #C49633 100%)",
+    "rose_pill_bg": "#FFEFEF",
+    "rose_pill_text": "#9B1C1C",
+    "rose_pill_border": "#F87171",
+    "emerald_pill_bg": "#ECFDF5",
+    "emerald_pill_text": "#065F46",
+    "emerald_pill_border": "#10B981",
+    "disabled_card_bg": "#F3ECE3",
+    "disabled_card_border": "#E2D9CE",
+    "disabled_card_text": "#9CA3AF"
+  },
+  "typography": {
     "fonts": {
-      "heading": "font-serif (Playfair Display)",
-      "body": "font-sans (Outfit)",
-      "accent": "font-caveat (Caveat Script)"
+      "heading_serif": "Playfair Display, Georgia, serif",
+      "body_sans": "Outfit, Inter, sans-serif",
+      "accent_script": "Caveat, cursive"
+    },
+    "font_sizes": {
+      "desktop": {
+        "h1": "text-3xl lg:text-4xl font-bold tracking-tight",
+        "h2": "text-2xl lg:text-3xl font-semibold",
+        "h3": "text-xl font-medium",
+        "body": "text-base leading-relaxed",
+        "caption": "text-sm text-muted-foreground",
+        "micro": "text-xs font-medium uppercase tracking-wider"
+      },
+      "mobile": {
+        "h1": "text-2xl font-bold tracking-tight",
+        "h2": "text-xl font-semibold",
+        "h3": "text-lg font-medium",
+        "body": "text-sm leading-normal",
+        "caption": "text-xs text-muted-foreground"
+      }
     }
   },
-  "layout_recipes": {
-    "modal_overlay": "fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto",
-    "card_container": "relative w-full max-w-6xl max-h-[94vh] overflow-y-auto rounded-[28px] sm:rounded-[32px] border border-[#d4af37]/30 bg-[#0b0a0c]/90 backdrop-blur-2xl p-6 sm:p-8 lg:p-10 shadow-[0_40px_120px_-20px_rgba(0,0,0,0.95),0_0_60px_-10px_rgba(232,201,122,0.2)] text-white font-sans",
-    "header_row": "flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 border-b border-[#d4af37]/20 gap-4",
-    "header_left": "flex items-center gap-3",
-    "header_logo": "h-10 sm:h-12 w-auto drop-shadow-[0_4px_16px_rgba(232,201,122,0.4)]",
-    "header_tagline": "text-[10px] sm:text-xs tracking-[0.38em] font-semibold text-[#e8c97a]/90 uppercase",
-    "header_right": "font-caveat text-xl sm:text-2xl text-[#e8c97a] -rotate-1 select-none",
-    "main_grid": "grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 py-8 items-stretch",
-    "left_column": "lg:col-span-7 flex flex-col justify-between space-y-6",
-    "headline_oops": "font-serif text-5xl sm:text-6xl lg:text-7xl font-bold text-[#e8c97a] tracking-tight leading-none drop-shadow-[0_2px_12px_rgba(232,201,122,0.3)]",
-    "headline_main": "font-serif text-3xl sm:text-4xl lg:text-5xl font-semibold text-white leading-[1.15] mt-2",
-    "body_description": "text-sm sm:text-base text-white/80 leading-relaxed font-normal max-w-xl",
-    "feature_row": "grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-2 py-4 border-y border-[#d4af37]/20 relative",
-    "feature_item": "flex flex-col items-center text-center p-3 sm:p-4 rounded-xl bg-black/40 border border-white/5 relative md:border-none md:bg-transparent",
-    "feature_divider": "hidden md:block absolute top-4 bottom-4 w-px bg-gradient-to-b from-transparent via-[#d4af37]/30 to-transparent",
-    "feature_icon_disc": "w-10 h-10 rounded-full border border-[#d4af37]/60 bg-[#1a160d] text-[#e8c97a] flex items-center justify-center mb-2.5 shadow-[0_0_15px_rgba(232,201,122,0.2)]",
-    "feature_text": "text-xs text-white/85 leading-snug",
-    "button_row": "flex flex-wrap items-center gap-3 pt-2",
-    "retry_button": "inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#e8c97a] to-[#d4af37] text-[#0b0a0c] hover:brightness-110 font-bold px-6 py-3 text-sm sm:text-base shadow-[0_0_25px_rgba(232,201,122,0.4)] transition-all transform hover:-translate-y-0.5",
-    "signout_button": "inline-flex items-center justify-center gap-2 rounded-full border border-[#d4af37]/70 text-[#e8c97a] hover:bg-[#d4af37]/15 hover:border-[#e8c97a] font-semibold px-6 py-3 text-sm sm:text-base transition-all",
-    "support_link": "inline-flex items-center gap-1.5 text-xs sm:text-sm text-[#e8c97a]/80 hover:text-[#e8c97a] transition-colors mt-2",
-    "right_column": "lg:col-span-5 flex flex-col gap-6 justify-between",
-    "phone_container": "relative w-full aspect-[4/3] sm:aspect-[16/10] lg:aspect-auto lg:h-64 rounded-2xl overflow-hidden border border-[#d4af37]/30 bg-[#121015] shadow-2xl p-4 flex items-center justify-center group",
-    "phone_tilted_frame": "relative w-48 sm:w-56 h-full rounded-[24px] border-4 border-[#2a2418] bg-black shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden transform -rotate-3 transition-transform duration-500 group-hover:rotate-0",
-    "phone_map_bg": "absolute inset-0 bg-[radial-gradient(#1f1b24_1px,transparent_1px)] [background-size:12px_12px] bg-[#0b0a0c]",
-    "phone_gold_pin": "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center",
-    "phone_pin_icon": "w-8 h-8 text-[#e8c97a] animate-bounce drop-shadow-[0_0_12px_rgba(232,201,122,0.8)]",
-    "phone_tooltip": "mt-1 whitespace-nowrap rounded-full bg-[#1a160d] border border-[#d4af37]/60 text-[#e8c97a] text-[11px] font-medium px-3 py-1 shadow-lg",
-    "nearest_branch_card": "rounded-2xl border border-[#d4af37]/30 bg-gradient-to-br from-[#18141c] to-[#0f0d12] p-4 sm:p-5 flex items-center justify-between gap-4 shadow-xl",
-    "nearest_branch_left": "flex items-center gap-3.5 min-w-0",
-    "nearest_branch_icon_disc": "w-11 h-11 rounded-full border border-[#d4af37]/50 bg-[#1a160d] text-[#e8c97a] flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(232,201,122,0.25)]",
-    "nearest_branch_title": "font-serif text-lg sm:text-xl font-semibold text-white truncate",
-    "nearest_branch_sub": "text-xs sm:text-sm text-white/70 truncate mt-0.5",
-    "get_directions_button": "shrink-0 inline-flex items-center gap-1.5 rounded-full border border-[#d4af37]/60 text-[#e8c97a] hover:bg-[#e8c97a] hover:text-[#0b0a0c] font-semibold text-xs sm:text-sm px-4 py-2 transition-all whitespace-nowrap",
-    "footer_trust_row": "pt-6 border-t border-[#d4af37]/20 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/75",
-    "trust_items": "flex flex-wrap items-center justify-center sm:justify-start gap-4 sm:gap-6",
-    "trust_item": "flex items-center gap-1.5",
-    "trust_icon": "w-4 h-4 text-[#e8c97a]",
-    "footer_right_script": "font-caveat text-lg sm:text-xl text-[#e8c97a] select-none"
+  "layout_and_spacing": {
+    "border_radius": {
+      "card": "20px",
+      "card_large": "24px",
+      "pill": "9999px",
+      "button": "12px",
+      "input": "12px"
+    },
+    "shadows": {
+      "card": "0 8px 30px rgba(15, 30, 51, 0.06)",
+      "card_hover": "0 14px 40px rgba(15, 30, 51, 0.12)",
+      "gold_glow": "0 4px 20px rgba(201, 162, 74, 0.25)",
+      "inner_subtle": "inset 0 2px 4px rgba(0, 0, 0, 0.02)"
+    },
+    "spacing_rhythm": {
+      "section_padding": "p-6 md:p-10 lg:p-12",
+      "grid_gap": "gap-6 lg:gap-8",
+      "card_internal_padding": "p-6 md:p-8",
+      "element_stack": "space-y-4 md:space-y-6"
+    }
   },
-  "key_functionalities": {
-    "retry_gps": "Triggers navigator.geolocation.getCurrentPosition() and re-evaluates /branch/locate API",
-    "sign_out": "Calls logout() context function and redirects to /login",
-    "get_directions": "Opens https://www.google.com/maps/search/?api=1&query={nearestBranch.lat},{nearestBranch.lng} in new tab",
-    "contact_support": "Triggers mailto:support@miracurl.com or WhatsApp link"
+  "pill_states": {
+    "Available": {
+      "bg": "#ECFDF5",
+      "text": "#065F46",
+      "border": "1px solid #A7F3D0",
+      "icon": "emerald pulse dot or check icon",
+      "label": "AVAILABLE"
+    },
+    "Locked": {
+      "bg": "#F3F4F6",
+      "text": "#6B7280",
+      "border": "1px solid #D1D5DB",
+      "icon": "padlock icon in soft amber/grey",
+      "label": "LOCKED • OUT OF RANGE (>100m)"
+    },
+    "OutsideBranch": {
+      "bg": "#FFEFEF",
+      "text": "#9B1C1C",
+      "border": "1px solid #FCA5A5",
+      "icon": "rose location mark pin",
+      "label": "You are here • Outside branch"
+    }
   },
-  "data_testids": [
-    "geo-branch-gate",
-    "geo-branch-denied",
-    "geo-branch-denied-reason",
-    "geo-branch-retry",
-    "geo-branch-logout",
-    "geo-branch-directions",
-    "geo-branch-support"
+  "disabled_card_treatment": {
+    "opacity": "0.75",
+    "cursor": "not-allowed",
+    "background": "#F3ECE3",
+    "border": "1px solid #E2D9CE",
+    "overlay_text": "GPS location must be within 100m of branch to sign in",
+    "button_state": "disabled with lock icon"
+  },
+  "micro_interactions": {
+    "button_primary_hover": "transform -translate-y-0.5 scale-[1.01] shadow-lg transition-all duration-200 ease-out",
+    "button_primary_press": "transform translate-y-0 scale-[0.99] transition-all duration-100",
+    "card_hover": "transform -translate-y-1 border-[#C9A24A]/60 shadow-[0_14px_40px_rgba(15,30,51,0.12)] transition-all duration-200 ease-out",
+    "badge_pulse": "animate-pulse"
+  },
+  "screen_specifications": {
+    "Screen_A_Branch_Picker": {
+      "header_row": {
+        "brand_logo": "/assets/brand/gold-lockup-transparent.png",
+        "search_box": "Search by salon name, area or location...",
+        "location_button": "Use my current location",
+        "city_dropdown": "Filter by city"
+      },
+      "cards_grid": {
+        "card_elements": [
+          "Branch photo",
+          "MAIN SALON / SALON badge",
+          "Available / Locked pill",
+          "Branch name and Area",
+          "3 mini-stats: staff count, categories, operating hours",
+          "'Open This Salon' primary gold button"
+        ]
+      },
+      "right_callout": {
+        "icon": "Gold Shield with location lock tick",
+        "title": "Secure & location verified",
+        "body": "Staff can only access the branch they are at"
+      }
+    },
+    "Screen_B_Location_Denial": {
+      "left_column": {
+        "status_pill": "You are here • Outside branch (rose pill)",
+        "giant_headline": "Oops! (Gold serif) + You can't sign in from this location (Navy serif)",
+        "reason_text": "GPS verified location is outside allowed 100m geofence for selected branch.",
+        "features": "3 gold-circled feature icons (Geofence protection, Staff integrity, Live activity sync)",
+        "actions": "Gold 'Retry GPS' + Outlined 'Sign out'",
+        "support_link": "Need help? Contact support"
+      },
+      "right_column": {
+        "hero_photo_card": {
+          "tagline_italic": "Secure Salons Brighter Tomorrows",
+          "subline": "Your data. Your business. Always protected."
+        },
+        "nearest_branch_card": {
+          "title": "Your nearest branch",
+          "distance": "e.g. 2.4 km away",
+          "action": "Get Directions button with gold border",
+          "map_bg": "Faint architectural map pattern overlay"
+        }
+      },
+      "footer": {
+        "tagline": "FOR SALONS THAT DREAM BIGGER",
+        "decorations": "Gold horizontal rule dividers"
+      }
+    }
+  },
+  "instructions_to_main_agent": [
+    "Target JavaScript files (.js/.jsx) for all React components in frontend/src/.",
+    "Replace existing dark-theme gate views with this warm light ivory (#FAF8F5) + navy (#0F1E33) + gold (#C9A24A) theme.",
+    "Implement GeoBranchGate.jsx and SalonSwitcher.jsx using these exact tokens and rounded-2xl / rounded-3xl radii.",
+    "Ensure every interactive element (buttons, inputs, cards, retry links, sign out links) includes data-testid attributes (kebab-case).",
+    "Maintain auto-pick logic when exactly 1 branch matches GPS (<100m).",
+    "Show faint map background for the nearest branch card."
   ],
   "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
-    "Ensure exact match to gold and dark luxury salon aesthetic (#0b0a0c dark glass, #e8c97a / #d4af37 gold).",
-    "Preserve all data-testids for automated testing.",
-    "Mobile layout must stack features into single column or compact grid, scale phone illustration, and maintain padding.",
-    "Ensure contrast APCA / WCAG AA compliant on all gold buttons and white text."
+    "Never use dark backgrounds for full screen unless explicitly requested for luxury night mode.",
+    "Avoid default system buttons; use custom rounded buttons with warm gold gradients.",
+    "Ensure 100% mobile and desktop responsiveness.",
+    "All interactive elements MUST have data-testid attributes."
   ]
 }
