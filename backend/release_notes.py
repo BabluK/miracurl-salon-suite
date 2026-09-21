@@ -141,6 +141,7 @@ RELEASES = [
     {
         "date": "2026-09-21 (Unlock & set passwords anywhere 🔓)",
         "changes": [
+            "💬 Campaign composer: picking a template chip now drops a ready-to-send message into the box (Mira can still rewrite it), and when Send test is greyed out an amber hint says why (message empty)",
             "✨ Both sign-in popups now glow with the warm-lit salon background from your design — inside the card and softly blurred behind it",
             "🚫 Manager/staff signing in from outside every branch (or with GPS off) get the new 'Oops! You can't sign in from this location' popup — same luxe salon background and fonts as the branch picker: why it's blocked, your nearest branch with Get Directions, Retry GPS, Sign out and Contact support. The dashboard is never shown. Owners sign in from anywhere",
             "🔒 Back button after Sign out can no longer bring back a cached dashboard/settings page — it stays on the login page",

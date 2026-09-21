@@ -70,7 +70,16 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
   const linked = !!status?.connected;
   const firstName = useMemo(() => (selectedCustomers[0]?.name || "Priya").split(" ")[0], [selectedCustomers]);
 
-  const pickTemplate = (k) => { setTpl(k); setBrief(TEMPLATES[k].brief); };
+  const STARTERS = {
+    festive: (d) => `✨ Hi {name}! Celebrate the festive season with us at {salon} — flat ${d}% OFF on all hair, skin & nail services. Book your slot before it fills up! 💛`,
+    promo: (d) => `Hi {name}! For a limited time, enjoy ${d}% OFF on our most-loved services at {salon}. Treat yourself this week 💇‍♀️✨`,
+    rebook: () => `Hi {name}, it's been a while since your last visit to {salon} 💛 Your next glow-up is due — shall we book your usual slot?`,
+    loyalty: () => `Hi {name}, thank you for being part of the {salon} family 💛 As a valued guest, a members-only perk is waiting for you on your next visit.`,
+    thankyou: () => `❤️ Hi {name}, thank you for your trust and love. It's guests like you who make {salon} what it is. See you soon!`,
+    custom: () => "",
+  };
+  // Picking a chip gives a ready-to-send message right away (Mira can still rewrite it) — so Send test is never greyed out for no visible reason.
+  const pickTemplate = (k) => { setTpl(k); setBrief(TEMPLATES[k].brief); if (!text.trim() || Object.values(STARTERS).some(f => f(discount) === text)) setText(STARTERS[k](discount)); };
 
   const compose = async (uploaded) => {
     if (!recipients) return toast.error("Pick recipients first");
@@ -374,7 +383,8 @@ export default function WaCampaignPage({ selectedCustomers, onViewCustomers }) {
         </div>
 
         <PhonePreview salon={status?.push_name || "Your salon"} text={text} image={image} firstName={firstName} cta={cta}
-          testPhone={testPhone} setTestPhone={setTestPhone} onTest={sendTest} busy={busy === "test"} disabled={!linked || !text.trim()} />
+          testPhone={testPhone} setTestPhone={setTestPhone} onTest={sendTest} busy={busy === "test"} disabled={!linked || !text.trim()}
+          disabledHint={!text.trim() ? "Write the message first (pick a template chip or tap ‘Let Mira write it’) — then Send test lights up." : ""} />
       </div>
     </div>
   );
