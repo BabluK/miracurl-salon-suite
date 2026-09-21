@@ -1,0 +1,23 @@
+{
+  "summary": "Iter 181 — POS back-dated bills feature (Miracurl salon SaaS). Full backend + frontend verification. 8/8 backend pytest scenarios PASSED. All 3 frontend requirements PASSED: (1) POS InvoiceHeader pos-bill-date input defaults today with min=today-2 & max=today, (2) pos-backdated-badge appears amber when picking yesterday and hides when picking today, (3) Reports/BillLookup InvoiceTable renders bill-backdated-<id> BACK-DATED chip on the created row.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_pos_backdated_bills.py",
+    "/app/test_reports/pytest/pos_backdated_bills.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "_apply_bill_date sets inv['backdated']=True only when a past date is picked — Invoice model doesn't declare `backdated`/`actual_created_at` fields; they are added dynamically. Works because the doc is inserted as-is, but consider adding these as optional fields on the Invoice pydantic model for API contract clarity.",
+    "Response for status='completed' path does not surface an explicit 'status' field (Invoice model has no status attribute); UI uses invoice.status only for OPEN/VOID chips so it's fine, but a future consumer might expect status='completed' in the JSON.",
+    "InvoiceHeader input uses min/max HTML5 constraints — browsers on the mobile date picker enforce them, but a user typing '2026-09-18' manually can still set it to a value outside min; the backend catches this with the 400. Good defence-in-depth."
+  ],
+  "updated_files": ["/app/backend/tests/test_pos_backdated_bills.py"],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% (3/3 UI checks)"},
+  "test_credentials": "Salon admin admin@miracurl.com (tenant miracurl-marathahalli). Owner PIN 4321. From /app/memory/test_credentials.md.",
+  "seed_data_creation": "Created 1 backdated completed test bill via UI request session (invoice 47dcd445-… on 2026-09-20 12:00 IST). Pytest also created 1 backdated completed bill during its run (survives — DELETE rejected on completed). All OPEN test bills were cleaned up by pytest teardown (test_delete_open_bills passed). Left ~2 completed backdated test bills in Marathahalli for 20-Sep IST — instructions said 1 is fine; there is no void endpoint for /api/invoices so these can't be scripted away.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend regression pytest lives at /app/backend/tests/test_pos_backdated_bills.py — re-run with `pytest test_pos_backdated_bills.py -o addopts=''` (project has xdist enabled in pytest.ini, override to avoid parallel-worker ordering). Verified: bill_date=yesterday → backdated true & created_at=YYYY-MM-DDT06:30:00+00:00 (12:00 IST); bill_date -3d → 400 'Bills can be back-dated up to 2 days only'; future → 400 'Bill date can\\'t be in the future'; today → normal (no backdated flag); omitted → normal; completed backdated bill is returned by GET /api/invoices?date=<yesterday>; DELETE /api/invoices/{id} → 200 for open, 400 for completed. UI: pos-bill-date-wrap + pos-bill-date + pos-backdated-badge on POS page; bill-backdated-<id> on Reports InvoiceTable rows. What's New modal now advertises the feature — dismiss with 'Got it ✦' button.",
+  "rca of the issue": "No issues. Feature implementation matches spec exactly. Only cosmetic observation: Invoice pydantic model doesn't declare backdated/actual_created_at fields explicitly — added dynamically to the dict before insert, so responses and stored docs both carry them."
+}

@@ -127,6 +127,8 @@ class Invoice(BaseModel):
     branch_id: Optional[str] = None
     branch_name: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    backdated: Optional[bool] = None
+    actual_created_at: Optional[str] = None
 
 
 class InvoiceIn(BaseModel):
