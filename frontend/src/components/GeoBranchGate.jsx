@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import api, { formatApiError, setTenantSlug } from "@/lib/api";
 import { setSelectedBranch } from "@/lib/branch";
 import { toast } from "sonner";
-import { ChevronRight, Loader2, LocateFixed, LogOut, MapPin, Smartphone, Star, Store } from "lucide-react";
+import { ArrowRight, BarChart3, ChevronRight, Heart, HelpCircle, Loader2, LocateFixed, LogOut, MapPin, Scissors, ShieldCheck, Smartphone, Star, Store, Users } from "lucide-react";
 
 const PICK_DAYS = 15;
 const pickKey = (uid) => `miracurl_branch_pick:${uid}`;
@@ -135,23 +135,95 @@ export function GeoBranchGate() {
       : geo.state === "ready" && geo.data.any_pinned
         ? "You are trying to sign in from a different location — we can't find you at any place where this business operates."
         : "We can't find the location where this business operates yet — ask the owner to pin the branch GPS.";
+    const pinned = gpsOpts.filter(o => o.pinned).sort((a, b) => a.distance_m - b.distance_m);
+    const nearest = pinned[0];
+    const nearestLabel = nearest ? (nearest.value === "__main__" ? (tenant?.name || "Main salon") : nearest.label) : null;
+    const nearestSub = nearest ? (nearest.value === "__main__" ? (tenant?.location || "Main salon") : (nearest.salon?.location || "Branch")) : "";
+    const dirUrl = nearest ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(nearestLabel + " " + nearestSub)}` : null;
+    const radius = geo.data?.radius_m || 100;
+    const features = [
+      [Users, `Manager & staff logins open only inside a branch (within ${radius} m).`],
+      [Store, "Owners can sign in from anywhere."],
+      [ShieldCheck, "This keeps your salon data safe and secure."],
+    ];
     return (
-      <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md" data-testid="geo-branch-gate">
-        <div className="relative w-full max-w-lg rounded-[28px] overflow-hidden border border-[#e8c97a]/30 shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9)] bg-[#0b0a0c]" data-testid="geo-branch-denied">
-          <img src="/assets/branch-gate/thumb-main.jpg" alt="" className="w-full h-44 object-cover opacity-80" />
-          <div className="absolute inset-x-0 top-0 h-44 bg-gradient-to-b from-transparent to-[#0b0a0c]" />
-          <div className="relative -mt-10 px-7 pb-7 text-center">
-            <div className="mx-auto w-16 h-16 rounded-full bg-[#1a160d] border-2 border-[#d4af37] flex items-center justify-center shadow-[0_0_25px_rgba(232,201,122,0.45)]"><MapPin className="w-8 h-8 text-[#e8c97a]" /></div>
-            <h3 className="font-playfair text-2xl sm:text-3xl text-white mt-4 leading-tight">Sorry, you can&apos;t sign in<br /><span className="text-[#e8c97a]">from this location</span></h3>
-            <p className="mt-3 text-sm sm:text-base text-white/80" data-testid="geo-branch-denied-reason">{reason}</p>
-            <p className="mt-2 text-xs text-white/55">Manager & staff logins open only inside a branch (within {geo.data?.radius_m || 100} m). Owners can sign in from anywhere.</p>
-            <div className="mt-6 flex flex-col sm:flex-row gap-2.5 justify-center">
-              <button type="button" onClick={locate} data-testid="geo-branch-retry" className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[#e8c97a]/60 text-[#e8c97a] hover:bg-[#e8c97a]/10 px-5 py-2.5 text-sm font-semibold"><LocateFixed className="w-4 h-4" /> Retry GPS</button>
-              <button type="button" onClick={async () => { setOpen(false); await logout(); navigate("/login", { replace: true }); }} data-testid="geo-branch-logout"
-                className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[#e8c97a] text-[#1a160d] hover:bg-[#f3d98a] px-5 py-2.5 text-sm font-bold"><LogOut className="w-4 h-4" /> Sign out</button>
+      <div className="fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md" data-testid="geo-branch-gate">
+        <div className="relative w-full max-w-6xl max-h-[94vh] overflow-y-auto rounded-[28px] sm:rounded-[32px] border border-[#d4af37]/30 shadow-[0_40px_120px_-20px_rgba(0,0,0,0.95),0_0_60px_-10px_rgba(232,201,122,0.2)] text-white bg-[#0b0a0c]" data-testid="geo-branch-denied">
+          <div className="absolute inset-0 bg-cover bg-center opacity-60" style={{ backgroundImage: "url(/assets/branch-gate/bg.jpg)" }} />
+          <div className="absolute inset-0 bg-[#0b0a0c]/80 backdrop-blur-[3px]" />
+          <div className="relative p-6 sm:p-8 lg:p-10">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <img src="/assets/brand/gold-lockup-transparent.png" alt="Miracurl AI Salon Suite" className="h-11 sm:h-14 w-auto drop-shadow-[0_4px_16px_rgba(232,201,122,0.4)] logo-sparkle-anim animate-[logoGlow_3.6s_ease-in-out_infinite]" />
+                <div className="mt-1 text-[10px] tracking-[0.38em] font-semibold text-white/85">MANAGE · AUTOMATE · GROW</div>
+              </div>
+              <span className="font-caveat text-xl sm:text-2xl text-[#e8c97a] rotate-6 text-right leading-tight select-none">Salon<br />Smarter<br />Everyday ♡</span>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 pt-6">
+              <div className="lg:col-span-7">
+                <div className="font-playfair text-5xl sm:text-6xl lg:text-7xl text-[#e8c97a] leading-none drop-shadow-[0_2px_12px_rgba(232,201,122,0.3)]">Oops!</div>
+                <h3 className="font-playfair text-3xl sm:text-4xl lg:text-5xl text-white leading-[1.12] mt-2">You can&apos;t sign in<br />from this location</h3>
+                <p className="mt-4 text-sm sm:text-base text-white/80 leading-relaxed max-w-xl" data-testid="geo-branch-denied-reason">{reason}</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-2 py-5 mt-4 border-y border-[#d4af37]/20 relative">
+                  {features.map(([Icon, text], i) => (
+                    <div key={i} className="relative flex flex-col items-center text-center px-3">
+                      {i > 0 && <span className="hidden md:block absolute left-0 top-1 bottom-1 w-px bg-gradient-to-b from-transparent via-[#d4af37]/40 to-transparent" />}
+                      <span className="w-12 h-12 rounded-full border border-[#d4af37]/60 bg-[#1a160d] text-[#e8c97a] flex items-center justify-center mb-2.5 shadow-[0_0_15px_rgba(232,201,122,0.2)]"><Icon className="w-6 h-6" /></span>
+                      <span className="text-xs sm:text-[13px] text-white/85 leading-snug">{text}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 pt-6">
+                  <button type="button" onClick={locate} data-testid="geo-branch-retry" className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#e8c97a] to-[#d4af37] text-[#0b0a0c] hover:brightness-110 font-bold px-7 py-3 text-sm sm:text-base shadow-[0_0_25px_rgba(232,201,122,0.4)] transition-[transform,filter] hover:-translate-y-0.5"><LocateFixed className="w-5 h-5" /> Retry GPS</button>
+                  <button type="button" onClick={async () => { setOpen(false); await logout(); navigate("/login", { replace: true }); }} data-testid="geo-branch-logout"
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-[#d4af37]/70 text-[#e8c97a] hover:bg-[#d4af37]/15 hover:border-[#e8c97a] font-semibold px-7 py-3 text-sm sm:text-base transition-colors"><LogOut className="w-5 h-5" /> Sign out</button>
+                </div>
+                <a href="mailto:support@miracurl-suite.com?subject=Cannot%20sign%20in%20from%20my%20branch" className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-white/75 hover:text-[#e8c97a] mt-4" data-testid="geo-branch-support">
+                  <HelpCircle className="w-4 h-4 text-[#e8c97a]" /> Need help? <span className="text-[#e8c97a] underline-offset-2 hover:underline">Contact support</span>
+                </a>
+              </div>
+
+              <div className="lg:col-span-5 flex flex-col gap-5 justify-center">
+                <div className="relative hidden sm:block mx-auto w-full max-w-[360px]">
+                  <img src="/assets/branch-gate/phone-map.jpg" alt="" className="w-full rounded-[28px] drop-shadow-[0_30px_60px_rgba(0,0,0,0.7)]" />
+                  <div className="absolute top-6 right-2 bg-[#0b0a0c]/95 border border-[#d4af37]/40 rounded-2xl px-4 py-2.5 shadow-xl">
+                    <div className="text-sm font-semibold text-white">You are here</div>
+                    <div className="text-xs text-rose-300 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-rose-400" /> Outside branch</div>
+                  </div>
+                </div>
+                {nearest && (
+                  <div className="rounded-3xl border border-[#d4af37]/40 bg-black/50 backdrop-blur-xl p-5 shadow-[0_15px_40px_rgba(0,0,0,0.5)]" data-testid="geo-branch-nearest">
+                    <div className="flex items-start gap-4">
+                      <span className="w-14 h-14 rounded-full border border-[#d4af37]/60 bg-[#1a160d] text-[#e8c97a] flex items-center justify-center shrink-0"><Store className="w-7 h-7" /></span>
+                      <div className="min-w-0">
+                        <div className="text-base font-semibold text-white">Your nearest branch</div>
+                        <div className="font-playfair text-lg text-white/95 leading-tight truncate">{nearestLabel}</div>
+                        <div className="text-sm text-white/70">{nearestSub}{nearest.distance_m != null ? ` · ${fmt(nearest.distance_m)}` : ""}</div>
+                      </div>
+                    </div>
+                    <a href={dirUrl} target="_blank" rel="noreferrer" data-testid="geo-branch-directions"
+                      className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#d4af37]/70 text-[#e8c97a] hover:bg-[#d4af37]/15 font-semibold px-5 py-2.5 text-sm transition-colors"><MapPin className="w-4 h-4" /> Get Directions <ArrowRight className="w-4 h-4" /></a>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-8 pt-5 border-t border-[#d4af37]/20 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs sm:text-sm text-white/85">
+                <span className="inline-flex items-center gap-2"><Scissors className="w-4 h-4 text-[#e8c97a]" /> Loved by 1000+ Salon Owners</span>
+                <span className="hidden sm:block w-px h-4 bg-[#d4af37]/30" />
+                <span className="inline-flex items-center gap-2"><Heart className="w-4 h-4 text-[#e8c97a]" /> Secure &amp; Reliable</span>
+                <span className="hidden sm:block w-px h-4 bg-[#d4af37]/30" />
+                <span className="inline-flex items-center gap-2"><BarChart3 className="w-4 h-4 text-[#e8c97a]" /> Built for Salon Growth</span>
+              </div>
+              <span className="font-caveat text-xl text-[#e8c97a] -rotate-6 leading-tight text-right select-none">More Beautiful<br />Businesses ♡</span>
             </div>
           </div>
         </div>
+        <style>{`@keyframes logoGlow{0%,100%{filter:drop-shadow(0 0 6px rgba(232,201,122,.35))}50%{filter:drop-shadow(0 0 18px rgba(232,201,122,.85)) brightness(1.12)}}`}</style>
       </div>
     );
   }

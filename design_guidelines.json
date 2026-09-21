@@ -1,73 +1,84 @@
 {
-  "project_name": "Miracurl Suite - GeoBranchGate Popup Polish",
-  "component_path": "/app/frontend/src/components/GeoBranchGate.jsx",
-  "colors": {
-    "black_base": "#0b0a0c",
-    "gold_primary": "#e8c97a",
-    "gold_accent": "#d4af37",
-    "gold_glow_rgba": "rgba(232, 201, 122, 0.6)",
-    "cream_gradient_start": "#fff4d6",
-    "cream_gradient_end": "#f3d98a",
-    "dark_card_glass": "rgba(0, 0, 0, 0.6)",
-    "overlay_dark": "rgba(0, 0, 0, 0.8)"
-  },
-  "typography": {
-    "heading_font": "Playfair Display, serif",
-    "body_font": "Outfit, sans-serif",
-    "script_accent_font": "Caveat, cursive"
-  },
-  "logo_sparkle_recipe": {
-    "description": "CSS keyframes and Tailwind/inline styling recipe for the gold MS 'MIRACURL — AI SALON SUITE' logo lockup sparkle animation.",
-    "css_keyframes": "@keyframes logoShimmerSweep { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }\n@keyframes sparkleFloat1 { 0%, 100% { transform: translate(0, 0) scale(0.6); opacity: 0.2; } 50% { transform: translate(-6px, -10px) scale(1.1); opacity: 1; } }\n@keyframes sparkleFloat2 { 0%, 100% { transform: translate(0, 0) scale(0.5); opacity: 0.3; } 50% { transform: translate(8px, -12px) scale(1.2); opacity: 0.9; } }\n@keyframes sparkleFloat3 { 0%, 100% { transform: translate(0, 0) scale(0.7); opacity: 0.1; } 50% { transform: translate(4px, -8px) scale(1); opacity: 0.95; } }\n@media (prefers-reduced-motion: reduce) { .logo-sparkle-anim, .sparkle-particle { animation: none !important; } }",
-    "jsx_wrapper_recipe": "<div className=\"relative inline-block overflow-hidden py-1 px-3 group\">\n  <img src=\"/assets/brand/gold-lockup-transparent.png\" alt=\"MIRACURL — AI SALON SUITE\" className=\"h-14 sm:h-16 w-auto relative z-10 drop-shadow-[0_6px_24px_rgba(212,175,55,0.4)]\" />\n  <div className=\"absolute inset-0 z-20 pointer-events-none mix-blend-overlay bg-gradient-to-r from-transparent via-[#fff4d6]/80 to-transparent bg-[length:200%_100%] animate-[logoShimmerSweep_4s_infinite_linear] logo-sparkle-anim\" />\n  <span className=\"sparkle-particle absolute top-1 left-2 text-[#e8c97a] text-xs pointer-events-none animate-[sparkleFloat1_2.5s_infinite_ease-in-out]\">✦</span>\n  <span className=\"sparkle-particle absolute top-2 right-4 text-[#fff4d6] text-sm pointer-events-none animate-[sparkleFloat2_3.2s_infinite_ease-in-out_0.5s]\">✨</span>\n  <span className=\"sparkle-particle absolute bottom-2 left-1/3 text-[#d4af37] text-xs pointer-events-none animate-[sparkleFloat3_2.8s_infinite_ease-in-out_1s]\">✦</span>\n</div>"
-  },
-  "card_and_popup_corrections": {
-    "selected_card": {
-      "bg_and_border": "bg-gradient-to-br from-[#fff4d6] to-[#f3d98a] border-2 border-[#e8c97a] shadow-[0_0_25px_rgba(232,201,122,0.6),0_15px_40px_rgba(0,0,0,0.5)]",
-      "text_color": "text-[#1a160d]",
-      "subtext_color": "text-[#3a2f18]",
-      "badge": "bg-[#e8c97a] text-[#1a160d] font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full shadow-sm",
-      "icon_disc": "w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-[#d4af37] bg-[#1a160d] text-[#e8c97a]",
-      "service_chips": "bg-black/10 border border-black/15 text-[#2c2211] text-xs font-medium px-2.5 py-0.5 rounded-full",
-      "chevron_button": "bg-[#1a160d] text-[#e8c97a] border border-[#d4af37] shadow-md group-hover:scale-105 rounded-full w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center"
+  "project_name": "Miracurl Suite - Location Denied Gate (GeoBranchGate)",
+  "context": "SaaS / Location Denied Modal Popup",
+  "theme": {
+    "background_photo": "/assets/branch-gate/bg.jpg",
+    "background_blur": "backdrop-blur-2xl bg-[#0b0a0c]/85",
+    "border": "border border-[#d4af37]/30 shadow-[0_40px_120px_-20px_rgba(0,0,0,0.95)]",
+    "colors": {
+      "bg_dark": "#0b0a0c",
+      "gold_primary": "#e8c97a",
+      "gold_accent": "#d4af37",
+      "gold_dark": "#1a160d",
+      "text_white": "#ffffff",
+      "text_muted": "rgba(255,255,255,0.75)"
     },
-    "other_card": {
-      "bg_and_border": "bg-black/60 backdrop-blur-xl border border-white/20 hover:border-[#e8c97a]/70 hover:bg-black/75 shadow-[0_10px_30px_rgba(0,0,0,0.45)]",
-      "text_color": "text-white",
-      "subtext_color": "text-white/75",
-      "badge": "bg-black/75 text-white/90 border border-white/20 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full",
-      "icon_disc": "w-12 h-12 sm:w-14 sm:h-14 rounded-full border border-[#e8c97a]/50 bg-[#e8c97a]/10 text-[#e8c97a]",
-      "service_chips": "bg-white/10 border border-white/15 text-white/85 text-xs font-medium px-2.5 py-0.5 rounded-full",
-      "chevron_button": "bg-white/5 border border-white/30 text-white group-hover:bg-[#e8c97a] group-hover:border-[#e8c97a] group-hover:text-black rounded-full w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center"
-    },
-    "handwritten_accents": "font-caveat text-lg hidden lg:block absolute -rotate-6 select-none pointer-events-none text-[#e8c97a]",
-    "status_row": "bg-black/40 border border-white/10 backdrop-blur-lg rounded-2xl py-3.5 px-5 shadow-lg text-white/85 text-sm sm:text-base flex items-center gap-3",
-    "footer_rule": "flex items-center gap-4 text-white/85 text-[10px] sm:text-xs tracking-[0.38em] font-semibold whitespace-nowrap <span className=\"h-px w-16 sm:w-28 bg-white/50\" />"
+    "fonts": {
+      "heading": "font-serif (Playfair Display)",
+      "body": "font-sans (Outfit)",
+      "accent": "font-caveat (Caveat Script)"
+    }
   },
-  "popup_sizing_and_layout": {
-    "backdrop": "fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md overflow-hidden",
-    "modal_container": "relative w-full max-w-4xl max-h-[94vh] overflow-y-auto rounded-[32px] border border-[#e8c97a]/30 shadow-[0_40px_120px_-20px_rgba(0,0,0,0.9),0_0_60px_-10px_rgba(232,201,122,0.25)] bg-[#0b0a0c]",
-    "background_image_layer": "absolute inset-0 bg-cover bg-center style={{ backgroundImage: 'url(/assets/branch-gate/bg.jpg)' }}",
-    "background_dark_layer": "absolute inset-0 bg-black/55 backdrop-blur-[2px]",
-    "radial_gradient_layer": "absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,0,0,0.1),rgba(0,0,0,0.8)_90%)]",
-    "edge_to_edge_fulfillment": "Ensure absolute background image covers 100% of rounded popup container without white/unfilled padding."
+  "layout_recipes": {
+    "modal_overlay": "fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto",
+    "card_container": "relative w-full max-w-6xl max-h-[94vh] overflow-y-auto rounded-[28px] sm:rounded-[32px] border border-[#d4af37]/30 bg-[#0b0a0c]/90 backdrop-blur-2xl p-6 sm:p-8 lg:p-10 shadow-[0_40px_120px_-20px_rgba(0,0,0,0.95),0_0_60px_-10px_rgba(232,201,122,0.2)] text-white font-sans",
+    "header_row": "flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 border-b border-[#d4af37]/20 gap-4",
+    "header_left": "flex items-center gap-3",
+    "header_logo": "h-10 sm:h-12 w-auto drop-shadow-[0_4px_16px_rgba(232,201,122,0.4)]",
+    "header_tagline": "text-[10px] sm:text-xs tracking-[0.38em] font-semibold text-[#e8c97a]/90 uppercase",
+    "header_right": "font-caveat text-xl sm:text-2xl text-[#e8c97a] -rotate-1 select-none",
+    "main_grid": "grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 py-8 items-stretch",
+    "left_column": "lg:col-span-7 flex flex-col justify-between space-y-6",
+    "headline_oops": "font-serif text-5xl sm:text-6xl lg:text-7xl font-bold text-[#e8c97a] tracking-tight leading-none drop-shadow-[0_2px_12px_rgba(232,201,122,0.3)]",
+    "headline_main": "font-serif text-3xl sm:text-4xl lg:text-5xl font-semibold text-white leading-[1.15] mt-2",
+    "body_description": "text-sm sm:text-base text-white/80 leading-relaxed font-normal max-w-xl",
+    "feature_row": "grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-2 py-4 border-y border-[#d4af37]/20 relative",
+    "feature_item": "flex flex-col items-center text-center p-3 sm:p-4 rounded-xl bg-black/40 border border-white/5 relative md:border-none md:bg-transparent",
+    "feature_divider": "hidden md:block absolute top-4 bottom-4 w-px bg-gradient-to-b from-transparent via-[#d4af37]/30 to-transparent",
+    "feature_icon_disc": "w-10 h-10 rounded-full border border-[#d4af37]/60 bg-[#1a160d] text-[#e8c97a] flex items-center justify-center mb-2.5 shadow-[0_0_15px_rgba(232,201,122,0.2)]",
+    "feature_text": "text-xs text-white/85 leading-snug",
+    "button_row": "flex flex-wrap items-center gap-3 pt-2",
+    "retry_button": "inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#e8c97a] to-[#d4af37] text-[#0b0a0c] hover:brightness-110 font-bold px-6 py-3 text-sm sm:text-base shadow-[0_0_25px_rgba(232,201,122,0.4)] transition-all transform hover:-translate-y-0.5",
+    "signout_button": "inline-flex items-center justify-center gap-2 rounded-full border border-[#d4af37]/70 text-[#e8c97a] hover:bg-[#d4af37]/15 hover:border-[#e8c97a] font-semibold px-6 py-3 text-sm sm:text-base transition-all",
+    "support_link": "inline-flex items-center gap-1.5 text-xs sm:text-sm text-[#e8c97a]/80 hover:text-[#e8c97a] transition-colors mt-2",
+    "right_column": "lg:col-span-5 flex flex-col gap-6 justify-between",
+    "phone_container": "relative w-full aspect-[4/3] sm:aspect-[16/10] lg:aspect-auto lg:h-64 rounded-2xl overflow-hidden border border-[#d4af37]/30 bg-[#121015] shadow-2xl p-4 flex items-center justify-center group",
+    "phone_tilted_frame": "relative w-48 sm:w-56 h-full rounded-[24px] border-4 border-[#2a2418] bg-black shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden transform -rotate-3 transition-transform duration-500 group-hover:rotate-0",
+    "phone_map_bg": "absolute inset-0 bg-[radial-gradient(#1f1b24_1px,transparent_1px)] [background-size:12px_12px] bg-[#0b0a0c]",
+    "phone_gold_pin": "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center",
+    "phone_pin_icon": "w-8 h-8 text-[#e8c97a] animate-bounce drop-shadow-[0_0_12px_rgba(232,201,122,0.8)]",
+    "phone_tooltip": "mt-1 whitespace-nowrap rounded-full bg-[#1a160d] border border-[#d4af37]/60 text-[#e8c97a] text-[11px] font-medium px-3 py-1 shadow-lg",
+    "nearest_branch_card": "rounded-2xl border border-[#d4af37]/30 bg-gradient-to-br from-[#18141c] to-[#0f0d12] p-4 sm:p-5 flex items-center justify-between gap-4 shadow-xl",
+    "nearest_branch_left": "flex items-center gap-3.5 min-w-0",
+    "nearest_branch_icon_disc": "w-11 h-11 rounded-full border border-[#d4af37]/50 bg-[#1a160d] text-[#e8c97a] flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(232,201,122,0.25)]",
+    "nearest_branch_title": "font-serif text-lg sm:text-xl font-semibold text-white truncate",
+    "nearest_branch_sub": "text-xs sm:text-sm text-white/70 truncate mt-0.5",
+    "get_directions_button": "shrink-0 inline-flex items-center gap-1.5 rounded-full border border-[#d4af37]/60 text-[#e8c97a] hover:bg-[#e8c97a] hover:text-[#0b0a0c] font-semibold text-xs sm:text-sm px-4 py-2 transition-all whitespace-nowrap",
+    "footer_trust_row": "pt-6 border-t border-[#d4af37]/20 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/75",
+    "trust_items": "flex flex-wrap items-center justify-center sm:justify-start gap-4 sm:gap-6",
+    "trust_item": "flex items-center gap-1.5",
+    "trust_icon": "w-4 h-4 text-[#e8c97a]",
+    "footer_right_script": "font-caveat text-lg sm:text-xl text-[#e8c97a] select-none"
   },
-  "image_urls": {
-    "background": "/assets/branch-gate/bg.jpg",
-    "thumb_main": "/assets/branch-gate/thumb-main.jpg",
-    "thumb_branch": "/assets/branch-gate/thumb-branch.jpg",
-    "gold_lockup": "/assets/brand/gold-lockup-transparent.png"
+  "key_functionalities": {
+    "retry_gps": "Triggers navigator.geolocation.getCurrentPosition() and re-evaluates /branch/locate API",
+    "sign_out": "Calls logout() context function and redirects to /login",
+    "get_directions": "Opens https://www.google.com/maps/search/?api=1&query={nearestBranch.lat},{nearestBranch.lng} in new tab",
+    "contact_support": "Triggers mailto:support@miracurl.com or WhatsApp link"
   },
-  "instructions_to_main_agent": [
-    "Verify logo sparkle CSS keyframes are applied cleanly on the gold lockup container in GeoBranchGate.jsx.",
-    "Ensure dark locked backdrop prevents body scrolling when popup is active (useEffect setting body overflow to hidden).",
-    "Keep 'Sign out' button accessible at top-right of popup modal (data-testid='geo-branch-logout').",
-    "Maintain exact data-testid attributes for tests: 'geo-branch-gate', 'geo-branch-modal', 'geo-branch-options', 'geo-branch-logout', 'geo-branch-status', 'geo-branch-retry'.",
-    "Verify font-playfair, font-outfit, and font-caveat are loaded and utilized appropriately for headings, body, and handwritten accents."
+  "data_testids": [
+    "geo-branch-gate",
+    "geo-branch-denied",
+    "geo-branch-denied-reason",
+    "geo-branch-retry",
+    "geo-branch-logout",
+    "geo-branch-directions",
+    "geo-branch-support"
   ],
-  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": {
-    "data_testid_requirement": "All interactive buttons and cards MUST have data-testid attributes.",
-    "contrast_and_legibility": "Selected card text must be high contrast dark (#1a160d) over gold gradient background; unselected cards must use crisp white text with backdrop-blur dark glass.",
-    "prefers_reduced_motion": "Wrap CSS sparkle animations with @media (prefers-reduced-motion: reduce) to turn off looping keyframes if user prefers reduced motion."
-  }
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "Ensure exact match to gold and dark luxury salon aesthetic (#0b0a0c dark glass, #e8c97a / #d4af37 gold).",
+    "Preserve all data-testids for automated testing.",
+    "Mobile layout must stack features into single column or compact grid, scale phone illustration, and maintain padding.",
+    "Ensure contrast APCA / WCAG AA compliant on all gold buttons and white text."
+  ]
 }

@@ -140,7 +140,7 @@ RELEASES = [
     {
         "date": "2026-09-21 (Unlock & set passwords anywhere 🔓)",
         "changes": [
-            "🚫 Manager/staff signing in from outside every branch (or with GPS off) now get a clear 'Sorry, you can't sign in from this location' popup with Retry GPS and Sign out — the dashboard is never shown. Owners sign in from anywhere",
+            "🚫 Manager/staff signing in from outside every branch (or with GPS off) get the new 'Oops! You can't sign in from this location' popup — same luxe salon background and fonts as the branch picker: why it's blocked, your nearest branch with Get Directions, Retry GPS, Sign out and Contact support. The dashboard is never shown. Owners sign in from anywhere",
             "🔒 Back button after Sign out can no longer bring back a cached dashboard/settings page — it stays on the login page",
             "🔓 Locked out after too many wrong attempts? Owners see a red 'Locked · Unlock' pill on the manager row — one tap clears it. HQ has the same on every login in Super Admin → Edit → Logins",
             "🔑 HQ can set any login's password directly from the Logins card (owner, manager or staff) — no temp passwords, lockouts cleared, other devices signed out",
