@@ -457,9 +457,14 @@ async def deliver_scheduled_gift_cards() -> int:
             await _email_gift_card(gc, t)
             await _raw_db.gift_cards.update_one({"id": gc["id"]}, {"$set": {"status": "active"}})
             sent += 1
+    # Expired with balance left → the forfeited balance is "breakage" revenue for that day
     await _raw_db.gift_cards.update_many(
         {"status": "active", "expires_at": {"$lt": today}, "balance": {"$gt": 0}},
-        {"$set": {"status": "expired"}})
+        [{"$set": {"status": "expired", "expired_at": today, "breakage_amount": "$balance"}}])
+    # Backfill cards expired before breakage tracking existed
+    await _raw_db.gift_cards.update_many(
+        {"status": "expired", "breakage_amount": {"$exists": False}, "balance": {"$gt": 0}},
+        [{"$set": {"expired_at": {"$ifNull": ["$expired_at", "$expires_at"]}, "breakage_amount": "$balance"}}])
     await _remind_expiring_gift_cards()
     return sent
 
@@ -498,7 +503,7 @@ class GiftSettingsIn(BaseModel):
     razorpay_key_id: str = ""
     razorpay_key_secret: str = ""
     upi_id: str = ""
-    validity_days: int = Field(DEFAULT_VALIDITY, ge=15, le=365)
+    validity_days: int = Field(DEFAULT_VALIDITY, ge=7, le=365)
     occasion_campaigns: bool = True
     amounts: list = DEFAULT_AMOUNTS
 
@@ -564,23 +569,41 @@ def _tally_expiring(gc: dict, expiring: dict, this_month: str) -> None:
         expiring[ek] = expiring.get(ek, 0) + gc["balance"]
 
 
+def _breakage_of(gc: dict) -> float:
+    if gc.get("status") != "expired":
+        return 0.0
+    return float(gc.get("breakage_amount") if gc.get("breakage_amount") is not None else (gc.get("balance") or 0))
+
+
+def _tally_breakage(gc: dict, brk: dict) -> None:
+    amt = _breakage_of(gc)
+    if amt <= 0:
+        return
+    bk = (gc.get("expired_at") or gc.get("expires_at") or "")[:7]
+    if bk in brk:
+        brk[bk] += amt
+
+
 @router.get("/gift-cards/analytics")
 async def gift_card_analytics(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
-    """Monthly gift card sales, redemptions and upcoming expiring balances (last 6 months)."""
+    """Monthly gift card sales, redemptions, breakage and upcoming expiring balances (last 6 months)."""
     rows = await _raw_db.gift_cards.find({"tenant_id": t["id"]}, {"_id": 0}).to_list(3000)
     now = datetime.now(timezone.utc)
     months = _last_six_month_keys(now)
     sales = {k: {"count": 0, "amount": 0.0} for k in months}
     red = {k: 0.0 for k in months}
+    brk = {k: 0.0 for k in months}
     expiring = {}
     this_month = now.strftime("%Y-%m")
     for gc in rows:
         _tally_sale(gc, sales)
         _tally_redemptions(gc, red)
+        _tally_breakage(gc, brk)
         _tally_expiring(gc, expiring, this_month)
     return {"months": [{"month": k, "sold_count": sales[k]["count"],
                         "sold_amount": round(sales[k]["amount"], 2),
-                        "redeemed_amount": round(red[k], 2)} for k in months],
+                        "redeemed_amount": round(red[k], 2),
+                        "breakage_amount": round(brk[k], 2)} for k in months],
             "expiring": [{"month": k, "balance": round(v, 2)} for k, v in sorted(expiring.items())][:6]}
 
 
@@ -593,6 +616,8 @@ async def list_gift_cards(user=Depends(require_tenant_admin), t=Depends(current_
     stats = {"sold": len([r for r in rows if r["status"] != "cancelled"]),
              "revenue": round(sum(r["amount"] for r in rows if r["status"] not in ("cancelled", "awaiting_confirmation")), 2),
              "outstanding": round(sum(r["balance"] for r in active), 2),
+             "breakage": round(sum(_breakage_of(r) for r in rows), 2),
+             "expired_count": len([r for r in rows if r["status"] == "expired"]),
              "awaiting": len([r for r in rows if r["status"] == "awaiting_confirmation"])}
     return {"items": rows, "stats": stats}
 

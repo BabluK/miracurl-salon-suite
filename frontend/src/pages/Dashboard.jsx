@@ -26,6 +26,7 @@ import { MiraSocialNudge } from "@/components/MiraSocialNudge";
 import { SetupBanner } from "@/components/SetupBanner";
 import { BranchPinNudge } from "@/components/BranchPinNudge";
 import { SmsPointsWidget } from "@/components/dashboard/SmsPointsWidget";
+import { MissedBillNudge } from "@/components/dashboard/MissedBillNudge";
 import { WaCreditsBanner } from "@/components/dashboard/WaCreditsBanner";
 import { WelcomeCongratsModal } from "@/components/WelcomeCongratsModal";
 import { TrialCountdownRing } from "@/components/dashboard/TrialCountdownRing";
@@ -229,6 +230,7 @@ export default function Dashboard() {
       {isOwner && <WinbackNudges />}
       {isOwner && <WeeklyDigestCard />}
       {isOwner && <DailyReportBanner ownerName={user?.name} />}
+      <MissedBillNudge />
       {isOwner && <WhatsAppApprovals />}
       {isOwner && <BranchSwitchApprovals />}
       <QuickMusicBar />

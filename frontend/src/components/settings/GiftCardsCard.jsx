@@ -6,6 +6,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Cart
 import { confirmAsync, promptAsync } from "@/components/ConfirmDialog";
 
 const monthLabel = (m) => new Date(`${m}-01T00:00:00`).toLocaleDateString("en-IN", { month: "short" });
+const BAR_LABELS = { sold_amount: "Sold", redeemed_amount: "Redeemed", breakage_amount: "Breakage (expired)" };
 
 const STATUS_STYLE = {
   active: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -133,8 +134,9 @@ export const GiftCardsCard = () => {
         <div>
           <label className="text-[11px] font-semibold text-slate-500">Validity</label>
           <select value={s.validity_days} onChange={(e) => setS(v => ({ ...v, validity_days: Number(e.target.value) }))} data-testid="gift-settings-validity" className={inputCls}>
-            {[[15, "15 days"], [30, "1 month"], [90, "3 months"], [180, "6 months (recommended)"], [365, "1 year"]].map(([d, l]) => <option key={d} value={d}>{l}</option>)}
+            {[[7, "7 days"], [15, "15 days"], [30, "1 month"], [90, "3 months"], [180, "6 months (recommended)"], [365, "1 year"]].map(([d, l]) => <option key={d} value={d}>{l}</option>)}
           </select>
+          <p className="text-[10px] text-slate-400 mt-1">Default for every card · staff can pick a different validity per card at the POS · recipient gets an email 7 days before expiry · unused balance after expiry is counted as breakage revenue</p>
         </div>
         <div className="sm:col-span-2">
           <label className="text-[11px] font-semibold text-slate-500">Preset amounts (comma separated ₹)</label>
@@ -155,19 +157,20 @@ export const GiftCardsCard = () => {
         {saving ? "Saving…" : "Save gift card settings"}
       </button>
 
-      {analytics && analytics.months.some(m => m.sold_amount || m.redeemed_amount) && (
+      {analytics && analytics.months.some(m => m.sold_amount || m.redeemed_amount || m.breakage_amount) && (
         <div className="mt-5 border-t border-slate-100 pt-4" data-testid="gift-analytics">
-          <h4 className="text-xs font-bold text-slate-600 mb-2">📊 Last 6 months — sales vs redemptions (₹)</h4>
+          <h4 className="text-xs font-bold text-slate-600 mb-2">📊 Last 6 months — sales vs redemptions vs breakage (₹)</h4>
           <div className="h-44">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={analytics.months.map(m => ({ ...m, name: monthLabel(m.month) }))} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v, n) => [`₹${v}`, n === "sold_amount" ? "Sold" : "Redeemed"]} labelStyle={{ fontSize: 11 }} contentStyle={{ fontSize: 11, borderRadius: 10 }} />
-                <Legend formatter={(v) => <span style={{ fontSize: 10 }}>{v === "sold_amount" ? "Sold ₹" : "Redeemed ₹"}</span>} />
+                <Tooltip formatter={(v, n) => [`₹${v}`, BAR_LABELS[n] || n]} labelStyle={{ fontSize: 11 }} contentStyle={{ fontSize: 11, borderRadius: 10 }} />
+                <Legend formatter={(v) => <span style={{ fontSize: 10 }}>{BAR_LABELS[v] || v} ₹</span>} />
                 <Bar dataKey="sold_amount" fill="#d946ef" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="redeemed_amount" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="breakage_amount" fill="#f43f5e" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -190,6 +193,7 @@ export const GiftCardsCard = () => {
             <span>🎁 Sold: <b>{list.stats.sold}</b></span>
             <span>💰 Revenue: <b>₹{list.stats.revenue}</b></span>
             <span>🪙 Unredeemed balance: <b>₹{list.stats.outstanding}</b></span>
+            <span className="text-rose-600" data-testid="gift-stats-breakage" title="Balance left on expired cards — money kept without a service delivered">⌛ Expired / breakage: <b>₹{list.stats.breakage || 0}</b>{list.stats.expired_count ? ` (${list.stats.expired_count} card${list.stats.expired_count === 1 ? "" : "s"})` : ""}</span>
             {list.stats.awaiting > 0 && <span className="text-amber-600 font-bold">⏳ {list.stats.awaiting} awaiting your payment confirmation</span>}
             <button onClick={deleteHistory} data-testid="gift-delete-history-btn"
               className="ml-auto text-[11px] font-bold text-rose-600 hover:text-rose-800 border border-rose-200 bg-rose-50 rounded-full px-3 py-1">

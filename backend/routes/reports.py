@@ -317,6 +317,7 @@ async def daily_report(date: Optional[str] = None, user=Depends(require_tenant_a
     new_guests = await db.customers.count_documents(
         {"created_at": {"$gte": utc_start, "$lte": utc_end}},
     )
+    breakage = await _gift_card_breakage(t["id"], day, day)
 
     day_dt = datetime.strptime(day, "%Y-%m-%d")
     return {
@@ -326,8 +327,19 @@ async def daily_report(date: Optional[str] = None, user=Depends(require_tenant_a
         "invoices": len(invs),
         "new_guests": new_guests,
         "staff": staff_rows,
-        "is_empty": len(invs) == 0,
+        "gift_card_breakage": breakage["amount"],
+        "gift_cards_expired": breakage["count"],
+        "is_empty": len(invs) == 0 and breakage["amount"] <= 0,
     }
+
+
+async def _gift_card_breakage(tenant_id: str, start: str, end: str) -> dict:
+    """Unredeemed balance on gift cards that expired between start..end (YYYY-MM-DD, inclusive)."""
+    rows = await _raw_db.gift_cards.find(
+        {"tenant_id": tenant_id, "status": "expired", "expired_at": {"$gte": start, "$lte": end}},
+        {"_id": 0, "breakage_amount": 1, "balance": 1}).to_list(2000)
+    amt = sum(float(r.get("breakage_amount") if r.get("breakage_amount") is not None else (r.get("balance") or 0)) for r in rows)
+    return {"amount": round(amt, 2), "count": len(rows)}
 
 
 @router.get("/reports/sales")
@@ -389,9 +401,12 @@ async def sales_report(start: Optional[str] = None, end: Optional[str] = None,
                     "unique_customers": uniq(p_invs)}
         except ValueError:
             prev = None
+    breakage = await _gift_card_breakage(t["id"], start, end) if start and end else {"amount": 0.0, "count": 0}
     return {
         "total_invoices": len(invs),
         "total_revenue": round(total_revenue, 2),
+        "gift_card_breakage": breakage["amount"],
+        "gift_cards_expired": breakage["count"],
         "unique_customers": uniq(invs),
         "prev": prev,
         "avg_rating": avg_rating,

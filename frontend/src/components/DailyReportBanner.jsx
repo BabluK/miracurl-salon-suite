@@ -48,7 +48,7 @@ export default function DailyReportBanner({ ownerName }) {
     setDismissed(true);
   };
 
-  const { revenue, invoices, new_guests, staff, date_label } = report;
+  const { revenue, invoices, new_guests, staff, date_label, gift_card_breakage = 0, gift_cards_expired = 0 } = report;
   const firstName = (ownerName || "").split(" ")[0] || "Boss";
   const cardPlusUpi = (revenue.card || 0) + (revenue.upi || 0);
 
@@ -94,6 +94,12 @@ export default function DailyReportBanner({ ownerName }) {
         </div>
 
         {/* Card+UPI vs Cash quick contrast line (helps owners see who prefers cash) */}
+        {gift_card_breakage > 0 && (
+          <div className="mt-4 flex items-center gap-2 text-xs text-rose-700 bg-white/70 border border-rose-200 rounded-xl px-3 py-2" data-testid="daily-report-breakage">
+            <span>🎁</span>
+            <span><b>{inr(gift_card_breakage)}</b> gift-card breakage — {gift_cards_expired} card{gift_cards_expired === 1 ? "" : "s"} expired unredeemed (kept as revenue, no service owed)</span>
+          </div>
+        )}
         {revenue.total > 0 && (
           <div className="mt-4 flex items-center gap-3 text-[11px] text-slate-500">
             <div className="flex-1 h-1.5 rounded-full bg-slate-200 overflow-hidden">

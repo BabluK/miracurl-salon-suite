@@ -20,7 +20,7 @@ import { playErrorBuzz } from "@/lib/scanSounds";
 import { POSHeader } from "@/components/pos/POSHeader";
 import { CatalogPanel } from "@/components/pos/CatalogPanel";
 import { OffersPanel } from "@/components/pos/OffersPanel";
-import { InvoiceHeader, localISODate } from "@/components/pos/InvoiceHeader";
+import { InvoiceHeader, localISODate, BACKDATE_MAX_DAYS } from "@/components/pos/InvoiceHeader";
 import { CartTable } from "@/components/pos/CartTable";
 import { TipSection } from "@/components/pos/TipSection";
 import { PaymentSection } from "@/components/pos/PaymentSection";
@@ -301,6 +301,8 @@ export default function POS() {
     if (!apptId) return;
     apptPreloadRef.current = true;
     api.get(`/appointments/${apptId}`).then(({ data }) => {
+      const bd = new URLSearchParams(window.location.search).get("bill_date");
+      if (bd && /^\d{4}-\d{2}-\d{2}$/.test(bd) && bd >= localISODate(-BACKDATE_MAX_DAYS) && bd <= localISODate(0)) setBillDate(bd);
       // Booking always opens as its OWN bill tab — any in-progress bill stays
       // saved as a parallel tab (no blocking "Pending bill" modal).
       const drafts = _readDrafts();

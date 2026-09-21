@@ -10,7 +10,8 @@ export function TopKpis({ data, inr, CurIcon }) {
   const p = data.prev, pAvg = p && p.total_invoices ? p.total_revenue / p.total_invoices : null;
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" data-testid="report-top-kpis">
-      <KpiCard testid="report-total-revenue" icon={CurIcon || IndianRupee} tone="emerald" label="Total Sales" value={inr(data.total_revenue)} delta={p ? pctDelta(data.total_revenue, p.total_revenue) : null} />
+      <KpiCard testid="report-total-revenue" icon={CurIcon || IndianRupee} tone="emerald" label="Total Sales" value={inr(data.total_revenue)} delta={p ? pctDelta(data.total_revenue, p.total_revenue) : null}
+        sub={data.gift_card_breakage > 0 ? <span data-testid="report-gift-breakage">+ {inr(data.gift_card_breakage)} gift-card breakage ({data.gift_cards_expired} expired)</span> : undefined} />
       <KpiCard testid="report-total-invoices" icon={FileText} tone="sky" label="Total Invoices" value={data.total_invoices} delta={p ? pctDelta(data.total_invoices, p.total_invoices) : null} />
       <KpiCard testid="report-unique-customers" icon={Users} tone="amber" label="Unique Customers" value={data.unique_customers || 0} delta={p ? pctDelta(data.unique_customers || 0, p.unique_customers) : null} />
       <KpiCard testid="report-avg-bill" icon={ShoppingBag} tone="rose" label="Avg. Bill Value" value={inr(avg)} delta={pAvg != null ? pctDelta(avg, pAvg) : null} />

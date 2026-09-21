@@ -18,11 +18,13 @@ const OCCASIONS = [
   { key: "just-because", label: "Just Because", emoji: "✨" },
 ];
 const PRESETS = [500, 1000, 2000, 5000];
+const VALIDITY = [[0, "Salon default"], [7, "7 days"], [15, "15 days"], [30, "1 month"], [90, "3 months"], [180, "6 months"], [365, "1 year"]];
 
 export function GiftCardSellModal({ buyerName = "", onAdd, onClose }) {
   const [occ, setOcc] = useState("birthday");
   const [amount, setAmount] = useState(1000);
   const [custom, setCustom] = useState("");
+  const [validity, setValidity] = useState(0);
   const [f, setF] = useState({ recipient_name: "", recipient_email: "", recipient_whatsapp: "", message: "" });
 
   const amt = custom !== "" ? Number(custom) : amount;
@@ -39,6 +41,7 @@ export function GiftCardSellModal({ buyerName = "", onAdd, onClose }) {
       recipient_whatsapp: f.recipient_whatsapp.trim(),
       message: f.message.trim(),
       buyer_name: buyerName,
+      validity_days: validity || null,
     }, Math.round(amt));
   }
 
@@ -75,6 +78,16 @@ export function GiftCardSellModal({ buyerName = "", onAdd, onClose }) {
             className="w-24 rounded-full border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-fuchsia-400" />
         </div>
 
+        <div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1.5">Valid for</div>
+        <div className="flex flex-wrap gap-1.5 mb-4" data-testid="gift-validity-options">
+          {VALIDITY.map(([d, l]) => (
+            <button key={d} type="button" onClick={() => setValidity(d)} data-testid={`gift-validity-${d}`}
+              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${validity === d ? "border-fuchsia-400 bg-fuchsia-500 text-white" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+
         <div className="space-y-2.5">
           <input className={inputCls} placeholder="Recipient's name *" value={f.recipient_name}
             onChange={e => setF({ ...f, recipient_name: e.target.value })} data-testid="gift-recipient-name" />
@@ -90,7 +103,7 @@ export function GiftCardSellModal({ buyerName = "", onAdd, onClose }) {
           className="mt-4 w-full bg-fuchsia-600 text-white font-bold py-3 rounded-2xl hover:bg-fuchsia-500 transition">
           Add ₹{(amt || 0).toLocaleString("en-IN")} Gift Card to bill
         </button>
-        <p className="text-[10px] text-slate-400 text-center mt-2">The card code is generated &amp; sent automatically once the bill is paid</p>
+        <p className="text-[10px] text-slate-400 text-center mt-2">The card code is generated &amp; sent automatically once the bill is paid{validity ? ` · valid ${VALIDITY.find(v => v[0] === validity)?.[1]}` : ""}</p>
       </div>
     </div>,
     document.body

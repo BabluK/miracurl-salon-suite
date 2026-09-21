@@ -238,6 +238,46 @@ async def reschedule_appointment(aid: str, body: RescheduleIn, user=Depends(get_
     return {"appointment": appt, "sms_queued": bool(phone)}
 
 
+@router.get("/appointments/unbilled-recent")
+async def unbilled_recent_appointments(user=Depends(get_current_user), t=Depends(current_tenant)):
+    """Completed appointments from the last BACKDATE_MAX_DAYS local days that still have no bill.
+    Powers the morning 'Missed bills' nudge; each row can be billed back-dated or dismissed."""
+    from services.day_window import _tenant_tz, _local_day_window
+    tz = _tenant_tz(t)
+    today_local = datetime.now(tz).date()
+    windows = [_local_day_window(tz, (today_local - timedelta(days=i)).isoformat()) for i in range(1, BACKDATE_MAX_DAYS + 1)]
+    utc_start, utc_end = windows[-1][1], windows[0][2]
+    appts = await db.appointments.find(
+        {"status": "completed", "scheduled_at": {"$gte": utc_start, "$lte": utc_end}, "unbilled_dismissed": {"$ne": True}},
+        {"_id": 0, "id": 1, "customer_id": 1, "customer_name": 1, "staff_name": 1, "service_names": 1,
+         "scheduled_at": 1, "total": 1, "branch_name": 1}).sort("scheduled_at", 1).to_list(300)
+    if not appts:
+        return {"items": [], "days": BACKDATE_MAX_DAYS}
+    billed = {r["appointment_id"] async for r in db.invoices.find(
+        {"appointment_id": {"$in": [a["id"] for a in appts]}, "status": {"$ne": "voided"}},
+        {"_id": 0, "appointment_id": 1})}
+    items = []
+    for a in appts:
+        if a["id"] in billed:
+            continue
+        local_dt = datetime.fromisoformat(str(a["scheduled_at"]).replace("Z", "+00:00")).astimezone(tz)
+        items.append({**a, "bill_date": local_dt.date().isoformat(),
+                      "time_label": local_dt.strftime("%a %d %b · %I:%M %p")})
+    return {"items": items, "days": BACKDATE_MAX_DAYS}
+
+
+@router.post("/appointments/{aid}/dismiss-unbilled")
+async def dismiss_unbilled_appointment(aid: str, user=Depends(get_current_user)):
+    """Hide a completed-but-unbilled booking from the nudge (guest didn't pay / no service done)."""
+    res = await db.appointments.update_one(
+        {"id": aid, "status": "completed"},
+        {"$set": {"unbilled_dismissed": True, "unbilled_dismissed_by": user.get("name") or user.get("email") or "",
+                  "unbilled_dismissed_at": datetime.now(timezone.utc).isoformat()}})
+    if res.matched_count == 0:
+        raise HTTPException(404, "Completed appointment not found")
+    return {"ok": True}
+
+
 @router.get("/appointments/billing-status")
 async def appointments_billing_status(ids: str, user=Depends(get_current_user)):
     """Which of these bookings already have a bill? Drives the notification bell:
@@ -779,6 +819,12 @@ def _gift_card_doc_from_item(it: dict, cust: dict, tenant_doc: dict, inv: dict) 
     meta = it.get("gift_meta") or {}
     amt = round(float(it.get("price") or 0) * int(it.get("qty") or 1), 2)
     now = datetime.now(timezone.utc).isoformat()
+    try:
+        validity = int(meta.get("validity_days") or 0)
+    except (TypeError, ValueError):
+        validity = 0
+    if not 7 <= validity <= 365:
+        validity = _gc_settings(tenant_doc)["validity_days"]
     return {"id": str(uuid.uuid4()), "tenant_id": tenant_doc["id"],
             "tenant_slug": tenant_doc.get("slug") or "",
             "code": "", "occasion": meta.get("occasion") or "just-because",
@@ -786,7 +832,7 @@ def _gift_card_doc_from_item(it: dict, cust: dict, tenant_doc: dict, inv: dict) 
             **_gc_contact_fields(meta, cust),
             "message": (meta.get("message") or "")[:400], "send_on": meta.get("send_on") or "",
             "pay_method": "pos", "status": "pending_payment",
-            "validity_days": _gc_settings(tenant_doc)["validity_days"],
+            "validity_days": validity,
             "created_at": now, "paid_at": now, "pos_invoice_id": inv["id"]}
 
 
