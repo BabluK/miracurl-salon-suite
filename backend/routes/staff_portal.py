@@ -8,7 +8,7 @@ import asyncio
 import secrets
 import logging
 import html as html_lib
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 from typing import Dict, List, Optional
 
 import requests
@@ -197,6 +197,7 @@ async def reject_leave_request(rid: str, body: LeaveDecisionIn = LeaveDecisionIn
 
 
 # ---------------- Staff week-off change requests ----------------
+WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 WEEK_OFF_ALLOWED_DAYS = {"monday", "tuesday", "wednesday", "thursday"}
 
 
@@ -207,6 +208,8 @@ class WeekOffChangeIn(BaseModel):
 
 @router.post("/staff/me/week-off-requests")
 async def create_week_off_request(body: WeekOffChangeIn, s=Depends(_current_staff)):
+    if s.get("always_on_time"):
+        raise HTTPException(400, "Your attendance is set to 'Always on time' by the owner — week-off changes are disabled for you. Ask the owner if you need a different day.")
     day = body.requested_day.strip().lower()
     now_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
     if day not in WEEK_OFF_ALLOWED_DAYS:
@@ -253,8 +256,28 @@ async def approve_week_off_request(rid: str, body: LeaveDecisionIn = LeaveDecisi
         "status": "approved", "admin_note": body.note.strip(),
         "decided_by": admin.get("name") or admin.get("email"),
         "decided_at": now.isoformat(), "effective_from": effective_from}})
-    await db.staff.update_one({"id": req["staff_id"]}, {"$set": {"week_off_day": req["requested_day"]}})
-    return {"ok": True, "status": "approved", "effective_from": effective_from}
+    staff_doc = await db.staff.find_one({"id": req["staff_id"]}, {"_id": 0, "week_off_day": 1, "week_off_original": 1})
+    original = (staff_doc or {}).get("week_off_original") or (staff_doc or {}).get("week_off_day") or req.get("current_day")
+    # One-time swap: the new day applies to its next occurrence only, then the original week-off comes back by itself.
+    eff = date.fromisoformat(effective_from)
+    target_idx = WEEKDAYS.index(req["requested_day"])
+    swap_date = eff + timedelta(days=(target_idx - eff.weekday()) % 7)
+    await db.staff.update_one({"id": req["staff_id"]}, {"$set": {
+        "week_off_day": req["requested_day"], "week_off_original": original,
+        "week_off_swap_date": swap_date.isoformat()}})
+    await db.week_off_requests.update_one({"id": rid}, {"$set": {"swap_date": swap_date.isoformat(), "reverts_to": original}})
+    return {"ok": True, "status": "approved", "effective_from": effective_from, "swap_date": swap_date.isoformat(), "reverts_to": original}
+
+
+async def revert_expired_week_off_swaps() -> int:
+    """After a one-time swapped week-off day has passed, put the staff's original week-off back (all tenants)."""
+    today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date().isoformat()
+    n = 0
+    async for st in _raw_db.staff.find({"week_off_swap_date": {"$lt": today}}, {"_id": 0, "id": 1, "week_off_original": 1, "tenant_id": 1, "name": 1}):
+        await _raw_db.staff.update_one({"id": st["id"]}, {"$set": {"week_off_day": st.get("week_off_original") or ""},
+                                                          "$unset": {"week_off_swap_date": "", "week_off_original": ""}})
+        n += 1
+    return n
 
 
 @router.post("/week-off-requests/{rid}/reject")
@@ -886,6 +909,7 @@ async def run_half_day_noshow_marker() -> int:
     today = now_ist.date().isoformat()
     weekday = now_ist.strftime("%A").lower()
     marked = 0
+    await revert_expired_week_off_swaps()
     async for s in _raw_db.staff.find(
             {"active": True},
             {"_id": 0, "id": 1, "name": 1, "tenant_id": 1, "shift_start": 1,

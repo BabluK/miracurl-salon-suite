@@ -118,20 +118,28 @@ export function WeekOffSection({ profile }) {
 
   const fmtReqTime = (iso) => iso ? new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "—";
 
+  const formVisible = showForm && !profile?.always_on_time;
   return (
     <div className="rounded-2xl bg-[#0F0F0F] border border-white/5 p-5 sm:p-6" data-testid="week-off-card">
       <div className="flex items-center justify-between gap-3 mb-1">
         <div className="font-playfair text-lg flex items-center gap-2">📅 Week-off day</div>
-        <button data-testid="request-week-off-btn" onClick={() => setShowForm(f => !f)}
-          className="text-xs px-4 py-2 rounded-full bg-gold/15 border border-gold/40 text-gold hover:bg-gold/25 transition">
-          {showForm ? "Close" : "Request change"}
-        </button>
+        {profile?.always_on_time ? (
+          <span data-testid="week-off-locked" className="text-[11px] px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-white/60">🔒 Set by owner (Always on time) — changes disabled</span>
+        ) : (
+          <button data-testid="request-week-off-btn" onClick={() => setShowForm(f => !f)}
+            className="text-xs px-4 py-2 rounded-full bg-gold/15 border border-gold/40 text-gold hover:bg-gold/25 transition">
+            {showForm ? "Close" : "Request change"}
+          </button>
+        )}
       </div>
       <p className="text-xs text-white/45 mb-4" data-testid="current-week-off">
         Current week-off: <b className="text-white/80">{currentDay ? currentDay[0].toUpperCase() + currentDay.slice(1) : "Not set"}</b>
+        {profile?.week_off_swap_date && profile?.week_off_original && (
+          <span className="text-gold/90" data-testid="week-off-swap-note"> · one-time swap for {new Date(profile.week_off_swap_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} — back to {profile.week_off_original[0].toUpperCase() + profile.week_off_original.slice(1)} after that</span>
+        )}
         {" "}· Allowed days: Mon–Thu only (Fri/Sat/Sun are peak days) · Can't pick today
       </p>
-      {showForm && (
+      {formVisible && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 bg-white/5 border border-white/10 rounded-xl p-4">
           <div><label className="text-[10px] uppercase tracking-widest text-white/40 block mb-1">New day</label>
             <select data-testid="week-off-day-select" value={day} onChange={e => setDay(e.target.value)}
