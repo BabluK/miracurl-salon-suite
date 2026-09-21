@@ -4,7 +4,6 @@ Usage: python3 tests/tools/poster_snap.py before|after
 import asyncio
 import hashlib
 import json
-import os
 import sys
 
 from dotenv import load_dotenv

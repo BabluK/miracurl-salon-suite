@@ -759,44 +759,61 @@ async def list_calls(user=Depends(require_super_admin)):
     return {"items": rows, "stats": stats}
 
 
+_CALL_RESULT_LABELS = {"interested": "pressed 1 — demo pack sent 🎉", "callback": "asked to call back", "opt_out": "opted out"}
+
+# (collection, limit, icon, title, sub) — newest rows of each feed become Platform-Map activity events
+_ACTIVITY_FEEDS = (
+    ("mira_leads", 5, "🧲", lambda d: f"New lead — {d.get('name')}", lambda d: d.get("city") or ""),
+    ("appointments", 4, "📅", lambda d: "Booking confirmed", lambda d: d.get("customer_name") or ""),
+    ("subscription_payments", 4, "💰", lambda d: f"Subscription payment ₹{round(d.get('amount') or 0)}", lambda d: ""),
+    ("tenants", 3, "🏢", lambda d: f"New salon — {d.get('name')}", lambda d: ""),
+    ("registry_employees", 3, "🪪", lambda d: f"Staff registered — {d.get('name')}", lambda d: ""),
+)
+
+
+def _call_stats(calls: list, today: str) -> dict:
+    return {"total": len(calls),
+            "today": len([c for c in calls if c.get("created_at", "") >= today]),
+            "interested": len([c for c in calls if c.get("result") == "interested"]),
+            "callback": len([c for c in calls if c.get("result") == "callback"]),
+            "conversations": len([c for c in calls if c.get("conversed")])}
+
+
+def _call_event(c: dict) -> dict:
+    if c.get("status") == "failed":
+        label = f"failed — {_friendly_error(c.get('error'))}"
+    else:
+        label = _CALL_RESULT_LABELS.get(c.get("result"), c.get("status") or "dialing")
+    return {"icon": "📞", "title": f"Mira called {c.get('lead_name') or 'a lead'}", "sub": label, "at": c.get("created_at", "")}
+
+
+async def _activity_events() -> list:
+    events = []
+    proj = {"_id": 0, "name": 1, "city": 1, "customer_name": 1, "amount": 1, "created_at": 1}
+    for coll, limit, icon, title, sub in _ACTIVITY_FEEDS:
+        rows = await getattr(_raw_db, coll).find({}, proj).sort("created_at", -1).to_list(limit)
+        events.extend({"icon": icon, "title": title(d), "sub": sub(d), "at": d.get("created_at", "")} for d in rows)
+    return events
+
+
+async def _lead_trend(now: datetime) -> dict:
+    week_ago = (now - timedelta(days=7)).isoformat()
+    two_weeks = (now - timedelta(days=14)).isoformat()
+    this_week = await _raw_db.mira_leads.count_documents({"created_at": {"$gte": week_ago}})
+    prev_week = await _raw_db.mira_leads.count_documents({"created_at": {"$gte": two_weeks, "$lt": week_ago}})
+    change = round((this_week - prev_week) / prev_week * 100) if prev_week else (100 if this_week else 0)
+    return {"leads_this_week": this_week, "leads_prev_week": prev_week, "change_pct": change}
+
+
 @router.get("/super-admin/platform-map/live")
 async def platform_map_live(user=Depends(require_super_admin)):
     """Real-time feed powering the Platform Map: Mira call stats, live activity, AI insight."""
     now = datetime.now(timezone.utc)
-    today = now.date().isoformat()
-    week_ago = (now - timedelta(days=7)).isoformat()
-    two_weeks = (now - timedelta(days=14)).isoformat()
     calls = await _raw_db.mira_call_logs.find({}, {"_id": 0}).sort("created_at", -1).to_list(300)
-    call_stats = {"total": len(calls),
-                  "today": len([c for c in calls if c.get("created_at", "") >= today]),
-                  "interested": len([c for c in calls if c.get("result") == "interested"]),
-                  "callback": len([c for c in calls if c.get("result") == "callback"]),
-                  "conversations": len([c for c in calls if c.get("conversed")])}
-    events = []
-    for c in calls[:8]:
-        if c.get("status") == "failed":
-            label = f"failed — {_friendly_error(c.get('error'))}"
-        else:
-            label = {"interested": "pressed 1 — demo pack sent 🎉", "callback": "asked to call back",
-                     "opt_out": "opted out"}.get(c.get("result"), c.get("status") or "dialing")
-        events.append({"icon": "📞", "title": f"Mira called {c.get('lead_name') or 'a lead'}",
-                       "sub": label, "at": c.get("created_at", "")})
-    for l in await _raw_db.mira_leads.find({}, {"_id": 0, "name": 1, "city": 1, "created_at": 1}).sort("created_at", -1).to_list(5):
-        events.append({"icon": "🧲", "title": f"New lead — {l.get('name')}", "sub": l.get("city") or "", "at": l.get("created_at", "")})
-    for a in await _raw_db.appointments.find({}, {"_id": 0, "customer_name": 1, "created_at": 1}).sort("created_at", -1).to_list(4):
-        events.append({"icon": "📅", "title": "Booking confirmed", "sub": a.get("customer_name") or "", "at": a.get("created_at", "")})
-    for i in await _raw_db.subscription_payments.find({}, {"_id": 0, "amount": 1, "created_at": 1}).sort("created_at", -1).to_list(4):
-        events.append({"icon": "💰", "title": f"Subscription payment ₹{round(i.get('amount') or 0)}", "sub": "", "at": i.get("created_at", "")})
-    for t in await _raw_db.tenants.find({}, {"_id": 0, "name": 1, "created_at": 1}).sort("created_at", -1).to_list(3):
-        events.append({"icon": "🏢", "title": f"New salon — {t.get('name')}", "sub": "", "at": t.get("created_at", "")})
-    for e in await _raw_db.registry_employees.find({}, {"_id": 0, "name": 1, "created_at": 1}).sort("created_at", -1).to_list(3):
-        events.append({"icon": "🪪", "title": f"Staff registered — {e.get('name')}", "sub": "", "at": e.get("created_at", "")})
+    events = [_call_event(c) for c in calls[:8]] + await _activity_events()
     events = sorted([e for e in events if e["at"]], key=lambda x: x["at"], reverse=True)[:12]
-    this_week = await _raw_db.mira_leads.count_documents({"created_at": {"$gte": week_ago}})
-    prev_week = await _raw_db.mira_leads.count_documents({"created_at": {"$gte": two_weeks, "$lt": week_ago}})
-    change = round((this_week - prev_week) / prev_week * 100) if prev_week else (100 if this_week else 0)
-    return {"call_stats": call_stats, "events": events,
-            "insight": {"leads_this_week": this_week, "leads_prev_week": prev_week, "change_pct": change}}
+    return {"call_stats": _call_stats(calls, now.date().isoformat()), "events": events,
+            "insight": await _lead_trend(now)}
 
 
 # ---------------- HQ Mira voice assistant ----------------
@@ -834,45 +851,50 @@ async def _system_health() -> tuple:
     return health, orphans, alerts
 
 
+async def _lead_snapshot(today: str) -> dict:
+    """Lead-gen side of the HQ snapshot: hot leads, Mira calls, drafted emails, weekly heat risers."""
+    failed_today = await _raw_db.mira_call_logs.find(
+        {"created_at": {"$gte": today}, "status": "failed"}, {"_id": 0, "error": 1}).to_list(300)
+    rd = await _raw_db.platform_settings.find_one({"key": "lead_heat_risers"}, {"_id": 0}) or {}
+    week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    first_error = next((c.get("error") for c in failed_today if c.get("error")), "")
+    return {
+        "hot_leads": await _raw_db.mira_leads.count_documents({**HOT_QUERY}),
+        "call_interested": await _raw_db.mira_leads.count_documents({"call_result": "interested"}),
+        "callable_hot_leads_with_phone": await _raw_db.mira_leads.count_documents(await _callable_hot_query()),
+        "leads_heated_up_this_week": (rd.get("risers") or [])[:3] if (rd.get("ran_at") or "") >= week_ago else [],
+        "mira_calls_made_total": await _raw_db.mira_call_logs.count_documents({}),
+        "mira_calls_made_today": await _raw_db.mira_call_logs.count_documents({"created_at": {"$gte": today}}),
+        "calls_failed_today": len(failed_today),
+        "top_call_failure_reason": _friendly_error(first_error) if failed_today else "",
+        "emails_drafted_awaiting_your_approval": await _raw_db.mira_leads.count_documents(
+            {"status": {"$in": ["drafted", "researched"]}, "email": {"$nin": ["", None]}}),
+    }
+
+
+async def _ops_snapshot(today: str, yesterday: str, soon: str) -> dict:
+    """Operations side of the HQ snapshot: inbox, verifications, tenants, bookings, revenue."""
+    rev = await _raw_db.subscription_payments.aggregate([
+        {"$match": {"$or": [{"paid_at": yesterday},
+                            {"paid_at": {"$in": ["", None]}, "created_at": {"$gte": yesterday, "$lt": today}}]}},
+        {"$group": {"_id": None, "s": {"$sum": "$amount"}}}]).to_list(1)
+    return {
+        "new_verification_requests": await _raw_db.staff_verification_requests.count_documents({"status": "new"}),
+        "unread_hq_inbox": await _raw_db.hq_messages.count_documents({"read": {"$ne": True}}),
+        "active_and_trial_salons": await _raw_db.tenants.count_documents({"status": {"$in": ["active", "trial"]}}),
+        "trials_expiring_in_5_days": await _raw_db.tenants.count_documents(
+            {"status": "trial", "trial_ends_at": {"$lte": soon, "$gte": today}}),
+        "bookings_today_all_salons": await _raw_db.appointments.count_documents({"date": today}),
+        "subscription_revenue_yesterday": round((rev[0]["s"] if rev else 0) or 0, 2),
+    }
+
+
 async def _hq_snapshot() -> dict:
     now = datetime.now(timezone.utc)
     today = now.date().isoformat()
     yesterday = (now.date() - timedelta(days=1)).isoformat()
     soon = (now.date() + timedelta(days=5)).isoformat()
-    hot = await _raw_db.mira_leads.count_documents({**HOT_QUERY})
-    call_interested = await _raw_db.mira_leads.count_documents({"call_result": "interested"})
-    calls_total = await _raw_db.mira_call_logs.count_documents({})
-    calls_today = await _raw_db.mira_call_logs.count_documents({"created_at": {"$gte": today}})
-    callable_hot = await _raw_db.mira_leads.count_documents(await _callable_hot_query())
-    new_verify = await _raw_db.staff_verification_requests.count_documents({"status": "new"})
-    unread_inbox = await _raw_db.hq_messages.count_documents({"read": {"$ne": True}})
-    tenants_total = await _raw_db.tenants.count_documents({"status": {"$in": ["active", "trial"]}})
-    trials_expiring = await _raw_db.tenants.count_documents(
-        {"status": "trial", "trial_ends_at": {"$lte": soon, "$gte": today}})
-    bookings_today = await _raw_db.appointments.count_documents({"date": today})
-    rev = await _raw_db.subscription_payments.aggregate([
-        {"$match": {"$or": [{"paid_at": yesterday},
-                            {"paid_at": {"$in": ["", None]}, "created_at": {"$gte": yesterday, "$lt": today}}]}},
-        {"$group": {"_id": None, "s": {"$sum": "$amount"}}}]).to_list(1)
-    failed_today = await _raw_db.mira_call_logs.find(
-        {"created_at": {"$gte": today}, "status": "failed"}, {"_id": 0, "error": 1}).to_list(300)
-    drafted_ready = await _raw_db.mira_leads.count_documents(
-        {"status": {"$in": ["drafted", "researched"]}, "email": {"$nin": ["", None]}})
-    rd = await _raw_db.platform_settings.find_one({"key": "lead_heat_risers"}, {"_id": 0}) or {}
-    week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-    heated = (rd.get("risers") or [])[:3] if (rd.get("ran_at") or "") >= week_ago else []
-    return {"hot_leads": hot, "call_interested": call_interested,
-            "callable_hot_leads_with_phone": callable_hot,
-            "leads_heated_up_this_week": heated,
-            "mira_calls_made_total": calls_total, "mira_calls_made_today": calls_today,
-            "calls_failed_today": len(failed_today),
-            "top_call_failure_reason": _friendly_error(next((c.get("error") for c in failed_today if c.get("error")), "")) if failed_today else "",
-            "emails_drafted_awaiting_your_approval": drafted_ready,
-            "new_verification_requests": new_verify,
-            "unread_hq_inbox": unread_inbox,
-            "active_and_trial_salons": tenants_total, "trials_expiring_in_5_days": trials_expiring,
-            "bookings_today_all_salons": bookings_today,
-            "subscription_revenue_yesterday": round((rev[0]["s"] if rev else 0) or 0, 2)}
+    return {**await _lead_snapshot(today), **await _ops_snapshot(today, yesterday, soon)}
 
 
 def _tod_greeting() -> str:
@@ -880,122 +902,134 @@ def _tod_greeting() -> str:
     return "Good morning" if h < 12 else ("Good afternoon" if h < 17 else "Good evening")
 
 
+def _plural(c: int, singular: str, plural: str) -> str:
+    return f"{c} {singular if c == 1 else plural}"
+
+
+def _briefing_summary(snap: dict) -> str:
+    rules = (
+        ("hot_leads", "hot lead is", "hot leads are", " waiting"),
+        ("bookings_today_all_salons", "booking", "bookings", " across your salons today"),
+        ("new_verification_requests", "new staff verification request", "new staff verification requests", ""),
+        ("trials_expiring_in_5_days", "trial", "trials", " expiring within 5 days"),
+    )
+    bits = [f"{_plural(snap[k], s, p)}{tail}" for k, s, p, tail in rules[:2] if snap[k]]
+    if snap["subscription_revenue_yesterday"]:
+        bits.append(f"₹{snap['subscription_revenue_yesterday']:g} subscription revenue collected yesterday")
+    bits += [f"{_plural(snap[k], s, p)}{tail}" for k, s, p, tail in rules[2:] if snap[k]]
+    return "; ".join(bits[:4]) if bits else "everything is calm right now"
+
+
+def _briefing_call_report(calls_today: list, snap: dict) -> str:
+    if not calls_today:
+        return ""
+    interested_n = len([c for c in calls_today if c.get("result") == "interested"])
+    failed_n = len([c for c in calls_today if c.get("status") == "failed"])
+    reason = _friendly_error(next((c.get("error") for c in calls_today if c.get("error")), ""))
+    n_calls = len(calls_today)
+    if failed_n >= 3 and failed_n == n_calls:
+        return (f" ⚠ Heads up: I tried calling {_plural(n_calls, 'lead', 'leads')} today and NONE connected"
+                f" — {reason}. Once that's fixed, just say 'retry failed calls' and I'll redial everyone.")
+    report = f" Call report: I made {_plural(n_calls, 'call', 'calls')} today — {interested_n} interested, {failed_n} failed"
+    if failed_n:
+        report += f". Most failures: {reason} — say 'retry failed calls' when ready"
+    return report + f". {snap['callable_hot_leads_with_phone']} hot leads are still callable — just say 'call the hot leads'."
+
+
+def _briefing_suggestion(calls_today: list, snap: dict) -> str:
+    drafted = snap["emails_drafted_awaiting_your_approval"]
+    if drafted:
+        return f" Tip: {_plural(drafted, 'personalized email is', 'personalized emails are')} drafted and waiting for your approval."
+    if not calls_today and snap["callable_hot_leads_with_phone"]:
+        return f" Tip: {snap['callable_hot_leads_with_phone']} hot leads are ready to call — just say 'call the hot leads'."
+    return ""
+
+
+async def _briefing_heat_note() -> str:
+    """Announce weekly lead-heat risers once, then mark them announced."""
+    rd = await _raw_db.platform_settings.find_one({"key": "lead_heat_risers"}, {"_id": 0}) or {}
+    if not rd.get("risers") or rd.get("announced"):
+        return ""
+    top = rd["risers"][0]
+    note = (f" 🔥 Heat alert: {_plural(len(rd['risers']), 'lead', 'leads')} got hotter after my weekly refresh — "
+            f"top mover: {top['name']} jumped from {top['from']} to {top['to']}. Worth a call!")
+    if rd.get("auto_called"):
+        note += f" I've already queued morning calls to {', '.join(rd['auto_called'])} — watch the call history for results."
+    await _raw_db.platform_settings.update_one({"key": "lead_heat_risers"}, {"$set": {"announced": True}})
+    return note
+
+
 @router.get("/super-admin/mira/briefing")
 async def mira_briefing(user=Depends(require_super_admin)):
+    from routes.hq_credit_wallet import _wallet as _hq_wallet, low_stock_line
     snap = await _hq_snapshot()
     today = datetime.now(timezone.utc).date().isoformat()
     calls_today = await _raw_db.mira_call_logs.find(
         {"created_at": {"$gte": today}}, {"_id": 0, "status": 1, "result": 1, "error": 1}).to_list(300)
-    bits = []
-    def _n(c, s, p):
-        return f"{c} {s if c == 1 else p}"
-    if snap["hot_leads"]:
-        bits.append(f"{_n(snap['hot_leads'], 'hot lead is', 'hot leads are')} waiting")
-    if snap["bookings_today_all_salons"]:
-        bits.append(f"{_n(snap['bookings_today_all_salons'], 'booking', 'bookings')} across your salons today")
-    if snap["subscription_revenue_yesterday"]:
-        bits.append(f"₹{snap['subscription_revenue_yesterday']:g} subscription revenue collected yesterday")
-    if snap["new_verification_requests"]:
-        bits.append(f"{_n(snap['new_verification_requests'], 'new staff verification request', 'new staff verification requests')}")
-    if snap["trials_expiring_in_5_days"]:
-        bits.append(f"{_n(snap['trials_expiring_in_5_days'], 'trial', 'trials')} expiring within 5 days")
-    summary = "; ".join(bits[:4]) if bits else "everything is calm right now"
-    call_report = ""
-    if calls_today:
-        interested_n = len([c for c in calls_today if c.get("result") == "interested"])
-        failed_n = len([c for c in calls_today if c.get("status") == "failed"])
-        if failed_n >= 3 and failed_n == len(calls_today):
-            reason = _friendly_error(next((c.get('error') for c in calls_today if c.get('error')), ''))
-            call_report = (f" ⚠ Heads up: I tried calling {_n(len(calls_today), 'lead', 'leads')} today and NONE connected"
-                           f" — {reason}. Once that's fixed, just say 'retry failed calls' and I'll redial everyone.")
-        else:
-            call_report = f" Call report: I made {_n(len(calls_today), 'call', 'calls')} today — {interested_n} interested, {failed_n} failed"
-            if failed_n:
-                call_report += f". Most failures: {_friendly_error(next((c.get('error') for c in calls_today if c.get('error')), ''))} — say 'retry failed calls' when ready"
-            call_report += f". {snap['callable_hot_leads_with_phone']} hot leads are still callable — just say 'call the hot leads'."
-    suggestion = ""
-    if snap["emails_drafted_awaiting_your_approval"]:
-        suggestion = f" Tip: {_n(snap['emails_drafted_awaiting_your_approval'], 'personalized email is', 'personalized emails are')} drafted and waiting for your approval."
-    elif not calls_today and snap["callable_hot_leads_with_phone"]:
-        suggestion = f" Tip: {snap['callable_hot_leads_with_phone']} hot leads are ready to call — just say 'call the hot leads'."
-    heat_note = ""
-    rd = await _raw_db.platform_settings.find_one({"key": "lead_heat_risers"}, {"_id": 0}) or {}
-    if rd.get("risers") and not rd.get("announced"):
-        top = rd["risers"][0]
-        heat_note = (f" 🔥 Heat alert: {_n(len(rd['risers']), 'lead', 'leads')} got hotter after my weekly refresh — "
-                     f"top mover: {top['name']} jumped from {top['from']} to {top['to']}. Worth a call!")
-        if rd.get("auto_called"):
-            heat_note += (f" I've already queued morning calls to {', '.join(rd['auto_called'])} — "
-                          f"watch the call history for results.")
-        await _raw_db.platform_settings.update_one({"key": "lead_heat_risers"}, {"$set": {"announced": True}})
-    from routes.hq_credit_wallet import _wallet as _hq_wallet, low_stock_line
     stock_note = low_stock_line(await _hq_wallet())
-    text = (f"Hey Miracurl! {_tod_greeting()}! {summary}.{call_report}{heat_note}{suggestion} "
+    text = (f"Hey Miracurl! {_tod_greeting()}! {_briefing_summary(snap)}."
+            f"{_briefing_call_report(calls_today, snap)}{await _briefing_heat_note()}{_briefing_suggestion(calls_today, snap)} "
             + (f"{stock_note} " if stock_note else "")
             + "How may I help you today — what details do you want me to show?")
-    health, orphans, alerts = await _system_health()
+    _health, _orphans, alerts = await _system_health()
     if alerts:
         text += " One more thing, Boss — we have some system health items that need your attention: " + "; ".join(alerts[:2]) + "."
         await _raw_db.system_flags.update_one({"key": "db_health"}, {"$set": {"announced": True}})
     return {"text": text, "data": snap, "health_alerts": alerts}
 
 
-@router.get("/super-admin/mira/map-briefing")
-async def mira_map_briefing(user=Depends(require_super_admin)):
-    """Spoken real-time update when the Platform Map opens."""
-    today = datetime.now(timezone.utc).date().isoformat()
-    leads_today = await _raw_db.mira_leads.count_documents({"created_at": {"$gte": today}})
+async def _map_counts(today: str) -> dict:
     calls_today = await _raw_db.mira_call_logs.find(
         {"created_at": {"$gte": today}}, {"_id": 0, "status": 1, "result": 1}).to_list(300)
-    interested = len([c for c in calls_today if c.get("result") == "interested"])
-    failed = len([c for c in calls_today if c.get("status") == "failed"])
-    bookings_today = await _raw_db.appointments.count_documents({"date": today})
     pay = await _raw_db.subscription_payments.aggregate([
         {"$match": {"$or": [{"paid_at": today},
                             {"paid_at": {"$in": ["", None]}, "created_at": {"$gte": today}}]}},
         {"$group": {"_id": None, "n": {"$sum": 1}, "s": {"$sum": "$amount"}}}]).to_list(1)
-    pay_n = (pay[0]["n"] if pay else 0) or 0
-    pay_amt = round((pay[0]["s"] if pay else 0) or 0)
-    tenants_today = await _raw_db.tenants.count_documents({"created_at": {"$gte": today}})
-    staff_today = await _raw_db.registry_employees.count_documents({"created_at": {"$gte": today}})
-    callable_hot = await _raw_db.mira_leads.count_documents(await _callable_hot_query())
+    return {"leads_today": await _raw_db.mira_leads.count_documents({"created_at": {"$gte": today}}),
+            "calls_today": len(calls_today),
+            "interested_today": len([c for c in calls_today if c.get("result") == "interested"]),
+            "failed_today": len([c for c in calls_today if c.get("status") == "failed"]),
+            "payments_today": (pay[0]["n"] if pay else 0) or 0,
+            "payments_amount_today": round((pay[0]["s"] if pay else 0) or 0),
+            "tenants_today": await _raw_db.tenants.count_documents({"created_at": {"$gte": today}}),
+            "staff_today": await _raw_db.registry_employees.count_documents({"created_at": {"$gte": today}}),
+            "bookings_today": await _raw_db.appointments.count_documents({"date": today}),
+            "callable_hot": await _raw_db.mira_leads.count_documents(await _callable_hot_query())}
 
-    def _n(c, s, p):
-        return f"{c} {s if c == 1 else p}"
-    bits = []
-    if leads_today:
-        bits.append(f"{_n(leads_today, 'new lead', 'new leads')} received")
-    else:
-        bits.append("no new leads received so far today")
-    if pay_n:
-        bits.append(f"{_n(pay_n, 'subscription payment', 'subscription payments')} received worth ₹{pay_amt:,}")
-    if tenants_today:
-        bits.append(f"{_n(tenants_today, 'new tenant', 'new tenants')} added")
-    if staff_today:
-        bits.append(f"{_n(staff_today, 'staff member', 'staff members')} registered")
-    if bookings_today:
-        bits.append(f"{_n(bookings_today, 'booking', 'bookings')} across your salons")
-    if calls_today:
-        rep = f"On your behalf I called {_n(len(calls_today), 'lead', 'leads')} today — "
-        if interested:
-            rep += f"{interested} said yes to the demo!"
-        else:
-            rep += "no positive response received yet"
-            if failed:
-                rep += f", {failed} failed"
-            rep += "."
-    elif callable_hot:
-        rep = f"{_n(callable_hot, 'hot lead is', 'hot leads are')} ready — just say the word and I'll start calling."
-    else:
-        rep = ""
-    text = (f"Hey Miracurl! Live update — {'; '.join(bits)}. {rep} "
+
+def _map_bits(d: dict) -> list:
+    bits = [f"{_plural(d['leads_today'], 'new lead', 'new leads')} received" if d["leads_today"] else "no new leads received so far today"]
+    if d["payments_today"]:
+        bits.append(f"{_plural(d['payments_today'], 'subscription payment', 'subscription payments')} received worth ₹{d['payments_amount_today']:,}")
+    for key, s, p, tail in (("tenants_today", "new tenant", "new tenants", " added"),
+                            ("staff_today", "staff member", "staff members", " registered"),
+                            ("bookings_today", "booking", "bookings", " across your salons")):
+        if d[key]:
+            bits.append(f"{_plural(d[key], s, p)}{tail}")
+    return bits
+
+
+def _map_call_line(d: dict) -> str:
+    if d["calls_today"]:
+        rep = f"On your behalf I called {_plural(d['calls_today'], 'lead', 'leads')} today — "
+        if d["interested_today"]:
+            return rep + f"{d['interested_today']} said yes to the demo!"
+        rep += "no positive response received yet"
+        if d["failed_today"]:
+            rep += f", {d['failed_today']} failed"
+        return rep + "."
+    if d["callable_hot"]:
+        return f"{_plural(d['callable_hot'], 'hot lead is', 'hot leads are')} ready — just say the word and I'll start calling."
+    return ""
+
+
+@router.get("/super-admin/mira/map-briefing")
+async def mira_map_briefing(user=Depends(require_super_admin)):
+    """Spoken real-time update when the Platform Map opens."""
+    d = await _map_counts(datetime.now(timezone.utc).date().isoformat())
+    text = (f"Hey Miracurl! Live update — {'; '.join(_map_bits(d))}. {_map_call_line(d)} "
             "Please give me a command — what do you want to know?").replace("  ", " ")
-    return {"text": text,
-            "data": {"leads_today": leads_today, "calls_today": len(calls_today),
-                     "interested_today": interested, "failed_today": failed,
-                     "payments_today": pay_n, "payments_amount_today": pay_amt,
-                     "tenants_today": tenants_today, "staff_today": staff_today,
-                     "bookings_today": bookings_today, "callable_hot": callable_hot}}
+    return {"text": text, "data": d}
 
 
 class MiraAskIn(BaseModel):

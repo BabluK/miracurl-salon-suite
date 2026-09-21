@@ -174,7 +174,7 @@ def test_D_huge_target_withheld(admin_sess, staff_sess, priya):
     assert slip["commission_withheld"] is True, slip
     assert slip["target_bonus"] == 0, slip
     assert slip["target_achieved"] is False, slip
-    print(f"D: huge target — withheld=True, bonus=0")
+    print("D: huge target — withheld=True, bonus=0")
 
 
 # ---------- Scenario E: PDF download for withheld case ----------

@@ -7,7 +7,6 @@ Constraints:
 """
 import io
 import os
-import re
 import pytest
 import requests
 from PIL import Image

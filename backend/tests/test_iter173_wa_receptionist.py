@@ -1,7 +1,6 @@
 """Iter 173 — Mira WhatsApp Receptionist (simulator + threads + human takeover)."""
 import os
 import re
-import time
 import pytest
 import requests
 import asyncio

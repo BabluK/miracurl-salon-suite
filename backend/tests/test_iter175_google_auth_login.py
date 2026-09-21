@@ -8,7 +8,6 @@ Covers:
 """
 import os
 import requests
-import pytest
 
 def _load_env():
     p = "/app/frontend/.env"

@@ -10,7 +10,6 @@ Covers:
 - Clean up: DELETE /api/invoices/{id} works only for open bills
 """
 import os
-import re
 from datetime import datetime, timedelta, timezone
 
 import pytest

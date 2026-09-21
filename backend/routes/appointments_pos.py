@@ -814,17 +814,20 @@ def _gc_contact_fields(meta: dict, cust: dict) -> dict:
             "recipient_whatsapp": digits(meta.get("recipient_whatsapp"))}
 
 
-def _gift_card_doc_from_item(it: dict, cust: dict, tenant_doc: dict, inv: dict) -> dict:
+def _gift_validity_days(meta: dict, tenant_doc: dict) -> int:
+    """Per-card 'Valid for' chosen at the POS (7–365 days), else the salon default."""
     from services.gift_card_service import _gc_settings
-    meta = it.get("gift_meta") or {}
-    amt = round(float(it.get("price") or 0) * int(it.get("qty") or 1), 2)
-    now = datetime.now(timezone.utc).isoformat()
     try:
         validity = int(meta.get("validity_days") or 0)
     except (TypeError, ValueError):
         validity = 0
-    if not 7 <= validity <= 365:
-        validity = _gc_settings(tenant_doc)["validity_days"]
+    return validity if 7 <= validity <= 365 else _gc_settings(tenant_doc)["validity_days"]
+
+
+def _gift_card_doc_from_item(it: dict, cust: dict, tenant_doc: dict, inv: dict) -> dict:
+    meta = it.get("gift_meta") or {}
+    amt = round(float(it.get("price") or 0) * int(it.get("qty") or 1), 2)
+    now = datetime.now(timezone.utc).isoformat()
     return {"id": str(uuid.uuid4()), "tenant_id": tenant_doc["id"],
             "tenant_slug": tenant_doc.get("slug") or "",
             "code": "", "occasion": meta.get("occasion") or "just-because",
@@ -832,7 +835,7 @@ def _gift_card_doc_from_item(it: dict, cust: dict, tenant_doc: dict, inv: dict) 
             **_gc_contact_fields(meta, cust),
             "message": (meta.get("message") or "")[:400], "send_on": meta.get("send_on") or "",
             "pay_method": "pos", "status": "pending_payment",
-            "validity_days": validity,
+            "validity_days": _gift_validity_days(meta, tenant_doc),
             "created_at": now, "paid_at": now, "pos_invoice_id": inv["id"]}
 
 

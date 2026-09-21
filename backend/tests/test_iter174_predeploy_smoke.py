@@ -5,7 +5,6 @@ public /book page, receptionist simulate + WA link status (sender label),
 sms-packs (whatsapp channel), hq wallet.
 """
 import os
-import time
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")

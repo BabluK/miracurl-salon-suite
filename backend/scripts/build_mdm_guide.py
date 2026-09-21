@@ -1,5 +1,5 @@
 """Build the 5-step 'Send a WhatsApp campaign' owner guide (PDF) from captured screenshots."""
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas

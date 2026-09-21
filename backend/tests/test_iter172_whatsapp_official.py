@@ -1,6 +1,5 @@
 """Iter 172 — Official Meta Cloud API WhatsApp channel (unofficial gateway removed)."""
 import os
-import re
 import pytest
 import requests
 

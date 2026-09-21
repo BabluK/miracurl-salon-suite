@@ -717,36 +717,48 @@ async def _ensure_service(tenant_id: str, name: str, category: str, price: float
     return doc
 
 
+def _shade_service(cid: str, is_men: bool, svcs: dict) -> tuple[dict, str]:
+    """Which auto-created colour service a shade should bill to, by its tier."""
+    tier = tier_of(cid)
+    if tier == "technique":
+        return svcs["technique"], "technique"
+    if tier == "fashion":
+        return (svcs["m_fashion"] if is_men else svcs["w_fashion"]), "fashion"
+    return (svcs["men"], "men") if is_men else (svcs["women"], "women")
+
+
+async def _link_shades(tenant_id: str, svcs: dict, overwrite: bool) -> dict:
+    """Upsert shade → service links for the catalogue + the salon's custom shades."""
+    customs = await _raw_db.tenant_hair_colors.find({"tenant_id": tenant_id, "active": {"$ne": False}}, {"_id": 0, "id": 1}).to_list(60)
+    existing = {l["color_id"] for l in await _raw_db.tenant_shade_services.find({"tenant_id": tenant_id}, {"_id": 0, "color_id": 1}).to_list(500)}
+    linked = {"women": 0, "men": 0, "fashion": 0, "technique": 0, "skipped": 0}
+    for cid, is_men in [(c["id"], False) for c in CATALOG + customs] + [(c["id"], True) for c in MEN_CATALOG]:
+        if cid in existing and not overwrite:
+            linked["skipped"] += 1
+            continue
+        svc, key = _shade_service(cid, is_men, svcs)
+        await _raw_db.tenant_shade_services.update_one({"tenant_id": tenant_id, "color_id": cid},
+                                                       {"$set": {"tenant_id": tenant_id, "color_id": cid, "service_id": svc["id"]}}, upsert=True)
+        linked[key] += 1
+    return linked
+
+
 @router.post("/hair-colors/auto-services")
 async def auto_colour_services(body: AutoServicesIn, admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """One tap: create 'Women's Global Colour' + 'Men's Global Colour' services and link every shade so bookings always carry a price."""
-    women = await _ensure_service(t["id"], "Women's Global Colour", "Women Hair", body.women_price, body.women_duration, "female")
-    men = await _ensure_service(t["id"], "Men's Global Colour", "Men Hair", body.men_price, body.men_duration, "male")
-    w_fashion = await _ensure_service(t["id"], "Women's Fashion Colour (pre-lightened)", "Women Hair", body.women_price + body.fashion_extra, body.women_duration + 60, "female")
-    m_fashion = await _ensure_service(t["id"], "Men's Fashion Colour (pre-lightened)", "Men Hair", body.men_price + body.fashion_extra, body.men_duration + 30, "male")
-    technique = await _ensure_service(t["id"], "Balayage / Ombré / Money Piece", "Women Hair", body.women_price + body.technique_extra, body.women_duration + 60, "female")
-    customs = await _raw_db.tenant_hair_colors.find({"tenant_id": t["id"], "active": {"$ne": False}}, {"_id": 0, "id": 1}).to_list(60)
-    existing = {l["color_id"] for l in await _raw_db.tenant_shade_services.find({"tenant_id": t["id"]}, {"_id": 0, "color_id": 1}).to_list(500)}
-    linked = {"women": 0, "men": 0, "fashion": 0, "technique": 0, "skipped": 0}
+    svcs = {
+        "women": await _ensure_service(t["id"], "Women's Global Colour", "Women Hair", body.women_price, body.women_duration, "female"),
+        "men": await _ensure_service(t["id"], "Men's Global Colour", "Men Hair", body.men_price, body.men_duration, "male"),
+        "w_fashion": await _ensure_service(t["id"], "Women's Fashion Colour (pre-lightened)", "Women Hair", body.women_price + body.fashion_extra, body.women_duration + 60, "female"),
+        "m_fashion": await _ensure_service(t["id"], "Men's Fashion Colour (pre-lightened)", "Men Hair", body.men_price + body.fashion_extra, body.men_duration + 30, "male"),
+        "technique": await _ensure_service(t["id"], "Balayage / Ombré / Money Piece", "Women Hair", body.women_price + body.technique_extra, body.women_duration + 60, "female"),
+    }
+    linked = await _link_shades(t["id"], svcs, body.overwrite)
 
-    def _svc(cid: str, is_men: bool):
-        tier = tier_of(cid)
-        if tier == "technique":
-            return technique, "technique"
-        if tier == "fashion":
-            return (m_fashion if is_men else w_fashion), "fashion"
-        return (men, "men") if is_men else (women, "women")
-    for cid, is_men in [(c["id"], False) for c in CATALOG + customs] + [(c["id"], True) for c in MEN_CATALOG]:
-        if cid in existing and not body.overwrite:
-            linked["skipped"] += 1
-            continue
-        svc, key = _svc(cid, is_men)
-        await _raw_db.tenant_shade_services.update_one({"tenant_id": t["id"], "color_id": cid},
-                                                       {"$set": {"tenant_id": t["id"], "color_id": cid, "service_id": svc["id"]}}, upsert=True)
-        linked[key] += 1
-    brief = lambda x: {"id": x["id"], "name": x["name"], "price": x["price"]}  # noqa: E731
-    return {"ok": True, "women_service": brief(women), "men_service": brief(men), "women_fashion_service": brief(w_fashion),
-            "men_fashion_service": brief(m_fashion), "technique_service": brief(technique), "linked": linked}
+    def brief(x: dict) -> dict:
+        return {"id": x["id"], "name": x["name"], "price": x["price"]}
+    return {"ok": True, "women_service": brief(svcs["women"]), "men_service": brief(svcs["men"]), "women_fashion_service": brief(svcs["w_fashion"]),
+            "men_fashion_service": brief(svcs["m_fashion"]), "technique_service": brief(svcs["technique"]), "linked": linked}
 
 
 # ── Colour history for CRM ─────────────────────────────────────────────────────

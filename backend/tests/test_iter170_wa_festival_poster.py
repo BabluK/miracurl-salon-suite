@@ -1,6 +1,5 @@
 """Iter 170: WA link — festivals radar, poster paint, compose (gpt-5.4), test-send validation."""
 import os
-import re
 import pytest
 import requests
 import os as _os

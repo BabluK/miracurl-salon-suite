@@ -1,7 +1,6 @@
 """Iteration 163 — public booking branch_id, /notifications/new-bookings branch filter,
 tenant_notices color_pick suppression + tenant scoping, /api/whats-new build."""
 import os
-import time
 from datetime import datetime, timezone, timedelta
 
 import pytest
