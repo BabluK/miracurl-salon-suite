@@ -20,7 +20,7 @@ import { playErrorBuzz } from "@/lib/scanSounds";
 import { POSHeader } from "@/components/pos/POSHeader";
 import { CatalogPanel } from "@/components/pos/CatalogPanel";
 import { OffersPanel } from "@/components/pos/OffersPanel";
-import { InvoiceHeader } from "@/components/pos/InvoiceHeader";
+import { InvoiceHeader, localISODate } from "@/components/pos/InvoiceHeader";
 import { CartTable } from "@/components/pos/CartTable";
 import { TipSection } from "@/components/pos/TipSection";
 import { PaymentSection } from "@/components/pos/PaymentSection";
@@ -76,6 +76,7 @@ export default function POS() {
   const [openBillsKey, setOpenBillsKey] = useState(0);
   const [pendingBill, setPendingBill] = useState(null);
   const [appointmentId, setAppointmentId] = useState("");
+  const [billDate, setBillDate] = useState(() => localISODate(0));
 
   function onQrDetected(text) {
     setQrScanOpen(false);
@@ -530,6 +531,7 @@ export default function POS() {
     setOfferApplied(null); setOverallDisc(0); setOverallDiscMode("amt");
     setGcCode(""); setGcInfo(null); setWalletApply(0); setMemberCode(""); setMemberInfo(null);
     setTipPct(null); setCustomTip(0); setTipStaffId("");
+    setBillDate(localISODate(0));
   }
 
   function switchBillSession(sid) {
@@ -598,6 +600,7 @@ export default function POS() {
         status: complete ? "completed" : "open",
         appointment_id: appointmentId || null,
         branch_id: branchId || null,
+        bill_date: billDate && billDate !== localISODate(0) ? billDate : null,
         force_duplicate: forceDup,
       });
       if (kitchenOrderIdsRef.current.length > 0) {
@@ -741,6 +744,7 @@ export default function POS() {
             benefits={benefits} canRedeem={canRedeem} redeemCap={redeemCap}
             redeemPoints={redeemPoints} setRedeemPoints={setRedeemPoints}
             loyaltyRules={loyaltyRules} onRedeemPackage={redeemPackage}
+            billDate={billDate} setBillDate={setBillDate}
           />
           {customer?.phone && (
             <StampCard phone={customer.phone} onRewardRedeemed={(d) => {

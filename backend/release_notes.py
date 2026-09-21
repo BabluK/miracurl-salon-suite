@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-21.336"
-BUILD_TIME = "21 Sep 2026, 9:45 AM IST"
+BUILD = "2026-09-21.337"
+BUILD_TIME = "21 Sep 2026, 11:15 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-21.337", "note": "POS back-dated bills: InvoiceIn.bill_date (YYYY-MM-DD, ≤ 2 days back, never future) → _apply_bill_date stamps created_at at 12:00 IST of that day + backdated=True + actual_created_at. InvoiceHeader 'Bill date' picker (pos-bill-date, min=today-2, amber Back-dated badge), sent on Create / Create & Complete, resets to today after save. Back-dated tag on receipt modal + Reports bill table. Fixed missing `date` import."},
     {"build": "2026-09-21.336", "note": "Branch picker + denied popup: warm-lit salon background (assets/branch-gate/bg-warm.jpg) inside the card AND as the blurred page backdrop; lighter overlays (40%/60%). Denied popup rebuilt to mockup. NEW settings/BranchLocationsCard.jsx (owner; PUT /tenants/current/geo + /geo/from-link). GeoBranchGate auto-picks when exactly one option is within radius (strict roles). Week-off: approve stores week_off_original + week_off_swap_date (next occurrence after effective_from); revert_expired_week_off_swaps() runs inside run_half_day_noshow_marker; create_week_off_request 400 for always_on_time; LeaveAndWeekOff hides Request change + shows swap note."},
     {"build": "2026-09-21.335", "note": "GeoBranchGate: strict deny popup (geo-branch-denied) when no branch within radius / GPS off; AuthContext pageshow+popstate session re-check, logout collapses history; Login popstate guard. Centred modal (max-w-4xl, own scroll) over fixed dimmed overlay + body scroll lock + Sign out (auth.logout), dedupe branch vs linked business of same name. Managers: `locked` flag in GET /managers (login_attempts.locked_until), POST /managers/{uid}/unlock. HQ: PUT /super-admin/users/{uid}/password, POST /super-admin/users/{uid}/unlock; TenantLoginsCard 🔑/🔓 buttons; ManagersSection Locked·Unlock pill."},
     {"build": "2026-09-21.334", "note": "seed_admin runs once per install (app_migrations admin-seed-done; also skips when the default tenant already has any admin) — deleting the ADMIN_EMAIL login on prod no longer resurrects 'Salon Admin' on every boot. POST /managers adopts an existing login in the owner's group: manager elsewhere → link, non-owner admin (leftover seed) → convert to manager; always ensures a staff profile (salary/commission/phone from the form) so managers appear in Staff. Prod: stray admin cf1df17e flipped to manager of both Miracurl tenants and renamed to miracurlunisexfamilysaloon@gmail.com. Geo pin endpoints (PUT/POST/DELETE /tenants/current/geo) now require_tenant_admin (owner only). GeoBranchGate strict roles use sessionStorage → re-ask every app open. ManagerCreateIn.password (optional) + PUT /managers/{uid}/password (owner-set, clears sessions/lockouts); GET /managers auto-creates the manager's Staff profile per tenant; delete removes staff docs group-wide. WA test-send: GET /whatsapp-link/message-status/{id} + composer polls & explains Meta #131049/#131026."},
@@ -141,6 +142,7 @@ RELEASES = [
     {
         "date": "2026-09-21 (Unlock & set passwords anywhere 🔓)",
         "changes": [
+            "🧾 POS → Bill date: forgot to raise a bill on the day? Tap the date next to the Invoice heading and pick yesterday or the day before (up to 2 days back). The bill shows an amber 'Back-dated' tag on the receipt and in Reports, and lands in that day's revenue",
             "📅 Week-off changes are now ONE-TIME swaps: when you approve a staff request, the new day applies to its next occurrence only and their original week-off comes back automatically afterwards. Staff marked 'Always on time' by the owner can't request week-off changes",
             "📍 Settings → Branch locations for sign-in (owner only): every place with its pin status, 'I'm here — pin it' and 'Set from address / Maps link'. Once pinned, managers & staff standing inside that branch are signed in DIRECTLY — no tap — and every other branch is disabled",
             "💬 Campaign composer: picking a template chip now drops a ready-to-send message into the box (Mira can still rewrite it), and when Send test is greyed out an amber hint says why (message empty)",

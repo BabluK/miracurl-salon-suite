@@ -70,7 +70,14 @@ export default function InvoiceReceiptModal({ invoice, tenant, customer, onEmail
         <div className="text-center px-6 pt-5 pb-4 border-b border-slate-100 shrink-0">
           <h3 className="text-2xl font-playfair text-sky-600" data-testid="receipt-brand">{brandName} ✦</h3>
           {brandLoc && <p className="text-xs text-slate-500">{brandLoc}</p>}
-          <p className="text-[10px] text-slate-400 mt-1">{new Date(invoice.created_at).toLocaleString()}</p>
+          <p className="text-[10px] text-slate-400 mt-1">
+            {new Date(invoice.created_at).toLocaleString()}
+            {invoice.backdated && (
+              <span data-testid="receipt-backdated-badge" className="ml-2 inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500 text-white align-middle">
+                Back-dated
+              </span>
+            )}
+          </p>
         </div>
         {/* Scrollable middle — details + services; totals & actions stay locked below */}
         <div className="flex-1 min-h-0 overflow-y-auto px-6" data-testid="receipt-scroll-area">

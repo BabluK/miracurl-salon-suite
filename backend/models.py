@@ -132,6 +132,7 @@ class Invoice(BaseModel):
 class InvoiceIn(BaseModel):
     customer_id: str
     staff_id: Optional[str] = None
+    bill_date: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")  # back-date a bill that wasn't raised on the day (≤ 2 days back)
     items: List[InvoiceItem]
     discount: float = 0
     tax_pct: float = 18.0

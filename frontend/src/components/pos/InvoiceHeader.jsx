@@ -1,12 +1,24 @@
 import { Search, X, UserPlus, Calendar, MapPin } from "lucide-react";
 
+export const BACKDATE_MAX_DAYS = 2;
+
+export function localISODate(offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function InvoiceHeader({
   tenant, branchId, onBranchChange, branchLocked = false,
   guestBoxRef, guestQuery, setGuestQuery, customerId, setCustomerId,
   guestOpen, setGuestOpen, guestMatches, selectGuest, clearGuest, onAddGuest,
   staff, staffId, setStaffId, customer, cartHasItems,
   benefits, canRedeem, redeemCap, redeemPoints, setRedeemPoints, loyaltyRules, onRedeemPackage,
+  billDate, setBillDate,
 }) {
+  const today = localISODate(0);
+  const minDate = localISODate(-BACKDATE_MAX_DAYS);
+  const backdated = !!billDate && billDate !== today;
   return (
     <div className="bg-white rounded-xl border border-slate-200 px-5 py-4">
       <div className="flex items-center justify-between mb-4">
@@ -28,10 +40,27 @@ export function InvoiceHeader({
               </select>
             </div>
           )}
-          <div className="flex items-center gap-1 text-sm text-slate-500">
-            <Calendar className="w-4 h-4" />
-            {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-          </div>
+          <label
+            data-testid="pos-bill-date-wrap"
+            title={`Bill date — pick a past day (up to ${BACKDATE_MAX_DAYS} days back) if this bill wasn't raised on the day`}
+            className={`flex items-center gap-1.5 text-sm rounded-lg border px-2 py-1 cursor-pointer transition-colors ${backdated ? "bg-amber-50 border-amber-300 text-amber-800" : "bg-slate-50 border-slate-200 text-slate-600 hover:border-sky-300"}`}
+          >
+            <Calendar className={`w-4 h-4 ${backdated ? "text-amber-600" : "text-slate-400"}`} />
+            <input
+              data-testid="pos-bill-date"
+              type="date"
+              value={billDate || today}
+              min={minDate}
+              max={today}
+              onChange={e => setBillDate(e.target.value || today)}
+              className="bg-transparent text-xs font-medium focus:outline-none cursor-pointer min-w-[7.5rem]"
+            />
+            {backdated && (
+              <span data-testid="pos-backdated-badge" className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500 text-white">
+                Back-dated
+              </span>
+            )}
+          </label>
         </div>
       </div>
 

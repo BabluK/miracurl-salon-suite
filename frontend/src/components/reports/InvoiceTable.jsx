@@ -41,7 +41,9 @@ export function InvoiceTable({ rows, sel, setSel, sort, setSort, onEdit, empty }
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-[#9b3a4e]/70" />
                     <div><div className="text-slate-800">{dt.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" })}</div>
-                      <div className="text-xs text-slate-400">{dt.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short" })}</div></div>
+                      <div className="text-xs text-slate-400">{dt.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short" })}
+                        {inv.backdated && <span data-testid={`bill-backdated-${inv.id}`} className="ml-1.5 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500 text-white" title={`Raised late on ${new Date(inv.actual_created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`}>Back-dated</span>}
+                      </div></div>
                   </div>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">

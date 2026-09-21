@@ -3,7 +3,7 @@ import asyncio
 import io
 import re
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -640,6 +640,28 @@ async def _resolve_tip(body: InvoiceIn, staff: dict | None) -> dict | None:
     return await db.staff.find_one({"id": tsid}, {"_id": 0, "id": 1, "name": 1})
 
 
+BACKDATE_MAX_DAYS = 2
+
+
+def _apply_bill_date(inv: dict, bill_date: str | None) -> None:
+    """Bill raised late (e.g. staff forgot yesterday): stamp the chosen past day at 12:00 IST, never a future day."""
+    if not bill_date:
+        return
+    ist = timezone(timedelta(hours=5, minutes=30))
+    today = datetime.now(ist).date()
+    d = date.fromisoformat(bill_date)
+    if d > today:
+        raise HTTPException(400, "Bill date can't be in the future")
+    if (today - d).days > BACKDATE_MAX_DAYS:
+        raise HTTPException(400, f"Bills can be back-dated up to {BACKDATE_MAX_DAYS} days only")
+    if d == today:
+        return
+    stamp = datetime(d.year, d.month, d.day, 12, 0, tzinfo=ist).astimezone(timezone.utc).isoformat()
+    inv["created_at"] = stamp
+    inv["backdated"] = True
+    inv["actual_created_at"] = datetime.now(timezone.utc).isoformat()
+
+
 def _build_invoice_doc(body: InvoiceIn, cust: dict, staff: dict | None, ctx: dict,
                        tip: float, tip_staff: dict | None, invoice_no: str) -> dict:
     totals, coupon, branch = ctx["totals"], ctx["coupon"], ctx["branch"]
@@ -888,6 +910,7 @@ async def _create_invoice_locked(body: InvoiceIn, cust: dict, user: dict):
     tip_staff = await _resolve_tip(body, staff) if tip > 0 else None
 
     inv = _build_invoice_doc(body, cust, staff, ctx, tip, tip_staff, await _gen_invoice_no())
+    _apply_bill_date(inv, body.bill_date)
     if body.status == "open":
         # "Create" = save the bill only. No payments, stock, points, cashback or
         # receipts until it's completed from Reports → recent bills.
