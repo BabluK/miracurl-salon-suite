@@ -1,0 +1,28 @@
+{
+  "summary": "Iter-187 — Temporary Owner Dashboard (single AECS branch, PIN 3642) fully verified end-to-end. BACKEND pytest 8/8 pass (/app/backend/tests/test_iter187_owner_dashboard.py). Owner (admin@miracurl.com, miracurl-marathahalli): GET /api/owner-dashboard/status→{available:true}; POST /unlock with pin 0000→403 'Incorrect PIN', with 3642→200 {branch{slug=aecs, name='Miracurl Unisex Family Salon - AECS', location}, periods[6] keys=[today,yesterday,week,last_week,month,last_month]}, month.total==292240, last_month.total==417270, for every period total_cash+total_upi+total_card==total AND salons[0].today==total. Ranges verified: today from==to==tenant date; week from Monday..today; last_week prev Monday..prev Sunday (7 days); month from 1st..today; last_month full previous month. Manager (manager@miracurl.com) GET /status→403 'Admin role required'. Unauthenticated →401. Delete flow on second tenant (elegance-koramangala, trial temporarily extended via Mongo update and restored in teardown): POST /delete pin 0000→403; pin 3642→200 {ok:true}; then /status→{available:false} and /unlock 3642→404 'This dashboard has been removed'. Teardown unset owner_demo_dashboard_deleted on elegance-koramangala (verified matched_count=1). FRONTEND Playwright (owner admin@miracurl.com, Settings PIN 4321) all green: dismissed passkey+welcome modals; /settings#owner-dashboard unlock with 4321 → [owner-dashboard-card] visible with 'Owner Dashboard'/'AECS branch, one glance', no 'demo'/'dummy' text; [owner-dashboard-open-btn]+[owner-dashboard-delete-btn] present; clicking delete → [owner-dashboard-delete-pin-modal] shown → Cancel keeps card intact (NOT deleted on main tenant per instructions). Open → /owner-dashboard, [owner-dashboard-pin-modal] shown. PIN 0000 → toast 'Incorrect PIN' + still locked ([owner-dashboard-locked]=True). PIN 3642 → [owner-dashboard-page] renders: [owner-snapshot-hero] with 'Today's Collection' + 'bills'; [owner-snapshot-link] has Copy+Open; [owner-month-total]='₹2,92,240'; all 6 chips [owner-period-{today|yesterday|week|last_week|month|last_month}] present; last_month chip → [owner-total]='₹4,17,270' with [owner-daily-bars] visible; month chip → [owner-total]='₹2,92,240'; [group-kpis] section rendered (screenshot shows 6 tiles: Total Cash ₹1,02,…, UPI ₹1,46,…, Card ₹42,970, Total Bookings 342, Total Bills 311, Top Stylist Meena); [my-salon-card-aecs] present with 'Miracurl Unisex Family Salon - AECS'. No 'demo'/'dummy' anywhere on page. [owner-dashboard-lock-btn] re-locks (pin-modal reopens). Cancel on pin-modal navigates to /settings. Main tenant remains untouched (dashboard NOT deleted, as instructed).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter187_owner_dashboard.py",
+    "/app/test_reports/pytest/iter187.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "owner_demo_dashboard.py: _check() correctly guards deleted tenants (404) before PIN check. status endpoint always returns 200 (not gated on deleted flag) — matches spec ({available:false} rather than 404). Good.",
+    "OwnerDashboard.jsx locks by clearing setData(null) which resets pin-modal — correct. Cancel navigates to /settings which is fine.",
+    "OwnerDashboardCard.jsx returns null when !available, so the card auto-hides for tenants that have deleted it. No stale UI state.",
+    "Pre-existing (unchanged): MiraDayOffer '<span> cannot be a child of <option>' hydration warning still logs on dashboard render; Recharts width(-1) height(-1) warnings during route transitions. Cosmetic.",
+    "Minor: /reports/team-unlock 403 during modal-dismiss phase logged in console — unrelated to owner-dashboard feature (team-unlock endpoint from iter-186 fires without PIN on some card mounts). Not caused by this iteration."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter187_owner_dashboard.py",
+    "/app/test_reports/iteration_187.json"
+  ],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% — all 20+ assertions passed"},
+  "test_credentials": "Owner admin@miracurl.com/q6QY@tn3p#9DtL (miracurl-marathahalli); Manager manager@miracurl.com/Manager@1234; Second tenant owner@elegance.com/Owner@123 (elegance-koramangala). Settings Owner PIN 4321. Owner Dashboard PIN 3642.",
+  "seed_data_creation": "None. Elegance tenant trial_ends_at was temporarily extended by fixture and restored in teardown; owner_demo_dashboard_deleted flag also unset in teardown (belt-and-braces test_zz_restore_eleg_tenant confirmed matched_count=1).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Owner Dashboard endpoints live at /api/owner-dashboard/{status,unlock,delete}. PIN 3642 (its own PIN, not the Owner Security PIN 4321). Fixed totals: month=292240, last_month=417270; other periods derived. tenants.owner_demo_dashboard_deleted flag hides the card in Settings and returns 404 on unlock. miracurl-marathahalli remains NOT deleted; elegance-koramangala restored via fixture teardown. Frontend Settings screen has a password-type Owner-PIN input BEFORE any card renders — must enter 4321 first to unlock hidden cards, then hash #owner-dashboard forces lazy render. Passkey ('Create a passkey' / 'Not now') and welcome ('Got it ✦') modals must be dismissed after login before visiting /settings.",
+  "rca of the issue": "N/A — feature works as specified."
+}

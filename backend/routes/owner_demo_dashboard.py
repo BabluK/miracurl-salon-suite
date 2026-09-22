@@ -47,9 +47,9 @@ def _period(name: str, label: str, days: list[date], by_day: dict, seed: int) ->
     avg_bill = rng.randint(860, 960)
     bills = max(0, int(round(rev / avg_bill))) if rev else 0
     bookings = bills + int(round(bills * rng.uniform(0.08, 0.16)))
-    cash = int(round(rev * rng.uniform(0.33, 0.39) / 10.0)) * 10
-    upi = int(round(rev * rng.uniform(0.46, 0.52) / 10.0)) * 10
-    card = max(0, rev - cash - upi)
+    cash = int(rev * 0.0878 / 10.0) * 10
+    card = int(round(rev * 0.20 / 10.0)) * 10
+    upi = max(0, rev - cash - card)
     top_name = STYLISTS[rng.randrange(len(STYLISTS))] if rev else None
     top = {"name": top_name, "revenue": int(round(rev * rng.uniform(0.24, 0.31) / 10.0)) * 10,
            "services": int(round(bills * rng.uniform(0.28, 0.36)))} if top_name else None
