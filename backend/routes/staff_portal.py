@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field, field_validator
 from database import _raw_db, db
 from security import (
     get_current_user, require_admin, require_tenant_admin, current_tenant, require_owner_pin,
-    branch_lock,
+    branch_lock, log_audit,
 )
 from email_service import (
     _send_email,
@@ -243,6 +243,19 @@ async def my_week_off_requests(s=Depends(_current_staff)):
 async def list_week_off_requests(status: str = "pending", admin=Depends(require_tenant_admin)):
     q = {} if status == "all" else {"status": status}
     return await db.week_off_requests.find(q, {"_id": 0}).sort("requested_at", -1).to_list(200)
+
+
+@router.delete("/week-off-requests/{rid}")
+async def delete_week_off_request(rid: str, admin=Depends(require_tenant_admin)):
+    """Owner housekeeping: remove a decided (approved/rejected) request from history. Pending ones must be decided, not deleted."""
+    req = await db.week_off_requests.find_one({"id": rid}, {"_id": 0, "status": 1, "staff_name": 1, "requested_day": 1})
+    if not req:
+        raise HTTPException(404, "Request not found")
+    if req.get("status") == "pending":
+        raise HTTPException(400, "Approve or reject this request instead of deleting it")
+    await db.week_off_requests.delete_one({"id": rid})
+    await log_audit(admin.get("tenant_id"), admin, "week_off_request_deleted", f"{req.get('staff_name')} → {req.get('requested_day')} ({req.get('status')})")
+    return {"ok": True}
 
 
 @router.post("/week-off-requests/{rid}/approve")

@@ -59,6 +59,16 @@ export function StaffCard({ s, onEdit, onAdvance, onCreateLogin, onResetLogin, o
             🔁 On duty at {tt?.target_name}{tt?.to_date ? ` · till ${tt.to_date}` : ""}
           </div>
         )}
+        {s.today_status === "on_leave" && (
+          <div className="inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-300 text-amber-800 font-semibold" data-testid={`leave-badge-${s.id}`}>
+            ✈️ On leave today · not bookable
+          </div>
+        )}
+        {s.today_status === "week_off" && (
+          <div className="inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-300 text-slate-700 font-semibold" data-testid={`weekoff-badge-${s.id}`}>
+            🛌 Week off today · not bookable
+          </div>
+        )}
         {guest && (
           <div className="inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full bg-cyan-50 border border-cyan-300 text-cyan-700 font-semibold" data-testid={`guest-badge-${s.id}`}>
             👋 Guest from {tt?.home_name}{tt?.to_date ? ` · till ${tt.to_date}` : ""}

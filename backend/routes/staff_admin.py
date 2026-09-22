@@ -36,6 +36,26 @@ _STAFF_SENSITIVE_FIELDS = {
 }
 
 
+async def _annotate_today_status(rows: list) -> None:
+    """today_status: on_leave (approved leave covers today) · week_off (weekly day or one-time swap) · available."""
+    from services.day_window import _tenant_tz
+    from database import _current_tenant_id
+    tid = _current_tenant_id.get()
+    t = await _raw_db.tenants.find_one({"id": tid}, {"_id": 0, "timezone": 1}) if tid else None
+    today = datetime.now(_tenant_tz(t)).date()
+    day, weekday = today.isoformat(), today.strftime("%A").lower()
+    leaves = await db.leave_requests.find(
+        {"status": "approved", "from_date": {"$lte": day}, "to_date": {"$gte": day}}, {"_id": 0, "staff_id": 1}).to_list(300)
+    on_leave = {lv["staff_id"] for lv in leaves}
+    for s in rows:
+        if s["id"] in on_leave:
+            s["today_status"] = "on_leave"
+        elif s.get("week_off_swap_date") == day or (not s.get("week_off_swap_date") and (s.get("week_off_day") or "").lower() == weekday):
+            s["today_status"] = "week_off"
+        else:
+            s["today_status"] = "available"
+
+
 @router.get("/staff")
 async def list_staff(user=Depends(get_current_user)):
     proj = {"_id": 0, "aadhaar_hash": 0}
@@ -43,6 +63,7 @@ async def list_staff(user=Depends(get_current_user)):
         proj.update(_STAFF_SENSITIVE_FIELDS)  # SEC-001: staff/manager get no pay/bank/ID data
     await auto_close_departed_staff()  # idempotent: staff past their last working day disappear immediately
     rows = await db.staff.find({"former": {"$ne": True}}, proj).to_list(500)
+    await _annotate_today_status(rows)
     tid = user.get("tenant_id")
     if tid:
         # staff temporarily working at another salon still show at home with an "away" flag

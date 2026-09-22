@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-22.346"
-BUILD_TIME = "22 Sep 2026, 8:45 AM IST"
+BUILD = "2026-09-22.347"
+BUILD_TIME = "22 Sep 2026, 10:30 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-22.347", "note": "Team page KPIs honour today: GET /staff adds today_status (on_leave via approved leave_requests · week_off via week_off_day or one-time week_off_swap_date, tenant tz) → On Duty excludes them, Away/On Leave counts + sub-line, StaffCard leave/week-off badges. DELETE /week-off-requests/{rid} (decided only; pending → 400; audited) + trash icon on Previous decisions in Attendance week-off card (now lists approved+rejected). Roster branch shown as a pill with the distinguishing part (shortBranch: strips shared prefix, full name on hover)."},
     {"build": "2026-09-22.346", "note": "Timezone select (Settings → Branding) options were white-on-white (index.css global input colour) → explicit dark colour + global rule: input/select/textarea with bg-white/bg-slate-50 (and their options) render #0f172a. Double dashboard load after login on prod = post-deploy PWA cache-bust reload (AppLayout cache-version check) → extracted to lib/cacheBust.ensureFreshBuild(): runs on the LOGIN page first (reload happens before sign-in) and only reloads when a service worker/cache actually existed."},
     {"build": "2026-09-22.345", "note": "Own-WhatsApp connect: FB.login callback was an AsyncFunction → Meta SDK threw 'Expression is of type asyncfunction, not function'; now a plain function with promise chain (OwnWhatsAppCard.jsx). Passkey: Login no longer fires the native Create-a-passkey sheet cold after password login — sets pk_nudge; PasskeyNudge redesigned as a branded light modal (3 steps, host + email, Continue → native prompt, Not now = pk_declined)."},
     {"build": "2026-09-22.344", "note": "Staff are no longer gated by GeoBranchGate (eligible = floating managers only): staff sign in from anywhere; GPS is enforced only at POST /staff/me/check-in (fenced to the staff's tagged branch via _fence_for, tenant geo_fence_m default 300 m, desk-QR fallback). afterAuth sets the header branch from user.branch for staff too."},

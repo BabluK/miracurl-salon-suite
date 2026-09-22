@@ -8,8 +8,19 @@ import { getSelectedBranch, mainSalonLabel } from "@/lib/branch";
 import { toast } from "sonner";
 import { BranchLoginsCard } from "@/components/BranchLoginsCard";
 import {
-  Clock, CheckCircle2, CircleAlert, UserCheck, Calendar, ArrowLeft, MapPin, QrCode, Download, Mail,
+  Clock, CheckCircle2, CircleAlert, UserCheck, Calendar, ArrowLeft, MapPin, QrCode, Download, Mail, Trash2,
 } from "lucide-react";
+
+// "Miracurl-Unisex-Family-Salon-AECS" → "AECS": strip the part every branch shares so the roster shows what differs.
+function shortBranch(name, all = []) {
+  if (!name) return "";
+  const parts = String(name).split(/[-–—·|]/).map(s => s.trim()).filter(Boolean);
+  if (parts.length < 2 || all.length < 2) return name;
+  const others = all.filter(n => n && n !== name).map(n => String(n).split(/[-–—·|]/).map(s => s.trim()).filter(Boolean));
+  let i = 0;
+  while (i < parts.length - 1 && others.every(o => o[i] && o[i].toLowerCase() === parts[i].toLowerCase())) i++;
+  return parts.slice(i).join(" ") || name;
+}
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -247,9 +258,13 @@ export default function Attendance() {
                       />
                       <div>
                         <div className="font-medium">{r.name}</div>
-                        <div className="text-xs text-slate-500">
-                          {r.role}
-                          {r.branch && <span className="ml-1 text-violet-500" title={r.branch}>· 📍 {r.branch.length > 24 ? r.branch.slice(0, 24) + "…" : r.branch}</span>}
+                        <div className="text-xs text-slate-500 flex items-center gap-1.5 flex-wrap">
+                          <span>{r.role}</span>
+                          {r.branch && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 border border-violet-200 text-violet-700 px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap" title={r.branch} data-testid={`roster-branch-${r.staff_id || r.id}`}>
+                              <MapPin className="w-3 h-3" /> {shortBranch(r.branch, (data?.roster || []).map(x => x.branch))}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -733,9 +748,21 @@ function WeekOffManager({ onChanged }) {
   const [busy, setBusy] = useState("");
   const load = () => {
     api.get("/week-off-requests?status=pending").then(r => setPending(r.data)).catch(() => {});
-    api.get("/week-off-requests?status=approved").then(r => setRecent(r.data.slice(0, 4))).catch(() => {});
+    api.get("/week-off-requests?status=all").then(r => setRecent(r.data.filter(x => x.status !== "pending").slice(0, 8))).catch(() => {});
   };
   useEffect(() => { load(); }, []);
+
+  async function removeRecent(r) {
+    const ok = await askConfirm({ title: "Remove this week-off record?", message: `${r.staff_name}: ${cap(r.current_day)} → ${cap(r.requested_day)} (${r.status}). This only clears the history entry — the staff member's current week-off is not changed.`, confirmText: "Remove", danger: true });
+    if (!ok) return;
+    setBusy(r.id);
+    try {
+      await api.delete(`/week-off-requests/${r.id}`);
+      setRecent(list => list.filter(x => x.id !== r.id));
+      toast.success("Removed from history");
+    } catch (e) { toast.error(formatApiError(e.response?.data?.detail) || "Couldn't remove"); }
+    finally { setBusy(""); }
+  }
 
   async function decide(rid, action) {
     setBusy(rid);
@@ -782,9 +809,15 @@ function WeekOffManager({ onChanged }) {
       )}
       {recent.length > 0 && (
         <div className="mt-3 pt-3 border-t border-slate-100 space-y-1">
+          <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Previous decisions</div>
           {recent.map(r => (
-            <div key={r.id} className="text-xs text-slate-500" data-testid={`approved-week-off-${r.id}`}>
-              ✅ {r.staff_name}: {cap(r.current_day)} → <b>{cap(r.requested_day)}</b> · approved {fmt(r.decided_at)} · effective {r.effective_from}
+            <div key={r.id} className="flex items-center justify-between gap-2 text-xs text-slate-500 group" data-testid={`approved-week-off-${r.id}`}>
+              <span>{r.status === "rejected" ? "❌" : "✅"} {r.staff_name}: {cap(r.current_day)} → <b>{cap(r.requested_day)}</b> · {r.status === "rejected" ? "rejected" : "approved"} {fmt(r.decided_at)}{r.effective_from ? ` · effective ${r.effective_from}` : ""}</span>
+              <button type="button" data-testid={`delete-week-off-${r.id}`} title="Remove from history"
+                onClick={() => removeRecent(r)} disabled={busy === r.id}
+                className="opacity-60 group-hover:opacity-100 text-slate-400 hover:text-rose-600 transition-colors p-1 rounded-md hover:bg-rose-50 shrink-0">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             </div>
           ))}
         </div>

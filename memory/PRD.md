@@ -3599,3 +3599,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-22 — Timezone select + double dashboard load (build .346)
 - Timezone `<select>` invisible options: same root cause as POS date (index.css white input text). Fixed component + added global rule for `.bg-white/.bg-slate-50` controls & options.
 - Double load after login (admin/manager, prod): `AppLayout` cache-version check reloads once per new deploy (SW cache bust) → user sees dashboard load twice after every deploy. Now `lib/cacheBust.ensureFreshBuild()` runs on Login mount (reload before sign-in) + AppLayout safety net; reload skipped when no SW/caches existed. Preview measured: 1 full load, 1 dashboard mount.
+
+## 2026-09-22 — Team KPIs by leave/week-off, week-off history delete, roster branch pill (build .347)
+- `staff_admin._annotate_today_status` → `today_status` on GET /staff; Staff.jsx KPIs + StaffCard badges. `DELETE /week-off-requests/{rid}` (decided only). Attendance roster: `shortBranch()` pill.
+- Branch sign-ins showing Anil/Stela at Munnekolla: entries came from the (pre-.346) gate auto-pick — GPS said they were 7–96 m from the Munnekolla pin. Staff no longer go through the gate; if the pin itself is wrong the owner re-pins it (Attendance → GPS check-in fence → branch dropdown). Verified logic: `_fence_for` fences branch-tagged staff to THEIR branch pin; overtime = minutes past shift_end × hourly overtime_rate (≥15 min), owner-approved (OT queue) before it is added to net salary (`_compute_salary_for_month`).

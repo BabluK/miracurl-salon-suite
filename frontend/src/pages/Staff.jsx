@@ -210,8 +210,9 @@ export default function Staff() {
 
       <KpiStrip cols={4}>
         <KpiTile icon={Users} tone="gold" label="Team Members" value={list.length} sub={`${list.filter(s => s.active).length} active`} testid="staff-kpi-total" />
-        <KpiTile icon={UserCheck} tone="emerald" label="On Duty Today" value={list.filter(s => s.active && !s.away).length} sub="available for bookings" testid="staff-kpi-onduty" />
-        <KpiTile icon={Plane} tone="amber" label="Away / On Leave" value={list.filter(s => s.away).length} sub="marked away" testid="staff-kpi-away" />
+        <KpiTile icon={UserCheck} tone="emerald" label="On Duty Today" value={list.filter(s => s.active && !s.away && (s.today_status || "available") === "available").length} sub="available for bookings" testid="staff-kpi-onduty" />
+        <KpiTile icon={Plane} tone="amber" label="Away / On Leave" value={list.filter(s => s.away || s.today_status === "on_leave" || s.today_status === "week_off").length}
+          sub={`${list.filter(s => s.today_status === "on_leave").length} on leave · ${list.filter(s => s.today_status === "week_off").length} week off${list.some(s => s.away) ? ` · ${list.filter(s => s.away).length} away` : ""}`} testid="staff-kpi-away" />
         <KpiTile icon={KeyRound} tone="violet" label="With App Login" value={list.filter(s => s.user_id).length} sub="can use the staff app" testid="staff-kpi-logins" />
       </KpiStrip>
 
