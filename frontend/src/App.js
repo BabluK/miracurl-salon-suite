@@ -76,6 +76,7 @@ const Services = lazy(() => import("@/pages/Services"));
 const Inventory = lazy(() => import("@/pages/Inventory"));
 const POS = lazy(() => import("@/pages/POS"));
 const Reports = lazy(() => import("@/pages/Reports"));
+const OwnerDashboard = lazy(() => import("@/pages/OwnerDashboard"));
 const CashRegister = lazy(() => import("@/pages/CashRegister"));
 const Reviews = lazy(() => import("@/pages/Reviews"));
 const OffersStudio = lazy(() => import("@/pages/OffersStudio"));
@@ -324,6 +325,7 @@ export default function App() {
               <Route path="refer" element={<OwnerOnly><ReferEarn /></OwnerOnly>} />
               <Route path="receptionist" element={<AdminOnly><Receptionist /></AdminOnly>} />
               <Route path="reports" element={<OwnerOnly><Reports /></OwnerOnly>} />
+              <Route path="owner-dashboard" element={<OwnerOnly><OwnerDashboard /></OwnerOnly>} />
               <Route path="cash" element={<CashRegister />} />
               <Route path="assistant" element={<OwnerOnly><Assistant /></OwnerOnly>} />
               <Route path="mira-studio" element={<OwnerOnly><MiraStudio /></OwnerOnly>} />
