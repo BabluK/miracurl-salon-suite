@@ -3603,3 +3603,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-22 — Team KPIs by leave/week-off, week-off history delete, roster branch pill (build .347)
 - `staff_admin._annotate_today_status` → `today_status` on GET /staff; Staff.jsx KPIs + StaffCard badges. `DELETE /week-off-requests/{rid}` (decided only). Attendance roster: `shortBranch()` pill.
 - Branch sign-ins showing Anil/Stela at Munnekolla: entries came from the (pre-.346) gate auto-pick — GPS said they were 7–96 m from the Munnekolla pin. Staff no longer go through the gate; if the pin itself is wrong the owner re-pins it (Attendance → GPS check-in fence → branch dropdown). Verified logic: `_fence_for` fences branch-tagged staff to THEIR branch pin; overtime = minutes past shift_end × hourly overtime_rate (≥15 min), owner-approved (OT queue) before it is added to net salary (`_compute_salary_for_month`).
+
+## 2026-09-22 — Booking page ↔ leave/week-off sync (build .348)
+- Shared rule `public_site._staff_off_reason` (leave → swap date → effective weekday; after the swap date the ORIGINAL weekday applies). Applied to availability (per-stylist + Any capacity), booking guard (409), and StaffStep card state. Verified via curl on 5 dates (leave, swap week, swap date, post-swap Monday, post-swap Wednesday) + booking 409; fixtures cleaned.
+- Staff cards on the booking page stay visible but greyed/disabled with the reason (kept discoverability of favourite stylists rather than hiding).

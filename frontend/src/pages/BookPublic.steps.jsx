@@ -255,9 +255,13 @@ export function StaffStep({ staff, staffId, onPick, date, restaurant }) {
         </button>
         {staff.map(s => {
           const onLeave = (s.leaves || []).some(l => l.from <= day && day <= l.to);
-          const offToday = onLeave || (s.week_off_day || "").toLowerCase() === weekday;
-          const offDayName = s.week_off_day ? s.week_off_day.charAt(0).toUpperCase() + s.week_off_day.slice(1).toLowerCase() : "";
-          const offLabel = onLeave ? `🌴 On leave ${date ? "on this day" : "today"}` : `🏖️ Weekly off (${offDayName})`;
+          // One-time swap: off on the swap date; after it the ORIGINAL weekday applies again.
+          const swap = s.week_off_swap_date;
+          const effectiveOff = ((swap && day > swap ? s.week_off_original : s.week_off_day) || "").toLowerCase();
+          const weekOff = day === swap || effectiveOff === weekday;
+          const offToday = onLeave || weekOff;
+          const offDayName = effectiveOff ? effectiveOff.charAt(0).toUpperCase() + effectiveOff.slice(1) : "";
+          const offLabel = onLeave ? `🌴 On leave ${date ? "on this day" : "today"}` : day === swap ? "🏖️ Day off (swapped this week)" : `🏖️ Weekly off (${offDayName})`;
           return (
           <button
             key={s.id}

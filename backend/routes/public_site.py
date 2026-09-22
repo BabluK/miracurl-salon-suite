@@ -315,15 +315,21 @@ async def _resolve_staff(staff_id: Optional[str], scheduled_at: Optional[str] = 
     if staff_id:
         s = await db.staff.find_one({"id": staff_id, "active": True}, {"_id": 0})
         if s:
-            if scheduled_at and (s.get("week_off_day") or "").lower() == _weekday_of(scheduled_at):
-                raise HTTPException(409, f"{s['name']} is on weekly off that day — please pick another day or choose a different stylist.")
+            if scheduled_at:
+                day = _local_day(scheduled_at)
+                why = _staff_off_reason(s, day, await _on_leave_ids(day))
+                if why == "leave":
+                    raise HTTPException(409, f"{s['name']} is on leave that day — please pick another day or choose a different stylist.")
+                if why == "week_off":
+                    raise HTTPException(409, f"{s['name']} is on weekly off that day — please pick another day or choose a different stylist.")
             if scheduled_at and await _staff_busy(s["id"], scheduled_at, duration_min):
                 raise HTTPException(409, f"{s['name']} is already booked at that time — please pick another time or choose a different stylist.")
             return s
     candidates = await db.staff.find({"active": True}, {"_id": 0}).to_list(50)
     if scheduled_at:
-        wd = _weekday_of(scheduled_at)
-        candidates = [c for c in candidates if (c.get("week_off_day") or "").lower() != wd] or candidates
+        day = _local_day(scheduled_at)
+        leaves = await _on_leave_ids(day)
+        candidates = [c for c in candidates if not _staff_off_reason(c, day, leaves)] or candidates
     if not candidates:
         raise HTTPException(400, "No stylist available")
     if not scheduled_at:
@@ -562,25 +568,53 @@ def _weekday_of(date_str: str) -> str:
     return _WEEKDAYS[datetime.fromisoformat(date_str[:10]).weekday()]
 
 
+def _local_day(scheduled_at: str) -> str:
+    """Booking day in salon time (IST) for an ISO timestamp or a plain YYYY-MM-DD."""
+    if len(scheduled_at) <= 10:
+        return scheduled_at
+    return datetime.fromisoformat(scheduled_at.replace("Z", "+00:00")).astimezone(timezone(timedelta(hours=5, minutes=30))).date().isoformat()
+
+
+def _staff_off_reason(s: dict, day: str, leaves: set) -> Optional[str]:
+    """None when the stylist works that day, else 'leave' | 'week_off'.
+    Honours the one-time week-off swap: off on the swap date, back to the original weekday after it."""
+    if s["id"] in leaves:
+        return "leave"
+    swap = s.get("week_off_swap_date")
+    if swap == day:
+        return "week_off"
+    off_day = (s.get("week_off_original") if swap and day > swap else s.get("week_off_day")) or ""
+    return "week_off" if off_day.lower() == _weekday_of(day) else None
+
+
+async def _on_leave_ids(day: str) -> set:
+    rows = await db.leave_requests.find(
+        {"status": "approved", "from_date": {"$lte": day}, "to_date": {"$gte": day}}, {"_id": 0, "staff_id": 1}).to_list(500)
+    return {r["staff_id"] for r in rows}
+
+
 @router.get("/public/availability/{slug}")
 async def public_availability(slug: str, date: str, staff_id: Optional[str] = None):
     await resolve_tenant_from_slug(slug)
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
         raise HTTPException(400, "date must be YYYY-MM-DD")
     weekday = _weekday_of(date)
-    # Stylist-level: a specific stylist has capacity 1; "Any" uses full staff count.
+    leaves = await _on_leave_ids(date)
+    # Stylist-level: a specific stylist has capacity 1; "Any" uses the count of stylists actually working that day.
     appt_q = {"scheduled_at": {"$regex": f"^{date}"}, "status": {"$nin": ["cancelled", "no_show"]}}
     if staff_id:
-        s = await db.staff.find_one({"id": staff_id}, {"_id": 0, "week_off_day": 1, "name": 1})
-        if s and (s.get("week_off_day") or "").lower() == weekday:
-            return {"date": date, "staff_count": 0, "week_off": True,
-                    "message": f"{s.get('name', 'This stylist')} is on weekly off on {weekday.capitalize()}s — pick another day or stylist.",
+        s = await db.staff.find_one({"id": staff_id}, {"_id": 0, "id": 1, "week_off_day": 1, "week_off_swap_date": 1, "week_off_original": 1, "name": 1})
+        why = _staff_off_reason(s, date, leaves) if s else None
+        if why:
+            msg = (f"{s.get('name', 'This stylist')} is on leave that day — pick another day or stylist." if why == "leave"
+                   else f"{s.get('name', 'This stylist')} is on weekly off on {weekday.capitalize()}s — pick another day or stylist.")
+            return {"date": date, "staff_count": 0, "week_off": True, "on_leave": why == "leave", "message": msg,
                     "slots": {hhmm: False for hhmm in _SLOT_TIMES}}
         appt_q["staff_id"] = staff_id
         capacity = 1
     else:
-        capacity = await db.staff.count_documents(
-            {"active": True, "week_off_day": {"$ne": weekday}}) or 1
+        working = await db.staff.find({"active": True}, {"_id": 0, "id": 1, "week_off_day": 1, "week_off_swap_date": 1, "week_off_original": 1}).to_list(500)
+        capacity = len([w for w in working if not _staff_off_reason(w, date, leaves)]) or 1
     appts = await db.appointments.find(appt_q, {"_id": 0, "scheduled_at": 1, "duration_min": 1}).to_list(500)
     parsed = []
     for a in appts:
