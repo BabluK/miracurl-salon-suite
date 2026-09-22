@@ -3619,3 +3619,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Preview: Miracurl Unisex Family Salon has PIN set but hide OFF → owner must tap the KPI lock once to enable. Marathahalli test tenant left with hide=TRUE.
 - Tested iteration_184: 9/9 backend (`backend/tests/test_iter184_revenue_lock.py`), 19/19 UI.
 - Not locked (by scope): 7-day "Revenue Trend" card totals + Reports page remain visible to managers.
+
+## 2026-09-22 — Revenue Trend lock (build .350)
+- Dashboard "Revenue Trend" (7-day) card joins the team lock: when `hide_month_revenue` ON, managers get `revenue_trend: []` + `revenue_trend_locked: true`; `GET /reports/revenue-trend` (PIN-guarded via `_require_team_unlock`, reuses `_dashboard_revenue_trend`) unlocks for the session. `RevenueTrendCard` locked state = gold lock badge + blurred sparkline + "Unlock with Owner PIN". Each card unlocks independently (PIN asked per card).
+- Reports page (date-range report) intentionally NOT locked — managers need it for daily closing; ask user before gating.
+- Tested iteration_185.

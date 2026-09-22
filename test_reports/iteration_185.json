@@ -1,0 +1,25 @@
+{
+  "summary": "Iter-185 — Revenue Trend (7-day) owner-PIN gating for managers on miracurl-marathahalli verified end-to-end. Backend pytest 7/7 pass: manager /reports/dashboard returns revenue_trend=[] and revenue_trend_locked=true while owner returns 7 {date, revenue} entries with revenue_trend_locked=false; GET /reports/revenue-trend → 403 OWNER_PIN_REQUIRED for manager without PIN and with wrong PIN 0000, 200 with 7 items for correct PIN 4321, 200 unconditionally for owner; toggle OFF via owner PUT /settings/revenue-lock {hide:false} (X-Owner-Pin 4321 + X-CSRF-Token from csrf_token cookie) → manager dashboard trend visible + /reports/revenue-trend 200 without PIN; restored hide:true and confirmed manager back to 403. Frontend Playwright: manager (Bangalore geo 12.9631691,77.7132717) sees [revenue-trend-card] with [revenue-trend-locked] ('Locked by the owner' + gold [revenue-trend-unlock-btn]), and [revenue-trend-stats] + [revenue-trend-range] NOT rendered. Click unlock → [owner-pin-modal], enter 4321 → [revenue-trend-locked] gone, [revenue-trend-stats] visible with 'Total Revenue' ₹11,800, Daily Average ₹1,686, Highest Day ₹7,080 (18 Sept), 3 days with billing; chart renders; toast 'Revenue Trend unlocked for this session' captured. Regression: [perf-locked] and [month-revenue-masked] BOTH still present before AND after trend unlock (independent locks). Owner (admin@miracurl.com) sees Revenue Trend chart + stats directly (locked=0, unlock_btn=0, stats=1, range=1) with the same numbers. Only 1 wrong-PIN attempt consumed (0000), well below the 5-attempt lockout. Tenant hide_month_revenue confirmed TRUE at end.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter185_revenue_trend_lock.py",
+    "/app/test_reports/pytest/iter185.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "reports.py line 191 vs 192: `locked` (month revenue) depends on hide AND (non-owner OR peek_pin), whereas `team_locked` (trend + staff perf) depends only on hide AND not owner. That is intentional (peek_pin should not affect team locks) but worth a code comment to prevent future drift.",
+    "Dashboard.jsx RevenueTrendCard (line 745): [data-testid=revenue-trend-range] uses `first && !showLock` while stats use only `!showLock` — if trend array is empty for a fresh salon, range disappears but stats still show ₹0. Minor inconsistency, cosmetic only.",
+    "Pre-existing (not from iter-185): MiraDayOffer.jsx line 55 hydration warning '<span> cannot be a child of <option>' still logged in dashboard console — flagged in iter-184, unchanged."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter185_revenue_trend_lock.py"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% (manager 11/11 assertions + owner 4/4 assertions)"},
+  "test_credentials": "Manager manager@miracurl.com / Manager@1234 (geo 12.9631691, 77.7132717). Owner admin@miracurl.com / q6QY@tn3p#9DtL. Owner PIN 4321. Tenant slug miracurl-marathahalli.",
+  "seed_data_creation": "None. Backend test toggles hide_month_revenue via PUT /settings/revenue-lock and restores TRUE.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "tenants.hide_month_revenue=TRUE for miracurl-marathahalli (verified via Mongo at end). Trend lock is `team_locked = hide_month_revenue AND !isOwner` (reports.py:192) — independent from month-revenue peek-lock. GET /reports/revenue-trend goes through _require_team_unlock (~reports.py:105) which reads X-Owner-Pin header; owner bypasses. Frontend RevenueTrendCard uses getWithFreshPin (does NOT cache PIN across cards) — unlocking Business by Stylist does NOT auto-unlock Revenue Trend and vice versa. Only 1 wrong PIN consumed this iteration.",
+  "rca of the issue": "N/A — feature works as specified."
+}
