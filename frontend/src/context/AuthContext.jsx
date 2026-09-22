@@ -86,7 +86,7 @@ export function AuthProvider({ children }) {
   const afterAuth = useCallback(async (data) => {
     bumpSessionEpoch();
     clearSectionUnlocks();
-    if (data.user.role === "manager" && data.user.branch) setSelectedBranch(data.user.branch);
+    if ((data.user.role === "manager" || data.user.role === "staff") && data.user.branch) setSelectedBranch(data.user.branch);
     if (data.user.role === "super_admin") {
       setTenant(null);
       clearTenantStorage();

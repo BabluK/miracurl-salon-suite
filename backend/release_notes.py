@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-21.343"
-BUILD_TIME = "21 Sep 2026, 9:50 PM IST"
+BUILD = "2026-09-22.344"
+BUILD_TIME = "22 Sep 2026, 7:45 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-22.344", "note": "Staff are no longer gated by GeoBranchGate (eligible = floating managers only): staff sign in from anywhere; GPS is enforced only at POST /staff/me/check-in (fenced to the staff's tagged branch via _fence_for, tenant geo_fence_m default 300 m, desk-QR fallback). afterAuth sets the header branch from user.branch for staff too."},
     {"build": "2026-09-21.343", "note": "GeoBranchGate redesigned LIGHT (components/geo/GateViews.jsx: PickerView + DeniedView per user mockups/design_guidelines.json) — photo cards, MAIN SALON/branch badges, Available/Locked/Checking pills, Secure & location verified callout, search, Use my current location, nearest-branch + Get Directions, FOR SALONS THAT DREAM BIGGER footer. Login bounce fix: api.js session epoch — a 401 from a request started before the current login (slow phone: pre-login probe → /auth/refresh fails after landing on /dashboard) no longer redirects to /login; bumpSessionEpoch() in afterAuth/logout. POS bill-date input text was white (index.css:50 global input colour) → explicit colour."},
     {"build": "2026-09-21.342", "note": "Receipt SMS → miracurl_salon_service_payment_v2 (MSG91 6ab13736d65b55eb1d09ac54, DLT 1777178999296070143, vars amount+service via _receipt_service_label); v2 send failure falls back to legacy billing; apply_hq_sms_template_ids one-shot replaces retired HQ override 6aafdd57… ; HQ template health explains MSG91 'CTA Error' (URL not CTA-whitelisted on DLT)."},
     {"build": "2026-09-21.341", "note": "Security audit: removed git-tracked curl cookie jar backend/otp.txt (live preview admin session) + .gitignore patterns; preview JWT_SECRET rotated. wa_coexist Fernet → MultiFernet(JWT_SECRET, JWT_SECRET_PREVIOUS) so the secret can rotate without losing stored Meta tokens; apply_hq_channel_override no longer crashes boot on InvalidToken (logs, falls back to env). re.escape on super-admin email-log $regex."},

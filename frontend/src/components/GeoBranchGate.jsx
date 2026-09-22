@@ -46,8 +46,10 @@ export function GeoBranchGate() {
   const otherSalons = (user?.salons || []).filter(s => s.id !== tenant?.id);
   // A branch that is ALSO a linked business (same name) → show the business card only, never twice
   const branches = (tenant?.branches || []).filter(b => !otherSalons.some(sl => norm(sl.name) === norm(b.name) || norm(sl.name).includes(norm(b.name).slice(0, 24))));
+  // Staff are never gated: they sign in from anywhere and GPS is enforced only at attendance
+  // check-in (fenced to their tagged branch — staff_portal.py). Only floating managers pick.
   const eligible = user && tenant && (branches.length > 0 || otherSalons.length > 0)
-    && ((user.role === "manager" && !user.branch) || user.role === "staff");
+    && user.role === "manager" && !user.branch;
 
   useEffect(() => {
     if (!eligible) return;
@@ -149,7 +151,7 @@ export function GeoBranchGate() {
     const dirUrl = nearest ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(nearestLabel + " " + nearestSub)}` : null;
     const radius = geo.data?.radius_m || 100;
     const features = [
-      [Users, `Manager & staff logins open only inside a branch (within ${radius} m).`],
+      [Users, `Manager logins open only inside a branch (within ${radius} m). Staff sign in anywhere — GPS applies at check-in.`],
       [Store, "Owners can sign in from anywhere."],
       [ShieldCheck, "This keeps your salon data safe and secure."],
     ];
