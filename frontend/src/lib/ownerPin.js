@@ -23,7 +23,7 @@ function askPin() {
         <div style="font-weight:600;color:#1e293b;font-size:15px">🔒 Owner Security PIN</div>
         <p style="font-size:12px;color:#64748b;margin:6px 0 12px">This action needs the owner PIN to continue.</p>
         <input data-testid="owner-pin-input" type="password" inputmode="numeric" autocomplete="one-time-code" maxlength="8"
-          style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:18px;letter-spacing:6px;text-align:center;outline:none;box-sizing:border-box" />
+          style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;font-size:18px;letter-spacing:6px;text-align:center;outline:none;box-sizing:border-box;background:#fff;color:#0f172a;-webkit-text-fill-color:#0f172a;color-scheme:light" />
         <div style="display:flex;gap:8px;margin-top:14px">
           <button type="button" data-testid="owner-pin-cancel" style="flex:1;padding:10px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;color:#64748b;font-size:13px;cursor:pointer">Cancel</button>
           <button type="button" data-testid="owner-pin-ok" style="flex:1;padding:10px;border-radius:10px;border:none;background:#0f172a;color:#fff;font-weight:600;font-size:13px;cursor:pointer">Unlock</button>

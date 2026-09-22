@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from database import db
 from routes.mira_autopilot import _find_winback_leads, _raw_db
@@ -99,9 +99,23 @@ def _parse_invoice_created_ist(inv: dict, ist) -> Optional[datetime]:
     return created.astimezone(ist)
 
 
+def _is_owner(user):
+    return user.get("role") in ("admin", "super_admin")
+
+
+async def _require_team_unlock(request: Request, user, t):
+    """Managers/staff may only see team financials with the Owner PIN when the owner hid them."""
+    if _is_owner(user) or not t.get("hide_month_revenue"):
+        return
+    if not t.get("security_pin_hash"):
+        raise HTTPException(403, "OWNER_PIN_NOT_SET")
+    await require_owner_pin(request, user, t)
+
+
 @router.get("/reports/staff-performance")
-async def staff_performance(user=Depends(get_current_user)):
+async def staff_performance(request: Request, user=Depends(get_current_user), t=Depends(current_tenant)):
     """Revenue per stylist for today / this week / this month / last month (IST)."""
+    await _require_team_unlock(request, user, t)
     ist = timezone(timedelta(hours=5, minutes=30))
     now = datetime.now(ist)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -236,6 +250,7 @@ async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t
         "month_revenue_locked": locked,
         "month_revenue_hidden_for_staff": hide,
         "month_revenue_peek_pin": peek_pin,
+        "owner_pin_set": bool(t.get("security_pin_hash")),
         "total_customers": total_customers,
         "active_staff": active_staff,
         "low_stock_count": len(low_stock),
@@ -751,9 +766,9 @@ async def set_revenue_peek_pin(body: RevenuePeekPinIn, user=Depends(require_admi
 
 @router.get("/settings/revenue-peek")
 async def revenue_peek(user=Depends(require_admin), t=Depends(current_tenant), _pin=Depends(require_owner_pin)):
-    """Owner-only, PIN-guarded: month-to-date revenue for the 15-second peek."""
-    if user.get("role") not in ("admin", "super_admin"):
-        raise HTTPException(403, "Only the owner can peek")
+    """PIN-guarded: month-to-date revenue for the 15-second peek (owner, or manager with the Owner PIN)."""
+    if not _is_owner(user) and not t.get("security_pin_hash"):
+        raise HTTPException(403, "OWNER_PIN_NOT_SET")
     tz = _tenant_tz(t)
     month_start = datetime.now(tz).replace(day=1, hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).isoformat()
     rows = await db.invoices.find({"created_at": {"$gte": month_start}, "status": {"$nin": ["voided", "open"]}}, {"_id": 0, "total": 1}).to_list(50000)

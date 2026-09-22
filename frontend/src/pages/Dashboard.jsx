@@ -132,10 +132,12 @@ export default function Dashboard() {
   }, [isOwner, tenant?.id, user?.role]);
 
   const isAdmin = user?.role === "admin" || user?.role === "super_admin";
-  const monthMasked = !!data && ((data.month_revenue_locked && !(isAdmin && showMonth)) || (data.month_revenue_hidden_for_staff && !showMonth));
+  const teamLocked = !isAdmin && !!data?.month_revenue_hidden_for_staff;
+  const monthMasked = !!data && data.month_revenue_hidden_for_staff && !showMonth;
   const [peekValue, setPeekValue] = useState(null);
   const peekMonth = async () => {
-    if (!data.month_revenue_peek_pin) { setShowMonth(true); return; }
+    if (!data.month_revenue_locked) { setShowMonth(true); return; }
+    if (teamLocked && !data.owner_pin_set) { toast.error("Locked by the owner — no Security PIN has been set yet. Ask the owner to set one in Settings → Security PIN."); return; }
     try {
       const r = await getWithFreshPin("/settings/revenue-peek");
       if (!r) return;
@@ -188,13 +190,19 @@ export default function Dashboard() {
         <Stat icon={TrendingUp} label="This Month" color="amber" testid="kpi-revenue-month" now={monthMasked ? null : (data.month_revenue ?? peekValue)} prev={monthMasked || data.month_revenue == null ? null : data.compare?.last_month_revenue} vs="vs last month"
           value={monthMasked
             ? <span className="inline-flex items-center gap-2"><span className="tracking-widest text-slate-400" data-testid="month-revenue-masked">••••••</span>
-                {isAdmin && <button type="button" data-testid="month-revenue-reveal-btn" onClick={peekMonth} title={data.month_revenue_peek_pin ? "Enter owner PIN to peek" : "Reveal for a moment"} className="w-7 h-7 rounded-full bg-amber-50 border border-amber-200 text-amber-700 inline-flex items-center justify-center hover:bg-amber-100"><Eye className="w-3.5 h-3.5" /></button>}</span>
+                <button type="button" data-testid="month-revenue-reveal-btn" onClick={peekMonth}
+                  title={data.month_revenue_locked ? "Enter owner PIN to unlock" : "Reveal for a moment"}
+                  className={`w-7 h-7 rounded-full border inline-flex items-center justify-center transition-[background-color,transform] active:scale-95 ${teamLocked ? "bg-gradient-to-br from-[#d4af37] to-[#b8893a] border-[#c9a24a] text-white shadow-[0_4px_14px_rgba(201,162,74,.35)] hover:brightness-105" : "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"}`}>
+                  {data.month_revenue_locked ? <Lock className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button></span>
             : <span className="inline-flex items-center gap-2">{inr(data.month_revenue ?? peekValue)}
-                {isAdmin && data.month_revenue_hidden_for_staff && <button type="button" data-testid="month-revenue-hide-btn" onClick={() => setShowMonth(false)} title="Hide again" className="w-7 h-7 rounded-full bg-amber-50 border border-amber-200 text-amber-700 inline-flex items-center justify-center hover:bg-amber-100"><EyeOff className="w-3.5 h-3.5" /></button>}</span>}
-          hint={!isAdmin && data.month_revenue_locked ? "Locked by owner" : (data.month_revenue_hidden_for_staff ? (monthMasked ? (data.month_revenue_peek_pin ? "hidden · owner PIN to peek" : "hidden · tap the eye to peek") : "visible for 15s · hides again automatically") : "month-to-date revenue")}
+                {data.month_revenue_hidden_for_staff && <button type="button" data-testid="month-revenue-hide-btn" onClick={() => setShowMonth(false)} title="Hide again" className="w-7 h-7 rounded-full bg-amber-50 border border-amber-200 text-amber-700 inline-flex items-center justify-center hover:bg-amber-100"><EyeOff className="w-3.5 h-3.5" /></button>}</span>}
+          hint={teamLocked
+            ? (monthMasked ? (data.owner_pin_set ? "locked by owner · tap the lock · owner PIN" : "locked by owner · no PIN set yet") : "unlocked for 15s · hides again automatically")
+            : (data.month_revenue_hidden_for_staff ? (monthMasked ? (data.month_revenue_peek_pin ? "hidden · owner PIN to peek" : "hidden · tap the eye to peek") : "visible for 15s · hides again automatically") : "month-to-date revenue")}
           action={isAdmin && (
             <button onClick={toggleRevenueLock} data-testid="month-revenue-lock-btn"
-              title={data.month_revenue_hidden_for_staff ? "Hidden from managers/staff — tap to show them (owner PIN)" : "Visible to managers/staff — tap to hide (owner PIN)"}
+              title={data.month_revenue_hidden_for_staff ? "Month revenue & Business by Stylist are hidden from managers/staff — tap to show them (owner PIN)" : "Visible to managers/staff — tap to hide month revenue & Business by Stylist (owner PIN)"}
               className={`inline-flex items-center justify-center w-6 h-6 rounded-full border transition ${data.month_revenue_hidden_for_staff ? "border-amber-300 bg-amber-50 text-amber-600" : "border-slate-200 text-slate-400 hover:text-slate-700"}`}>
               {data.month_revenue_hidden_for_staff ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
             </button>
@@ -310,7 +318,7 @@ export default function Dashboard() {
       </div>
 
       {/* Staff performance */}
-      <StaffPerformance inr={inr} />
+      <StaffPerformance inr={inr} locked={teamLocked} pinSet={!!data.owner_pin_set} />
 
       {/* Two columns: upcoming + low stock */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -559,13 +567,54 @@ const PERF_MEDALS = [
 ];
 const PERF_AVATAR = ["bg-rose-100 text-rose-600", "bg-sky-100 text-sky-600", "bg-emerald-100 text-emerald-600", "bg-violet-100 text-violet-600", "bg-amber-100 text-amber-700"];
 
-function StaffPerformance({ inr }) {
+function StaffPerformanceLocked({ pinSet, onUnlock }) {
+  return (
+    <div data-testid="perf-locked" className="relative rounded-2xl border border-dashed border-[#e3d5bd] bg-white/60 px-5 py-8 sm:py-10 text-center overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 opacity-60" aria-hidden="true">
+        {[0, 1, 2].map(i => (
+          <div key={i} className="mx-5 sm:mx-10 my-3 h-12 rounded-xl bg-[#f3e9d8]/70 blur-[2px]" style={{ width: `${88 - i * 14}%` }} />
+        ))}
+      </div>
+      <div className="relative flex flex-col items-center gap-3 animate-fade-up">
+        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#d4af37] to-[#b8893a] text-white flex items-center justify-center shadow-[0_8px_24px_rgba(201,162,74,.35)] ring-4 ring-white">
+          <Lock className="w-6 h-6" />
+        </div>
+        <div>
+          <div className="font-playfair text-xl text-slate-900">Locked by the owner</div>
+          <div className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+            {pinSet ? "Stylist revenue is private. Enter the Owner Security PIN to view it for this session." : "Stylist revenue is private and the owner hasn't set a Security PIN yet — ask them to set one in Settings → Security PIN."}
+          </div>
+        </div>
+        <button type="button" onClick={onUnlock} data-testid="perf-unlock-btn"
+          className="mt-1 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_20px_rgba(201,162,74,.25)] transition-[transform,filter] hover:brightness-105 active:scale-95"
+          style={{ background: "linear-gradient(135deg, #D4AF37 0%, #C9A24A 50%, #B8893A 100%)" }}>
+          <Unlock className="w-4 h-4" /> Unlock with Owner PIN
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StaffPerformance({ inr, locked = false, pinSet = true }) {
   const [perf, setPerf] = useState(null);
   const [tab, setTab] = useState("today");
+  const [unlocked, setUnlocked] = useState(false);
+  const showLock = locked && !unlocked;
 
   useEffect(() => {
+    if (locked) return;
     api.get("/reports/staff-performance").then(r => setPerf(r.data)).catch(() => setPerf({}));
-  }, []);
+  }, [locked]);
+
+  const unlock = async () => {
+    if (!pinSet) { toast.error("Locked by the owner — no Security PIN has been set yet. Ask the owner to set one in Settings → Security PIN."); return; }
+    try {
+      const r = await getWithFreshPin("/reports/staff-performance");
+      if (!r) return;
+      setPerf(r.data); setUnlocked(true);
+      toast.success("Business by Stylist unlocked for this session");
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't unlock"); }
+  };
 
   const rows = perf?.[tab] || [];
   const maxRev = rows[0]?.revenue || 1;
@@ -595,15 +644,17 @@ function StaffPerformance({ inr }) {
         <div className="flex items-center gap-1 p-1 rounded-full bg-white/80 border border-[#eadfcb] shadow-sm flex-wrap" data-testid="perf-tabs">
           <span className="hidden sm:inline-flex w-8 h-8 items-center justify-center text-[#b08d3f]"><Calendar className="w-4 h-4" /></span>
           {PERF_TABS.map(t => (
-            <button key={t.k} data-testid={`perf-tab-${t.k}`} onClick={() => setTab(t.k)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-[background-color,color,transform] active:scale-95 ${
+            <button key={t.k} data-testid={`perf-tab-${t.k}`} onClick={() => setTab(t.k)} disabled={showLock}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-[background-color,color,transform] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
                 tab === t.k ? "bg-gradient-to-r from-[#b8893a] to-[#d4af37] text-white shadow" : "text-slate-600 hover:bg-[#f3e9d8]"}`}>
               {t.label}
             </button>
           ))}
         </div>
       </div>
-      {!perf ? (
+      {showLock ? (
+        <StaffPerformanceLocked pinSet={pinSet} onUnlock={unlock} />
+      ) : !perf ? (
         <div className="text-slate-400 text-sm py-6 text-center">Loading…</div>
       ) : rows.length === 0 ? (
         <div className="text-slate-500 text-sm py-8 text-center bg-white/60 rounded-2xl border border-dashed border-[#e3d5bd]">No billing recorded for this period yet.</div>
