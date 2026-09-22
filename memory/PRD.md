@@ -3607,3 +3607,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-22 — Booking page ↔ leave/week-off sync (build .348)
 - Shared rule `public_site._staff_off_reason` (leave → swap date → effective weekday; after the swap date the ORIGINAL weekday applies). Applied to availability (per-stylist + Any capacity), booking guard (409), and StaffStep card state. Verified via curl on 5 dates (leave, swap week, swap date, post-swap Monday, post-swap Wednesday) + booking 409; fixtures cleaned.
 - Staff cards on the booking page stay visible but greyed/disabled with the reason (kept discoverability of favourite stylists rather than hiding).
+
+## 2026-09-22 — Security audit #2 (delta): PASS
+- No Critical/High/Medium. Verified: tenant scoping + role checks on every new endpoint (import-clean, week-off delete, unbilled/dismiss/back-date, public availability/booking, gift-card breakage), escaped $regex, signature-verified Razorpay, no tracked secrets, 15 s GET cache cleared on tenant switch/login/logout.
+- Open P3s (unchanged by choice): guest-lookup returns last-order items by phone (rate-limited); `TRUSTED_PROXY_COUNT` unset (default 3) — confirm Cloudflare→ingress hop count in prod; keep `COOKIE_SECURE` unset/true in prod.
