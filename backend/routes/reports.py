@@ -189,6 +189,7 @@ async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t
     hide, peek_pin = bool(t.get("hide_month_revenue")), bool(t.get("month_revenue_peek_pin"))
     # Managers/staff: locked when hidden. Owner: also withheld when "PIN to peek" is on (fetched via /settings/revenue-peek)
     locked = hide and (user.get("role") not in ("admin", "super_admin") or peek_pin)
+    team_locked = hide and not _is_owner(user)
     # Anchored to the business's OWN timezone (tenant.timezone, default India) —
     # UTC dates put early-morning bills on "yesterday" (user-reported wrong records)
     tz = _tenant_tz(t)
@@ -257,7 +258,8 @@ async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t
         "low_stock_items": low_stock[:10],
         "inactive_customers_30d": len(await _find_winback_leads(t["id"], 30)),
         "top_services": top_services,
-        "revenue_trend": trend,
+        "revenue_trend": ([] if team_locked else trend),
+        "revenue_trend_locked": team_locked,
         "upcoming_appointments": appts_today[:5],
         **review_stats,
     }
@@ -762,6 +764,13 @@ async def set_revenue_peek_pin(body: RevenuePeekPinIn, user=Depends(require_admi
         raise HTTPException(403, "Only the owner can change this")
     await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"month_revenue_peek_pin": body.require_pin}})
     return {"ok": True, "month_revenue_peek_pin": body.require_pin}
+
+
+@router.get("/reports/revenue-trend")
+async def revenue_trend_unlock(request: Request, user=Depends(require_admin), t=Depends(current_tenant)):
+    """Last-7-days trend for the dashboard card; managers need the Owner PIN when the owner hid team financials."""
+    await _require_team_unlock(request, user, t)
+    return {"revenue_trend": await _dashboard_revenue_trend(7, _tenant_tz(t))}
 
 
 @router.get("/settings/revenue-peek")
