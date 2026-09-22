@@ -116,6 +116,28 @@ async def _require_team_unlock(request: Request, user, t):
 async def staff_performance(request: Request, user=Depends(get_current_user), t=Depends(current_tenant)):
     """Revenue per stylist for today / this week / this month / last month (IST)."""
     await _require_team_unlock(request, user, t)
+    return await _staff_performance_data()
+
+
+async def _month_revenue(t) -> float:
+    tz = _tenant_tz(t)
+    month_start = datetime.now(tz).replace(day=1, hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).isoformat()
+    rows = await db.invoices.find({"created_at": {"$gte": month_start}, "status": {"$nin": ["voided", "open"]}}, {"_id": 0, "total": 1}).to_list(50000)
+    return round(sum(float(r.get("total") or 0) for r in rows), 2)
+
+
+@router.get("/reports/team-unlock")
+async def team_unlock(request: Request, user=Depends(require_admin), t=Depends(current_tenant)):
+    """One Owner-PIN entry unlocks every hidden dashboard financial for the session."""
+    if not _is_owner(user) and not t.get("security_pin_hash"):
+        raise HTTPException(403, "OWNER_PIN_NOT_SET")
+    await _require_team_unlock(request, user, t)
+    month_revenue, revenue_trend, staff_performance = await asyncio.gather(
+        _month_revenue(t), _dashboard_revenue_trend(7, _tenant_tz(t)), _staff_performance_data())
+    return {"month_revenue": month_revenue, "revenue_trend": revenue_trend, "staff_performance": staff_performance}
+
+
+async def _staff_performance_data() -> dict:
     ist = timezone(timedelta(hours=5, minutes=30))
     now = datetime.now(ist)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -778,10 +800,7 @@ async def revenue_peek(user=Depends(require_admin), t=Depends(current_tenant), _
     """PIN-guarded: month-to-date revenue for the 15-second peek (owner, or manager with the Owner PIN)."""
     if not _is_owner(user) and not t.get("security_pin_hash"):
         raise HTTPException(403, "OWNER_PIN_NOT_SET")
-    tz = _tenant_tz(t)
-    month_start = datetime.now(tz).replace(day=1, hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).isoformat()
-    rows = await db.invoices.find({"created_at": {"$gte": month_start}, "status": {"$nin": ["voided", "open"]}}, {"_id": 0, "total": 1}).to_list(50000)
-    return {"month_revenue": round(sum(float(r.get("total") or 0) for r in rows), 2)}
+    return {"month_revenue": await _month_revenue(t)}
 
 
 @router.put("/settings/revenue-lock")
