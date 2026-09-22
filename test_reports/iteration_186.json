@@ -1,0 +1,26 @@
+{
+  "summary": "Iter-186 — Single Owner-PIN unlocks all three hidden financials (month revenue + Revenue Trend + Business by Stylist) via new /api/reports/team-unlock endpoint. Backend pytest 5/5 pass: manager GET /reports/team-unlock → 403 OWNER_PIN_REQUIRED without pin, 403 with wrong PIN 0000 (only 1 wrong attempt consumed), 200 with X-Owner-Pin:4321 returning month_revenue (number), revenue_trend (7 entries with date+revenue), staff_performance with all 6 keys (today, yesterday, week, month, last_month, ranges). Owner GET returns 200 same shape without PIN. Regression: /settings/revenue-peek (200 with PIN, month_revenue==team.month_revenue), /reports/staff-performance (403 no PIN, 200 with PIN), /reports/revenue-trend (403 no PIN, 200 with PIN and revenue_trend array matches team-unlock's). Frontend Playwright (manager, Bangalore geo 12.9631691,77.7132717) — every assertion PASS: initial state has all 3 testids [month-revenue-masked]=1, [revenue-trend-locked]=1, [perf-locked]=1; lock button text 'Unlock all with Owner PIN'; clicking [perf-unlock-btn] opens [owner-pin-modal] → enter 4321 → [owner-pin-ok] → ALL THREE unlocked in one shot (masked=0, trend-locked=0, perf-locked=0, modal auto-closed); [kpi-revenue-month] shows ₹15,989 with [month-revenue-hide-btn] visible; [revenue-trend-stats] renders (Total ₹11,800, Daily Avg ₹1,686, Highest ₹7,080 · 18 Sept, 3 days with billing); [perf-tab-last_month] click renders 3 rows; success toast 'Unlocked for this session — month revenue, Revenue Trend & Business by Stylist' shown. Waited 17s → [month-revenue-masked] reappears (hint 'unlocked for 15s · hides again automatically') while [revenue-trend-locked]=0 and [perf-locked]=0 remain unlocked; clicking [month-revenue-reveal-btn] shows value again with modal count == 0 (NO second PIN prompt). Fresh reload → clicking [revenue-trend-unlock-btn] first also opens [owner-pin-modal], correct PIN unlocks ALL THREE cards. Owner (admin@miracurl.com) sees Revenue Trend + Business by Stylist rendered directly (revenue-trend-locked=0, perf-locked=0, revenue-trend-stats=1, month-revenue-lock-btn=1). Only 1 wrong PIN consumed (0000) — well below 5-attempt lockout. tenants.hide_month_revenue left TRUE.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter186_team_unlock.py",
+    "/app/test_reports/pytest/iter186.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "reports.py /reports/team-unlock cleanly composes _month_revenue + revenue_trend + _staff_performance_data behind _require_team_unlock — good single source of truth. Consider caching within the request scope if these three helpers each hit Mongo separately (small optimisation).",
+    "Dashboard.jsx unlockTeam sets a session flag so subsequent month-revenue peek does not re-prompt PIN — correct. The 15s re-mask timer only touches month revenue visibility, not the session flag (verified by absence of PIN modal on reveal click).",
+    "Pre-existing (unchanged from iter-184/185): MiraDayOffer hydration warning '<span> cannot be a child of <option>' still logged; Recharts 'width -1 height -1' warning during unlock animation transition (cosmetic, chart still renders correctly)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter186_team_unlock.py",
+    "/app/test_reports/iteration_186.json"
+  ],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% (13/13 manager assertions + owner 4/4)"},
+  "test_credentials": "Manager manager@miracurl.com / Manager@1234 (geo 12.9631691, 77.7132717). Owner admin@miracurl.com / q6QY@tn3p#9DtL. Owner PIN 4321. Tenant slug miracurl-marathahalli.",
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "tenants.hide_month_revenue=TRUE for miracurl-marathahalli. Single-PIN unlocks all 3 cards for the session; month revenue auto-remasks after 15s but reveal button skips PIN modal because session unlock flag persists. Backend team-unlock endpoint at /api/reports/team-unlock returns {month_revenue, revenue_trend[7], staff_performance{today,yesterday,week,month,last_month,ranges}}. Only 1 wrong-PIN attempt consumed this iteration (well below 5-attempt lockout).",
+  "rca of the issue": "N/A — feature works as specified."
+}

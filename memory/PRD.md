@@ -3624,3 +3624,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Dashboard "Revenue Trend" (7-day) card joins the team lock: when `hide_month_revenue` ON, managers get `revenue_trend: []` + `revenue_trend_locked: true`; `GET /reports/revenue-trend` (PIN-guarded via `_require_team_unlock`, reuses `_dashboard_revenue_trend`) unlocks for the session. `RevenueTrendCard` locked state = gold lock badge + blurred sparkline + "Unlock with Owner PIN". Each card unlocks independently (PIN asked per card).
 - Reports page (date-range report) intentionally NOT locked — managers need it for daily closing; ask user before gating.
 - Tested iteration_185.
+
+## 2026-09-22 — Single unlock for team financials (build .351)
+- `GET /reports/team-unlock` (PIN-guarded, `_require_team_unlock`) returns {month_revenue, revenue_trend, staff_performance} in one call (`_month_revenue`, `_dashboard_revenue_trend`, `_staff_performance_data` helpers). Per-card endpoints kept.
+- Dashboard.jsx: `team` state + `unlockTeam()` shared by the month KPI lock, RevenueTrendCard and StaffPerformance (props locked/onUnlock/unlockedData). Month KPI still re-masks after 15 s; the eye re-shows from session cache with no second PIN. Buttons read "Unlock all with Owner PIN".
+- Tested iteration_186.
