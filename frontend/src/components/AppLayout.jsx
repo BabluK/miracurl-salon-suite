@@ -20,6 +20,7 @@ import { TenantMiraAssistant } from "./TenantMiraAssistant";
 import InstallAppPrompt from "./InstallAppPrompt";
 import GeoBranchGate from "./GeoBranchGate";
 import { PasskeyNudge } from "./PasskeyNudge";
+import { ensureFreshBuild } from "@/lib/cacheBust";
 import TrialReminder from "./TrialReminder";
 import ActAsBanner from "./ActAsBanner";
 import { useNewBookingNotifier, NotifBell } from "./NewBookingNotifier";
@@ -83,28 +84,7 @@ export default function AppLayout() {
   // of that salon gets a one-time full cache wipe + reload on next app open.
   useEffect(() => {
     if (!tenant?.slug) return;
-    api.get("/public/cache-version").then(async ({ data }) => {
-      const v = data?.v || "";
-      const key = "mira_cache_v";
-      const stored = localStorage.getItem(key);
-      if (!v) return;
-      if (stored === null) { localStorage.setItem(key, v); return; }
-      if (stored === v) return;
-      if (sessionStorage.getItem("mira_cache_wiped") === v) { localStorage.setItem(key, v); return; } // already wiped this session — never loop
-      sessionStorage.setItem("mira_cache_wiped", v);
-      try {
-        if ("serviceWorker" in navigator) {
-          const regs = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(regs.map(r => r.unregister()));
-        }
-        if (window.caches) {
-          const keys = await window.caches.keys();
-          await Promise.all(keys.map(k => window.caches.delete(k)));
-        }
-      } catch { /* best effort */ }
-      localStorage.setItem(key, v);
-      window.location.reload();
-    }).catch(() => {});
+    ensureFreshBuild();
   }, [tenant?.slug]);
   const nav = useNavigate();
   const loc = useLocation();

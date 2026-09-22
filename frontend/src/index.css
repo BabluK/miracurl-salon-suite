@@ -51,6 +51,14 @@ input, select, textarea {
   background: #0A0A0A;
   color: #FFFFFF;
 }
+/* Light-surface controls (Tailwind bg-white / bg-slate-50) must never inherit the dark-form white text */
+input.bg-white, select.bg-white, textarea.bg-white,
+input.bg-slate-50, select.bg-slate-50, textarea.bg-slate-50,
+select.bg-white option, select.bg-slate-50 option {
+  color: #0f172a;
+  -webkit-text-fill-color: #0f172a;
+  color-scheme: light;
+}
 input::placeholder, textarea::placeholder { color: rgba(255,255,255,0.3); }
 
 .font-playfair { font-family: 'Playfair Display', serif; }

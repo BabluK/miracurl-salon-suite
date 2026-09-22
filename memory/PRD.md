@@ -3590,3 +3590,12 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-22 — Staff never gated (build .344)
 - User: "Don't ask staff which branch — staff can login from anywhere; only disable check-in if not within the tagged branch." `GeoBranchGate.eligible` = manager without branch only. Staff header branch auto-set from `user.branch` (AuthContext.afterAuth). Check-in fence unchanged (`staff_portal._fence_for` → tagged branch coords, 300 m default, QR fallback). Verified: staff far away → /staff-portal directly, Check-in refused with distance message + QR tip.
+
+## 2026-09-22 — Meta login fix + passkey pre-step (build .345)
+- Settings → Connect your WhatsApp Business: `FB.login(async …)` rejected by Meta SDK → plain callback. Untested against real Meta (needs the user's browser); error message itself is gone.
+- Passkey: browser/OS dialogs ("Create a passkey", "Enter PIN") are native and cannot be styled. Polished OUR step: `PasskeyNudge.jsx` is now a centered branded modal explaining the 3 steps before triggering the native sheet; `Login.jsx` sets `sessionStorage.pk_nudge` instead of calling `registerPasskey()` directly.
+- Mira QR "says Beyond salon": per-tenant QR already embeds `#<slug>` (wa_receptionist.invite_link) and `resolve_inbound_tenant` routes by it first. AECS page showed the inbound attributed to AECS but "skipped — no WhatsApp credits" → Mira stayed silent; the guest's WhatsApp thread with the SHARED number still shows Beyond's earlier replies. Fix path for user: top up AECS credits or connect AECS's own number. No code change (user asked not to touch other functionality).
+
+## 2026-09-22 — Timezone select + double dashboard load (build .346)
+- Timezone `<select>` invisible options: same root cause as POS date (index.css white input text). Fixed component + added global rule for `.bg-white/.bg-slate-50` controls & options.
+- Double load after login (admin/manager, prod): `AppLayout` cache-version check reloads once per new deploy (SW cache bust) → user sees dashboard load twice after every deploy. Now `lib/cacheBust.ensureFreshBuild()` runs on Login mount (reload before sign-in) + AppLayout safety net; reload skipped when no SW/caches existed. Preview measured: 1 full load, 1 dashboard mount.

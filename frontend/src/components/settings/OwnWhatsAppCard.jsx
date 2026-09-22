@@ -55,16 +55,17 @@ export const OwnWhatsAppCard = () => {
     try { FB = await loadFbSdk(st.app_id); }
     catch (e) { setBusy(""); toast.error(e?.message === "blocked" ? SDK_HELP : "Meta login is still loading — try again in a few seconds"); return; }
     try {
-      FB.login(async (resp) => {
+      // Meta's SDK type-checks the callback (must be a plain Function, not an AsyncFunction)
+      const onLogin = (resp) => {
         const code = resp?.authResponse?.code;
         const s = session.current;
         if (!code) { setBusy(""); toast.error("Meta didn't return an authorisation — please try again"); return; }
-        try {
-          const r = await api.post("/whatsapp-own/connect", { code, waba_id: String(s.waba_id || ""), phone_number_id: String(s.phone_number_id || "") });
-          setSt(r.data); toast.success("Your WhatsApp Business number is connected to Mira ✦");
-        } catch (e) { toast.error(e.response?.data?.detail || "Couldn't connect"); }
-        finally { setBusy(""); }
-      }, { config_id: st.config_id, response_type: "code", override_default_response_type: true,
+        api.post("/whatsapp-own/connect", { code, waba_id: String(s.waba_id || ""), phone_number_id: String(s.phone_number_id || "") })
+          .then((r) => { setSt(r.data); toast.success("Your WhatsApp Business number is connected to Mira ✦"); })
+          .catch((e) => toast.error(e.response?.data?.detail || "Couldn't connect"))
+          .finally(() => setBusy(""));
+      };
+      FB.login(onLogin, { config_id: st.config_id, response_type: "code", override_default_response_type: true,
            extras: { setup: {}, featureType: "whatsapp_business_app_onboarding", sessionInfoVersion: "3" } });
     } catch (e) {
       setBusy("");

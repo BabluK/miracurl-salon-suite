@@ -2,11 +2,13 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-22.344"
-BUILD_TIME = "22 Sep 2026, 7:45 AM IST"
+BUILD = "2026-09-22.346"
+BUILD_TIME = "22 Sep 2026, 8:45 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-22.346", "note": "Timezone select (Settings → Branding) options were white-on-white (index.css global input colour) → explicit dark colour + global rule: input/select/textarea with bg-white/bg-slate-50 (and their options) render #0f172a. Double dashboard load after login on prod = post-deploy PWA cache-bust reload (AppLayout cache-version check) → extracted to lib/cacheBust.ensureFreshBuild(): runs on the LOGIN page first (reload happens before sign-in) and only reloads when a service worker/cache actually existed."},
+    {"build": "2026-09-22.345", "note": "Own-WhatsApp connect: FB.login callback was an AsyncFunction → Meta SDK threw 'Expression is of type asyncfunction, not function'; now a plain function with promise chain (OwnWhatsAppCard.jsx). Passkey: Login no longer fires the native Create-a-passkey sheet cold after password login — sets pk_nudge; PasskeyNudge redesigned as a branded light modal (3 steps, host + email, Continue → native prompt, Not now = pk_declined)."},
     {"build": "2026-09-22.344", "note": "Staff are no longer gated by GeoBranchGate (eligible = floating managers only): staff sign in from anywhere; GPS is enforced only at POST /staff/me/check-in (fenced to the staff's tagged branch via _fence_for, tenant geo_fence_m default 300 m, desk-QR fallback). afterAuth sets the header branch from user.branch for staff too."},
     {"build": "2026-09-21.343", "note": "GeoBranchGate redesigned LIGHT (components/geo/GateViews.jsx: PickerView + DeniedView per user mockups/design_guidelines.json) — photo cards, MAIN SALON/branch badges, Available/Locked/Checking pills, Secure & location verified callout, search, Use my current location, nearest-branch + Get Directions, FOR SALONS THAT DREAM BIGGER footer. Login bounce fix: api.js session epoch — a 401 from a request started before the current login (slow phone: pre-login probe → /auth/refresh fails after landing on /dashboard) no longer redirects to /login; bumpSessionEpoch() in afterAuth/logout. POS bill-date input text was white (index.css:50 global input colour) → explicit colour."},
     {"build": "2026-09-21.342", "note": "Receipt SMS → miracurl_salon_service_payment_v2 (MSG91 6ab13736d65b55eb1d09ac54, DLT 1777178999296070143, vars amount+service via _receipt_service_label); v2 send failure falls back to legacy billing; apply_hq_sms_template_ids one-shot replaces retired HQ override 6aafdd57… ; HQ template health explains MSG91 'CTA Error' (URL not CTA-whitelisted on DLT)."},

@@ -6,7 +6,8 @@ import { User, Lock, Eye, EyeOff, Globe } from "lucide-react";
 import { toast } from "sonner";
 import BrandMark from "@/components/BrandMark";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
-import { passkeySupported, registerPasskey, loginWithPasskey } from "@/lib/webauthn";
+import { passkeySupported, loginWithPasskey } from "@/lib/webauthn";
+import { ensureFreshBuild } from "@/lib/cacheBust";
 import { LoginShowcase } from "@/components/LoginShowcase";
 import { LandingNav, LandingFooter, WhatsAppFloat, GoogleButton } from "@/components/LandingBits";
 import { EmailOtpLogin } from "@/components/EmailOtpLogin";
@@ -62,6 +63,9 @@ export default function Login() {
   const [farewell, setFarewell] = useState(false);
   const [blocked, setBlocked] = useState(null);
 
+  // New build deployed? Bust the PWA cache HERE (before sign-in) so the dashboard never reloads twice.
+  useEffect(() => { ensureFreshBuild(); }, []);
+
   // Signed out → Back must stay on the login page (no cached dashboard/settings behind it).
   useEffect(() => {
     if (user) return;
@@ -105,11 +109,9 @@ export default function Login() {
         log.warn("[Login] localStorage write failed:", err2);
       }
       toast.success("Welcome back ✦");
+      // Never fire the browser's native passkey sheet cold — the branded PasskeyNudge explains it first.
       if (passkeySupported() && !localStorage.getItem("pk_enrolled") && !localStorage.getItem("pk_declined")) {
-        try {
-          await registerPasskey();
-          toast.success("🔒 Fingerprint / Face ID login enabled on this device");
-        } catch (e3) { if (e3?.name === "NotAllowedError") localStorage.setItem("pk_declined", "1"); else log.warn("[Login] passkey enrol failed:", e3?.message || e3); }
+        sessionStorage.setItem("pk_nudge", "1");
       }
       nav(afterLogin(res.user?.role), { replace: true });
     }

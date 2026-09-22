@@ -268,10 +268,11 @@ export function BrandingCard() {
                     const opt = TIMEZONES.find(z => z.tz === e.target.value);
                     setBranding(b => ({ ...b, timezone: e.target.value, country_code: opt?.cc || b.country_code }));
                   }}
-                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white max-w-xs">
-                  {TIMEZONES.map((z, i) => <option key={i} value={z.tz}>{z.label}</option>)}
+                  style={{ color: "#0f172a", WebkitTextFillColor: "#0f172a", colorScheme: "light" }}
+                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-900 max-w-xs">
+                  {TIMEZONES.map((z, i) => <option key={i} value={z.tz} className="text-slate-900 bg-white">{z.label}</option>)}
                   {!TIMEZONES.some(z => z.tz === (branding.timezone || "Asia/Kolkata")) && (
-                    <option value={branding.timezone}>{branding.timezone}</option>
+                    <option value={branding.timezone} className="text-slate-900 bg-white">{branding.timezone}</option>
                   )}
                 </select>
                 <button type="button" data-testid="branding-tz-autodetect"
