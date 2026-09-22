@@ -1,0 +1,25 @@
+{
+  "summary": "Iter-184 — Revenue-lock (owner-PIN gating) for manager view of miracurl-marathahalli fully verified end-to-end. Backend pytest 9/9 pass: manager dashboard returns month_revenue=null/locked=true/hidden=true/owner_pin_set=true; /reports/staff-performance → 403 OWNER_PIN_REQUIRED without PIN and with wrong PIN 0000, 200 with PIN 4321 (today/yesterday/week/month/last_month/ranges keys all present); /settings/revenue-peek → 403 without PIN, 200 {month_revenue:15989.0} with 4321; owner /reports/dashboard shows numeric month_revenue with locked=false, /reports/staff-performance 200 without PIN; toggle OFF via PUT /settings/revenue-lock {hide:false} + X-Owner-Pin 4321 + X-CSRF-Token (from csrf_token cookie) → manager now 200 on staff-performance and month_revenue numeric on dashboard; toggle restored to hide:true (final state). Frontend Playwright 19/19 checks pass: manager sees [month-revenue-masked]='••••••', gold [month-revenue-reveal-btn] with Lock icon, hint 'locked by owner · tap the lock · owner PIN'; [staff-performance-card] shows [perf-locked] with 'Locked by the owner' + [perf-unlock-btn], all [perf-tab-*] disabled. Wrong PIN 0000 → 'Incorrect PIN' toast, card stays locked. PIN 4321 → perf-locked gone, [perf-rows] visible, tabs enabled; clicking [perf-tab-last_month] shows 3 rows including Priya Sharma & Rahul Verma. [month-revenue-reveal-btn] + 4321 → [kpi-revenue-month] shows '₹15,989' with 'unlocked for 15s · hides again automatically' hint and [month-revenue-hide-btn]; after 17s auto-remasks back to '••••••'. Owner (admin@miracurl.com) dashboard: [month-revenue-lock-btn] present with amber Lock icon (hide=ON), month value shows masked+eye (owner peeks without PIN — data.month_revenue_locked=false), Business by Stylist renders directly with no [perf-locked]. Tenant hide_month_revenue restored to TRUE at end.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter184_revenue_lock.py",
+    "/app/test_reports/pytest/iter184.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Dashboard.jsx (line 136): monthMasked derives from data.month_revenue_hidden_for_staff && !showMonth regardless of role — this is intentional so the owner can also 'peek' but it means the owner-only revenue is briefly hidden on first paint even though hide_month_revenue was meant to hide from *managers/staff*. Consider gating monthMasked on `!isAdmin || data.month_revenue_hidden_for_staff` explicitly (already effectively so, but the naming is confusing).",
+    "ownerPin.js getWithFreshPin: does not cache the PIN — every reveal or perf-unlock re-prompts. If the manager unlocks perf, then taps the reveal button, they enter PIN again. This is safer but a small UX friction; consider re-using cachedPin for reads within the same session.",
+    "Unrelated console warning during owner load: 'In HTML, <span> cannot be a child of <option>' from MiraDayOffer.jsx line 55 — pre-existing hydration issue (not related to iter-184 but visible in dashboard console)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter184_revenue_lock.py"
+  ],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100% (19/19 manager checks + 5/5 owner checks)"},
+  "test_credentials": "Manager: manager@miracurl.com / Manager@1234 (geo-gated 12.9631691, 77.7132717). Owner: admin@miracurl.com / q6QY@tn3p#9DtL. Owner PIN 4321. Tenant slug miracurl-marathahalli.",
+  "seed_data_creation": "None. Backend test toggles hide via PUT /settings/revenue-lock and restores TRUE at end.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "tenants.hide_month_revenue=true for miracurl-marathahalli (final). PIN 4321 — 0 wrong attempts consumed during this run (only 1 wrong PIN attempt on frontend, well under the 5-attempt lockout). CSRF for PUT /settings/revenue-lock: login sets csrf_token cookie, echo as X-CSRF-Token header. Frontend login button label is 'Login →' not 'Sign in' — use `button:has-text('Login')` selector. Geo permission must be granted+set BEFORE navigation to /login for manager (Bangalore lat/lng 12.9631691, 77.7132717).",
+  "rca of the issue": "N/A — feature works as specified. No functional issues found."
+}

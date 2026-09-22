@@ -3611,3 +3611,11 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-22 — Security audit #2 (delta): PASS
 - No Critical/High/Medium. Verified: tenant scoping + role checks on every new endpoint (import-clean, week-off delete, unbilled/dismiss/back-date, public availability/booking, gift-card breakage), escaped $regex, signature-verified Razorpay, no tracked secrets, 15 s GET cache cleared on tenant switch/login/logout.
 - Open P3s (unchanged by choice): guest-lookup returns last-order items by phone (rate-limited); `TRUSTED_PROXY_COUNT` unset (default 3) — confirm Cloudflare→ingress hop count in prod; keep `COOKIE_SECURE` unset/true in prod.
+
+## 2026-09-22 — Team lock for month revenue + Business by Stylist (build .349)
+- User choice: keep the owner toggle (`tenant.hide_month_revenue`, KPI lock button) — when ON, managers see a gold LOCK on "This Month" AND the "Business by Stylist" card locked; tapping opens the Owner PIN dialog, correct PIN reveals (revenue 15 s auto re-mask; stylist data for the session). Toggle OFF = everything visible as before. Owner view unchanged.
+- Backend `reports.py`: `_require_team_unlock` (owner bypass; hide ON + non-owner → X-Owner-Pin required; no PIN set → 403 OWNER_PIN_NOT_SET) on `/reports/staff-performance`; `/settings/revenue-peek` now allowed for managers with PIN; dashboard returns `owner_pin_set`.
+- Frontend `Dashboard.jsx`: `teamLocked`, `StaffPerformanceLocked` (gold lock badge, "Unlock with Owner PIN"), tabs disabled while locked. `ownerPin.js` PIN input forced light (white bg / dark text — index.css white-text trap).
+- Preview: Miracurl Unisex Family Salon has PIN set but hide OFF → owner must tap the KPI lock once to enable. Marathahalli test tenant left with hide=TRUE.
+- Tested iteration_184: 9/9 backend (`backend/tests/test_iter184_revenue_lock.py`), 19/19 UI.
+- Not locked (by scope): 7-day "Revenue Trend" card totals + Reports page remain visible to managers.
