@@ -28,17 +28,17 @@ export function OwnerDashboardCard() {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-[#14100c] text-white p-6 mt-6 shadow-[0_30px_60px_-30px_rgba(0,0,0,.6)]" data-testid="owner-dashboard-card">
-      <div className="absolute -right-16 -top-16 w-48 h-48 rounded-full bg-[#e8c56a]/15 blur-3xl pointer-events-none" />
+    <div className="relative overflow-hidden rounded-2xl text-white p-6 mt-6 shadow-[0_30px_60px_-30px_rgba(37,99,235,.7)] bg-[linear-gradient(135deg,#2563eb_0%,#1d4ed8_45%,#0ea5e9_100%)]" data-testid="owner-dashboard-card">
+      <div className="absolute -right-16 -top-16 w-48 h-48 rounded-full bg-white/15 blur-3xl pointer-events-none" />
       <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-[0.28em] text-[#e8c56a] font-semibold flex items-center gap-1.5"><Store className="w-3.5 h-3.5" /> Owner Dashboard</div>
+          <div className="text-[10px] uppercase tracking-[0.28em] text-white/75 font-semibold flex items-center gap-1.5"><Store className="w-3.5 h-3.5" /> Owner Dashboard</div>
           <p className="font-playfair text-2xl mt-1">AECS branch, one glance</p>
-          <p className="text-sm text-white/60 mt-1 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 text-[#e8c56a]" /> Collections, cash, bookings & top stylist — PIN required.</p>
+          <p className="text-sm text-white/80 mt-1 flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> Collections, cash, bookings & top stylist — PIN required.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button data-testid="owner-dashboard-open-btn" onClick={() => nav("/owner-dashboard")}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm font-bold hover:brightness-110 transition-[filter]">
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white text-blue-700 text-sm font-bold hover:bg-blue-50 transition-[filter]">
             <KeyRound className="w-4 h-4" /> Open <ArrowRight className="w-4 h-4" />
           </button>
           <button data-testid="owner-dashboard-delete-btn" onClick={() => setAskDelete(true)} disabled={busy} title="Remove this dashboard"

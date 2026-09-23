@@ -17,7 +17,8 @@ DEMO_PIN = "3642"
 LAST_MONTH_TOTAL = 417270
 THIS_MONTH_TOTAL = 292240
 BRANCH = {"slug": "aecs", "name": "Miracurl Unisex Family Salon - AECS", "location": "AECS Layout, Brookefield, Bengaluru", "active": True}
-STYLISTS = ["Anil Kumar", "Stela Rodrigues", "Priya Sharma", "Rahul Verma", "Meena Joseph"]
+STYLISTS = ["Binay", "Anil", "Sabnam", "Stela"]
+_SHARES = [0.32, 0.27, 0.23, 0.18]
 _DOW_W = {0: 0.82, 1: 0.9, 2: 0.95, 3: 1.0, 4: 1.15, 5: 1.5, 6: 1.38}
 
 
@@ -50,9 +51,15 @@ def _period(name: str, label: str, days: list[date], by_day: dict, seed: int) ->
     cash = int(rev * 0.0878 / 10.0) * 10
     card = int(round(rev * 0.20 / 10.0)) * 10
     upi = max(0, rev - cash - card)
-    top_name = STYLISTS[rng.randrange(len(STYLISTS))] if rev else None
-    top = {"name": top_name, "revenue": int(round(rev * rng.uniform(0.24, 0.31) / 10.0)) * 10,
-           "services": int(round(bills * rng.uniform(0.28, 0.36)))} if top_name else None
+    order = list(range(len(STYLISTS)))
+    rng.shuffle(order)
+    stylists = []
+    for rank, idx in enumerate(order):
+        r_amt = int(round(rev * _SHARES[rank] / 10.0)) * 10
+        stylists.append({"name": STYLISTS[idx], "revenue": r_amt, "services": int(round(bills * _SHARES[rank]))})
+    if stylists and rev:
+        stylists[0]["revenue"] += rev - sum(x["revenue"] for x in stylists)
+    top = stylists[0] if rev else None
     branch = {**BRANCH, "today": rev, "cash": cash, "upi": upi, "card": card,
               "appointments_today": bookings, "invoices_today": bills, "top_stylist": top}
     return {
@@ -60,6 +67,8 @@ def _period(name: str, label: str, days: list[date], by_day: dict, seed: int) ->
         "range": {"from": days[0].isoformat(), "to": days[-1].isoformat()},
         "total": rev, "total_cash": cash, "total_upi": upi, "total_card": card,
         "total_bookings": bookings, "total_bills": bills, "top_stylist": top,
+        "avg_bill": int(round(rev / bills)) if bills else 0,
+        "stylists": stylists if rev else [],
         "days": [{"date": d.isoformat(), "revenue": by_day.get(d, 0)} for d in days],
         "salons": [branch],
     }
@@ -70,8 +79,9 @@ def _build(today: date) -> dict:
     last_month_end = first - timedelta(days=1)
     last_first = last_month_end.replace(day=1)
     this_days = [first + timedelta(days=i) for i in range((today - first).days + 1)]
+    billed_days = this_days[:-1]  # today has no billing yet
     last_days = [last_first + timedelta(days=i) for i in range((last_month_end - last_first).days + 1)]
-    by_day = {**_spread(LAST_MONTH_TOTAL, last_days, 4172), **_spread(THIS_MONTH_TOTAL, this_days, 2922)}
+    by_day = {**_spread(LAST_MONTH_TOTAL, last_days, 4172), **(_spread(THIS_MONTH_TOTAL, billed_days, 2922) if billed_days else {}), today: 0}
     # earlier days (for a last-week that reaches before last month) — small filler
     filler_days = [last_first - timedelta(days=i) for i in range(1, 15)]
     by_day.update(_spread(int(LAST_MONTH_TOTAL * 14 / 30), filler_days, 1414))
@@ -86,7 +96,9 @@ def _build(today: date) -> dict:
         _period("month", "This month", this_days, by_day, 5),
         _period("last_month", "Last month", last_days, by_day, 6),
     ]
-    return {"date": today.isoformat(), "branch": BRANCH, "periods": periods}
+    return {"date": today.isoformat(), "branch": BRANCH, "periods": periods,
+            "briefing": {"appointments_today": 6, "checked_in": 3, "not_in": 1, "appointments_yesterday": periods[1]["total_bookings"],
+                         "inventory_ok": True}}
 
 
 @router.get("/status")
