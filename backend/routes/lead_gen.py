@@ -800,7 +800,19 @@ async def list_runs(user=Depends(require_super_admin)):
 @router.get("/super-admin/mira-leads")
 async def list_leads(status: str = "", user=Depends(require_super_admin)):
     q = {"status": status} if status else {}
-    return await _raw_db.mira_leads.find(q, {"_id": 0}).sort("score", -1).to_list(300)
+    rows = await _raw_db.mira_leads.find(q, {"_id": 0}).sort("score", -1).to_list(300)
+    for r in rows:
+        r["email_real"] = _has_real_inbox(r.get("email"))
+    return rows
+
+
+def _has_real_inbox(email: str) -> bool:
+    """False when follow-ups would be skipped: no email, login-only @miracurl.com, or a placeholder domain."""
+    from email_service import _is_login_only
+    e = (email or "").strip().lower()
+    if not e or "@" not in e or _is_login_only(e):
+        return False
+    return e.rpartition("@")[2] not in ("example.com", "example.org", "test.com", "email.com", "domain.com")
 
 
 def _name_tokens(name: str) -> list:
@@ -933,9 +945,17 @@ async def edit_lead(lid: str, body: LeadEditIn, user=Depends(require_super_admin
     if body.email and not _EMAIL_RE.fullmatch(body.email):
         raise HTTPException(400, "Invalid email address")
     if sets.get("email"):
-        sets["status"] = "drafted"
+        if not _has_real_inbox(sets["email"]):
+            raise HTTPException(400, "That address has no real inbox — use the salon's actual email (Gmail, business domain, etc.)")
+        cur = await _raw_db.mira_leads.find_one({"id": lid}, {"_id": 0, "status": 1, "email": 1})
+        # only reset to drafted when the lead never got a real email out; keep sent/replied leads where they are
+        if not cur or not _has_real_inbox(cur.get("email")) or cur.get("status") in ("drafted", "pending", "approved", "skipped", "failed"):
+            sets["status"] = "drafted"
+        sets["email_fixed_at"] = _now()
     await _raw_db.mira_leads.update_one({"id": lid}, {"$set": sets})
-    return await _raw_db.mira_leads.find_one({"id": lid}, {"_id": 0})
+    doc = await _raw_db.mira_leads.find_one({"id": lid}, {"_id": 0})
+    doc["email_real"] = _has_real_inbox(doc.get("email"))
+    return doc
 
 
 _SCREENS_TOUR_PDF = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "miracurl-screens-tour.pdf")

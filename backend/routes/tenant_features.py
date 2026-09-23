@@ -4,7 +4,7 @@ import os
 import re
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -69,6 +69,7 @@ class FeaturesIn(BaseModel):
     campaign: Optional[str] = Field(None, pattern=r"^(on|off|auto)$")
     support_access: Optional[bool] = None  # HQ may open this workspace (default OFF)
     tier: Optional[str] = Field(None, pattern=r"^(starter|professional|premium|enterprise|auto)$")  # USD entitlement override
+    module_locks: Optional[List[str]] = None  # HQ-unticked modules (any tenant)
 
 
 @router.get("/super-admin/entitlements/matrix")
@@ -187,6 +188,9 @@ async def sa_put_features(tid: str, body: FeaturesIn, user=Depends(require_super
         else:
             sets["entitlement_tier"] = body.tier
         await log_audit(tid, {**user, "name": "Miracurl HQ"}, "hq_features", f"Plan features set to {body.tier} by HQ")
+    if body.module_locks is not None:
+        sets["module_locks"] = [m for m in body.module_locks if m in MODULES]
+        await log_audit(tid, {**user, "name": "Miracurl HQ"}, "hq_features", f"HQ restricted modules: {', '.join(sets['module_locks']) or 'none'}")
     if sets:
         await _raw_db.tenants.update_one({"id": tid}, {"$set": sets})
         await log_audit(tid, {**user, "name": "Miracurl HQ"}, "hq_features",

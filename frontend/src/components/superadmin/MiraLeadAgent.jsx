@@ -6,6 +6,7 @@ import { confirmAsync } from "@/components/ConfirmDialog";
 import { WaQuickInvite } from "@/components/superadmin/WaQuickInvite";
 import { CityWatchCard } from "@/components/superadmin/CityWatchCard";
 import { WaBlastModal } from "@/components/superadmin/WaBlastModal";
+import { LeadEmailFix } from "@/components/superadmin/LeadEmailFix";
 
 const STATUS_STYLE = {
   drafted: "bg-amber-100 text-amber-700", no_email: "bg-slate-100 text-slate-500",
@@ -472,10 +473,10 @@ function LeadRow({ lead, onRefresh }) {
               {((lead.phone || "").replace(/[\s()-]/g, "").startsWith("+") && !(lead.phone || "").replace(/[\s()-]/g, "").startsWith("+91")) ? "🌍" : "🇮🇳"}
             </span>
           </p>
-          <p className="text-[11px] text-slate-400 truncate">
+          <p className="text-[11px] text-slate-400 truncate flex flex-wrap items-center gap-x-1">
             {lead.category ? <span data-testid={`lead-category-${lead.id}`} className="text-fuchsia-500 font-semibold">{lead.category} · </span> : null}
             {lead.rating ? <><Star className="w-3 h-3 inline text-amber-400 -mt-0.5" /> {lead.rating}{lead.reviews ? ` (${lead.reviews})` : ""} · </> : null}
-            {lead.email || "no email found"} {lead.phone ? `· ${lead.phone}` : ""} {lead.branches > 1 ? `· ${lead.branches} branches` : ""}
+            {lead.email_real === false ? <LeadEmailFix lead={lead} onSaved={onRefresh} /> : (lead.email || "no email found")} {lead.phone ? `· ${lead.phone}` : ""} {lead.branches > 1 ? `· ${lead.branches} branches` : ""}
           </p>
         </div>
         <span className={`text-[10px] px-2 py-1 rounded-full font-semibold ${STATUS_STYLE[lead.status] || "bg-slate-100 text-slate-500"}`}>{lead.status}</span>

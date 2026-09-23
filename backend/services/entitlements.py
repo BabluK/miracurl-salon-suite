@@ -37,20 +37,60 @@ COMPETITORS = [
 ]
 
 
+# Salons onboarded before this moment keep every feature (unless HQ forces a tier or unticks a module).
+GATING_FROM = "2026-09-23T06:00:00+00:00"
+
+# API paths that belong to a gated module (middleware returns 403 MODULE_LOCKED for locked ones)
+MODULE_API_PREFIXES = {
+    "inventory": ("/api/products", "/api/vendors", "/api/inventory"),
+    "attendance": ("/api/attendance", "/api/leave-requests", "/api/week-off-requests", "/api/reports/attendance-month"),
+    "reports": ("/api/reports/sales", "/api/reports/staff-tips", "/api/reports/export", "/api/reports/commission"),
+    "staff-activities": ("/api/activity-logs",),
+    "hire": ("/api/hiring",),
+    "offers-studio": ("/api/offers/flyer", "/api/offers/flyers"),
+    "mira-studio": ("/api/mira-studio",),
+    "receptionist": ("/api/receptionist",),
+    "assistant": ("/api/assistant",),
+    "registry": ("/api/registry",),
+    "cctv": ("/api/cctv",),
+    "plans": ("/api/packages", "/api/memberships", "/api/gift-cards"),
+    "reviews": ("/api/reviews",),
+    "gallery": ("/api/gallery",),
+    "customers": ("/api/customers",),
+    "services": ("/api/services",),
+    "cash": ("/api/cash-register",),
+}
+
+
+def module_for_path(path: str) -> str | None:
+    for m, prefixes in MODULE_API_PREFIXES.items():
+        if path.startswith(prefixes):
+            return m
+    return None
+
+
+def is_grandfathered(t: dict | None) -> bool:
+    created = str((t or {}).get("created_at") or "")
+    return bool(created) and created < GATING_FROM
+
+
 def tenant_tier(t: dict | None) -> str | None:
-    """None → not gated (INR tenants). Trial USD tenants → premium."""
+    """None → no plan-tier gating (INR tenants, grandfathered salons). USD trial → premium."""
     t = t or {}
-    if (t.get("currency") or "INR") != "USD":
-        return None
     forced = t.get("entitlement_tier")
     if forced in TIERS:
         return forced
+    if (t.get("currency") or "INR") != "USD" or is_grandfathered(t):
+        return None
     plan = PLAN_CATALOG.get(t.get("plan") or "") or {}
     return plan.get("tier") or "premium"
 
 
 def entitlements(t: dict | None) -> dict:
+    t = t or {}
     tier = tenant_tier(t)
-    allowed = TIER_MODULES.get(tier, list(MODULES)) if tier else list(MODULES)
-    return {"tier": tier, "forced": bool((t or {}).get("entitlement_tier")),
-            "locked": [m for m in MODULES if m not in allowed]}
+    by_tier = [m for m in MODULES if tier and m not in TIER_MODULES.get(tier, MODULES)]
+    manual = [m for m in (t.get("module_locks") or []) if m in MODULES]
+    return {"tier": tier, "forced": bool(t.get("entitlement_tier")), "grandfathered": is_grandfathered(t),
+            "tier_locked": by_tier, "module_locks": manual,
+            "locked": [m for m in MODULES if m in by_tier or m in manual]}

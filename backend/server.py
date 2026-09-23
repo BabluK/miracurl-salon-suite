@@ -544,6 +544,37 @@ _CSRF_EXEMPT_EXACT = {
 }
 
 
+from services.entitlements import module_for_path, entitlements as _entitlements  # noqa: E402
+
+
+@app.middleware("http")
+async def _plan_module_guard(request: Request, call_next):
+    """Plan-tier / HQ module locks enforced at the API edge (mirrors the UI locks)."""
+    module = module_for_path(request.url.path) if request.url.path.startswith("/api") else None
+    if not module:
+        return await call_next(request)
+    token = request.cookies.get("access_token") or (request.headers.get("authorization", "")[7:] or None)
+    if not token:
+        return await call_next(request)
+    try:
+        payload = _pyjwt.decode(token, jwt_secret(), algorithms=[JWT_ALG])
+    except Exception:
+        return await call_next(request)
+    user = await db.users.find_one({"id": payload.get("sub")}, {"_id": 0, "role": 1, "tenant_id": 1, "tenant_ids": 1})
+    if not user or user.get("role") == "super_admin":
+        return await call_next(request)
+    tid = user.get("tenant_id")
+    slug = request.headers.get("X-Tenant-Slug")
+    if slug:
+        t_by_slug = await db.tenants.find_one({"slug": slug}, {"_id": 0, "id": 1})
+        if t_by_slug and (t_by_slug["id"] == tid or t_by_slug["id"] in (user.get("tenant_ids") or [])):
+            tid = t_by_slug["id"]
+    t = await db.tenants.find_one({"id": tid}, {"_id": 0, "currency": 1, "plan": 1, "entitlement_tier": 1, "module_locks": 1, "created_at": 1}) if tid else None
+    if t and module in _entitlements(t)["locked"]:
+        return _JSONResponse({"detail": "MODULE_LOCKED", "module": module}, status_code=403)
+    return await call_next(request)
+
+
 @app.middleware("http")
 async def _csrf_guard(request: Request, call_next):
     p = request.url.path

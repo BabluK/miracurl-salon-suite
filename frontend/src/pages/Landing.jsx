@@ -65,10 +65,13 @@ function buildIntlPlans(c) {
   const price = (key, fallback) => c?.[key]?.price ?? fallback;
   const defaults = { starter: [39, 390], professional: [79, 790], premium: [149, 1490] };
   const keys = { starter: "intl_starter", professional: "intl_pro", premium: "intl_premium" };
+  const anyHl = Object.entries(c || {}).some(([k, v]) => k.startsWith("intl_") && v?.highlight);
   const tiers = INTL_TIERS.filter(t => !c || c[`${keys[t.tier]}_monthly`]).map(t => {
     const [m, a] = defaults[t.tier];
     const k = keys[t.tier];
-    return { ...t, key: `${k}_monthly`, monthly: price(`${k}_monthly`, m), annual: price(`${k}_annual`, a) };
+    const v = c?.[`${k}_monthly`];
+    return { ...t, key: `${k}_monthly`, monthly: price(`${k}_monthly`, m), annual: price(`${k}_annual`, a),
+      items: v?.features?.length ? v.features : t.items, primary: anyHl ? !!v?.highlight : t.primary };
   });
   return [...tiers, ...customPlanCards(c, "USD")];
 }
@@ -97,6 +100,12 @@ function buildPlans(c) {
   const b3a = c.three_branch_annual?.price, b3h = c.three_branch_half?.price, b5a = c.multi_branch_annual?.price;
   const anyMulti = b2a || b2h || b3a || b3h || b5a || c.multi_branch_half?.price;
   const kept = PLANS.filter(p => (p.key === "trial") || (p.key === "half_year" ? !!hy : p.key === "annual" ? !!an : p.key === "multi_branch" ? !!anyMulti : true));
+  const catKey = (k) => (k === "multi_branch" ? "two_branch_annual" : k);
+  const anyHl = Object.entries(c).some(([k, v]) => v && typeof v === "object" && v.highlight && !k.startsWith("intl_") && !k.startsWith("resto_"));
+  const decorate = (p) => {
+    const v = c[catKey(p.key)];
+    return { ...p, items: v?.features?.length ? v.features : p.items, primary: anyHl ? !!v?.highlight : p.primary };
+  };
   return [...kept.map(p => {
     if (p.key === "trial" && c.trial_days) return { ...p, per: `${c.trial_days} days` };
     if (p.key === "half_year" && hy) return { ...p, price: fmtINR(hy) };
@@ -106,7 +115,7 @@ function buildPlans(c) {
       per: `2 branches ${kINR(b2a)}/yr (${kINR(b2h)}/6mo) · 3 branches ${kINR(b3a)}/yr (${kINR(b3h)}/6mo) · 5+ ${kINR(b5a)}/yr`,
     };
     return p;
-  }), ...customPlanCards(c, "INR")];
+  }).map(decorate), ...customPlanCards(c, "INR")];
 }
 
 const TESTIMONIALS = [

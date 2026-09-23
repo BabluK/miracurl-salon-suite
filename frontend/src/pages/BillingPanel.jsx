@@ -242,6 +242,21 @@ function PlanCatalogEditor({ plans, onSaved }) {
     finally { setSavingTrial(false); }
   }
 
+  const [openKey, setOpenKey] = useState(null);
+  const [featEdit, setFeatEdit] = useState({});
+  async function saveFeatures(p) {
+    const fe = featEdit[p.key] || {};
+    const features = String(fe.features ?? (p.features || []).join("\n")).split(/\n|,/).map(x => x.trim()).filter(Boolean);
+    const highlight = fe.highlight ?? !!p.highlight;
+    setSavingKey(p.key);
+    try {
+      await api.put(`/super-admin/plans/${p.key}`, { price: p.price, features, highlight });
+      toast.success(`"${p.label}" — what's included updated ✦ live on the pricing page`);
+      setFeatEdit(e => { const n = { ...e }; delete n[p.key]; return n; });
+      await onSaved();
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't update"); }
+    finally { setSavingKey(null); }
+  }
   const val = (p, field) => edits[p.key]?.[field] ?? (field === "price" ? p.price : p.label);
   const setVal = (key, field, v) => setEdits(e => ({ ...e, [key]: { ...e[key], [field]: v } }));
   const dirty = (p) => edits[p.key] && (String(val(p, "price")) !== String(p.price) || val(p, "label") !== p.label);
@@ -304,7 +319,7 @@ function PlanCatalogEditor({ plans, onSaved }) {
                 <tr key={`head-${vert}-${cur}`} data-testid={`plan-group-${vert}-${cur.toLowerCase()}`}>
                   <td colSpan={5} className="!py-2.5 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600">{heading}</td>
                 </tr>,
-                ...group.map(p => (
+                ...group.flatMap(p => [
               <tr key={p.key} data-testid={`plan-row-${p.key}`} className={p.hidden ? "opacity-60" : ""}>
                 <td>
                   <input data-testid={`plan-label-${p.key}`} className="input-light w-full min-w-[180px] text-sm" value={val(p, "label")}
@@ -330,11 +345,37 @@ function PlanCatalogEditor({ plans, onSaved }) {
                       className="text-xs px-3 py-1.5 rounded-md bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
                       {savingKey === p.key ? "Saving…" : "Save"}
                     </button>
+                    <button data-testid={`plan-features-toggle-${p.key}`} onClick={() => setOpenKey(k => k === p.key ? null : p.key)} title="What's included & Best value"
+                      className={`text-xs px-2.5 py-1.5 rounded-md border font-semibold ${openKey === p.key ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+                      Included{p.features?.length ? ` · ${p.features.length}` : ""}{p.highlight ? " ★" : ""}
+                    </button>
                     <PlanRowActions p={p} onSaved={onSaved} />
                   </div>
                 </td>
-              </tr>
-                )),
+              </tr>,
+              openKey === p.key && (
+                <tr key={`${p.key}-features`} data-testid={`plan-features-row-${p.key}`}>
+                  <td colSpan={5} className="!py-3 bg-slate-50/70">
+                    <div className="grid lg:grid-cols-[1fr_auto] gap-3 items-start">
+                      <label className="text-[11px] font-semibold text-slate-600">What's included on the pricing card (one per line)
+                        <textarea rows={4} data-testid={`plan-features-input-${p.key}`} className="input-light w-full mt-1 text-sm"
+                          value={featEdit[p.key]?.features ?? (p.features || []).join("\n")}
+                          onChange={e => setFeatEdit(fe => ({ ...fe, [p.key]: { ...fe[p.key], features: e.target.value } }))}
+                          placeholder={"Unlimited bookings\nPOS billing\nWhatsApp reminders"} />
+                      </label>
+                      <div className="flex flex-col gap-2 pt-5">
+                        <label className="flex items-center gap-2 text-xs text-slate-700">
+                          <input type="checkbox" data-testid={`plan-highlight-${p.key}`} checked={featEdit[p.key]?.highlight ?? !!p.highlight}
+                            onChange={e => setFeatEdit(fe => ({ ...fe, [p.key]: { ...fe[p.key], highlight: e.target.checked } }))} /> Mark as “Best value”
+                        </label>
+                        <button data-testid={`plan-features-save-${p.key}`} onClick={() => saveFeatures(p)} disabled={savingKey === p.key}
+                          className="px-4 py-1.5 rounded-md bg-sky-600 text-white text-xs font-bold hover:bg-sky-700 disabled:opacity-50">{savingKey === p.key ? "Saving…" : "Save included"}</button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ),
+                ]),
               ];
             })}
           </tbody>
