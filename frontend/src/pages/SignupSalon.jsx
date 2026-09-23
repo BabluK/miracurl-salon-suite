@@ -5,7 +5,6 @@ import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { Scissors, Sparkles, User, Mail, Lock, MapPin, Phone, Check, ArrowRight, ArrowLeft, Building2, Gift, AlertCircle, Eye, EyeOff, PartyPopper, X } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import BrandMark from "@/components/BrandMark";
 import { SignupHeroPanel, TRUST_BADGES } from "@/components/signup/SignupHeroPanel";
 import ChatButton from "@/components/ChatButton";
 import { useAuth } from "@/context/AuthContext";
@@ -175,8 +174,9 @@ export default function SignupSalon() {
       <ChatButton message="Hi Miracurl ✦ I'm signing up my salon and need a little help." label="Need help?" />
 
       <header className="gold-night-chrome fixed top-0 inset-x-0 z-40 border-b border-[#d4af37]/25 px-5 py-2.5 sm:px-8 flex items-center justify-between" data-testid="signup-header">
-        <div className="hidden sm:block"><BrandMark variant="dark" size="md" /></div>
-        <img src="/assets/ms-logo-ring-dark.png" alt="Miracurl Suite" className="sm:hidden w-10 h-10 object-contain" />
+        <Link to="/" className="inline-flex items-center gap-2 text-sm text-white/70 hover:text-[#e8c56a] transition-colors" data-testid="signup-back-home">
+          <span aria-hidden="true">←</span> Back to home
+        </Link>
         <div className="flex items-center gap-3 shrink-0">
           <span className="hidden sm:inline text-sm text-white/60">Already have an account?</span>
           <Link to="/login" data-testid="signup-have-account"

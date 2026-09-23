@@ -1,4 +1,5 @@
-import { Calendar, Users, Heart, CreditCard, Utensils, ChefHat, QrCode, Receipt, ShieldCheck, Sparkles, XCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Calendar, Users, Heart, CreditCard, Utensils, ChefHat, QrCode, Receipt, ShieldCheck, Sparkles, XCircle, Star, Quote } from "lucide-react";
 import { SidebarMiracurlLogo } from "@/components/MasterBrand";
 import { DashboardAurora } from "@/components/DashboardAurora";
 
@@ -15,6 +16,11 @@ const SALON = {
     [CreditCard, "Luxe POS", "GST invoices, packages & instant pay links"],
   ],
   mira: "Hi! I'm Mira — I'll set up your salon in under 2 minutes ✦",
+  quotes: [
+    { name: "Kavita R.", role: "Owner · Glow Unisex Salon, Bangalore", img: "https://images.pexels.com/photos/17163945/pexels-photo-17163945.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=160&w=160", quote: "Bookings doubled in a month. Mira answers my clients at midnight while I sleep." },
+    { name: "Farhan S.", role: "Unisex Salon · Pune", img: "https://images.pexels.com/photos/8834025/pexels-photo-8834025.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=160&w=160", quote: "GST bills, staff salaries, inventory — I closed three other apps and my notebook." },
+    { name: "Priya Sharma", role: "Owner · Salon & Spa, Bangalore", img: "", quote: "Our revenue grew 40% in 3 months. WhatsApp bookings and staff commissions are pure magic!" },
+  ],
 };
 const RESTO = {
   photo: "/assets/onboarding/restaurant-candle.jpg",
@@ -29,9 +35,37 @@ const RESTO = {
     [Receipt, "Speed Billing", "Split bills, table transfers & register"],
   ],
   mira: "Hi! I'm Mira — I'll get your restaurant live in under 2 minutes ✦",
+  quotes: [
+    { name: "Rohit M.", role: "Owner · Infinity Family Restaurant", img: "", quote: "QR ordering cut our waiter trips in half and the kitchen screen ended the shouting." },
+    { name: "Anita D.", role: "Café & Bakery · Hyderabad", img: "", quote: "Table reservations, KOT and split bills in one place — Sunday rush finally feels calm." },
+    { name: "Sameer K.", role: "Family Dining · Mumbai", img: "", quote: "Daily register closes itself now. I check the numbers on my phone before bed." },
+  ],
 };
 
 export const TRUST_BADGES = [[Sparkles, "30-day free trial"], [ShieldCheck, "No credit card"], [XCircle, "Cancel anytime"]];
+
+function TestimonialCard({ quotes }) {
+  const [i, setI] = useState(0);
+  useEffect(() => { setI(0); const t = setInterval(() => setI(n => (n + 1) % quotes.length), 5200); return () => clearInterval(t); }, [quotes]);
+  const q = quotes[i];
+  return (
+    <div className="relative rounded-2xl p-4 pr-5 bg-gradient-to-br from-[#d4af37]/[.14] to-white/[.03] border border-[#d4af37]/35 backdrop-blur-md overflow-hidden" data-testid="signup-testimonial-card" data-index={i}>
+      <Quote className="absolute -top-1 right-3 w-10 h-10 text-[#d4af37]/25" />
+      <div key={i} className="su-quote-in">
+        <div className="flex gap-0.5 text-[#f6e27a] mb-2">{[0, 1, 2, 3, 4].map(k => <Star key={k} className="w-3.5 h-3.5 fill-current" />)}</div>
+        <p className="font-playfair italic text-[15px] leading-snug text-white/95" data-testid="signup-testimonial-quote">“{q.quote}”</p>
+        <div className="mt-3 flex items-center gap-2.5">
+          {q.img ? <img src={q.img} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-[#d4af37]/60" />
+            : <span className="w-8 h-8 rounded-full bg-[#d4af37]/20 ring-2 ring-[#d4af37]/60 grid place-items-center text-[#f6e27a] text-xs font-bold">{q.name[0]}</span>}
+          <div><div className="text-sm font-semibold text-[#f3e3ae]">{q.name}</div><div className="text-[11px] text-white/60">{q.role}</div></div>
+        </div>
+      </div>
+      <div className="absolute bottom-3 right-4 flex gap-1.5" data-testid="signup-testimonial-dots">
+        {quotes.map((_, k) => <button key={k} type="button" aria-label={`Testimonial ${k + 1}`} onClick={() => setI(k)} className={`h-1.5 rounded-full transition-all ${k === i ? "w-4 bg-[#f6e27a]" : "w-1.5 bg-white/30"}`} />)}
+      </div>
+    </div>
+  );
+}
 
 export function SignupHeroPanel({ resto = false, trialLabel }) {
   const v = resto ? RESTO : SALON;
@@ -72,6 +106,8 @@ export function SignupHeroPanel({ resto = false, trialLabel }) {
             </div>
           ))}
         </div>
+
+        <div className="hidden sm:block"><TestimonialCard quotes={v.quotes} /></div>
 
         <div className="flex flex-wrap gap-2" data-testid="signup-trust-badges">
           {TRUST_BADGES.map(([Icon, t], i) => (
