@@ -14,6 +14,7 @@ from security import current_tenant, log_audit, require_super_admin, require_ten
 from services.campaign_onboarding import CHECKLIST, ONBOARDING_STEPS, agreement_ok, agreement_state, get_onboarding, set_onboarding  # noqa: F401 — re-exported
 from services.rewards_core import _tenant_eligible, _plan_matches, campaign_id_for, get_campaign, get_campaign_for
 from services.tenant_features import FEATURE_KEYS, features_of, support_access_on
+from services.entitlements import entitlements, TIERS, TIER_MODULES, MODULES, COMPETITORS
 from services.tenant_notices import notify_tenant
 
 router = APIRouter()
@@ -55,6 +56,7 @@ async def _features_payload(t: dict) -> dict:
     flags = c.get("tenant_flags") or {}
     return {"tenant_id": t["id"], "name": t.get("name"), "slug": t.get("slug"), **features_of(t),
             "support_access": support_access_on(t),
+            "entitlements": {**entitlements(t), "currency": t.get("currency") or "INR", "plan": t.get("plan")},
             "campaign": {"on": _tenant_eligible(c, t), "manual": flags.get(t["id"]), "plan_ok": _plan_matches(t.get("plan") or "", c.get("eligible_plans") or []),
                          "enabled": bool(c.get("enabled")), "name": c["name"], "id": c["id"]},
             "agreement": await agreement_state(t, c), "onboarding": await get_onboarding(t["id"], c["id"])}
@@ -66,6 +68,15 @@ class FeaturesIn(BaseModel):
     whatsapp: Optional[bool] = None
     campaign: Optional[str] = Field(None, pattern=r"^(on|off|auto)$")
     support_access: Optional[bool] = None  # HQ may open this workspace (default OFF)
+    tier: Optional[str] = Field(None, pattern=r"^(starter|professional|premium|enterprise|auto)$")  # USD entitlement override
+
+
+@router.get("/super-admin/entitlements/matrix")
+async def sa_entitlement_matrix(user=Depends(require_super_admin)):
+    from routes.subscriptions import PLAN_CATALOG, load_plan_overrides
+    await load_plan_overrides()
+    prices = {tier: (PLAN_CATALOG.get(f"intl_{'pro' if tier == 'professional' else tier}_monthly") or {}).get("price") for tier in TIERS}
+    return {"tiers": TIERS, "prices": prices, "modules": MODULES, "tier_modules": TIER_MODULES, "competitors": COMPETITORS}
 
 
 @router.get("/super-admin/tenants/{tid}/features")
@@ -170,6 +181,12 @@ async def sa_put_features(tid: str, body: FeaturesIn, user=Depends(require_super
     sets = {f"features.{k}": bool(getattr(body, k)) for k in FEATURE_KEYS if getattr(body, k) is not None}
     if body.support_access is not None:
         sets["support_access"] = bool(body.support_access)
+    if body.tier is not None:
+        if body.tier == "auto":
+            await _raw_db.tenants.update_one({"id": tid}, {"$unset": {"entitlement_tier": ""}})
+        else:
+            sets["entitlement_tier"] = body.tier
+        await log_audit(tid, {**user, "name": "Miracurl HQ"}, "hq_features", f"Plan features set to {body.tier} by HQ")
     if sets:
         await _raw_db.tenants.update_one({"id": tid}, {"$set": sets})
         await log_audit(tid, {**user, "name": "Miracurl HQ"}, "hq_features",

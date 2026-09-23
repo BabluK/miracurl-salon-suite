@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
+import { PlanTierPanel } from "@/components/superadmin/PlanTierPanel";
 import { toast } from "sonner";
 import { X, MessageSquare, Bot, Megaphone, ShieldCheck, ShieldOff, Loader2, Phone, CheckCircle2, Rocket, PauseCircle, Send, FileSignature } from "lucide-react";
 
@@ -71,6 +72,7 @@ export function TenantFeaturesModal({ tenant, onClose, onChanged }) {
         <p className="text-xs text-slate-500 -mt-1">You decide which paid channels & programmes this salon gets. <b>OFF</b> = hidden in their app and sending blocked. Every switch is written to the salon's audit log.</p>
         {!d ? <div className="py-10 text-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin inline" /></div> : (
           <>
+            <PlanTierPanel ent={d.entitlements} busy={busy} onPick={(t) => put({ tier: t }, "tier")} />
             <div className="grid sm:grid-cols-2 gap-3">
               {[["sms", "SMS", MessageSquare, "Guest receipts, reminders, OTPs (MSG91)"], ["whatsapp", "WhatsApp", Bot, "Mira auto-replies, booking confirmations (Meta)"]].map(([k, l, Icon, sub]) => (
                 <div key={k} className={`rounded-2xl border p-4 flex items-center gap-3 bg-white transition-shadow hover:shadow-md ${d[k] ? "border-emerald-200 shadow-[inset_4px_0_0_#10b981]" : "border-slate-200 shadow-[inset_4px_0_0_#cbd5e1]"}`} data-testid={`feature-row-${k}`}>

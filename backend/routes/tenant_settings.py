@@ -90,7 +90,8 @@ def _scrub_tenant(obj):
 async def get_current_tenant(t=Depends(current_tenant)):
     """The tenant the current authenticated user belongs to (or has switched into)."""
     from services.tenant_features import features_of, support_access_on
-    return {**_scrub_tenant(t), "features": features_of(t), "support_access": support_access_on(t)}
+    from services.entitlements import entitlements
+    return {**_scrub_tenant(t), "features": features_of(t), "support_access": support_access_on(t), "entitlements": entitlements(t)}
 
 
 class TenantGeoIn(BaseModel):

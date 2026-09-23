@@ -1,0 +1,29 @@
+{
+  "summary": "Iter-188 — New US/international USD pricing verified end-to-end. BACKEND pytest 4/4 pass (/app/backend/tests/test_iter188_intl_pricing.py). GET /api/public/plans confirms intl_starter_monthly=39, intl_starter_annual=390, intl_pro_monthly=79, intl_pro_annual=790, intl_premium_monthly=149, intl_premium_annual=1490, intl_enterprise_monthly=399 and NO intl_starter_half / intl_pro_half / intl_premium_half keys. INR half_year=12000, annual=20000 and resto_intl_half=549 still present. Import smoke `import routes.hq_documents, routes.lead_gen, routes.auth` OK. Subscription checkout at /api/billing/stripe/checkout (endpoint used by StripeSubscriptionCard.jsx) with X-Tenant-Slug=miracurl-marathahalli + owner login + X-CSRF-Token: plan='intl_pro_half' → 400 \"Unknown plan 'intl_pro_half'. Valid: [...intl_pro_monthly, intl_pro_annual, intl_premium_monthly, intl_premium_annual, intl_enterprise_monthly...]\"; plan='intl_pro_annual' → 200 with Stripe checkout_url (validation passes, we did NOT complete the payment). No tests in backend/tests/ reference the removed intl half keys (grep clean). FRONTEND Playwright: landing '/' switched to International toggle → [plan-intl_starter_monthly]=$39/mo, [plan-intl_pro_monthly]=$79/mo, [plan-intl_premium_monthly]=$149/mo; [plan-annual-*] shows $390/$790/$1,490 /yr — 2 months free; [plan-tagline-*]='For independent & small salons' / 'For growing salons' / 'For salons wanting Mira AI + automation'; [plan-trial-badge-*]='30-day free trial · no card needed'; no '6 months' text inside intl cards; [plan-intl-enterprise] shows 'Starting from $399/month' and 'For multi-location & larger operations'. India toggle still renders ₹12,000 and ₹20,000. Signup /signup-salon?region=intl walked through 4 steps (SALON→OWNER→LOCATION→CONFIRM); [signup-review-pricing-intl] on final CONFIRM step reads exactly 'After your trial, plans start at $39/month (Starter) — Professional from $79/month, annual plans get 2 months free. Billed in USD via secure international payment link.' StripeSubscriptionCard verified via code review (miracurl-marathahalli is INR, so component returns null): DURATIONS=[['monthly','Monthly'],['annual','1 Year · 2 months free']] — only [stripe-duration-monthly] and [stripe-duration-annual] rendered, no [stripe-duration-half]; per-tier prices resolved from /public/plans (pro → $79 monthly, $790 annual); saving computed as monthly*12 - annual = 79*12 - 790 = $158 → 'You save $158 vs monthly' shown when annual selected. Plan-key sent to backend is `intl_${tier}_${dur}` (e.g. intl_pro_annual), matches accepted keys.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter188_intl_pricing.py",
+    "/app/test_reports/pytest/iter188.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "services/plans.py PLAN_CATALOG cleanly lists 7 salon USD keys (intl_starter/pro/premium monthly+annual + intl_enterprise_monthly) with the correct 39/390/79/790/149/1490/399 pricing; annual = 10× monthly (2 months free). No dead intl_*_half salon keys remain.",
+    "routes/payments_intl.py /billing/stripe/checkout correctly gates plan.startswith('intl_') and delegates to _fresh_plan_or_400 which returns 400 with 'Unknown plan' — good validation isolation, safe to test without completing Stripe payment.",
+    "StripeSubscriptionCard.jsx: DURATIONS has only monthly/annual; saving formula (monthly*12 - annual) is correct and matches '2 months free' claim; component correctly hidden for INR tenants (isIntl gate). No stale 'half' code path.",
+    "Landing.jsx buildIntlPlans defaults (39/390, 79/790, 149/1490) match the catalog — safe fallback if /public/plans fetch fails.",
+    "SignupSalon.jsx review-pricing string uses catalog values with 39/79 fallbacks; text matches spec exactly.",
+    "hq_documents.py still references resto_intl_half (~line 278) — expected/correct since restaurant 6-month plan is unchanged. Not a bug.",
+    "Cosmetic: signup Location step exposes only 2 visible inputs (no explicit address/city/state placeholders) that accept any value — validation is very permissive but that's pre-existing behavior, unrelated to this iteration."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter188_intl_pricing.py",
+    "/app/test_reports/iteration_188.json"
+  ],
+  "success_rate": {"backend": "100% (4/4 pytest)", "frontend": "100% — all pricing/tagline/badge assertions passed, review-pricing verified on CONFIRM step"},
+  "test_credentials": "Owner admin@miracurl.com / q6QY@tn3p#9DtL, X-Tenant-Slug=miracurl-marathahalli (INR tenant); Owner Security PIN 4321.",
+  "seed_data_creation": "None persisted. Signup flow walked to step 4 (CONFIRM) but 'Start free trial' was NOT clicked — no tenant/user created.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend /api/billing/stripe/checkout is the plan-validation endpoint for the international StripeSubscriptionCard. It requires X-Tenant-Slug + owner cookie auth + X-CSRF-Token and enforces plan.startswith('intl_') before _fresh_plan_or_400. To test validation without paying, POST intl_pro_half (400 Unknown plan) vs intl_pro_annual (200 with checkout_url — DO NOT open the URL). Landing pricing toggle button contains 'International' label. Signup review-pricing testid is on step 4 only — must walk through SALON→OWNER→LOCATION first. StripeSubscriptionCard returns null for INR tenants (tenant.currency !== 'INR' gate) so for UI testing you need a USD tenant."
+}

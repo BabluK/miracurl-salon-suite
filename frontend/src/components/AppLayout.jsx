@@ -9,6 +9,7 @@ import {
 import { ManagerLockScreen } from "./ManagerLockScreen";
 import { RoleBadge } from "./RoleBadge";
 import { AdminLockScreen } from "./AdminLockScreen";
+import { UpgradeGate } from "@/components/UpgradeGate";
 import { FloatingPlayer } from "@/components/FloatingPlayer";
 import BranchSwitcher from "./BranchSwitcher";
 import SalonSwitcher from "./SalonSwitcher";
@@ -102,6 +103,8 @@ export default function AppLayout() {
         .flatMap(i => i.to === "/pos" ? [{ to: "/kitchen", label: "Kitchen", icon: ChefHat, testid: "nav-kitchen" }, i] : [i])]
     : NAV_BASE;
   const current = NAV.find(n => loc.pathname.startsWith(n.to));
+  const lockedModules = tenant?.entitlements?.locked || [];
+  const planLocked = lockedModules.find((m) => loc.pathname === `/${m}` || loc.pathname.startsWith(`/${m}/`));
 
   // Manager Admin-PIN gate: sensitive sections render a lock screen until unlocked this session
   const [, setUnlockTick] = useState(0);
@@ -191,7 +194,9 @@ export default function AppLayout() {
             >
               <item.icon className="w-4 h-4 flex-shrink-0" />
               <span>{item.label}</span>
-              {user?.role === "manager" && MANAGER_LOCKED.includes(item.to) && (
+              {lockedModules.includes(item.to.slice(1)) ? (
+                <Lock className="w-3 h-3 ml-auto text-white/35" data-testid={`nav-plan-lock-${item.to.slice(1)}`} title="Not in your plan — upgrade to unlock" />
+              ) : user?.role === "manager" && MANAGER_LOCKED.includes(item.to) && (
                 <Lock className="w-3 h-3 ml-auto text-amber-400/70" data-testid={`nav-lock-${item.to.slice(1)}`} />
               )}
               {item.to === "/messages" && chatUnread > 0 && (
@@ -315,7 +320,9 @@ export default function AppLayout() {
           data-testid="main-content"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5.5rem)" }}
         >
-          {isLockedNow ? (
+          {planLocked ? (
+            <UpgradeGate label={NAV.find((i) => i.to === `/${planLocked}`)?.label || "This section"} tier={tenant?.entitlements?.tier} module={planLocked} />
+          ) : isLockedNow ? (
             user?.role === "admin" ? (
               <AdminLockScreen key={lockedPath} path={lockedPath}
                 label={NAV.find((i) => i.to === lockedPath)?.label || "This section"}
