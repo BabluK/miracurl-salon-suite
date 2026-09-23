@@ -1622,7 +1622,7 @@ FOLLOWUP_AFTER_DAYS = 5
 _FOLLOWUP_PLAN_KEYS = {
     ("restaurant", True): ("resto_intl_half", "resto_intl_annual"),
     ("restaurant", False): ("resto_half", "resto_annual"),
-    ("salon", True): ("intl_pro_half", "intl_pro_annual"),
+    ("salon", True): ("intl_pro_monthly", "intl_pro_annual"),
     ("salon", False): ("half_year", "annual"),
 }
 _FOLLOWUP_PITCH = {
@@ -1633,14 +1633,14 @@ _FOLLOWUP_PITCH = {
 }
 
 
-def _followup_price_line(plans: dict, half_key: str, annual_key: str, intl: bool) -> str:
-    half = int((plans.get(half_key) or {}).get("price") or 0)
+def _followup_price_line(plans: dict, first_key: str, annual_key: str, intl: bool) -> str:
+    first = int((plans.get(first_key) or {}).get("price") or 0)
     annual = int((plans.get(annual_key) or {}).get("price") or 0)
-    if not (half and annual):
+    if not (first and annual):
         return ""
-    sym = "$" if intl else "Rs."
-    return (f" from just {sym}{half:,} for 6 months (best value: {sym}{annual:,}/year"
-            + ("" if intl else ", multi-branch discounts available") + ")")
+    if intl:
+        return f" from just ${first:,}/month (best value: ${annual:,}/year — 2 months free)"
+    return f" from just Rs.{first:,} for 6 months (best value: Rs.{annual:,}/year, multi-branch discounts available)"
 
 
 def _followup_email(lead: dict, plans: dict) -> tuple:

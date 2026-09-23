@@ -248,7 +248,6 @@ def _usd_tier_row(tier: str, key: str, usd: dict) -> str:
     mo = (usd.get(f"{key}_monthly") or {}).get("price")
     if not mo:
         return ""
-    half = (usd.get(f"{key}_half") or {}).get("price")
     yr = (usd.get(f"{key}_annual") or {}).get("price")
     tier_key = "premium" if "Premium" in tier else tier.lower()
     return f"""
@@ -256,7 +255,7 @@ def _usd_tier_row(tier: str, key: str, usd: dict) -> str:
           <td style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:13.5px;color:#33333b"><b>{tier}</b>
             <div style="font-size:11px;color:#9a948a">{_INTL_TIER_FEATURES.get(tier_key, '')}</div></td>
           <td align="right" style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:15px;color:#1d1d24"><b>${round(mo):,}/mo</b>
-            <div style="font-size:11px;color:#9a948a">6&nbsp;months ${round(half or mo * 6):,} · 1&nbsp;year ${round(yr or mo * 12):,}</div></td>
+            <div style="font-size:11px;color:#9a948a">or ${round(yr or mo * 10):,}/year — 2&nbsp;months free · 30-day free trial</div></td>
         </tr>"""
 
 

@@ -590,7 +590,7 @@ function ReviewStep({ form, previewUrl, catalog, isIntl }) {
         {isIntl && isResto ? (
           <span data-testid="signup-review-pricing-resto-intl">After your free month, choose {fmtUSD(catalog?.resto_intl_quarter?.price ?? 299)} / 3 months, {fmtUSD(catalog?.resto_intl_half?.price ?? 549)} / 6 months or {fmtUSD(catalog?.resto_intl_annual?.price ?? 999)} / year — billed in USD via secure international payment link.</span>
         ) : isIntl ? (
-          <span data-testid="signup-review-pricing-intl">After your trial, plans start at {fmtUSD(catalog?.intl_starter_monthly?.price ?? 79)}/month (Starter) — Professional from {fmtUSD(catalog?.intl_pro_monthly?.price ?? 149)}/month. Billed in USD via secure international payment link.</span>
+          <span data-testid="signup-review-pricing-intl">After your trial, plans start at {fmtUSD(catalog?.intl_starter_monthly?.price ?? 39)}/month (Starter) — Professional from {fmtUSD(catalog?.intl_pro_monthly?.price ?? 79)}/month, annual plans get 2 months free. Billed in USD via secure international payment link.</span>
         ) : isResto ? (
           <span data-testid="signup-review-pricing-resto">After your free month, choose ₹{Number(catalog?.resto_quarter?.price ?? 3000).toLocaleString("en-IN")} / 3 months, ₹{Number(catalog?.resto_half?.price ?? 6000).toLocaleString("en-IN")} / 6 months or ₹{Number(catalog?.resto_annual?.price ?? 12000).toLocaleString("en-IN")} / 1 year. We&apos;ll send payment instructions via WhatsApp before it ends.</span>
         ) : (

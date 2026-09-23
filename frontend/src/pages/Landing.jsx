@@ -53,25 +53,22 @@ const kINR = (n) => "₹" + Math.round(n / 1000) + "k";
 const fmtUSD = (n) => "$" + Number(n).toLocaleString("en-US");
 
 const INTL_TIERS = [
-  { tier: "starter", title: "Starter", primary: false,
+  { tier: "starter", title: "Starter", tagline: "For independent & small salons", primary: false,
     items: ["Online booking & CRM", "POS billing", "WhatsApp reminders", "Email support"] },
-  { tier: "professional", title: "Professional", primary: true,
+  { tier: "professional", title: "Professional", tagline: "For growing salons", primary: true,
     items: ["Everything in Starter", "Inventory & vendors", "Staff payroll & commissions", "Analytics & reports", "Multi-staff accounts"] },
-  { tier: "premium", title: "Premium AI", primary: false,
+  { tier: "premium", title: "Premium AI", tagline: "For salons wanting Mira AI + automation", primary: false,
     items: ["Everything in Professional", "Mira AI receptionist", "AI marketing studio", "Review automation", "Staff verification registry"] },
 ];
 
 function buildIntlPlans(c) {
   const price = (key, fallback) => c?.[key]?.price ?? fallback;
-  const defaults = { starter: [79, 399, 699], professional: [149, 799, 1399], premium: [249, 1299, 2399] };
+  const defaults = { starter: [39, 390], professional: [79, 790], premium: [149, 1490] };
   const keys = { starter: "intl_starter", professional: "intl_pro", premium: "intl_premium" };
   return INTL_TIERS.map(t => {
-    const [m, h, a] = defaults[t.tier];
+    const [m, a] = defaults[t.tier];
     const k = keys[t.tier];
-    return {
-      ...t, key: `${k}_monthly`,
-      monthly: price(`${k}_monthly`, m), half: price(`${k}_half`, h), annual: price(`${k}_annual`, a),
-    };
+    return { ...t, key: `${k}_monthly`, monthly: price(`${k}_monthly`, m), annual: price(`${k}_annual`, a) };
   });
 }
 
@@ -658,13 +655,16 @@ export default function Landing({ scrollTo }) {
                    : "border-white/10 hover:border-white/25"}`}>
               {p.primary && <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-[#DFB78C] text-[#050505] text-[10px] uppercase tracking-widest font-bold">Most popular</div>}
               <div className="text-xs uppercase tracking-[0.2em] text-white/40 font-semibold">{p.title}</div>
+              <div className="text-xs text-white/55 mt-1" data-testid={`plan-tagline-${p.key}`}>{p.tagline}</div>
               <div className="mt-4 flex items-end gap-2">
                 <span className="text-4xl font-bold font-playfair text-[#DFB78C]">{fmtUSD(p.monthly)}</span>
                 <span className="text-sm text-white/40 mb-1.5">/mo</span>
               </div>
-              <div className="text-xs text-white/40 mt-2 space-y-0.5">
-                <div>6 months: <b className="text-white/80">{fmtUSD(p.half)}</b> <span className="text-emerald-400">save {fmtUSD(p.monthly * 6 - p.half)}</span></div>
-                <div>1 year: <b className="text-white/80">{fmtUSD(p.annual)}</b> <span className="text-emerald-400">save {fmtUSD(p.monthly * 12 - p.annual)}</span></div>
+              <div className="text-xs text-white/40 mt-2" data-testid={`plan-annual-${p.key}`}>
+                or <b className="text-white/80">{fmtUSD(p.annual)}/yr</b> <span className="text-emerald-400">— 2 months free</span>
+              </div>
+              <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-400/10 border border-emerald-400/25 text-[11px] text-emerald-300 font-medium" data-testid={`plan-trial-badge-${p.key}`}>
+                <Check className="w-3 h-3" /> 30-day free trial · no card needed
               </div>
               <ul className="mt-6 space-y-2.5">
                 {p.items.map(i => (
@@ -687,8 +687,9 @@ export default function Landing({ scrollTo }) {
             <div className="flex-1">
               <p className="text-[11px] uppercase tracking-[3px] text-[#DFB78C]/80 font-semibold">Managing 5+ branches?</p>
               <h3 className="mt-1.5 text-xl sm:text-2xl font-semibold text-white">Enterprise for Multi-Branch Chains</h3>
+              <p className="text-xs text-white/50 mt-1">For multi-location & larger operations</p>
               <p className="text-sm text-white/60 mt-1.5">
-                Starting from <b className="text-[#DFB78C]">{fmtUSD(catalog?.intl_enterprise_monthly?.price ?? 499)}/month</b> — or custom annual contracts tailored to your chain.
+                Starting from <b className="text-[#DFB78C]">{fmtUSD(catalog?.intl_enterprise_monthly?.price ?? 399)}/month</b> — or custom annual contracts tailored to your chain.
               </p>
               <ul className="mt-4 grid sm:grid-cols-3 gap-2.5">
                 {["Centralized bookings & billing", "AI marketing on autopilot", "Unlimited staff & branches"].map(f => (

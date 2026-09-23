@@ -7,7 +7,7 @@ import { trackPurchase } from "@/lib/analytics";
 
 const fmtUSD = (n) => "$" + Number(n).toLocaleString("en-US");
 const TIERS = [["starter", "Starter"], ["pro", "Professional"], ["premium", "Premium AI"]];
-const DURATIONS = [["monthly", "Monthly"], ["half", "6 Months"], ["annual", "1 Year"]];
+const DURATIONS = [["monthly", "Monthly"], ["annual", "1 Year · 2 months free"]];
 
 export function StripeSubscriptionCard() {
   const { tenant, refresh } = useAuth();
@@ -64,7 +64,7 @@ export function StripeSubscriptionCard() {
   const chosen = plans?.find(p => p.key === key);
   const monthly = plans?.find(p => p.key === `intl_${tier}_monthly`);
   const saving = chosen && monthly && dur !== "monthly"
-    ? monthly.price * (dur === "half" ? 6 : 12) - chosen.price : 0;
+    ? monthly.price * 12 - chosen.price : 0;
 
   async function pay() {
     if (!chosen) return;
@@ -108,7 +108,7 @@ export function StripeSubscriptionCard() {
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mt-4">
+      <div className="grid grid-cols-2 gap-3 mt-4">
         {DURATIONS.map(([k, l]) => {
           const p = plans?.find(x => x.key === `intl_${tier}_${k}`);
           return (
