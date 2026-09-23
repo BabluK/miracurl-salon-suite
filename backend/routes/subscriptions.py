@@ -361,27 +361,42 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
     if branch_ids and t["id"] not in branch_ids:
         raise HTTPException(400, "The salon you're paying from must be one of the selected branches.")
 
-    credits = float(t.get("affiliate_credits") or 0)
+    currency = (plan.get("currency") or "INR").upper()
     price = float(plan["price"])
-    net = max(price - credits, 1)  # Razorpay min amount is ₹1 (100 paise)
-    credits_used = round(price - net, 2) if credits > 0 else 0.0
-    from services.hq_tax import get_profile, tax_breakdown
-    tax = tax_breakdown(net, await get_profile())
-    payable = tax["total"]  # GST added on top — HQ profile (Super Admin → Billing & Tax)
+    if currency == "USD":
+        # International plans: charged in USD via Razorpay International (export of service — no GST,
+        # INR affiliate credits are not applied to dollar invoices).
+        credits_used, payable = 0.0, price
+        tax = {"subtotal": price, "gst_rate_pct": 0, "gst": 0.0, "total": price, "gstin": "", "export": True}
+    else:
+        credits = float(t.get("affiliate_credits") or 0)
+        net = max(price - credits, 1)  # Razorpay min amount is ₹1 (100 paise)
+        credits_used = round(price - net, 2) if credits > 0 else 0.0
+        from services.hq_tax import get_profile, tax_breakdown
+        tax = tax_breakdown(net, await get_profile())
+        payable = tax["total"]  # GST added on top — HQ profile (Super Admin → Billing & Tax)
 
     receipt = f"tnt_{t['slug'][:20]}_{int(datetime.now(timezone.utc).timestamp())}"[:40]
-    order = rzp.order.create({
-        "amount": int(round(payable * 100)),  # paise
-        "currency": "INR",
-        "receipt": receipt,
-        "notes": {
-            "tenant_id": t["id"],
-            "tenant_slug": t["slug"],
-            "plan": body.plan,
-            "credits_applied_inr": str(credits_used),
-            "gst_pct": str(tax["gst_rate_pct"]), "gst_inr": str(tax["gst"]), "gstin": tax["gstin"],
-        },
-    })
+    try:
+        order = rzp.order.create({
+            "amount": int(round(payable * 100)),  # paise / cents
+            "currency": currency,
+            "receipt": receipt,
+            "notes": {
+                "tenant_id": t["id"],
+                "tenant_slug": t["slug"],
+                "plan": body.plan,
+                "currency": currency,
+                "credits_applied_inr": str(credits_used),
+                "gst_pct": str(tax["gst_rate_pct"]), "gst_inr": str(tax["gst"]), "gstin": tax["gstin"],
+            },
+        })
+    except Exception as e:  # razorpay.errors.* — surface the gateway's reason instead of a 500
+        msg = str(e)
+        if currency != "INR" and "maximum amount" in msg.lower():
+            msg = (f"Razorpay declined this ${payable:,.0f} charge — it is above the international per-transaction limit on the "
+                   "Miracurl Razorpay account. Please choose a monthly plan for now, or contact support to raise the limit.")
+        raise HTTPException(400, msg)
     # Track pending order server-side so we can reconcile on verify
     await db.subscription_payments.insert_one({
         "id": str(uuid.uuid4()),
@@ -390,7 +405,7 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
         "tenant_id": t["id"],
         "plan": body.plan,
         "branch_tenant_ids": branch_ids or None,
-        "amount": payable, "tax": tax,
+        "amount": payable, "tax": tax, "currency": currency,
         "credits_applied": credits_used,
         "status": "created",
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -404,6 +419,7 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
         "credits_applied": credits_used,
         "payable_inr": payable,
         "full_price_inr": price,
+        "payable": payable,
         "tax": tax,
     }
 
@@ -589,11 +605,13 @@ async def _activate_pending_order(pending_doc: dict, payment_id: str, t: dict, r
         recorded_by=recorded_by,
         notes=f"Order {pending_doc['razorpay_order_id']}",
         tax=pending_doc.get("tax"),
+        currency=(pending_doc.get("currency") or "INR").upper(),
     ).model_dump()
     await db.subscription_payments.insert_one(pay)
     await _record_partner_commission(t, pay)
     pay.pop("_id", None)
-    await issue_subscription_kit(pay, sub, credits_applied=float(pending_doc.get("credits_applied") or 0),
+    await issue_subscription_kit(pay, sub, currency=pay["currency"],
+                                 credits_applied=float(pending_doc.get("credits_applied") or 0),
                                  branches=len(target_tids))
 
     if pending_doc.get("credits_applied", 0) > 0:
@@ -1590,6 +1608,8 @@ async def sms_credit_history(user=Depends(require_super_admin)):
 
 async def _record_partner_commission(t: dict, pay: dict) -> None:
     """Partner Program: 20% recurring commission to the referrer for the tenant's first 12 months."""
+    if (pay.get("currency") or "INR").upper() != "INR":
+        return  # commissions are an INR wallet — USD (Razorpay International) payments don't feed it
     from database import _raw_db as _rdb
     ref_edge = await _rdb.affiliate_referrals.find_one({"referred_tenant_id": t["id"]})
     if not (ref_edge and ref_edge.get("referrer_tenant_id")):

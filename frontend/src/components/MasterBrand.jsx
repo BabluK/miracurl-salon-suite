@@ -1,24 +1,18 @@
-import { Sparkles } from "lucide-react";
-
-// Miracurl master brand — shown to every tenant (salon or restaurant) above their own brand mark.
-export function SidebarMiracurlLogo() {
+// Miracurl master brand — shown to every tenant (salon or restaurant) at the top of the sidebar.
+export function SidebarMiracurlLogo({ resto = false }) {
   return (
-    <div className="flex items-center gap-2.5 select-none" data-testid="sidebar-miracurl-logo-block">
-      <img src="/assets/ms-logo-ring.png" alt="Miracurl Suite" draggable="false" className="ms-brand-ring w-10 h-10 object-contain shrink-0" />
-      <div className="leading-none min-w-0">
-        <div className="font-playfair text-[15px] tracking-[0.05em] font-semibold gold-shine-text whitespace-nowrap">MIRACURL <span className="tracking-[0.12em]">SUITE</span></div>
-        <div className="text-[7.5px] tracking-[0.26em] uppercase text-white/40 mt-1">AI-Powered Business Platform</div>
-      </div>
+    <div className="flex flex-col items-center select-none w-full" data-testid="sidebar-miracurl-logo-block">
+      <img src="/assets/brand/gold-lockup-stacked.png" alt="Miracurl Suite — Smart Salon Management Software" draggable="false"
+        className="w-full max-w-[210px] h-auto object-contain drop-shadow-[0_8px_26px_rgba(212,175,55,0.35)]" />
+      {resto && <div className="text-[8px] tracking-[0.28em] uppercase text-[#e8c56a]/80 mt-1" data-testid="sidebar-miracurl-tagline">Restaurant Edition</div>}
     </div>
   );
 }
 
-export function PoweredByMiracurl({ testid, className = "" }) {
+export function SidebarScriptTagline({ resto = false }) {
   return (
-    <a href="https://miracurl-suite.com" target="_blank" rel="noreferrer" data-testid={testid}
-      className={`powered-pill inline-flex items-center gap-1.5 rounded-full border border-[#d4af37]/30 bg-[#d4af37]/10 text-[#e8c56a] px-2.5 py-1 text-[10.5px] font-medium tracking-wide whitespace-nowrap ${className}`}>
-      <Sparkles className="w-3 h-3" strokeWidth={2} />
-      <span>Powered by <span className="font-semibold">Miracurl</span></span>
-    </a>
+    <div className="sidebar-tagline text-[22px] leading-[1.05] text-center select-none" data-testid="sidebar-script-tagline">
+      {resto ? <>Serve Smarter<br />Everyday ♡</> : <>Salon Smarter<br />Everyday ♡</>}
+    </div>
   );
 }

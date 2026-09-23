@@ -22,7 +22,7 @@ import { GuestReceiptsCard } from "@/components/settings/GuestReceiptsCard";
 import { BranchLocationsCard } from "@/components/settings/BranchLocationsCard";
 import { AccountProfileCard } from "@/components/settings/AccountProfileCard";
 import { GiftCardsCard } from "@/components/settings/GiftCardsCard";
-import { StripeSubscriptionCard } from "@/components/settings/StripeSubscriptionCard";
+import { IntlSubscriptionCard } from "@/components/settings/IntlSubscriptionCard";
 import { VendorsCard } from "@/components/settings/VendorsCard";
 import { BirthdayCard } from "@/components/settings/BirthdayCard";
 import { AttendanceFinesCard } from "@/components/settings/AttendanceFinesCard";
@@ -112,7 +112,7 @@ export default function Settings() {
             <Lazy eager={eager}><RateMiracurlCard /></Lazy>
             <Lazy eager={eager}><div className="mt-6"><BirthdayCard /></div></Lazy>
             <Lazy eager={eager}><AffiliateCard /></Lazy>
-            <Lazy eager={eager}><StripeSubscriptionCard /></Lazy>
+            <Lazy eager={eager}><IntlSubscriptionCard /></Lazy>
             <Lazy eager={eager}><RazorpayCard /></Lazy>
             <Lazy eager={eager}><PaymentsInvoicesCard /></Lazy>
             <Lazy eager={eager}><AccountProfileCard tenant={tenant} /></Lazy>

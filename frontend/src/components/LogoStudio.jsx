@@ -69,41 +69,41 @@ export const LogoStudio = () => {
   }
 
   return (
-    <div className="relative overflow-hidden dash-cream-card rounded-3xl p-6 text-slate-800" data-testid="logo-studio">
+    <div className="relative overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-[#1b1533] via-[#241a45] to-[#141126] p-6 text-white" data-testid="logo-studio">
       {/* sparkle field */}
       {[["8%", "18%", "0s"], ["22%", "70%", "0.7s"], ["45%", "12%", "1.3s"], ["68%", "80%", "0.4s"], ["85%", "30%", "1.8s"], ["60%", "50%", "2.3s"]].map(([l, t, d]) => (
-        <Sparkles key={`${l}-${t}`} className="sparkle-twinkle absolute w-4 h-4 text-[#c99a2e] pointer-events-none" style={{ left: l, top: t, animationDelay: d }} />
+        <Sparkles key={`${l}-${t}`} className="sparkle-twinkle absolute w-4 h-4 text-amber-300/80 pointer-events-none" style={{ left: l, top: t, animationDelay: d }} />
       ))}
       <div className="relative flex flex-col lg:flex-row lg:items-center gap-6">
         <div className="flex-1">
-          <div className="text-[10px] uppercase tracking-[0.3em] text-[#b8892a] flex items-center gap-2">
+          <div className="text-[10px] uppercase tracking-[0.3em] text-amber-300 flex items-center gap-2">
             <Sparkles className="w-3.5 h-3.5" /> AI Brand Studio
           </div>
           <h2 className="font-playfair text-2xl mt-1">Create your {resto ? "restaurant" : "salon"} logo</h2>
-          <p className="text-sm text-slate-500 mt-1 max-w-md">Generate a signature logo with AI or upload your own — it appears in your dashboard header and on your public booking page.</p>
+          <p className="text-sm text-white/60 mt-1 max-w-md">Generate a signature logo with AI or upload your own — it appears in your dashboard header and on your public booking page.</p>
           <div className="flex flex-wrap gap-2 mt-4">
             {styleList.map(s => (
               <button key={s} data-testid={`logo-style-${s.split(" ")[0].toLowerCase()}`} onClick={() => setStyle(s)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${style === s ? "bg-[#f7e7b8] text-[#6b4f12] border-[#e8c56a]" : "bg-white/80 border-amber-100 text-slate-600 hover:border-amber-300/60"}`}>
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${style === s ? "bg-amber-300 text-slate-900 border-amber-300" : "bg-white/5 border-white/20 text-white/70 hover:border-amber-300/60"}`}>
                 {s}
               </button>
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-2.5 mt-4">
             <button data-testid="logo-generate-btn" onClick={generate} disabled={generating}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm font-semibold hover:brightness-110 transition disabled:opacity-60">
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-amber-300 text-slate-900 text-sm font-semibold hover:bg-amber-200 transition disabled:opacity-60">
               {generating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
               {generating ? "Designing… ~20s" : preview ? "Regenerate" : "Generate with AI"}
             </button>
             <button data-testid="logo-upload-btn" onClick={() => fileRef.current?.click()}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/80 border border-amber-100 text-sm hover:bg-amber-50 transition">
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/10 border border-white/20 text-sm hover:bg-white/20 transition">
               <Upload className="w-4 h-4" /> Upload own
             </button>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={upload} />
             {currentLogo && (
               <button data-testid="logo-blend-btn" onClick={mirablend} disabled={blending}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-[#fbf0d2] to-[#f7e7b8] border border-[#e8c56a] text-sm text-[#6b4f12] hover:brightness-125 transition disabled:opacity-60">
-                {blending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-[#b8892a]" />}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-r from-fuchsia-500/30 to-amber-400/30 border border-amber-300/40 text-sm hover:brightness-125 transition disabled:opacity-60">
+                {blending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-amber-300" />}
                 {blending ? "Mira is blending…" : "✨ Mira: Merge with background"}
               </button>
             )}
@@ -112,14 +112,14 @@ export const LogoStudio = () => {
         <div className="flex items-center gap-5 shrink-0">
           {currentLogo && !preview && (
             <div className="text-center">
-              <img src={fullUrl(currentLogo)} alt="Current logo" className="w-28 h-28 rounded-2xl object-contain bg-white p-1.5 border-2 border-amber-300/50 mx-auto" data-testid="logo-current-img" />
-              <div className="text-[10px] uppercase tracking-widest text-slate-500 mt-2">Current logo</div>
+              <img src={fullUrl(currentLogo)} alt="Current logo" className="w-28 h-28 rounded-2xl object-contain bg-[#17141c] p-1.5 border-2 border-amber-300/50 mx-auto" data-testid="logo-current-img" />
+              <div className="text-[10px] uppercase tracking-widest text-white/50 mt-2">Current logo</div>
               <button data-testid="logo-remove-btn" onClick={() => apply("")} className="mt-1 text-[11px] text-red-300 hover:text-red-200 inline-flex items-center gap-1"><Trash2 className="w-3 h-3" /> Remove</button>
             </div>
           )}
           {preview && (
             <div className="text-center">
-              <img src={fullUrl(preview)} alt="Logo preview" className="w-36 h-36 rounded-2xl object-contain bg-white p-1.5 border-2 border-amber-300 shadow-[0_0_30px_rgba(252,211,77,0.35)] mx-auto" data-testid="logo-preview-img" />
+              <img src={fullUrl(preview)} alt="Logo preview" className="w-36 h-36 rounded-2xl object-contain bg-[#17141c] p-1.5 border-2 border-amber-300 shadow-[0_0_30px_rgba(252,211,77,0.35)] mx-auto" data-testid="logo-preview-img" />
               <button data-testid="logo-apply-btn" onClick={() => apply(preview)} disabled={applying}
                 className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-400 text-slate-900 text-xs font-bold hover:bg-emerald-300 transition disabled:opacity-60">
                 <Check className="w-3.5 h-3.5" /> {applying ? "Applying…" : "Apply as my logo"}

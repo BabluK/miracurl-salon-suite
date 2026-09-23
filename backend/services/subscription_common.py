@@ -43,6 +43,7 @@ class SubscriptionPayment(BaseModel):
     recorded_by: Optional[str] = None  # super-admin user id
     notes: Optional[str] = None
     tax: Optional[dict] = None
+    currency: str = "INR"
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 

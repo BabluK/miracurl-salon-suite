@@ -28,7 +28,7 @@ export function CircleBonusCard({ slug }) {
   };
 
   return (
-    <div className="dash-cream-card rounded-3xl p-5" data-testid="circle-bonus-card">
+    <div className="rounded-2xl border border-amber-200/30 bg-gradient-to-br from-amber-50 to-rose-50 p-5" data-testid="circle-bonus-card">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
           <Gem className="w-4 h-4 text-amber-600" /> Miracurl Circle ✦ referral bonus

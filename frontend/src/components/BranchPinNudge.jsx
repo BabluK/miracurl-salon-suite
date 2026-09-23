@@ -85,7 +85,7 @@ export function BranchPinNudge() {
   if (hidden || !items || items.length === 0) return null;
 
   return (
-    <div className="dash-cream-card rounded-3xl p-4 sm:p-5 flex gap-3" data-testid="branch-pin-nudge">
+    <div className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 p-4 flex gap-3" data-testid="branch-pin-nudge">
       <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0"><MapPin className="w-5 h-5 text-amber-600" /></div>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold text-amber-900">{items.length === 1 ? "1 location has no GPS pin" : `${items.length} locations have no GPS pin`}</div>

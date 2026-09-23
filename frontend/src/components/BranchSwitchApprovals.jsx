@@ -28,7 +28,7 @@ export function BranchSwitchApprovals() {
   }
 
   return (
-    <div className="dash-cream-card rounded-3xl p-4 sm:p-5" data-testid="branch-switch-approvals">
+    <div className="rounded-2xl border border-amber-300 bg-amber-50/70 p-4" data-testid="branch-switch-approvals">
       <div className="flex items-center gap-2 text-sm font-semibold text-amber-800">
         <GitBranch className="w-4 h-4" /> Branch switch approvals waiting
       </div>

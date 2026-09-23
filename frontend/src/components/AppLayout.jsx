@@ -15,9 +15,8 @@ import BranchSwitcher from "./BranchSwitcher";
 import SalonSwitcher from "./SalonSwitcher";
 import api from "@/lib/api";
 import { useEffect, useState } from "react";
-import BrandMark from "./BrandMark";
-import TenantBrandMark from "./TenantBrandMark";
-import { SidebarMiracurlLogo, PoweredByMiracurl } from "./MasterBrand";
+import { SidebarMiracurlLogo, SidebarScriptTagline } from "./MasterBrand";
+import { GoldSparkles } from "./GoldSparkles";
 import { TenantMiraAssistant } from "./TenantMiraAssistant";
 import InstallAppPrompt from "./InstallAppPrompt";
 import GeoBranchGate from "./GeoBranchGate";
@@ -169,24 +168,21 @@ export default function AppLayout() {
       {/* Sidebar — hidden on mobile by default, slides in when opened */}
       <aside
         data-testid="app-sidebar"
-        className={`fixed top-0 left-0 z-50 h-screen w-[80%] max-w-[280px] lg:w-64 bg-[#0A0A0A] border-r border-white/5 flex flex-col transform transition-transform duration-300 ease-out lg:translate-x-0 ${
+        className={`gold-night-chrome fixed top-0 left-0 z-50 h-screen w-[80%] max-w-[280px] lg:w-64 border-r border-[#d4af37]/15 flex flex-col transform transition-transform duration-300 ease-out lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
-        <div className="px-5 pt-4 pb-3 border-b border-white/5 flex items-center justify-between">
-          <SidebarMiracurlLogo />
+        <div className="relative px-3.5 pt-5 pb-3">
+          <SidebarMiracurlLogo resto={(tenant || brandTenant)?.business_type === "restaurant"} />
           <button
-            className="lg:hidden text-white/60 hover:text-white p-1"
+            className="lg:hidden absolute top-3 right-3 text-white/60 hover:text-white p-1"
             onClick={() => setSidebarOpen(false)}
             data-testid="sidebar-close-btn"
             aria-label="Close menu"
           >
             <X className="w-5 h-5" />
           </button>
-        </div>
-        <div className="p-5 border-b border-white/5" data-testid="sidebar-tenant-name-under-logo">
-          {(tenant || brandTenant) ? <TenantBrandMark tenant={tenant || brandTenant} /> : <BrandMark variant="dark" size="xs" />}
         </div>
 
         <nav className="flex-1 py-4 overflow-y-auto" data-testid="sidebar-nav">
@@ -219,7 +215,7 @@ export default function AppLayout() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-white/5 space-y-2" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}>
+        <div className="p-4 border-t border-[#d4af37]/15 space-y-3" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}>
           <button
             data-testid="logout-btn"
             onClick={async () => { await logout(); nav("/login"); }}
@@ -228,7 +224,7 @@ export default function AppLayout() {
             <LogOut className="w-4 h-4" />
             Sign Out
           </button>
-          <div className="flex justify-center pt-1"><PoweredByMiracurl testid="sidebar-footer-powered-by-miracurl" /></div>
+          <SidebarScriptTagline resto={(tenant || brandTenant)?.business_type === "restaurant"} />
         </div>
       </aside>
 
@@ -236,9 +232,10 @@ export default function AppLayout() {
       <div className="flex-1 lg:ml-64 flex flex-col min-w-0 overflow-x-clip">
         {/* Top bar */}
         <header
-          className="sticky top-0 z-30 h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between bg-gradient-to-r from-[#0A0A0A] via-[#151210] to-[#0A0A0A] backdrop-blur-xl border-b border-gold/20"
+          className="gold-night-chrome sticky top-0 z-30 h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between border-b border-gold/20"
           style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
         >
+          <GoldSparkles count={16} stars={4} bokeh={4} seed={11} className="-z-10" />
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {/* Hamburger — only visible on mobile/tablet */}
             <button
@@ -249,11 +246,11 @@ export default function AppLayout() {
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="min-w-0 flex items-center gap-3">
-              <div className="font-playfair text-base sm:text-lg leading-none truncate">
+            <div className="min-w-0">
+              <div className="font-playfair text-lg sm:text-2xl leading-none truncate text-white" data-testid="topbar-page-title">
                 {current?.label || tenant?.name || "Dashboard"}
               </div>
-              <PoweredByMiracurl testid="topbar-powered-by-miracurl" className="hidden md:inline-flex" />
+              <div className="hidden sm:block text-[9px] tracking-[0.32em] uppercase text-white/55 mt-1.5" data-testid="topbar-tagline">Manage · Automate · Grow</div>
             </div>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-4 min-w-0">

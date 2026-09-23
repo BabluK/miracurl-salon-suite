@@ -28,7 +28,7 @@ export const TrialNudgeBanner = () => {
   const daysText = d.days_left === 0 ? "ends today" : d.days_left === 1 ? "ends tomorrow" : `ends in ${d.days_left} days`;
 
   return (
-    <div className="dash-cream-card rounded-3xl !p-0 overflow-hidden" data-testid="trial-nudge-banner">
+    <div className="card-light !p-0 overflow-hidden border-amber-200/80" data-testid="trial-nudge-banner">
       <div className="flex flex-col lg:flex-row">
         <div className="lg:w-[38%] p-5 sm:p-6 bg-[linear-gradient(135deg,#fff7ed_0%,#fffbeb_60%,#fdf2f8_100%)] relative">
           <button onClick={snooze} className="absolute top-3 right-3 w-7 h-7 rounded-full bg-white/80 border border-amber-200 text-amber-700 inline-flex items-center justify-center hover:bg-white" title="Remind me tomorrow" data-testid="trial-nudge-snooze"><X className="w-3.5 h-3.5" /></button>
