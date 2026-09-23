@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePlayer } from "@/context/PlayerContext";
 import { GoldSparkles } from "@/components/GoldSparkles";
 import { moodChannels, playPayload } from "@/constants/musicChannels";
@@ -156,6 +156,17 @@ export function MiraSuggestsCard() {
   const cur = moods.find(m => m.id === mood) || moods[0];
   const playing = player.track && moods.some(m => m.id === player.track.id);
   const anyPlaying = !!player.track;
+  const [greet, setGreet] = useState(false);
+  const botRef = useRef(null);
+  useEffect(() => {
+    // Wave once the bot first scrolls into view (dashboard open), then settle.
+    const el = botRef.current; if (!el || !("IntersectionObserver" in window)) { setGreet(true); return; }
+    let t; const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { io.disconnect(); setGreet(true); t = setTimeout(() => setGreet(false), 2600); }
+    }, { threshold: 0.6 });
+    io.observe(el); return () => { io.disconnect(); clearTimeout(t); };
+  }, []);
+  const waving = greet && !anyPlaying;
   const poseMood = anyPlaying && MOOD_POSE[player.track.id] ? player.track.id : (anyPlaying ? mood : null);
   const pose = MOOD_POSE[poseMood] || MOOD_POSE.relaxing;
   const start = (c) => { setMood(c.id); player.play(playPayload(c, "youtube")); player.setTimer(30); };
@@ -167,7 +178,8 @@ export function MiraSuggestsCard() {
           <div className="font-playfair text-2xl text-slate-900 leading-tight">Mira Suggests</div>
           <p className="text-sm text-slate-500 mt-0.5">Start the day with 30 minutes of soothing salon music.</p>
         </div>
-        <div className={`relative shrink-0 w-24 h-24 -mt-2 -mr-2 ${anyPlaying ? `mira-dancing ${pose.dance}` : ""}`} data-testid="mira-dj-bot" data-dancing={anyPlaying ? "true" : "false"}>
+        <div ref={botRef} className={`relative shrink-0 w-24 h-24 -mt-2 -mr-2 ${anyPlaying ? `mira-dancing ${pose.dance}` : waving ? "mira-waving" : ""}`} data-testid="mira-dj-bot" data-dancing={anyPlaying ? "true" : "false"} data-waving={waving ? "true" : "false"}>
+          {waving && <span className="mira-hi" data-testid="mira-dj-greeting">Hi ✦</span>}
           {anyPlaying && <>
             <span className="mira-glow" />
             <span className="mira-note n1">♪</span><span className="mira-note n2">♫</span><span className="mira-note n3">♪</span>
