@@ -1,0 +1,24 @@
+{
+  "summary": "Iter-194 frontend-only visual/regression pass on the new dual-theme Signup redesign — ALL checks pass. (1) /signup-salon renders with 0 pageerrors; required testids visible: signup-hero-salon, signup-trial-badge ('30-DAY FREE TRIAL · NO CREDIT CARD · CANCEL ANYTIME'), signup-region-toggle, signup-trust-strip, business-type-salon-button (selected/accent border), business-type-restaurant-button, stepper-step-1..4. (2) Click business-type-restaurant-button → URL becomes /signup-restaurant, signup-hero-restaurant visible, badge text = 'FIRST MONTH FREE · NO CREDIT CARD · CANCEL ANYTIME'. Click business-type-salon-button → URL back to /signup-salon, signup-hero-salon visible. (3) Full salon signup flow (region=in): Business (name 'QA Design Salon', slug qa-design-g022al) → Owner (qa-design-g022al@gmail.com / TestPass123!) → Location skipped → Confirm → clicked signup-submit-btn → redirected to /dashboard with 'Welcome to Miracurl ✦' trial modal (31-day trial). Tenant hard-deleted via SA DELETE /api/super-admin/tenants/3ffc9b68-.../permanent?confirm=qa-design-g022al → 200 {records_removed: users:1, tenants:1}. (4) Mobile 390×844: document.documentElement.scrollWidth=390 (no horizontal overflow), hero.bottom=1037 ≤ card.top=1085 (hero stacks above card), header signup-have-account 'Sign in →' button height=36px (single line). (5) Intl region: /signup-salon?region=intl → signup-region-intl active (bg-white shadow), walked to Confirm step → signup-review-pricing-intl text = 'After your trial, plans start at $39/month (Starter) — Professional from $79/month, annual plans get 2 months free. Billed in USD via secure international payment link.' — contains '$39/month' ✓. Only console noise: two 401s from /api/auth/me (unauthenticated bootstrap — expected on public signup route).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_194.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "SignupSalon.jsx line 351-354 — the business-type button has TWO data-testid attributes on the same element (`data-testid={\\`signup-type-${v}\\`}` on line 351 AND `data-testid={\\`business-type-${v}-button\\`}` on line 353). React uses the LAST prop, so the DOM attribute is `business-type-{v}-button` and the older `signup-type-{v}` testid from iter-193 is effectively DEAD. Clean up by removing the duplicate line 351 attribute (or the redundant one on 353) to avoid confusing future tests. Both were requested at different times; standardise on one.",
+    "SignupSalon.jsx line 34 references `newbiz` and `form.newly_opened` inside `effNewbiz()` but the helper is defined before `newbiz` state on line 61 — hoisting works for function declaration but this is a `const` arrow via the JSX callsite; it's fine here but the definition ordering hurts readability. Consider moving `effNewbiz` after state declarations.",
+    "Badge string differs by business_type: 'First Month Free · No credit card · Cancel anytime' (resto) vs '{trialDays}-Day Free Trial · No credit card · Cancel anytime' (salon). Both render in uppercase via CSS `uppercase tracking` classes — visual result matches spec ('FIRST MONTH FREE' shouted form). ✓"
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only)", "frontend": "100% (all 4 acceptance clauses green)"},
+  "test_credentials": "SA admin@miracurl-suite.com / og9T@41Es#OQb6 (logged in via /api/auth/login, not /api/super-admin/login).",
+  "seed_data_creation": "Created tenant qa-design-g022al (owner qa-design-g022al@gmail.com) then hard-deleted via SA /permanent?confirm=qa-design-g022al — records_removed users:1 tenants:1.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "SA login route is POST /api/auth/login (returns user + sets session + csrf_token cookies) — there is NO /api/super-admin/login. For SA-privileged calls, read csrf_token cookie and pass as X-CSRF-Token header. Signup redesign testids confirmed alive: signup-hero-salon, signup-hero-restaurant, signup-trial-badge, signup-region-toggle, signup-region-in, signup-region-intl, signup-trust-strip, business-type-salon-button, business-type-restaurant-button, stepper-step-1..4, signup-salon-name, signup-slug, signup-owner-name/email, signup-password, signup-location, signup-phone, signup-next-btn, signup-back-btn, signup-submit-btn, signup-review-pricing-in/intl/resto/resto-intl. Business-type click auto-updates URL between /signup-salon and /signup-restaurant. Note the duplicate data-testid on business-type buttons — both signup-type-{v} and business-type-{v}-button appear in the JSX but only the latter survives to the DOM.",
+  "rca of the issue": "N/A — no issues found."
+}
