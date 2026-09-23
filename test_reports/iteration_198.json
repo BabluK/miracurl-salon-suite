@@ -1,0 +1,24 @@
+{
+  "summary": "Frontend-only regression of gold-night signup redesign (/signup-salon, /signup-restaurant). Verified brand panel, headline, hero photo, feature tiles (4), trust badges (3), no-pink accent tokens (salon #c99a2e / restaurant #d97706), business-type switching, region toggle, sign-in link, mobile responsive rules, and full 4-step signup flow end-to-end. All checks PASS.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Minor: In SignupSalon.jsx line 349-351, the business-type picker button has TWO data-testid attributes (`signup-type-${v}` on line 349 and `business-type-${v}-button` on line 351). React will keep only the last one (`business-type-${v}-button`). Harmless but should be de-duplicated.",
+    "Console error at /dashboard: React hydration warning — `<span>` cannot be a child of `<option>` (MiraDayOffer.jsx line 55). Outside signup scope but worth fixing for cleaner console.",
+    "Chart warnings: 'The width(-1) and height(-1) of chart should be greater than 0' — recharts container missing minWidth/minHeight in dashboard. Non-blocking, out of signup scope."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "100%"},
+  "test_credentials": "Created ephemeral qa.gold.<ts>@example.com; cleaned via Mongo (1 user + 1 tenant deleted).",
+  "seed_data_creation": "Created and deleted 1 tenant (slug qa-gold-salon-1790172441) + 1 user (qa.gold.1790172441@example.com).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Signup redesign verified end-to-end. Desktop 1920: left panel has gold-night-canvas class, headline 'Empower Your Luxe Salon & Spa' (salon) or 'Elevate Your Dining & Bistro' (restaurant), photo loads (naturalWidth=848 for both salon-interior.jpg & restaurant-candle.jpg), 4 feature tiles, 3 trust pills, signup-mira-bot-badge visible. Accent computed colors: salon trial-badge/stepper=rgb(201,154,46) #c99a2e, next-btn gradient=d4af37→f6e27a→c99a2e; restaurant=rgb(217,119,6) #d97706, gradient d97706→f59e0b→b45309. No pink RGBs present anywhere. Business-type picker switches headline/photo/stepper label ('1 / RESTAURANT')/trial badge ('FIRST MONTH FREE…')/URL (/signup-salon ↔ /signup-restaurant) live. Region toggle IN↔INTL flips 'bg-white' active class. Sign-in href=/login. Mobile 390x844: scrollWidth=390 (no overflow), signup-hero-photo & signup-feature-tiles NOT visible, sm:hidden ring icon visible in header, sign-in pill visible, lockup + headline visible, form input focusable. Full flow: filled Salon→Owner→Location→Confirm→Submit, redirected to /dashboard with 'Welcome to Miracurl' modal showing 31-day trial, no signup errors. Duplicate data-testid on business-type picker buttons noted (line 349 & 351 of SignupSalon.jsx).",
+  "rca of the issue": "No bugs — redesign matches spec."
+}
