@@ -9,7 +9,7 @@ export function SidebarMiracurlLogo({ variant = "sidebar" }) {
           <span className="ms-spark s1">✦</span><span className="ms-spark s2">✦</span><span className="ms-spark s3">✦</span>
         </span>
         <span className="ms-lockup__text">
-          <span className="ms-lockup__word" data-testid="sidebar-miracurl-wordmark">Miracurl</span>
+          <span className="ms-lockup__word" data-text="Miracurl" data-testid="sidebar-miracurl-wordmark">Miracurl</span>
           <span className="ms-lockup__suite"><i /><b>Suite</b><i /></span>
           <span className="ms-lockup__sub">Smart Salon &amp; Restaurant<br />Management Software</span>
         </span>
