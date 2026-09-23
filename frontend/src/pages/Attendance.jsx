@@ -3,7 +3,7 @@ import api, { formatApiError } from "@/lib/api";
 import pinApi from "@/lib/ownerPin";
 import { ManualAttendanceModal } from "@/components/ManualAttendanceModal";
 import { OvertimeApprovals } from "@/components/attendance/OvertimeApprovals";
-import { ConfirmDialog, askConfirm } from "@/components/ConfirmDialog";
+import { ConfirmDialog, askConfirm, confirmAsync } from "@/components/ConfirmDialog";
 import { getSelectedBranch, mainSalonLabel } from "@/lib/branch";
 import { toast } from "sonner";
 import { BranchLoginsCard } from "@/components/BranchLoginsCard";
@@ -753,7 +753,7 @@ function WeekOffManager({ onChanged }) {
   useEffect(() => { load(); }, []);
 
   async function removeRecent(r) {
-    const ok = await askConfirm({ title: "Remove this week-off record?", message: `${r.staff_name}: ${cap(r.current_day)} → ${cap(r.requested_day)} (${r.status}). This only clears the history entry — the staff member's current week-off is not changed.`, confirmText: "Remove", danger: true });
+    const ok = await confirmAsync(`${r.staff_name}: ${cap(r.current_day)} → ${cap(r.requested_day)} (${r.status}). This only clears the history entry — the staff member's current week-off is not changed.`, { title: "Remove this week-off record?", confirmLabel: "Remove", danger: true });
     if (!ok) return;
     setBusy(r.id);
     try {

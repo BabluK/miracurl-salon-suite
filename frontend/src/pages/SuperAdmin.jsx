@@ -205,7 +205,7 @@ export default function SuperAdmin() {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     slug: "", name: "", owner_email: "", owner_name: "", owner_password: "",
-    location: "", phone: "", salon_email: "", owner_phone: "", plan: "starter", trial_months: null, logo_url: "",
+    location: "", phone: "", salon_email: "", owner_phone: "", plan: "starter", trial_months: null, logo_url: "", module_locks: [],
   });
 
   const load = useCallback(async () => {
@@ -236,13 +236,13 @@ export default function SuperAdmin() {
   const [createdCreds, setCreatedCreds] = useState(null);
 
   function startNew() {
-    setForm({ slug: "", name: "", owner_email: "", owner_name: "", location: "", phone: "", salon_email: "", owner_phone: "", plan: "starter", business_type: "salon" });
+    setForm({ slug: "", name: "", owner_email: "", owner_name: "", location: "", phone: "", salon_email: "", owner_phone: "", plan: "starter", business_type: "salon", module_locks: [] });
     setOpen(true);
   }
 
   function convertLead(inq) {
     const slug = inq.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30);
-    setForm({ slug, name: `${inq.name}'s Salon`, owner_email: inq.email, owner_name: inq.name, location: "", phone: inq.phone, salon_email: inq.email, owner_phone: inq.phone, plan: "starter", business_type: "salon" });
+    setForm({ slug, name: `${inq.name}'s Salon`, owner_email: inq.email, owner_name: inq.name, location: "", phone: inq.phone, salon_email: inq.email, owner_phone: inq.phone, plan: "starter", business_type: "salon", module_locks: [] });
     setTab("tenants");
     setOpen(true);
     toast.info(`Lead "${inq.name}" pre-filled — review details and create the salon ✦`);

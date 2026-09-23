@@ -110,6 +110,17 @@ api.interceptors.response.use(
     const url = err?.config?.url || "";
     // Sessions created before CSRF rollout have no csrf_token cookie yet — one
     // exempt /auth/refresh mints it, then the original request is retried once.
+    if (status === 403 && err?.response?.data?.detail === "MODULE_LOCKED") {
+      const mod = String(err.response.data.module || "this feature").replace(/-/g, " ");
+      const now = Date.now();
+      if (now - (api._lastLockToast || 0) > 4000) {
+        api._lastLockToast = now;
+        import("sonner").then(({ toast }) => toast.warning(`“${mod}” isn't in your plan yet — upgrade to unlock it`, {
+          description: "Open Settings → Subscription to switch plans; changes apply instantly.",
+          action: { label: "See plans", onClick: () => { window.location.assign("/settings#subscription"); } },
+        })).catch(() => {});
+      }
+    }
     const isCsrf = status === 403 && /csrf/i.test(String(err?.response?.data?.detail || ""));
     if (isCsrf && err.config && !err.config._csrfRetry) {
       err.config._csrfRetry = true;

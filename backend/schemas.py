@@ -33,6 +33,7 @@ class TenantIn(BaseModel):
     business_type: str = Field("salon", pattern="^(salon|restaurant)$")
     trial_months: Optional[int] = None  # 3 | 6 | 9 | 12 — None keeps the platform default trial (days)
     logo_url: Optional[str] = Field(None, max_length=600)
+    module_locks: Optional[List[str]] = None  # HQ-unticked modules at onboarding (see services.entitlements.MODULES)
 
     @field_validator("trial_months")
     @classmethod

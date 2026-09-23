@@ -1,5 +1,6 @@
 import { Building2, CalendarClock, Gift, Loader2, Mail, MapPin, Phone, Scissors, ShieldCheck, Sparkles, User, UtensilsCrossed, X } from "lucide-react";
 import ImageUploader from "@/components/ImageUploader";
+import { ModuleAccessPicker } from "@/components/superadmin/ModuleAccessPicker";
 
 const lbl = "text-[10px] uppercase tracking-[1.5px] text-slate-400 font-semibold";
 const inp = "mt-1.5 w-full h-11 rounded-xl border border-white/10 bg-white/[.04] px-3.5 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition-colors focus:border-[#d4af37]/70 focus:bg-white/[.06]";
@@ -133,6 +134,7 @@ export function OnboardTenantModal({ form, setForm, onSave, busy, onClose }) {
               ))}
             </div>
             <TrialPicker value={form.trial_months ?? null} onChange={(m) => setForm({ ...form, trial_months: m })} />
+            <ModuleAccessPicker value={form.module_locks || []} onChange={(locks) => setForm({ ...form, module_locks: locks })} tier={form.plan} />
             <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3.5 py-2.5 text-[11.5px] text-emerald-200 flex items-start gap-2">
               <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
               <span>A secure one-time password is generated and shown to you after creation. The owner must change it on first login; the welcome email with setup steps goes out automatically.</span>

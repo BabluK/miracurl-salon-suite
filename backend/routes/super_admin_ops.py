@@ -536,6 +536,9 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
     t["owner_name"] = body.owner_name
     if body.logo_url:
         t["logo_url"] = body.logo_url
+    if body.module_locks is not None:
+        from services.entitlements import MODULES
+        t["module_locks"] = [m for m in body.module_locks if m in MODULES]
     await db.tenants.insert_one(t)
     t.pop("_id", None)
     trial_kit_task = lambda: asyncio.create_task(issue_trial_kit(t["id"], body.trial_months, _default_days))  # noqa: E731
