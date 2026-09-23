@@ -56,14 +56,14 @@ export function MiracurlUpdates() {
   return (
     <>
       {popup && <Popup d={d} onClose={ack} />}
-      <section className="relative overflow-hidden rounded-2xl border border-[#d4af37]/40 bg-[#15151b] text-slate-100 p-5" data-testid="miracurl-updates-card">
+      <section className="relative overflow-hidden dash-cream-card rounded-3xl p-5 sm:p-6 text-slate-800" data-testid="miracurl-updates-card">
         <div className="pointer-events-none absolute -top-24 -right-20 w-72 h-72 rounded-full bg-[#d4af37]/15 blur-3xl" />
         <div className="relative flex items-start gap-3 flex-wrap">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#F0D9A5] to-[#C89B52] flex items-center justify-center shrink-0"><Megaphone className="w-5 h-5 text-[#15151b]" /></div>
           <div className="flex-1 min-w-0">
             <div className="text-[10px] tracking-[0.35em] uppercase text-[#d4af37]">Miracurl Updates</div>
             <div className="flex items-center gap-2 flex-wrap"><h2 className="font-playfair text-xl text-[#F0D9A5]">{c.name}</h2><span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${cls}`} data-testid="miracurl-updates-status">{label}</span></div>
-            <p className="text-xs text-slate-400 mt-0.5">{fmt(c.start_date)} → {fmt(c.end_date)} · {d.participants.length} customer{d.participants.length === 1 ? "" : "s"} enrolled from your salon · winners: {c.rewards.map(r => `${r.emoji} ${r.tier} ×${r.winners}`).join(" · ")}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{fmt(c.start_date)} → {fmt(c.end_date)} · {d.participants.length} customer{d.participants.length === 1 ? "" : "s"} enrolled from your salon · winners: {c.rewards.map(r => `${r.emoji} ${r.tier} ×${r.winners}`).join(" · ")}</p>
           </div>
           <div className="flex gap-2 flex-wrap">
             {d.status === "ended" && c.payment_link && <a href={c.payment_link} target="_blank" rel="noreferrer" className="px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-xs font-bold inline-flex items-center gap-1.5" data-testid="miracurl-updates-pay"><CreditCard className="w-3.5 h-3.5" /> Pay settlement</a>}
@@ -84,7 +84,7 @@ export function MiracurlUpdates() {
             <b>Your settlement:</b> ₹{Number(d.settlement.amount).toLocaleString("en-IN")}
             {d.settlement.due_date && d.settlement.status !== "paid" && <span>· due {fmt(d.settlement.due_date)}</span>}
             <span className="px-2 py-0.5 rounded-full border border-current text-[10px] font-bold uppercase" data-testid="miracurl-updates-settlement-status">{d.settlement.status === "paid" ? "Paid — thank you" : d.settlement.status === "waived" ? "Waived" : "Pending"}</span>
-            {d.settlement.note && <span className="text-white/60">{d.settlement.note}</span>}
+            {d.settlement.note && <span className="text-slate-500">{d.settlement.note}</span>}
             {d.settlement.trusted && <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-[10px] font-bold inline-flex items-center gap-1" data-testid="miracurl-updates-trusted">✦ Trusted by Miracurl badge live on your booking page</span>}
             {d.settlement.status !== "paid" && d.settlement.status !== "waived" && (d.settlement.pay_url || c.payment_link) && <a href={d.settlement.pay_url || c.payment_link} target="_blank" rel="noreferrer" className="ml-auto px-3 py-1 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] text-[11px] font-bold inline-flex items-center gap-1" data-testid="miracurl-updates-settlement-pay"><CreditCard className="w-3 h-3" /> Pay now</a>}
           </div>
@@ -92,11 +92,11 @@ export function MiracurlUpdates() {
         {!d.settlement && d.status === "ended" && c.payment_link && <div className="relative mt-3 rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-2.5 text-xs text-emerald-200" data-testid="miracurl-updates-payment-note"><b>Settlement:</b> {c.payment_note || "Please complete the campaign settlement using the payment link."}</div>}
         {c.updates?.length > 0 && (
           <ul className="relative mt-4 space-y-2" data-testid="miracurl-updates-feed">
-            {c.updates.slice(0, open ? 30 : 2).map((u, i) => <li key={i} className="flex gap-3 rounded-xl bg-white/5 border border-white/10 px-3 py-2"><Sparkles className="w-3.5 h-3.5 text-[#d4af37] shrink-0 mt-0.5" /><div><div className="text-xs font-semibold text-white">{u.title} <span className="text-slate-500 font-normal">· {fmt(u.date)}</span></div>{u.body && <div className="text-[11.5px] text-slate-300 mt-0.5">{u.body}</div>}</div></li>)}
+            {c.updates.slice(0, open ? 30 : 2).map((u, i) => <li key={i} className="flex gap-3 rounded-xl bg-white/80 border border-amber-100 px-3 py-2"><Sparkles className="w-3.5 h-3.5 text-[#d4af37] shrink-0 mt-0.5" /><div><div className="text-xs font-semibold text-slate-900">{u.title} <span className="text-slate-500 font-normal">· {fmt(u.date)}</span></div>{u.body && <div className="text-[11.5px] text-slate-600 mt-0.5">{u.body}</div>}</div></li>)}
           </ul>
         )}
-        <button onClick={() => setOpen(o => !o)} className="relative mt-3 w-full flex items-center justify-between rounded-xl border border-white/10 bg-white/[.03] px-3 py-2 text-[11px] text-slate-300" data-testid="miracurl-updates-terms-toggle"><span className="inline-flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-[#d4af37]" /> Terms & conditions posted by Miracurl HQ{c.updates?.length > 2 ? " · all updates" : ""}</span><ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} /></button>
-        {open && <p className="relative mt-2 text-[12px] text-slate-300 whitespace-pre-line rounded-xl bg-black/30 p-3" data-testid="miracurl-updates-terms">{c.tenant_terms}</p>}
+        <button onClick={() => setOpen(o => !o)} className="relative mt-3 w-full flex items-center justify-between rounded-xl border border-amber-100 bg-white/70 px-3 py-2 text-[11px] text-slate-600" data-testid="miracurl-updates-terms-toggle"><span className="inline-flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-[#d4af37]" /> Terms & conditions posted by Miracurl HQ{c.updates?.length > 2 ? " · all updates" : ""}</span><ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} /></button>
+        {open && <p className="relative mt-2 text-[12px] text-slate-600 whitespace-pre-line rounded-xl bg-white/75 p-3" data-testid="miracurl-updates-terms">{c.tenant_terms}</p>}
         <div className="relative mt-3 text-[10px] text-slate-500 inline-flex items-center gap-1"><Gift className="w-3 h-3" /> Powered by Miracurl · memberships funded by Miracurl, redeemed at your salon</div>
       </section>
     </>

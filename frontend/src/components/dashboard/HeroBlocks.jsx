@@ -81,32 +81,32 @@ const MIRA_ACTIONS = [
 export function MiraAssistantCard({ inactive }) {
   const [blast, setBlast] = useState(false);
   return (
-    <section className="relative overflow-hidden rounded-3xl bg-[#0f0e0b] text-white p-6 sm:p-7 border border-[#e8c56a]/20 shadow-[0_30px_60px_-30px_rgba(0,0,0,.7)]" data-testid="mira-assistant-card">
-      <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-[#e8c56a]/15 blur-3xl pointer-events-none" />
+    <section className="dash-cream-card relative overflow-hidden rounded-3xl text-slate-800 p-6 sm:p-7" data-testid="mira-assistant-card">
+      <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-[#e8c56a]/25 blur-3xl pointer-events-none" />
       <div className="relative grid md:grid-cols-[1fr_auto] gap-6">
         <div>
           <div className="flex items-center gap-5">
             <MiraAvatar size={112} speaking />
             <div>
-              <h2 className="font-playfair text-2xl sm:text-3xl leading-tight">Mira AI Assistant</h2>
-              <p className="text-white/60 text-sm">Your salon&apos;s smart companion</p>
-              <p className="text-[11px] text-[#e8c56a]/80 mt-1 inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Online · watching bookings, stock &amp; guests</p>
+              <h2 className="font-playfair text-2xl sm:text-3xl leading-tight text-slate-900">Mira AI Assistant</h2>
+              <p className="text-slate-500 text-sm">Your salon&apos;s smart companion</p>
+              <p className="text-[11px] text-[#8a6d1f] mt-1 inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Online · watching bookings, stock &amp; guests</p>
             </div>
           </div>
-          <div className="mt-5 rounded-2xl bg-white/[.06] border border-[#e8c56a]/20 p-5">
-            <p className="font-playfair text-lg sm:text-xl leading-snug text-white/95" data-testid="mira-suggestion-text">
-              {inactive > 0 ? <>Would you like me to send follow-ups to <span className="text-[#e8c56a]">{inactive} customers</span> who haven&apos;t visited in 30 days?</> : <>Would you like me to send follow-ups to customers who haven&apos;t visited in 30 days?</>}
+          <div className="mt-5 rounded-2xl bg-white/75 border border-amber-100 p-5">
+            <p className="font-playfair text-lg sm:text-xl leading-snug text-slate-800" data-testid="mira-suggestion-text">
+              {inactive > 0 ? <>Would you like me to send follow-ups to <span className="text-[#b8892a] font-semibold">{inactive} customers</span> who haven&apos;t visited in 30 days?</> : <>Would you like me to send follow-ups to customers who haven&apos;t visited in 30 days?</>}
             </p>
             <div className="mt-4 flex items-center gap-4 flex-wrap">
               <button onClick={() => setBlast(true)} data-testid="mira-yes-btn" className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm font-bold inline-flex items-center gap-2 hover:brightness-110 hover:-translate-y-0.5 transition"><Sparkles className="w-4 h-4" /> Yes, Do It</button>
-              <Link to="/assistant" className="text-sm text-white/60 underline underline-offset-4 hover:text-white" data-testid="mira-later-btn">Maybe later</Link>
+              <Link to="/assistant" className="text-sm text-slate-500 underline underline-offset-4 hover:text-slate-900" data-testid="mira-later-btn">Maybe later</Link>
             </div>
           </div>
         </div>
         <div className="grid gap-2.5 content-start md:w-60">
           {MIRA_ACTIONS.map(([l, Icon, to, tid]) => (
-            <Link key={l} to={to} data-testid={tid} className="flex items-center gap-3 rounded-xl bg-white/[.06] border border-white/10 px-4 py-3 text-sm hover:bg-white/[.12] hover:border-[#e8c56a]/40 transition">
-              <Icon className="w-4 h-4 text-[#e8c56a]" /> {l}
+            <Link key={l} to={to} data-testid={tid} className="flex items-center gap-3 rounded-xl bg-white/75 border border-amber-100 px-4 py-3 text-sm text-slate-700 hover:bg-white hover:border-[#e8c56a] transition">
+              <Icon className="w-4 h-4 text-[#c99a2e]" /> {l}
             </Link>
           ))}
         </div>
@@ -118,7 +118,7 @@ export function MiraAssistantCard({ inactive }) {
 
 export function LowStockCard({ items = [], count = 0, sym = "₹" }) {
   return (
-    <section className="rounded-3xl bg-gradient-to-br from-rose-50 to-white border border-rose-100 p-5 shadow-sm flex flex-col" data-testid="low-stock-card">
+    <section className="dash-cream-card rounded-3xl p-5 flex flex-col" data-testid="low-stock-card">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 font-playfair text-xl text-slate-900"><AlertTriangle className="w-5 h-5 text-rose-500" /> {count} Product{count === 1 ? "" : "s"} Running Low</div>
@@ -129,7 +129,7 @@ export function LowStockCard({ items = [], count = 0, sym = "₹" }) {
       {items.length > 0 && (
         <div className="mt-4 space-y-2">
           {items.slice(0, 5).map(p => (
-            <div key={p.id || p.name} className="flex items-center gap-3 rounded-xl bg-white border border-rose-100 px-3 py-2.5">
+            <div key={p.id || p.name} className="flex items-center gap-3 rounded-xl bg-white/80 border border-amber-100 px-3 py-2.5">
               <div className="w-9 h-9 rounded-lg bg-rose-50 overflow-hidden flex items-center justify-center shrink-0">{p.image_url ? <img src={p.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-rose-400 text-xs font-bold">{(p.name || "?")[0]}</span>}</div>
               <div className="flex-1 min-w-0 text-sm font-medium text-slate-800 truncate uppercase tracking-wide">{p.name}</div>
               <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-xs font-bold">{p.stock ?? 0} left</span>
@@ -147,17 +147,22 @@ export function MiraSuggestsCard() {
   const [mood, setMood] = useState(moods[0]?.id);
   const cur = moods.find(m => m.id === mood) || moods[0];
   const playing = player.track && moods.some(m => m.id === player.track.id);
+  const anyPlaying = !!player.track;
   const start = (c) => { setMood(c.id); player.play(playPayload(c, "youtube")); player.setTimer(30); };
   return (
-    <section className="relative overflow-hidden rounded-3xl bg-[radial-gradient(120%_140%_at_0%_0%,#fffdf7_0%,#fdf6e6_55%,#f8ecd2_100%)] border border-amber-100 p-5 shadow-sm" data-testid="mira-suggests-card">
+    <section className="dash-cream-card relative overflow-hidden rounded-3xl p-5" data-testid="mira-suggests-card">
       <div className="flex items-start gap-3">
         <span className="w-12 h-12 rounded-full bg-amber-100/80 text-[#c99a2e] flex items-center justify-center shrink-0 shadow-inner"><Lightbulb className="w-6 h-6" strokeWidth={1.6} /></span>
         <div className="min-w-0 flex-1">
           <div className="font-playfair text-2xl text-slate-900 leading-tight">Mira Suggests</div>
           <p className="text-sm text-slate-500 mt-0.5">Start the day with 30 minutes of soothing salon music.</p>
         </div>
-        <div className="relative shrink-0 w-24 h-24 -mt-2 -mr-2">
-          <img src="/assets/dashboard/mira-dj.png" alt="" loading="lazy" className="w-full h-full object-contain drop-shadow-[0_10px_18px_rgba(180,140,60,.35)]" />
+        <div className={`relative shrink-0 w-24 h-24 -mt-2 -mr-2 ${anyPlaying ? "mira-dancing" : ""}`} data-testid="mira-dj-bot" data-dancing={anyPlaying ? "true" : "false"}>
+          {anyPlaying && <>
+            <span className="mira-glow" />
+            <span className="mira-note n1">♪</span><span className="mira-note n2">♫</span><span className="mira-note n3">♪</span>
+          </>}
+          <img src="/assets/dashboard/mira-dj.png" alt="" loading="lazy" className="relative w-full h-full object-contain drop-shadow-[0_10px_18px_rgba(180,140,60,.35)]" />
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-2" data-testid="mira-mood-chips">
@@ -191,11 +196,11 @@ const QUICK = [
 ];
 export function QuickActionsCard() {
   return (
-    <section className="rounded-3xl bg-white border border-slate-200/80 p-5 shadow-sm" data-testid="quick-actions-card">
+    <section className="dash-cream-card rounded-3xl p-5" data-testid="quick-actions-card">
       <div className="flex items-center gap-2 font-playfair text-xl text-slate-900"><span className="w-9 h-9 rounded-xl bg-amber-50 text-[#b8893a] flex items-center justify-center"><Sparkles className="w-4 h-4" /></span> Quick Actions</div>
       <div className="grid grid-cols-2 gap-2.5 mt-4">
         {QUICK.map(([l, Icon, to, tone, tid]) => (
-          <Link key={l} to={to} data-testid={tid} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3 text-sm font-medium text-slate-700 hover:border-[#b8893a]/50 hover:bg-amber-50/40 transition">
+          <Link key={l} to={to} data-testid={tid} className="flex items-center gap-3 rounded-xl border border-amber-100 bg-white/75 px-3 py-3 text-sm font-medium text-slate-700 hover:border-[#b8893a]/50 hover:bg-amber-50/40 transition">
             <span className={`w-9 h-9 rounded-lg flex items-center justify-center ${tone}`}><Icon className="w-4 h-4" /></span> {l}
           </Link>
         ))}

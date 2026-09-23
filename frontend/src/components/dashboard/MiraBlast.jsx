@@ -103,7 +103,7 @@ export function PendingApprovalsTile() {
   };
   if (items === null) return null;
   return (
-    <section className="rounded-3xl bg-white border border-slate-200/80 p-5 shadow-sm min-w-0 overflow-hidden" data-testid="pending-approvals-tile">
+    <section className="dash-cream-card rounded-3xl p-5 min-w-0 overflow-hidden" data-testid="pending-approvals-tile">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 font-playfair text-xl text-slate-900">
           <span className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center"><ShieldCheck className="w-4 h-4" /></span>

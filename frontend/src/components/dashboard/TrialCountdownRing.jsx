@@ -36,7 +36,7 @@ export const TrialCountdownRing = () => {
   const endLabel = end.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
   return (
-    <div className="card-light !p-4 sm:!p-5 flex items-center gap-4 sm:gap-6" data-testid="trial-countdown-ring">
+    <div className="dash-cream-card rounded-3xl p-4 sm:p-5 flex items-center gap-4 sm:gap-6" data-testid="trial-countdown-ring">
       <div className="relative shrink-0 w-[88px] h-[88px]">
         <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
           <circle cx="40" cy="40" r={R} fill="none" stroke="#e2e8f0" strokeWidth="7" />

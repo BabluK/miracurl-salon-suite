@@ -49,7 +49,7 @@ export function WinbackNudges() {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-rose-200 p-5 shadow-sm" data-testid="winback-nudges-card">
+    <div className="dash-cream-card rounded-3xl p-5" data-testid="winback-nudges-card">
       <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
         <div className="flex items-center gap-2">
           <span className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center"><HeartHandshake className="w-4 h-4 text-rose-500" /></span>

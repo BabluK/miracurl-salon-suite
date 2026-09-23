@@ -46,7 +46,7 @@ export const CelebrationsCard = () => {
   };
 
   return (
-    <div className="card-light border-pink-200 bg-gradient-to-br from-pink-50/60 to-white" data-testid="celebrations-card">
+    <div className="dash-cream-card rounded-3xl p-5" data-testid="celebrations-card">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Cake className="w-4 h-4 text-pink-500" />

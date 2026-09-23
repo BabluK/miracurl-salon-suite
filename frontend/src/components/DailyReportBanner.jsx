@@ -54,7 +54,7 @@ export default function DailyReportBanner({ ownerName }) {
 
   return (
     <div
-      className="relative rounded-2xl overflow-hidden shadow-lg border border-amber-200/60"
+      className="dash-cream-card relative rounded-3xl overflow-hidden"
       data-testid="daily-report-banner"
     >
       {/* Warm morning gradient — sunrise gold, unlike the sky-blue hero below */}

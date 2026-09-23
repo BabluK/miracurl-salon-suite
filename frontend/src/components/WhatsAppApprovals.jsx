@@ -70,7 +70,7 @@ export const WhatsAppApprovals = () => {
   if (!items.length && !sends.length) return null;
 
   return (
-    <div className="bg-white rounded-2xl border border-emerald-200 p-5 shadow-sm" data-testid="wa-approvals-widget">
+    <div className="dash-cream-card rounded-3xl p-5 sm:p-6" data-testid="wa-approvals-widget">
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
         <div className="flex items-center gap-3 flex-1">
           <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">

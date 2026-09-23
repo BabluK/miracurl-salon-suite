@@ -36,13 +36,13 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, onS
     else window.open(`https://wa.me/?text=${encodeURIComponent(caption)}`, "_blank", "noopener,noreferrer");
   };
   return (
-    <div className="mt-4 bg-black/25 border border-white/10 rounded-xl p-4" data-testid={`${testPrefix}-suggestion`}>
+    <div className="mt-4 bg-white/75 border border-amber-100 rounded-xl p-4" data-testid={`${testPrefix}-suggestion`}>
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <div className="font-playfair text-xl text-amber-200">{offer.title}</div>
-          <div className="text-sm text-white/85 mt-0.5">{offer.offer_text}</div>
+          <div className="font-playfair text-xl text-[#8a6d1f]">{offer.title}</div>
+          <div className="text-sm text-slate-700 mt-0.5">{offer.offer_text}</div>
           {offer.tier && (
-            <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/5 border border-white/15 text-white/60" data-testid={`${testPrefix}-tier-badge`}>
+            <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/80 border border-amber-100 text-slate-500" data-testid={`${testPrefix}-tier-badge`}>
               {offer.tier === "premium" ? "✦ Premium strategy" : "✦ Crowd-puller"}{offer.tier_auto ? " · Mira's auto-pick" : ""}
             </div>
           )}
@@ -51,7 +51,7 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, onS
           {!accepted && offer.services?.length > 0 && (
             <select value={adjPct} onChange={(e) => setAdjPct(e.target.value)} data-testid={`${testPrefix}-adjust-pct`}
               title="Change the discount — prices update instantly"
-              className="bg-white/5 border border-amber-300/30 text-amber-200/90 text-xs rounded-full px-3 py-1.5 focus:outline-none focus:border-amber-300/60 [&>option]:bg-[#17141c]">
+              className="bg-white/80 border border-amber-300/30 text-[#8a6d1f] text-xs rounded-full px-3 py-1.5 focus:outline-none focus:border-amber-300/60 [&>option]:bg-white [&>option]:text-slate-800">
               <option value="">✎ Adjust %{offer.discount_pct ? ` (Mira: ${offer.discount_pct}%)` : ""}</option>
               {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70].map(p => <option key={p} value={p}>{p}% off</option>)}
             </select>
@@ -64,22 +64,22 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, onS
       {svcList.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2 items-center">
           {svcList.map((s, i) => (
-            <div key={`${s.name}-${i}`} className="flex items-center gap-1.5 text-xs bg-white/5 border border-white/10 rounded-lg px-3 py-1.5" data-testid={`${testPrefix}-service-price-${i}`}>
+            <div key={`${s.name}-${i}`} className="flex items-center gap-1.5 text-xs bg-white/80 border border-amber-100 rounded-lg px-3 py-1.5" data-testid={`${testPrefix}-service-price-${i}`}>
               <span>
-                {s.name} · <span className="line-through text-white/40">₹{Math.round(s.original_price)}</span>{" "}
-                <span className="text-amber-200 font-semibold">₹{priceFor(s)}</span>
+                {s.name} · <span className="line-through text-slate-500">₹{Math.round(s.original_price)}</span>{" "}
+                <span className="text-[#8a6d1f] font-semibold">₹{priceFor(s)}</span>
               </span>
               {svcList.length > 1 && (
                 <button onClick={() => removeSvc(i)} data-testid={`${testPrefix}-service-remove-${i}`}
                   title="Remove this service from the offer"
-                  className="text-white/35 hover:text-rose-300 -mr-1 leading-none text-sm">✕</button>
+                  className="text-slate-500 hover:text-rose-300 -mr-1 leading-none text-sm">✕</button>
               )}
             </div>
           ))}
           {catalog.length > 0 && svcList.length < 6 && (
             <select value="" onChange={(e) => e.target.value && addSvc(e.target.value)} data-testid={`${testPrefix}-service-add`}
               title="Pick any service from your menu to include in today's offer"
-              className="text-xs bg-white/5 border border-dashed border-amber-300/40 text-amber-200/80 rounded-lg px-2.5 py-1.5 focus:outline-none max-w-[220px] [&>option]:bg-[#17141c]">
+              className="text-xs bg-white/80 border border-dashed border-amber-300/40 text-[#8a6d1f] rounded-lg px-2.5 py-1.5 focus:outline-none max-w-[220px] [&>option]:bg-white [&>option]:text-slate-800">
               <option value="">＋ Add service from menu ({catalog.filter(c => !svcList.some(s => s.name === c.name)).length})</option>
               {catalog.filter(c => !svcList.some(s => s.name === c.name)).map(c => (
                 <option key={c.id || c.name} value={c.name}>{c.name} · ₹{Math.round(c.price)}</option>
@@ -94,7 +94,7 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, onS
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-400/15 border border-emerald-300/40 text-emerald-200 text-xs font-semibold hover:bg-emerald-400/25 disabled:opacity-50">
             {busy === "services" ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />} Save services → booking page
           </button>
-          <span className="text-[11px] text-white/45">Poster stays as is — tap "New poster" if you want it redrawn</span>
+          <span className="text-[11px] text-slate-500">Poster stays as is — tap "New poster" if you want it redrawn</span>
         </div>
       )}
       {!accepted && (adjPct || svcTouched) && (
@@ -102,7 +102,7 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, onS
           ✓ Offer tuned{adjPct ? ` — ${adjPct}% off` : ""}{svcTouched ? " · services updated" : ""} — tap "Yes — use this offer" to lock it in
         </p>
       )}
-      <p className="text-xs text-white/55 mt-3 leading-relaxed"><span className="text-amber-300">Why:</span> {offer.reasoning}</p>
+      <p className="text-xs text-slate-500 mt-3 leading-relaxed"><span className="text-[#b8892a]">Why:</span> {offer.reasoning}</p>
       <div className="mt-4 flex flex-wrap gap-2">
         {accepted ? (
           <>
@@ -131,13 +131,13 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, onS
               </div>
             )}
             {offer.google_post && !offer.google_post.ok && (
-              <div className="inline-flex items-center text-white/40 text-xs px-1" title={offer.google_post.error} data-testid={`${testPrefix}-google-skipped`}>
+              <div className="inline-flex items-center text-slate-500 text-xs px-1" title={offer.google_post.error} data-testid={`${testPrefix}-google-skipped`}>
                 Google post skipped — {String(offer.google_post.error || "").slice(0, 60)}
               </div>
             )}
             {offer.flyer_url && (
               <a href={`${BACKEND}${offer.flyer_url}`} download target="_blank" rel="noopener noreferrer" data-testid={`${testPrefix}-download-btn`}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-300 to-rose-200 text-[#17141c] text-sm font-semibold hover:opacity-90">
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm font-semibold hover:opacity-90">
                 <Download className="w-4 h-4" /> Download poster
               </a>
             )}
@@ -147,14 +147,14 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, onS
             </button>
             {onReflyer && (
               <button onClick={onReflyer} disabled={!!busy} data-testid={`${testPrefix}-reflyer-btn`}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-amber-300/30 text-amber-200/80 text-sm hover:bg-white/10 disabled:opacity-50">
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 border border-amber-300/30 text-[#8a6d1f] text-sm hover:bg-amber-50 disabled:opacity-50">
                 <Sparkles className={`w-4 h-4 ${busy === "reflyer" ? "animate-spin" : ""}`} />
                 {busy === "reflyer" ? "Designing (~1 min)…" : "New poster"}
               </button>
             )}
             {onUnlock && (
               <button onClick={onUnlock} disabled={!!busy} data-testid={`${testPrefix}-unlock-btn`}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/15 text-white/70 text-sm hover:bg-white/10 disabled:opacity-50">
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 border border-amber-100 text-slate-600 text-sm hover:bg-amber-50 disabled:opacity-50">
                 <RefreshCw className={`w-4 h-4 ${busy === "unlock" ? "animate-spin" : ""}`} /> Change offer
               </button>
             )}
@@ -162,13 +162,13 @@ function OfferBlock({ offer, busy, onAccept, onAnother, onUnlock, onReflyer, onS
         ) : (
           <>
             <button onClick={() => onAccept(adjPct ? Number(adjPct) : null, svcTouched ? svcList.map(s => s.name) : null)} disabled={!!busy} data-testid={`${testPrefix}-accept-btn`}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-300 to-rose-200 text-[#17141c] text-sm font-semibold hover:opacity-90 disabled:opacity-60">
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm font-semibold hover:opacity-90 disabled:opacity-60">
               {busy === "accept" ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
               {busy === "accept" ? "Creating poster (~1 min)…" : "Yes — use this offer ✦"}
             </button>
             {onAnother && (
               <button onClick={onAnother} disabled={!!busy} data-testid={`${testPrefix}-another-btn`}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/15 text-white/80 text-sm hover:bg-white/10 disabled:opacity-50">
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 border border-amber-100 text-slate-700 text-sm hover:bg-amber-50 disabled:opacity-50">
                 <RefreshCw className={`w-4 h-4 ${busy === "another" ? "animate-spin" : ""}`} /> Suggest another
               </button>
             )}
@@ -257,7 +257,7 @@ export function MiraDayOffer() {
   const showFlash = flash.alert && (flash.offer || flash.alert.status !== "accepted");
 
   return (
-    <div className="bg-gradient-to-br from-[#17141c] to-[#26202b] rounded-2xl border border-amber-300/30 p-5 text-white shadow-sm" data-testid="mira-day-offer-card">
+    <div className="dash-cream-card rounded-3xl p-5 sm:p-6 text-slate-800" data-testid="mira-day-offer-card">
       {/* ⚡ CCTV flash alert */}
       {showFlash && (
         <div className="mb-4 rounded-xl border border-rose-500/40 bg-rose-500/10 p-4" data-testid="flash-offer-alert">
@@ -266,7 +266,7 @@ export function MiraDayOffer() {
           </div>
           {!flash.offer ? (
             <div className="mt-2 flex items-center gap-3 flex-wrap">
-              <p className="text-xs text-white/70">Chairs have been sitting idle — want a flash offer for the next 2 hours to pull walk-ins?</p>
+              <p className="text-xs text-slate-600">Chairs have been sitting idle — want a flash offer for the next 2 hours to pull walk-ins?</p>
               <button onClick={() => run("flash-suggest")} disabled={!!busy} data-testid="flash-offer-create-btn"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rose-500 text-white text-sm font-semibold hover:bg-rose-600 disabled:opacity-50">
                 {busy === "flash-suggest" ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
@@ -282,15 +282,15 @@ export function MiraDayOffer() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-amber-300/15 border border-amber-300/40 flex items-center justify-center">
-            <Sparkles className="w-4.5 h-4.5 text-amber-300" />
+            <Sparkles className="w-4.5 h-4.5 text-[#b8892a]" />
           </div>
           <div>
-            <div className="text-[10px] uppercase tracking-[0.25em] text-white/50">Mira · Offer of the day</div>
+            <div className="text-[10px] uppercase tracking-[0.25em] text-slate-500">Mira · Offer of the day</div>
             <div className="font-playfair text-lg leading-tight" data-testid="day-offer-heading">
               {festToday ? (
-                <>It's {dayName} · <span className="text-amber-300">{festToday.emoji} {festToday.name}{festToday.span > 1 ? ` (day ${festToday.day})` : ""}</span> — let's fill those chairs ✦</>
+                <>It's {dayName} · <span className="text-[#b8892a]">{festToday.emoji} {festToday.name}{festToday.span > 1 ? ` (day ${festToday.day})` : ""}</span> — let's fill those chairs ✦</>
               ) : festNext ? (
-                <>It's {dayName} — <span className="text-amber-300">{festNext.emoji} {festNext.name} {festNext.days_away === 1 ? "tomorrow" : `in ${festNext.days_away} days`}</span>, get them festival-ready ✦</>
+                <>It's {dayName} — <span className="text-[#b8892a]">{festNext.emoji} {festNext.name} {festNext.days_away === 1 ? "tomorrow" : `in ${festNext.days_away} days`}</span>, get them festival-ready ✦</>
               ) : (
                 <>It's {dayName} — {["Friday", "Saturday", "Sunday"].includes(dayName) ? "busy day, let's upsell ✦" : "let's fill those chairs ✦"}</>
               )}
@@ -300,7 +300,7 @@ export function MiraDayOffer() {
         <div className="flex items-center gap-2 flex-wrap">
           <select value={style} onChange={(e) => setStyle(e.target.value)} data-testid="day-offer-style-select"
             title="Poster design style"
-            className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-amber-300/50 [&_option]:bg-[#17141c] [&_optgroup]:bg-[#17141c]">
+            className="bg-white/80 border border-amber-100 text-slate-700 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-amber-300/50 [&_option]:bg-white [&_option]:text-slate-800 [&_optgroup]:bg-white">
             <option value="">🎨 Poster style — surprise me</option>
             {styleOptions.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
             <optgroup label="✦ Festival specials">
@@ -310,13 +310,13 @@ export function MiraDayOffer() {
           {(!offer || offer.status !== "accepted") && (
             <>
               <select value={tier} onChange={(e) => setTier(e.target.value)} data-testid="day-offer-tier-select"
-                className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-amber-300/50 [&>option]:bg-[#17141c]">
+                className="bg-white/80 border border-amber-100 text-slate-700 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-amber-300/50 [&>option]:bg-white [&>option]:text-slate-800">
                 <option value="">Mira picks services</option>
                 <option value="premium">Premium (Color, Keratin, Botox…)</option>
                 <option value="budget">Budget-friendly services</option>
               </select>
               <select value={pct} onChange={(e) => setPct(e.target.value)} data-testid="day-offer-pct-select"
-                className="bg-white/5 border border-white/15 text-white/80 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-amber-300/50 [&>option]:bg-[#17141c]">
+                className="bg-white/80 border border-amber-100 text-slate-700 text-xs rounded-full px-3 py-2 focus:outline-none focus:border-amber-300/50 [&>option]:bg-white [&>option]:text-slate-800">
                 <option value="">Mira decides %</option>
                 {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map(p => <option key={p} value={p}>{`${p}% off`}</option>)}
               </select>
@@ -324,7 +324,7 @@ export function MiraDayOffer() {
           )}
           {!offer && (
             <button onClick={() => run("suggest")} disabled={!!busy} data-testid="day-offer-ask-btn"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-300 to-rose-200 text-[#17141c] text-sm font-semibold hover:opacity-90 disabled:opacity-50">
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] text-sm font-semibold hover:opacity-90 disabled:opacity-50">
               {busy === "suggest" ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
               {busy === "suggest" ? "Mira is thinking…" : "Ask Mira for today's offer"}
             </button>

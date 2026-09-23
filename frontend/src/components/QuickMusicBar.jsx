@@ -11,7 +11,7 @@ export function QuickMusicBar() {
   const nowId = player?.track?.id;
   const bhaktiNow = isBhaktiTime();
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 flex flex-wrap items-center gap-2 shadow-sm" data-testid="quick-music-bar">
+    <div className="dash-cream-card rounded-3xl px-4 py-3 flex flex-wrap items-center gap-2 shadow-sm" data-testid="quick-music-bar">
       <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 mr-1">
         <Music className="w-4 h-4 text-amber-500" /> {resto ? "Restaurant music" : "Salon music"}
       </span>

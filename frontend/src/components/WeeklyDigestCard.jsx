@@ -13,7 +13,7 @@ export function WeeklyDigestCard() {
   const waHref = `https://wa.me/?text=${encodeURIComponent(d.wa_text)}`;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-4" data-testid="weekly-digest-card">
+    <div className="dash-cream-card rounded-3xl p-5" data-testid="weekly-digest-card">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0">
           <span className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0"><BarChart3 className="w-4.5 h-4.5 text-emerald-600" /></span>

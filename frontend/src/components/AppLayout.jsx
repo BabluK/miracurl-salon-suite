@@ -17,6 +17,7 @@ import api from "@/lib/api";
 import { useEffect, useState } from "react";
 import BrandMark from "./BrandMark";
 import TenantBrandMark from "./TenantBrandMark";
+import { SidebarMiracurlLogo, PoweredByMiracurl } from "./MasterBrand";
 import { TenantMiraAssistant } from "./TenantMiraAssistant";
 import InstallAppPrompt from "./InstallAppPrompt";
 import GeoBranchGate from "./GeoBranchGate";
@@ -173,8 +174,8 @@ export default function AppLayout() {
         }`}
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
-        <div className="p-6 border-b border-white/5 flex items-center justify-between">
-          {(tenant || brandTenant) ? <TenantBrandMark tenant={tenant || brandTenant} /> : <BrandMark variant="dark" size="xs" />}
+        <div className="px-5 pt-4 pb-3 border-b border-white/5 flex items-center justify-between">
+          <SidebarMiracurlLogo />
           <button
             className="lg:hidden text-white/60 hover:text-white p-1"
             onClick={() => setSidebarOpen(false)}
@@ -183,6 +184,9 @@ export default function AppLayout() {
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+        <div className="p-5 border-b border-white/5" data-testid="sidebar-tenant-name-under-logo">
+          {(tenant || brandTenant) ? <TenantBrandMark tenant={tenant || brandTenant} /> : <BrandMark variant="dark" size="xs" />}
         </div>
 
         <nav className="flex-1 py-4 overflow-y-auto" data-testid="sidebar-nav">
@@ -215,7 +219,7 @@ export default function AppLayout() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-white/5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}>
+        <div className="p-4 border-t border-white/5 space-y-2" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}>
           <button
             data-testid="logout-btn"
             onClick={async () => { await logout(); nav("/login"); }}
@@ -224,6 +228,7 @@ export default function AppLayout() {
             <LogOut className="w-4 h-4" />
             Sign Out
           </button>
+          <div className="flex justify-center pt-1"><PoweredByMiracurl testid="sidebar-footer-powered-by-miracurl" /></div>
         </div>
       </aside>
 
@@ -244,10 +249,11 @@ export default function AppLayout() {
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="min-w-0">
+            <div className="min-w-0 flex items-center gap-3">
               <div className="font-playfair text-base sm:text-lg leading-none truncate">
                 {current?.label || tenant?.name || "Dashboard"}
               </div>
+              <PoweredByMiracurl testid="topbar-powered-by-miracurl" className="hidden md:inline-flex" />
             </div>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-4 min-w-0">

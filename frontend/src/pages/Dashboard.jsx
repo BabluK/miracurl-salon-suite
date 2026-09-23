@@ -66,7 +66,7 @@ function DeltaPill({ now, prev, vs, cls }) {
 function Stat({ icon: Icon, label, value, hint, testid, color = "sky", action, now, prev, vs }) {
   const accent = STAT_ACCENTS[color] || STAT_ACCENTS.sky;
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-[#eadfcb] p-5 shadow-sm hover:shadow-md transition-shadow bg-[linear-gradient(135deg,#fffdf8_0%,#fbf6ec_100%)]" data-testid={testid}>
+    <div className="dash-cream-card relative overflow-hidden rounded-3xl p-5" data-testid={testid}>
       <svg viewBox="0 0 100 32" preserveAspectRatio="none" className="pointer-events-none absolute right-0 bottom-0 w-[55%] h-14 opacity-70" aria-hidden="true">
         <defs><linearGradient id={`sp-${color}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={accent.line} stopOpacity="0.35" /><stop offset="100%" stopColor={accent.line} stopOpacity="0" /></linearGradient></defs>
         <path d={`${SPARK_D} L100,32 L0,32 Z`} fill={`url(#sp-${color})`} /><path d={SPARK_D} fill="none" stroke={accent.line} strokeWidth="1.6" />
@@ -189,7 +189,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="app-canvas relative isolate overflow-hidden -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-testid="dashboard-page">
+    <div className="dashboard-sparkle-canvas dash-stagger relative isolate overflow-hidden -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-vertical={tenant?.business_type === "restaurant" ? "restaurant" : "salon"} data-testid="dashboard-page">
       <DashboardAurora />
       <DashboardHero user={user} tenant={tenant} slug={slug} data={data} bookingUrl={bookingUrl} onCopy={copyLink} inr={inr} loadMs={isOwner ? loadMs : 0} />
       {isOwner && <WaCreditsBanner />}
@@ -334,7 +334,7 @@ export default function Dashboard() {
 
       {/* Two columns: upcoming + low stock */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <div className="dash-cream-card rounded-3xl p-5 sm:p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <div className="text-xs uppercase tracking-[0.18em] text-slate-500 font-medium">Upcoming Today</div>
@@ -364,7 +364,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <div className="dash-cream-card rounded-3xl p-5 sm:p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <div className="text-xs uppercase tracking-[0.18em] text-slate-500 font-medium">Stock Alerts</div>
@@ -432,7 +432,7 @@ function RemindersWidget({ reminders, setReminders, salonName }) {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm" data-testid="reminders-widget">
+    <div className="dash-cream-card rounded-3xl p-5 sm:p-6" data-testid="reminders-widget">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
@@ -498,7 +498,7 @@ function ReferralNudgeBanner() {
     setHidden(true);
   };
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-100 via-amber-50 to-white px-4 sm:px-5 py-3 shadow-sm" data-testid="referral-nudge-banner">
+    <div className="flex items-center gap-3 dash-cream-card rounded-3xl px-4 sm:px-5 py-3" data-testid="referral-nudge-banner">
       <span className="text-2xl">🎁</span>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold text-slate-800">
@@ -625,7 +625,7 @@ function StaffPerformance({ inr, locked = false, pinSet = true, unlockedData = n
   const rangeLabel = range ? (range.start === range.end ? fmtD(range.start) : `${fmtD(range.start)} – ${fmtD(range.end)}`) : "";
 
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-[#eadfcb] p-5 sm:p-6 shadow-sm bg-[radial-gradient(120%_100%_at_0%_0%,#fff8ec_0%,#f7efe2_55%,#f3e9d8_100%)]" data-testid="staff-performance-card">
+    <div className="dash-cream-card relative overflow-hidden rounded-3xl p-5 sm:p-6" data-testid="staff-performance-card">
       <div className="pointer-events-none absolute -top-10 -right-10 w-40 h-40 rounded-full bg-[#d4af37]/10 blur-2xl" />
       <div className="flex items-start justify-between flex-wrap gap-4 mb-5">
         <div className="flex items-start gap-4">
@@ -700,7 +700,7 @@ function StaffPerformance({ inr, locked = false, pinSet = true, unlockedData = n
 }
 
 
-const GOLD_CARD = "relative overflow-hidden rounded-3xl border border-[#eadfcb] p-5 sm:p-6 shadow-sm bg-[radial-gradient(120%_100%_at_0%_0%,#fff8ec_0%,#f7efe2_55%,#f3e9d8_100%)]";
+const GOLD_CARD = "dash-cream-card relative overflow-hidden rounded-3xl p-5 sm:p-6";
 const fmtDay = (iso) => new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
 const fmtDow = (iso) => new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short" });
 

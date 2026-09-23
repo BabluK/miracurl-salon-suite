@@ -1,133 +1,136 @@
 {
-  "project_title": "Beauty & Restaurant SaaS Signup Page Redesign Guidelines",
-  "app_type": "saas_signup / marketing_conversion",
-  "design_archetype": "Dual Archetype - Pastel Soft & Romantic (Salon) vs Warm Amber & Epicurean (Restaurant)",
+  "project_name": "Miracurl Suite - Master Admin Dashboard Redesign",
+  "theme": "Light Sparkling Canvas (Dashboard-only) with Dual-Vertical Tenant Adaptation",
+  "scope": {
+    "dashboard_canvas": "Light sparkling background applies ONLY to the Dashboard page (/app/frontend/src/pages/Dashboard.jsx or sub-views). All other admin pages retain their standard light slate/clean theme.",
+    "brand_architecture": "Miracurl is the Master Brand across all tenants (Salon & Restaurant). The Miracurl logo MUST be prominently rendered at the top of the sidebar with tenant name displayed directly beneath it. 'Powered by Miracurl' marks are integrated in the top bar and sidebar footer."
+  },
   "typography": {
-    "headline_font": "Playfair Display, serif",
-    "script_font": "'Caveat', cursive (or 'Alex Brush', cursive loaded via Google Fonts)",
+    "heading_font": "Playfair Display, serif",
     "body_font": "Outfit, sans-serif",
-    "font_loading_instructions": "Add Google Fonts link in index.html for 'Playfair Display:ital,wght@0,400..900;1,400..900', 'Caveat:wght@400..700', and 'Outfit:wght@300..700'",
-    "hierarchy": {
-      "hero_headline": "text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight font-serif leading-tight",
-      "script_decor": "font-script text-2xl sm:text-3xl font-medium tracking-wide leading-none",
-      "hero_subcopy": "text-sm sm:text-base font-sans font-normal leading-relaxed opacity-90",
-      "card_title": "text-xl sm:text-2xl font-bold font-sans tracking-tight",
-      "section_label": "text-xs font-semibold uppercase tracking-widest"
-    }
-  },
-  "theme_tokens": {
-    "salon_theme": {
-      "mode": "salon",
-      "accent_color": "#e0397a",
-      "accent_hover": "#c82a67",
-      "accent_light_bg": "rgba(224, 57, 122, 0.12)",
-      "accent_border": "rgba(224, 57, 122, 0.25)",
-      "page_bg_gradient": "bg-gradient-to-br from-[#fdf0f5] via-[#fbf3f7] to-[#f4e6ee]",
-      "hero_card_bg": "bg-gradient-to-br from-[#2a1320]/90 via-[#1f0e18]/85 to-[#140810]/95 backdrop-blur-xl border border-pink-500/20",
-      "hero_overlay_wash": "bg-gradient-to-t from-[#12050d] via-[#1a0a14]/75 to-pink-950/40",
-      "badge_bg": "bg-pink-500/15 border-pink-500/30 text-pink-300",
-      "stepper_active": "bg-gradient-to-r from-[#e0397a] to-[#f472b6] text-white shadow-lg shadow-pink-500/25",
-      "stepper_inactive": "bg-pink-100/60 text-pink-700/60",
-      "button_gradient": "bg-gradient-to-r from-[#e0397a] via-[#ec4899] to-[#f472b6] hover:from-[#d0296a] hover:to-[#e0397a] text-white shadow-lg shadow-pink-500/30",
-      "feature_chip_bg": "bg-pink-500/15 text-pink-300 border border-pink-500/20 shadow-sm",
-      "testimonial_card_bg": "bg-white/95 text-slate-800 shadow-xl shadow-pink-900/10 border border-pink-100",
-      "hero_photo_url": "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?crop=entropy&cs=srgb&fm=jpg&q=85",
-      "hero_script_tagline": "Good Hair Brighter You ♡",
-      "hero_headline_markup": "Beauty Business <br/><span class=\"text-pink-400 font-serif italic\">Made Smarter</span>",
-      "hero_subtext": "Manage bookings, staff, billing, customers and grow your salon with AI",
-      "features": [
-        "Online Bookings & Calendar Sync",
-        "Staff Roster & Commission Tracking",
-        "Customer CRM & Automated WhatsApp",
-        "Fast POS, Thermal Billing & GST",
-        "Inventory & Product Sales Tracker"
-      ],
-      "testimonial": {
-        "quote": "Our revenue grew 40% in 3 months. The WhatsApp booking and staff commission features are pure magic!",
-        "author": "Priya Sharma",
-        "role": "Owner, Glow Unisex Salon & Spa"
-      },
-      "footer_script": "More Beauty Stories Together ♡"
+    "mono_font": "JetBrains Mono, monospace",
+    "scale": {
+      "h1_hero": "text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight",
+      "h2_section": "text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight",
+      "h3_card_title": "text-lg sm:text-xl font-semibold tracking-normal",
+      "body_text": "text-sm sm:text-base font-normal leading-relaxed",
+      "subtext_caption": "text-xs sm:text-sm font-medium text-slate-500",
+      "micro_label": "text-[10px] sm:text-xs font-bold uppercase tracking-widest"
     },
-    "restaurant_theme": {
-      "mode": "restaurant",
-      "accent_color": "#c9892a",
-      "accent_hover": "#b0741e",
-      "accent_light_bg": "rgba(201, 137, 42, 0.12)",
-      "accent_border": "rgba(201, 137, 42, 0.25)",
-      "page_bg_gradient": "bg-gradient-to-br from-[#fdf8f0] via-[#faf3e6] to-[#f4e8d3]",
-      "hero_card_bg": "bg-gradient-to-br from-[#241a10]/92 via-[#181109]/90 to-[#0f0a05]/96 backdrop-blur-xl border border-amber-500/20",
-      "hero_overlay_wash": "bg-gradient-to-t from-[#0e0803] via-[#1a120a]/80 to-amber-950/40",
-      "badge_bg": "bg-amber-500/15 border-amber-500/30 text-amber-300",
-      "stepper_active": "bg-gradient-to-r from-[#c9892a] to-[#f59e0b] text-white shadow-lg shadow-amber-500/25",
-      "stepper_inactive": "bg-amber-100/60 text-amber-800/60",
-      "button_gradient": "bg-gradient-to-r from-[#c9892a] via-[#d97706] to-[#f59e0b] hover:from-[#b0741e] hover:to-[#c9892a] text-white shadow-lg shadow-amber-500/30",
-      "feature_chip_bg": "bg-amber-500/15 text-amber-300 border border-amber-500/20 shadow-sm",
-      "testimonial_card_bg": "bg-white/95 text-slate-800 shadow-xl shadow-amber-900/10 border border-amber-100",
-      "hero_photo_url": "https://images.pexels.com/photos/16671750/pexels-photo-16671750.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-      "hero_script_tagline": "Good Food Happy People ♡",
-      "hero_headline_markup": "Restaurant Business <br/><span class=\"text-amber-400 font-serif italic\">Made Smarter</span>",
-      "hero_subtext": "Online orders, KOT, table management, POS billing & customer CRM engineered for high-volume dining",
-      "features": [
-        "Online Orders & Direct Table QR",
-        "Lightning POS, KOT & Split Bills",
-        "Live Table & Floor Plan Management",
-        "Customer CRM & Loyalty Campaigns",
-        "Recipe, Ingredient & Inventory Control",
-        "Automated WhatsApp & Marketing Tools"
-      ],
-      "testimonial": {
-        "quote": "Billing time dropped by 50% and table turnover doubled during peak dinner hours. Essential tool for any eatery!",
-        "author": "Ranjit Debnath",
-        "role": "Founder, The Urban Kitchen"
-      },
-      "footer_script": "Same Passion Bigger Possibilities ♡"
-    }
-  },
-  "layout_architecture": {
-    "desktop_grid": "grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12",
-    "left_column": "lg:col-span-6 flex flex-col justify-between relative rounded-3xl overflow-hidden shadow-2xl transition-all duration-500 min-h-[640px]",
-    "right_column": "lg:col-span-6 flex flex-col justify-center",
-    "trust_strip": "w-full border-t border-slate-200/60 bg-white/70 backdrop-blur-md py-6 mt-12 shadow-sm"
-  },
-  "micro_interactions": {
-    "theme_transition": "transition-all duration-500 ease-in-out",
-    "business_type_card_hover": "hover:scale-[1.02] active:scale-[0.98] transition-transform duration-200",
-    "button_hover": "hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200",
-    "feature_item_stagger": "animate-fade-in-up"
-  },
-  "testing_and_accessibility": {
-    "data_testid_convention": "kebab-case, role-based testing attributes",
-    "mandatory_test_ids": [
-      "signup-page-container",
-      "business-type-salon-button",
-      "business-type-restaurant-button",
-      "currency-region-toggle",
-      "stepper-step-1",
-      "stepper-step-2",
-      "stepper-step-3",
-      "stepper-step-4",
-      "newly-opened-yes-button",
-      "newly-opened-no-button",
-      "business-name-input",
-      "booking-url-input",
-      "signup-submit-button",
-      "hero-panel-container",
-      "hero-testimonial-card",
-      "trust-strip-container"
+    "rules": [
+      "Use Playfair Display for primary headers, key metrics focus, and high-impact card titles.",
+      "Use Outfit for readable body copy, tabular numbers, navigation items, and button text.",
+      "Never use default Inter or generic Sans for main section titles.",
+      "Maintain tight tracking (tracking-tight) on headings >= 24px."
     ]
   },
-  "instructions_to_main_agent": [
-    "Ensure both Salon and Restaurant themes switch seamlessly when toggled without page reload.",
-    "Verify dark overlay gradients over photo backdrops keep headline and sub-copy text above 4.5:1 contrast ratio.",
-    "Ensure mobile layout stacks hero panel smoothly above or below form with responsive spacing.",
-    "Add font links for Playfair Display, Caveat, and Outfit in public/index.html if missing.",
-    "Ensure all buttons, inputs, steppers, and toggles have required data-testid attributes."
+  "colors": {
+    "master_brand": {
+      "miracurl_gold": "#d4af37",
+      "miracurl_gold_light": "#f3e8c8",
+      "miracurl_rose_pink": "#ec4899",
+      "miracurl_dark_sidebar": "#0f0f12",
+      "miracurl_dark_sidebar_border": "rgba(255, 255, 255, 0.08)"
+    },
+    "vertical_accents": {
+      "salon": {
+        "primary": "#ec4899",
+        "primary_hover": "#db2777",
+        "secondary_soft": "#fdf2f8",
+        "border_tint": "rgba(236, 72, 153, 0.18)",
+        "sparkle_glow": "rgba(244, 114, 182, 0.35)",
+        "gradient_card_bg": "linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(253,242,248,0.75) 100%)"
+      },
+      "restaurant": {
+        "primary": "#f59e0b",
+        "primary_hover": "#d97706",
+        "secondary_soft": "#fffbeb",
+        "border_tint": "rgba(245, 158, 11, 0.22)",
+        "sparkle_glow": "rgba(251, 191, 36, 0.40)",
+        "gradient_card_bg": "linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(254,243,199,0.75) 100%)"
+      }
+    },
+    "dashboard_light_sparkle_canvas": {
+      "base_bg": "#faf9f5",
+      "gradient_mesh": "radial-gradient(at 10% 10%, rgba(255, 253, 245, 1) 0px, transparent 50%), radial-gradient(at 90% 20%, rgba(254, 243, 199, 0.45) 0px, transparent 50%), radial-gradient(at 50% 80%, rgba(253, 242, 248, 0.50) 0px, transparent 60%), radial-gradient(at 80% 90%, rgba(245, 243, 255, 0.40) 0px, transparent 50%)",
+      "card_bg_glass": "rgba(255, 255, 255, 0.82)",
+      "card_border": "rgba(226, 215, 195, 0.65)",
+      "card_shadow": "0 10px 30px -10px rgba(180, 150, 110, 0.12), 0 4px 12px -2px rgba(0,0,0,0.03)",
+      "card_hover_shadow": "0 20px 40px -12px rgba(180, 150, 110, 0.22), 0 8px 20px -4px rgba(0,0,0,0.06)"
+    }
+  },
+  "visual_enhancers": {
+    "light_sparkling_background_implementation": {
+      "technique": "CSS Radial Shimmer Mesh + CSS Keyframe Glint/Sparkle Layer",
+      "css_rules": "/* Sparkle Canvas Container for Dashboard */\n.dashboard-sparkle-container {\n  position: relative;\n  background-color: #faf9f5;\n  background-image:\n    radial-gradient(circle at 15% 15%, rgba(212, 175, 55, 0.08) 0%, transparent 45%),\n    radial-gradient(circle at 85% 25%, var(--tenant-sparkle-tint, rgba(236, 72, 153, 0.08)) 0%, transparent 40%),\n    radial-gradient(circle at 50% 75%, rgba(255, 255, 255, 0.9) 0%, transparent 70%);\n  min-height: 100vh;\n  overflow-x: hidden;\n}\n.dashboard-sparkle-container::before {\n  content: '';\n  position: absolute;\n  inset: 0;\n  background-image: \n    radial-gradient(2px 2px at 20px 30px, rgba(212, 175, 55, 0.6), rgba(0,0,0,0)),\n    radial-gradient(2px 2px at 40px 70px, rgba(255, 255, 255, 0.9), rgba(0,0,0,0)),\n    radial-gradient(1.5px 1.5px at 90px 40px, var(--tenant-sparkle-core, rgba(236, 72, 153, 0.7)), rgba(0,0,0,0)),\n    radial-gradient(2px 2px at 160px 120px, rgba(212, 175, 55, 0.5), rgba(0,0,0,0)),\n    radial-gradient(1.5px 1.5px at 230px 190px, rgba(255, 255, 255, 0.95), rgba(0,0,0,0));\n  background-repeat: repeat;\n  background-size: 280px 280px;\n  opacity: 0.65;\n  animation: sparkleGlaze 12s ease-in-out infinite alternate;\n  pointer-events: none;\n  z-index: 0;\n}\n@keyframes sparkleGlaze {\n  0% { transform: translateY(0px) scale(1); opacity: 0.55; }\n  50% { transform: translateY(-6px) scale(1.02); opacity: 0.75; }\n  100% { transform: translateY(0px) scale(1); opacity: 0.55; }\n}\n@media (prefers-reduced-motion: reduce) {\n  .dashboard-sparkle-container::before {\n    animation: none;\n  }\n}",
+      "accessibility_note": "Ensures zero motion discomfort via prefers-reduced-motion media query. High contrast AA compliance maintained across all card surfaces with glass opacity set to minimum 0.82."
+    },
+    "cards_and_widgets": {
+      "glassmorphism": "backdrop-blur-xl bg-white/85 border border-[#eadfcb]/80 shadow-[0_8px_25px_-5px_rgba(212,175,55,0.08)] rounded-2xl transition-all duration-300",
+      "kpi_tiles": "p-5 sm:p-6 bg-gradient-to-br from-white/95 via-white/85 to-[#fefcf8]/90 backdrop-blur-md border border-[#eadfcb] rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200",
+      "charts": "p-6 bg-white/90 backdrop-blur-xl border border-[#eadfcb] rounded-2xl shadow-md",
+      "pills_and_badges": "px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide"
+    }
+  },
+  "branding_layout_specs": {
+    "sidebar_top": {
+      "structure": "Flex column alignment inside sidebar header",
+      "miracurl_logo": "Render <BrandMark /> or Miracurl Master Logo emblem with gold/pink gradient shimmer. Size: text-xl font-bold with sparkling 'CURL' accent.",
+      "tenant_name_sub_block": "Directly underneath Miracurl logo: render tenant name (e.g. 'Glamour Velvet Salon' or 'Bistro Elegance') with vertical icon badge (Scissors for Salon, Chef Hat/Utensils for Restaurant), styled in text-xs font-semibold text-amber-200/90 tracking-wide uppercase mt-1 px-2 py-0.5 rounded bg-white/10 border border-white/15 backdrop-blur-sm max-w-[200px] truncate"
+    },
+    "top_bar": {
+      "powered_by_mark": "Display a elegant pill on the top bar right section or left adjacent to page title: 'Powered by Miracurl' with a mini gold sparkle icon, text-[11px] font-medium text-amber-900/70 bg-amber-50/80 border border-amber-200/60 px-2.5 py-1 rounded-full shadow-2xs hover:bg-amber-100/80 transition-colors"
+    },
+    "sidebar_footer": {
+      "powered_by_mark": "Bottom of dark sidebar: 'Powered by Miracurl' badge with version/tenant info, styled with text-[11px] text-zinc-400 font-medium tracking-wider uppercase flex items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity"
+    }
+  },
+  "micro_interactions": {
+    "staggered_entrance": "Framer Motion or CSS staggered fade-slide-up for dashboard widgets (delay children by 0.05s)",
+    "kpi_hover": "Hover lifts card by -2px, darkens amber border tint slightly, enhances soft gold drop shadow",
+    "chart_pin_lock": "PIN unlocked reveals smooth blur-to-clear transition",
+    "button_press": "active:scale-95 transition-transform duration-100"
+  },
+  "component_path_mapping": {
+    "AppLayout": "/app/frontend/src/components/AppLayout.jsx",
+    "DashboardPage": "/app/frontend/src/pages/Dashboard.jsx",
+    "BrandMark": "/app/frontend/src/components/BrandMark.jsx",
+    "TenantBrandMark": "/app/frontend/src/components/TenantBrandMark.jsx",
+    "OwnerDashboardBits": "/app/frontend/src/components/dashboard/OwnerDashboardBits.jsx"
+  },
+  "required_data_testids": [
+    "dashboard-sparkle-canvas",
+    "sidebar-miracurl-logo-block",
+    "sidebar-tenant-name-under-logo",
+    "topbar-powered-by-miracurl",
+    "sidebar-footer-powered-by-miracurl",
+    "dashboard-kpi-tile-appointments",
+    "dashboard-kpi-tile-revenue",
+    "dashboard-kpi-tile-customers",
+    "dashboard-kpi-tile-stock",
+    "mira-day-offer-card",
+    "mira-blast-card",
+    "revenue-trend-chart-card",
+    "business-by-stylist-chart-card",
+    "rating-widget-card",
+    "upcoming-appointments-card",
+    "stock-alerts-card",
+    "whatsapp-reminders-card"
   ],
-  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
-    "You tend to converge toward generic outputs. Avoid this: make creative, distinctive frontends that surprise and delight.",
-    "Do not use transparent backgrounds on headers, dropdowns, or overlays with underlying text.",
-    "Ensure every key interactive element has data-testid attribute.",
-    "Use 2-3x generous padding inside bordered containers."
-  ]
+  "instructions_to_main_agent": [
+    "1. Apply the .dashboard-sparkle-container class exclusively to the Dashboard parent wrapper in Dashboard.jsx.",
+    "2. Ensure tenant vertical tint variables (--tenant-sparkle-tint) switch dynamically based on tenant.business_type or vertical ('salon' -> rose pink, 'restaurant' -> warm amber).",
+    "3. Update AppLayout.jsx sidebar header so Miracurl logo is ALWAYS shown prominently at top, with tenant name and vertical indicator pill directly underneath.",
+    "4. Add 'Powered by Miracurl' pill mark in the AppLayout top bar and sidebar footer.",
+    "5. Keep all existing widgets, PIN lock behaviors, charts, and functionality intact while layering the light sparkling canvas aesthetic and glass cards.",
+    "6. Verify all data-testids exist on the corresponding containers and interactive controls."
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": {
+    "do_not_use_generic_centered_layouts": true,
+    "no_raw_transparent_dropdowns": true,
+    "no_inter_headings": true,
+    "no_ai_emojis_for_icons": true,
+    "smooth_transitions_only": true,
+    "always_include_data_testids": true
+  }
 }

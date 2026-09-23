@@ -19,9 +19,7 @@ export function SmsPointsWidget() {
     <>
       <div
         data-testid="sms-points-widget"
-        className={`flex flex-wrap items-center gap-3 rounded-2xl border px-5 py-3.5 shadow-sm ${
-          low ? "bg-amber-50 border-amber-200" : "bg-white border-slate-200"
-        }`}
+        className={`dash-cream-card flex flex-wrap items-center gap-3 rounded-3xl px-5 py-3.5 ${low ? "!border-amber-300" : ""}`}
       >
         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${low ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"}`}>
           <MessageSquare className="w-4.5 h-4.5" />
