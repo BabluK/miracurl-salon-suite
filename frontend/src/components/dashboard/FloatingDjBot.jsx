@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Lock, Unlock, X, Minimize2 } from "lucide-react";
+import { Lock, Unlock, X, Minimize2, Volume2, VolumeX } from "lucide-react";
+import { playCheerSound, cheerSoundOn, setCheerSound } from "@/lib/cheerSound";
 import { usePlayer } from "@/context/PlayerContext";
 
 const POSE = {
@@ -25,6 +26,7 @@ export function FloatingDjBot() {
   const [mini, setMini] = useState(saved?.mini ?? false);
   const [hidden, setHidden] = useState(false);
   const [cheer, setCheer] = useState(null);
+  const [sound, setSound] = useState(cheerSoundOn());
   const drag = useRef(null);
   const playing = !!player.track;
   const pose = POSE[player.track?.id] || POSE.relaxing;
@@ -38,7 +40,7 @@ export function FloatingDjBot() {
   useEffect(() => { localStorage.setItem(KEY, JSON.stringify({ pos, locked, mini })); }, [pos, locked, mini]);
   useEffect(() => { if (playing) setHidden(false); }, [playing, player.track?.id]);
   useEffect(() => {
-    const on = (e) => { setCheer(e.detail?.kind || "bill"); setTimeout(() => setCheer(null), 2600); };
+    const on = (e) => { setCheer(e.detail?.kind || "bill"); playCheerSound(); setTimeout(() => setCheer(null), 2600); };
     window.addEventListener("mira:cheer", on); return () => window.removeEventListener("mira:cheer", on);
   }, []);
 
@@ -70,6 +72,9 @@ export function FloatingDjBot() {
     <div className={`floating-dj ${locked ? "is-locked" : "is-free"} ${mini ? "is-mini" : ""} ${cheer ? "is-cheering" : ""}`} style={{ left: pos.x, top: pos.y }}
       data-testid="floating-dj-bot" data-locked={locked ? "true" : "false"} data-mini={mini ? "true" : "false"} data-cheer={cheer || ""}>
       <div className="floating-dj__tools">
+        {!mini && <button onClick={() => { setCheerSound(!sound); setSound(!sound); if (!sound) playCheerSound(); }} title={sound ? "Cheer sound on — click to mute" : "Cheer sound muted — click to enable"} data-testid="floating-dj-sound-btn" data-on={sound ? "true" : "false"}>
+          {sound ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+        </button>}
         {!mini && <button onClick={() => setMini(true)} title="Mini mode" data-testid="floating-dj-mini-btn"><Minimize2 className="w-3.5 h-3.5" /></button>}
         <button onClick={() => setLocked(l => !l)} title={locked ? "Unlock to move" : "Lock in place"} data-testid="floating-dj-lock-btn">
           {locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
