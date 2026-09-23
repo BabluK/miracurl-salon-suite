@@ -148,3 +148,4 @@ backend/otp.txt
 *.cookies
 *.cj
 cookies*.txt
+frontend/node_modules/.cache/default-development/32.pack

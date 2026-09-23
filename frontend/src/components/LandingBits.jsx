@@ -1,4 +1,4 @@
-import { Facebook, Instagram, Linkedin, MessageCircle, Youtube } from "lucide-react";
+import { Facebook, Instagram, Linkedin, MessageCircle, PlayCircle, Youtube } from "lucide-react";
 
 const NAV = [
   { label: "Features", href: "/features" }, { label: "Industries", href: "/who-can-use" }, { label: "Pricing", href: "/pricing" },
@@ -59,8 +59,8 @@ export function LandingFooter() {
 
 export function WhatsAppFloat() {
   return (
-    <a href={WA_DEMO_URL} target="_blank" rel="noreferrer" className="fixed left-5 bottom-5 z-30 inline-flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full bg-[#25d366] text-white text-sm font-bold shadow-xl shadow-emerald-500/30 hover:scale-105 transition-transform" data-testid="landing-whatsapp-float">
-      <MessageCircle className="w-5 h-5" /> Book a demo
+    <a href="https://miracurl-suite.com/demo" target="_blank" rel="noreferrer" className="fixed left-5 bottom-5 z-30 inline-flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full bg-gradient-to-r from-[#e8c56a] to-[#b8892a] text-[#1a1408] text-sm font-bold shadow-xl shadow-amber-500/30 hover:scale-105 transition-transform" data-testid="landing-live-demo-float">
+      <PlayCircle className="w-5 h-5" /> Live demo
     </a>
   );
 }
