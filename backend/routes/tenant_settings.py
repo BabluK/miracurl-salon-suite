@@ -86,6 +86,53 @@ def _scrub_tenant(obj):
     return obj
 
 
+class ModuleVisitIn(BaseModel):
+    module: str = Field(..., pattern=r"^[a-z-]{2,40}$")
+
+
+@router.post("/tenants/current/module-visit")
+async def module_visit(body: ModuleVisitIn, user=Depends(get_current_user), t=Depends(current_tenant)):
+    """USD tenants only: remember which app modules the salon actually opened (feeds the trial nudge)."""
+    from services.entitlements import MODULES
+    if (t.get("currency") or "INR") != "USD" or body.module not in MODULES:
+        return {"ok": False}
+    now = datetime.now(timezone.utc).isoformat()
+    await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {f"module_usage.{body.module}.last": now}, "$inc": {f"module_usage.{body.module}.n": 1}})
+    return {"ok": True}
+
+
+@router.get("/tenants/current/trial-nudge")
+async def trial_nudge(user=Depends(require_admin), t=Depends(current_tenant)):
+    """Last-7-days-of-trial banner data for USD salons: Starter vs Professional against the modules they used."""
+    from services.entitlements import TIER_MODULES, MODULES
+    from routes.subscriptions import PLAN_CATALOG, load_plan_overrides
+    end_raw = t.get("trial_end_date") or t.get("trial_ends_at")
+    if (t.get("currency") or "INR") != "USD" or t.get("status") != "trial" or t.get("subscription_end_date") or not end_raw:
+        return {"show": False}
+    days_left = (datetime.fromisoformat(str(end_raw)[:10]).date() - datetime.now(timezone.utc).date()).days
+    if days_left > 7:
+        return {"show": False, "days_left": days_left}
+    await load_plan_overrides()
+    usage = t.get("module_usage") or {}
+    used = [m for m in MODULES if (usage.get(m) or {}).get("n")]
+    starter, pro = set(TIER_MODULES["starter"]), set(TIER_MODULES["professional"])
+    needs_pro = [m for m in used if m in pro and m not in starter]
+    needs_premium = [m for m in used if m not in pro]
+    recommended = "premium" if needs_premium else ("professional" if needs_pro else "starter")
+    price = lambda k: (PLAN_CATALOG.get(k) or {}).get("price")
+    return {
+        "show": True, "days_left": max(days_left, 0), "trial_end": str(end_raw)[:10],
+        "used": used, "needs_pro": needs_pro, "needs_premium": needs_premium, "recommended": recommended,
+        "modules": {m: MODULES[m] for m in MODULES},
+        "tiers": {
+            "starter": {"price": price("intl_starter_monthly"), "annual": price("intl_starter_annual"), "modules": TIER_MODULES["starter"]},
+            "professional": {"price": price("intl_pro_monthly"), "annual": price("intl_pro_annual"), "modules": TIER_MODULES["professional"]},
+            "premium": {"price": price("intl_premium_monthly"), "annual": price("intl_premium_annual"), "modules": TIER_MODULES["premium"]},
+        },
+    }
+
+
+
 @router.get("/tenants/current")
 async def get_current_tenant(t=Depends(current_tenant)):
     """The tenant the current authenticated user belongs to (or has switched into)."""

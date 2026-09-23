@@ -8,8 +8,9 @@ import logging
 import os
 import asyncio
 import uuid
+import re
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
@@ -24,6 +25,7 @@ from services.orders import send_order_status_email
 from services.subscription_common import (  # noqa: F401 — re-exported: other routes import these from here
     Subscription, SubscriptionPayment, PLAN_CATALOG, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, _rzp_client,
     load_plan_overrides, _plan_or_400, _fresh_plan_or_400, _apply_subscription_to_tenants, _verify_rzp_signature,
+    visible_plans,
 )
 
 router = APIRouter()
@@ -106,7 +108,9 @@ async def public_plans():
     await load_plan_overrides()
     out = {k: {"label": v["label"], "price": v["price"], "duration_days": v["duration_days"],
                "branches": v["branches"], "currency": v.get("currency", "INR"),
-               "tier": v.get("tier"), "vertical": v.get("vertical", "salon")} for k, v in PLAN_CATALOG.items()}
+               "tier": v.get("tier"), "vertical": v.get("vertical", "salon"),
+               "features": v.get("features") or [], "custom": bool(v.get("custom")), "highlight": bool(v.get("highlight"))}
+           for k, v in visible_plans().items()}
     out["trial_days"] = await get_trial_days()
     return out
 
@@ -122,6 +126,64 @@ class PlanUpdateIn(BaseModel):
     label: Optional[str] = None
     duration_days: Optional[int] = None
     branches: Optional[int] = None
+    features: Optional[List[str]] = None
+    tier: Optional[str] = None
+    highlight: Optional[bool] = None
+
+
+class PlanCreateIn(BaseModel):
+    label: str = Field(..., min_length=2, max_length=80)
+    price: float
+    duration_days: int = Field(..., ge=1, le=3660)
+    branches: int = Field(1, ge=1, le=100)
+    currency: str = Field("INR", pattern=r"^(INR|USD)$")
+    vertical: str = Field("salon", pattern=r"^(salon|restaurant)$")
+    tier: Optional[str] = Field(None, pattern=r"^(starter|professional|premium|enterprise)$")
+    features: List[str] = []
+    highlight: bool = False
+
+
+@router.post("/super-admin/plans")
+async def create_plan(body: PlanCreateIn, user=Depends(require_super_admin)):
+    """HQ adds a brand-new plan (any vertical / currency). Shows up everywhere plans are listed."""
+    if body.price <= 0:
+        raise HTTPException(400, "Price must be positive")
+    base = re.sub(r"[^a-z0-9]+", "_", body.label.lower()).strip("_")[:40] or "plan"
+    key = f"{'resto_' if body.vertical == 'restaurant' else ''}{'intl_' if body.currency == 'USD' else ''}{base}"
+    await load_plan_overrides()
+    if key in PLAN_CATALOG:
+        key = f"{key}_{uuid.uuid4().hex[:4]}"
+    doc = {"key": key, "custom": True, "label": body.label.strip(), "price": float(body.price), "duration_days": int(body.duration_days),
+           "branches": int(body.branches), "currency": body.currency, "vertical": body.vertical, "tier": body.tier,
+           "features": [f.strip()[:80] for f in body.features if f.strip()][:12], "highlight": body.highlight, "hidden": False,
+           "created_by": user.get("email", ""), "updated_by": user.get("email", ""), "updated_at": datetime.now(timezone.utc).isoformat()}
+    await _raw_db.plan_overrides.insert_one(doc)
+    await load_plan_overrides()
+    return {"key": key, **PLAN_CATALOG[key]}
+
+
+@router.delete("/super-admin/plans/{key}")
+async def delete_plan(key: str, user=Depends(require_super_admin)):
+    """Custom plans are removed for good; built-in plans are hidden (can be restored). Existing subscribers are unaffected."""
+    await load_plan_overrides()
+    if key not in PLAN_CATALOG:
+        raise HTTPException(404, f"Unknown plan '{key}'")
+    if PLAN_CATALOG[key].get("custom"):
+        await _raw_db.plan_overrides.delete_one({"key": key, "custom": True})
+    else:
+        await _raw_db.plan_overrides.update_one({"key": key}, {"$set": {"key": key, "hidden": True, "updated_by": user.get("email", ""),
+                                                                        "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
+    await load_plan_overrides()
+    return {"ok": True, "key": key, "removed": key not in PLAN_CATALOG, "hidden": bool(PLAN_CATALOG.get(key, {}).get("hidden"))}
+
+
+@router.post("/super-admin/plans/{key}/restore")
+async def restore_plan(key: str, user=Depends(require_super_admin)):
+    await _raw_db.plan_overrides.update_one({"key": key}, {"$set": {"hidden": False}})
+    await load_plan_overrides()
+    if key not in PLAN_CATALOG:
+        raise HTTPException(404, f"Unknown plan '{key}'")
+    return {"key": key, **PLAN_CATALOG[key]}
 
 
 @router.put("/super-admin/plans/{key}")
@@ -137,6 +199,12 @@ async def update_plan(key: str, body: PlanUpdateIn, user=Depends(require_super_a
         patch["duration_days"] = max(1, int(body.duration_days))
     if body.branches:
         patch["branches"] = max(1, int(body.branches))
+    if body.features is not None:
+        patch["features"] = [f.strip()[:80] for f in body.features if f.strip()][:12]
+    if body.tier:
+        patch["tier"] = body.tier
+    if body.highlight is not None:
+        patch["highlight"] = bool(body.highlight)
     PLAN_CATALOG[key].update(patch)
     await _raw_db.plan_overrides.update_one(
         {"key": key}, {"$set": {"key": key, **patch,
@@ -274,7 +342,7 @@ async def rzp_config(user=Depends(require_tenant_admin)):
         "enabled": bool(RAZORPAY_KEY_ID),
         "key_id": RAZORPAY_KEY_ID,
         "test_mode": RAZORPAY_KEY_ID.startswith("rzp_test_"),
-        "plans": [{"key": k, **v} for k, v in PLAN_CATALOG.items()],
+        "plans": [{"key": k, **v} for k, v in visible_plans().items()],
     }
 
 

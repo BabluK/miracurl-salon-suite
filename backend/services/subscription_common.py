@@ -46,17 +46,45 @@ class SubscriptionPayment(BaseModel):
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
+_CUSTOM_KEYS: set = set()
+_OVERRIDE_FIELDS = ("price", "label", "duration_days", "branches", "features", "tier", "hidden", "highlight")
+
+
 async def load_plan_overrides():
-    """Merge DB price overrides into the in-memory catalog (called at startup)."""
+    """Merge DB overrides into the in-memory catalog: price/label edits, HQ-hidden built-ins and HQ-created custom plans."""
+    seen_custom = set()
+    for k in PLAN_CATALOG:
+        PLAN_CATALOG[k].pop("hidden", None)
     async for o in _raw_db.plan_overrides.find({}, {"_id": 0}):
-        if o.get("key") in PLAN_CATALOG:
-            PLAN_CATALOG[o["key"]].update({k: o[k] for k in ("price", "label", "duration_days", "branches") if o.get(k) is not None})
+        key = o.get("key")
+        if not key:
+            continue
+        if o.get("custom"):
+            seen_custom.add(key)
+            PLAN_CATALOG[key] = {"label": o.get("label") or key, "price": float(o.get("price") or 0), "duration_days": int(o.get("duration_days") or 30),
+                                 "branches": int(o.get("branches") or 1), "currency": o.get("currency") or "INR", "vertical": o.get("vertical") or "salon",
+                                 "tier": o.get("tier"), "features": o.get("features") or [], "custom": True, "hidden": bool(o.get("hidden")),
+                                 "highlight": bool(o.get("highlight"))}
+            if PLAN_CATALOG[key]["currency"] == "INR":
+                PLAN_CATALOG[key].pop("currency")
+        elif key in PLAN_CATALOG:
+            PLAN_CATALOG[key].update({k: o[k] for k in _OVERRIDE_FIELDS if o.get(k) is not None})
+    for stale in _CUSTOM_KEYS - seen_custom:
+        PLAN_CATALOG.pop(stale, None)
+    _CUSTOM_KEYS.clear()
+    _CUSTOM_KEYS.update(seen_custom)
+
+
+def visible_plans() -> dict:
+    return {k: v for k, v in PLAN_CATALOG.items() if not v.get("hidden")}
 
 
 def _plan_or_400(plan: str) -> dict:
     p = PLAN_CATALOG.get(plan)
     if not p:
-        raise HTTPException(400, f"Unknown plan '{plan}'. Valid: {list(PLAN_CATALOG)}")
+        raise HTTPException(400, f"Unknown plan '{plan}'. Valid: {list(visible_plans())}")
+    if p.get("hidden"):
+        raise HTTPException(400, f"Plan '{p.get('label', plan)}' is no longer offered")
     return p
 
 

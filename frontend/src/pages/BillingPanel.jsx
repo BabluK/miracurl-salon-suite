@@ -12,6 +12,7 @@ import { InvoicesPanel } from "@/components/superadmin/InvoicesPanel";
 import { WebhookHealthCard } from "@/components/superadmin/WebhookHealthCard";
 import { EmailLogCard } from "@/components/superadmin/EmailLogCard";
 import { TrialOfferEditor } from "@/components/superadmin/TrialOfferEditor";
+import { AddPlanForm, PlanRowActions } from "@/components/superadmin/PlanCatalogTools";
 
 const CHART_TOOLTIP_STYLE = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, color: "#0f172a" };
 const CHART_TOOLTIP_LABEL_STYLE = { color: "#0284c7" };
@@ -250,11 +251,12 @@ function PlanCatalogEditor({ plans, onSaved }) {
     const label = String(val(p, "label") || "").trim();
     if (!price || price <= 0) { toast.error("Enter a valid price"); return; }
     if (label.length < 2) { toast.error("Enter a valid plan name"); return; }
-    if (!await confirmAsync(`Update "${label}" to ₹${price.toLocaleString("en-IN")}?\n\nNew subscriptions & renewals will use this price. Existing active subscriptions are not affected.`)) return;
+    const cur = p.currency === "USD" ? "$" : "₹";
+    if (!await confirmAsync(`Update "${label}" to ${cur}${price.toLocaleString("en-IN")}?\n\nNew subscriptions & renewals will use this price. Existing active subscriptions are not affected.`)) return;
     setSavingKey(p.key);
     try {
       await api.put(`/super-admin/plans/${p.key}`, { price, label });
-      toast.success(`${label} updated ✦ ₹${price.toLocaleString("en-IN")}`);
+      toast.success(`${label} updated ✦ ${cur}${price.toLocaleString("en-IN")}`);
       setEdits(e => { const n = { ...e }; delete n[p.key]; return n; });
       await onSaved();
     } catch (e) {
@@ -285,36 +287,51 @@ function PlanCatalogEditor({ plans, onSaved }) {
           </div>
         </div>
         <TrialOfferEditor />
+        <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-[11px] text-slate-500">Add, hide or delete plans — every change is live instantly on the pricing page, signup, tenant checkout and pay links.</p>
+          <AddPlanForm onSaved={onSaved} />
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="luxe-table-light">
-          <thead><tr><th>Plan Name</th><th>Duration</th><th>Branches</th><th>Price (₹)</th><th></th></tr></thead>
+          <thead><tr><th>Plan Name</th><th>Duration</th><th>Branches</th><th>Price</th><th></th></tr></thead>
           <tbody>
-            {[["salon", "💇 Salon & Spa Plans"], ["restaurant", "🍽️ Restaurant Plans"]].map(([vert, heading]) => {
-              const group = plans.filter(p => (p.vertical || "salon") === vert);
+            {[["salon", "INR", "💇 Salon & Spa Plans · India ₹"], ["salon", "USD", "🇺🇸 Salon & Spa Plans · US & International $"],
+              ["restaurant", "INR", "🍽️ Restaurant Plans · India ₹"], ["restaurant", "USD", "🍽️ Restaurant Plans · US & International $"]].map(([vert, cur, heading]) => {
+              const group = plans.filter(p => (p.vertical || "salon") === vert && (p.currency || "INR") === cur);
               if (!group.length) return null;
               return [
-                <tr key={`head-${vert}`} data-testid={`plan-group-${vert}`}>
+                <tr key={`head-${vert}-${cur}`} data-testid={`plan-group-${vert}-${cur.toLowerCase()}`}>
                   <td colSpan={5} className="!py-2.5 bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-600">{heading}</td>
                 </tr>,
                 ...group.map(p => (
-              <tr key={p.key} data-testid={`plan-row-${p.key}`}>
+              <tr key={p.key} data-testid={`plan-row-${p.key}`} className={p.hidden ? "opacity-60" : ""}>
                 <td>
                   <input data-testid={`plan-label-${p.key}`} className="input-light w-full min-w-[180px] text-sm" value={val(p, "label")}
                     onChange={e => setVal(p.key, "label", e.target.value)} />
-                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">{p.key}</div>
+                  <div className="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center gap-1.5">{p.key}
+                    {p.currency === "USD" && <span className="px-1.5 rounded bg-indigo-50 text-indigo-700 font-sans font-semibold">USD</span>}
+                    {p.custom && <span className="px-1.5 rounded bg-sky-50 text-sky-700 font-sans font-semibold">custom</span>}
+                    {p.hidden && <span className="px-1.5 rounded bg-rose-50 text-rose-700 font-sans font-semibold" data-testid={`plan-hidden-${p.key}`}>hidden</span>}
+                  </div>
                 </td>
                 <td className="text-xs text-slate-600">{Math.max(1, Math.round((p.duration_days || 183) / 30.4))} months</td>
                 <td className="text-xs text-slate-600">{p.branches}</td>
                 <td>
-                  <input data-testid={`plan-price-${p.key}`} type="number" min="0" step="500" className="input-light w-28 text-sm font-semibold"
-                    value={val(p, "price")} onChange={e => setVal(p.key, "price", e.target.value)} />
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-slate-500">{p.currency === "USD" ? "$" : "₹"}</span>
+                    <input data-testid={`plan-price-${p.key}`} type="number" min="0" step={p.currency === "USD" ? "1" : "500"} className="input-light w-28 text-sm font-semibold"
+                      value={val(p, "price")} onChange={e => setVal(p.key, "price", e.target.value)} />
+                  </div>
                 </td>
                 <td className="text-right">
-                  <button data-testid={`plan-save-${p.key}`} onClick={() => save(p)} disabled={!dirty(p) || savingKey === p.key}
-                    className="text-xs px-3 py-1.5 rounded-md bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
-                    {savingKey === p.key ? "Saving…" : "Save"}
-                  </button>
+                  <div className="inline-flex items-center gap-2">
+                    <button data-testid={`plan-save-${p.key}`} onClick={() => save(p)} disabled={!dirty(p) || savingKey === p.key}
+                      className="text-xs px-3 py-1.5 rounded-md bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
+                      {savingKey === p.key ? "Saving…" : "Save"}
+                    </button>
+                    <PlanRowActions p={p} onSaved={onSaved} />
+                  </div>
                 </td>
               </tr>
                 )),

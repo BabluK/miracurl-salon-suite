@@ -135,6 +135,13 @@ export default function AppLayout() {
   // Close mobile sidebar on route change
   useEffect(() => { setSidebarOpen(false); setMenuOpen(false); }, [loc.pathname]);
 
+  // USD salons: remember which modules were opened (feeds the trial-ending nudge)
+  useEffect(() => {
+    if (tenant?.currency !== "USD") return;
+    const mod = loc.pathname.split("/")[1];
+    if (mod && mod !== "dashboard" && mod !== "settings" && !planLocked) api.post("/tenants/current/module-visit", { module: mod }).catch(() => {});
+  }, [loc.pathname, tenant?.currency, planLocked]);
+
   // Lock body scroll when mobile drawer is open
   useEffect(() => {
     if (sidebarOpen) {

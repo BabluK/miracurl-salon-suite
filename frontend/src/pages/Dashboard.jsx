@@ -30,6 +30,7 @@ import { MissedBillNudge } from "@/components/dashboard/MissedBillNudge";
 import { WaCreditsBanner } from "@/components/dashboard/WaCreditsBanner";
 import { WelcomeCongratsModal } from "@/components/WelcomeCongratsModal";
 import { TrialCountdownRing } from "@/components/dashboard/TrialCountdownRing";
+import { TrialNudgeBanner } from "@/components/dashboard/TrialNudgeBanner";
 import { PendingApprovalsTile } from "@/components/dashboard/MiraBlast";
 import { DashboardHero, MiraAssistantCard, LowStockCard, MiraSuggestsCard, QuickActionsCard, MembershipPromoCard } from "@/components/dashboard/HeroBlocks";
 
@@ -233,6 +234,7 @@ export default function Dashboard() {
 
       {isOwner && <WelcomeCongratsModal />}
       <RenewalBanner sub={subStatus} />
+      {isOwner && <TrialNudgeBanner />}
       {isOwner && <TrialCountdownRing />}
       <ReferralNudgeBanner />
       {isOwner && <MySalonsOverview />}

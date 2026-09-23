@@ -65,11 +65,29 @@ function buildIntlPlans(c) {
   const price = (key, fallback) => c?.[key]?.price ?? fallback;
   const defaults = { starter: [39, 390], professional: [79, 790], premium: [149, 1490] };
   const keys = { starter: "intl_starter", professional: "intl_pro", premium: "intl_premium" };
-  return INTL_TIERS.map(t => {
+  const tiers = INTL_TIERS.filter(t => !c || c[`${keys[t.tier]}_monthly`]).map(t => {
     const [m, a] = defaults[t.tier];
     const k = keys[t.tier];
     return { ...t, key: `${k}_monthly`, monthly: price(`${k}_monthly`, m), annual: price(`${k}_annual`, a) };
   });
+  return [...tiers, ...customPlanCards(c, "USD")];
+}
+
+const durLabel = (days, cur) => {
+  const m = Math.round((days || 30) / 30.4);
+  return m >= 12 && m % 12 === 0 ? `for ${m / 12} year${m > 12 ? "s" : ""}` : m <= 1 ? "per month" : `for ${m} months`;
+};
+
+function customPlanCards(c, currency, vertical = "salon") {
+  return Object.entries(c || {})
+    .filter(([, v]) => v && typeof v === "object" && v.custom && (v.currency || "INR") === currency && (v.vertical || "salon") === vertical)
+    .sort((a, b) => (a[1].price || 0) - (b[1].price || 0))
+    .map(([key, v]) => ({
+      key, title: v.label, price: currency === "USD" ? fmtUSD(v.price) : fmtINR(v.price), monthly: v.price, annual: null,
+      per: `${durLabel(v.duration_days)}${(v.branches || 1) > 1 ? ` · ${v.branches} branches` : ""}`, cta: "Get started", primary: !!v.highlight,
+      tagline: v.branches > 1 ? "For salon chains" : "All-in-one salon suite",
+      items: v.features?.length ? v.features : ["All features included", "WhatsApp support", "Cancel anytime"],
+    }));
 }
 
 function buildPlans(c) {
@@ -77,7 +95,9 @@ function buildPlans(c) {
   const hy = c.half_year?.price, an = c.annual?.price;
   const b2a = c.two_branch_annual?.price, b2h = c.two_branch_half?.price;
   const b3a = c.three_branch_annual?.price, b3h = c.three_branch_half?.price, b5a = c.multi_branch_annual?.price;
-  return PLANS.map(p => {
+  const anyMulti = b2a || b2h || b3a || b3h || b5a || c.multi_branch_half?.price;
+  const kept = PLANS.filter(p => (p.key === "trial") || (p.key === "half_year" ? !!hy : p.key === "annual" ? !!an : p.key === "multi_branch" ? !!anyMulti : true));
+  return [...kept.map(p => {
     if (p.key === "trial" && c.trial_days) return { ...p, per: `${c.trial_days} days` };
     if (p.key === "half_year" && hy) return { ...p, price: fmtINR(hy) };
     if (p.key === "annual" && an) return { ...p, price: fmtINR(an), per: hy && hy * 2 > an ? `for 1 year — save ${fmtINR(hy * 2 - an)}` : "for 1 year" };
@@ -86,7 +106,7 @@ function buildPlans(c) {
       per: `2 branches ${kINR(b2a)}/yr (${kINR(b2h)}/6mo) · 3 branches ${kINR(b3a)}/yr (${kINR(b3h)}/6mo) · 5+ ${kINR(b5a)}/yr`,
     };
     return p;
-  });
+  }), ...customPlanCards(c, "INR")];
 }
 
 const TESTIMONIALS = [
@@ -617,7 +637,7 @@ export default function Landing({ scrollTo }) {
           </div>
         </div>
         {region === "in" ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-5 ${plans.length >= 4 ? "lg:grid-cols-4" : plans.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
           {plans.map(p => (
             <div key={p.key} data-testid={`plan-${p.key}`}
                  className={`rounded-3xl p-7 relative bg-[#0F0F10] border transition-colors ${p.primary
@@ -647,7 +667,7 @@ export default function Landing({ scrollTo }) {
         </div>
         ) : (
         <>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl mx-auto">
+        <div className={`grid grid-cols-1 md:grid-cols-3 gap-5 mx-auto ${intlPlans.length > 3 ? "lg:grid-cols-4 max-w-6xl" : "max-w-5xl"}`}>
           {intlPlans.map(p => (
             <div key={p.key} data-testid={`plan-${p.key}`}
                  className={`rounded-3xl p-7 relative bg-[#0F0F10] border transition-colors ${p.primary
@@ -658,11 +678,11 @@ export default function Landing({ scrollTo }) {
               <div className="text-xs text-white/55 mt-1" data-testid={`plan-tagline-${p.key}`}>{p.tagline}</div>
               <div className="mt-4 flex items-end gap-2">
                 <span className="text-4xl font-bold font-playfair text-[#DFB78C]">{fmtUSD(p.monthly)}</span>
-                <span className="text-sm text-white/40 mb-1.5">/mo</span>
+                <span className="text-sm text-white/40 mb-1.5">{p.annual ? "/mo" : p.per}</span>
               </div>
-              <div className="text-xs text-white/40 mt-2" data-testid={`plan-annual-${p.key}`}>
+              {p.annual && <div className="text-xs text-white/40 mt-2" data-testid={`plan-annual-${p.key}`}>
                 or <b className="text-white/80">{fmtUSD(p.annual)}/yr</b> <span className="text-emerald-400">— 2 months free</span>
-              </div>
+              </div>}
               <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-400/10 border border-emerald-400/25 text-[11px] text-emerald-300 font-medium" data-testid={`plan-trial-badge-${p.key}`}>
                 <Check className="w-3 h-3" /> 30-day free trial · no card needed
               </div>

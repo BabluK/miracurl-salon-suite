@@ -40,9 +40,9 @@ def _link_plans(currency: str = "INR") -> list:
     if currency == "INR":
         return [{"key": k, "label": v["label"], "price": v["price"], "duration_days": v["duration_days"]}
                 for k, v in PLAN_CATALOG.items()
-                if not v.get("currency") and int(v.get("branches") or 1) == 1]
+                if not v.get("hidden") and not v.get("currency") and int(v.get("branches") or 1) == 1]
     return [{"key": k, "label": v["label"], "price": v["price"], "duration_days": v["duration_days"]}
-            for k, v in PLAN_CATALOG.items() if v.get("currency") == currency]
+            for k, v in PLAN_CATALOG.items() if not v.get("hidden") and v.get("currency") == currency]
 
 
 def _effective_status(link: dict) -> str:
