@@ -9,6 +9,7 @@ import sys as _sys
 
 _sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
+from _creds import pw
 
 
 def _pdf_text(b: bytes) -> str:
@@ -21,7 +22,7 @@ TENANT_EMAIL = "admin@miracurl.com"
 TENANT_PW = password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")
 TENANT_SLUG = "miracurl-marathahalli"
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PW = "og9T@41Es#OQb6"
+SUPER_PW = pw("SUPER_ADMIN")
 
 
 def _login(email, pw, slug=None):

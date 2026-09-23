@@ -16,6 +16,7 @@ import requests
 
 from creds import password_for
 from pymongo import MongoClient
+from _creds import pw
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
@@ -23,7 +24,7 @@ API = f"{BASE_URL}/api"
 ADMIN_EMAIL = "admin@miracurl.com"
 ADMIN_PW = password_for("admin@miracurl.com")
 STAFF_EMAIL = "priya.staff@miracurl.com"
-STAFF_PW = "Priya@Miracurl123"
+STAFF_PW = pw("STAFF")
 OWNER_PIN = "4321"
 TENANT_ID = "83ab97b6-b481-4172-afd7-53a46c93317d"
 TENANT_SLUG = "miracurl-marathahalli"

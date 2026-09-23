@@ -13,6 +13,7 @@ import pytest
 import requests
 
 from creds import password_for
+from _creds import pw
 
 def _load_base_url():
     v = os.environ.get("REACT_APP_BACKEND_URL")
@@ -29,7 +30,7 @@ def _load_base_url():
 BASE_URL = _load_base_url()
 SUPER = {"email": "super@miracurl.com", "password": password_for("super@miracurl.com")}
 ADMIN = {"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com")}
-MANAGER = {"email": "manager@miracurl.com", "password": "Manager@Miracurl123"}
+MANAGER = {"email": "manager@miracurl.com", "password": pw("MANAGER")}
 
 
 def _login(creds):

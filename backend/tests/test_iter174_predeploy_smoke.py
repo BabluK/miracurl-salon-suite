@@ -6,16 +6,17 @@ sms-packs (whatsapp channel), hq wallet.
 """
 import os
 import requests
+from _creds import pw
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 
 SALON_SLUG = "miracurl-marathahalli"
 SALON_EMAIL = "admin@miracurl.com"
-SALON_PASS = "q6QY@tn3p#9DtL"
+SALON_PASS = pw("SALON_ADMIN")
 OWNER_PIN = "4321"
 
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PASS = "og9T@41Es#OQb6"
+SUPER_PASS = pw("SUPER_ADMIN")
 
 
 def _login(email, password, slug=None):

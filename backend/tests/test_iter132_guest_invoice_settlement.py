@@ -10,6 +10,7 @@ import sys as _sys
 
 _sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
+from _creds import pw
 
 BASE = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 if not BASE:
@@ -18,7 +19,7 @@ if not BASE:
             if line.startswith("REACT_APP_BACKEND_URL="):
                 BASE = line.split("=", 1)[1].strip().rstrip("/")
 
-SUPER = {"email": "super@miracurl.com", "password": "og9T@41Es#OQb6"}
+SUPER = {"email": "super@miracurl.com", "password": pw("SUPER_ADMIN")}
 ADMIN = {"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD"), "slug": "miracurl-marathahalli"}
 WHITE = {"slug": "miracurl-whitefield"}
 

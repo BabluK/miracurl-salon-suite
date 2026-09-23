@@ -2,6 +2,7 @@
 import os
 import requests
 import pytest
+from _creds import pw
 
 
 def _get_base():
@@ -19,8 +20,8 @@ def _get_base():
 BASE = _get_base()
 SLUG_MAIN = "miracurl-marathahalli"
 SLUG_ELEG = "elegance-koramangala"
-OWNER = ("admin@miracurl.com", "q6QY@tn3p#9DtL", SLUG_MAIN)
-MGR = ("manager@miracurl.com", "Manager@1234", SLUG_MAIN)
+OWNER = ("admin@miracurl.com", pw("SALON_ADMIN"), SLUG_MAIN)
+MGR = ("manager@miracurl.com", pw("MANAGER"), SLUG_MAIN)
 ELEG_OWNER = ("owner@elegance.com", "Owner@123", SLUG_ELEG)
 PIN = "3642"
 

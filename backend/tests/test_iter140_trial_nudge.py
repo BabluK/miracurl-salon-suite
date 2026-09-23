@@ -25,6 +25,7 @@ import sys as _sys
 
 _sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
+from _creds import pw
 
 load_dotenv("/app/backend/.env")
 load_dotenv("/app/frontend/.env")
@@ -34,12 +35,12 @@ MONGO_URL = os.environ.get("MONGO_URL")
 DB_NAME = os.environ.get("DB_NAME")
 
 SA_EMAIL = "super@miracurl.com"
-SA_PASS = "og9T@41Es#OQb6"
+SA_PASS = pw("SUPER_ADMIN")
 TA_EMAIL = "admin@miracurl.com"
 TA_PASS = password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")
 TA_SLUG = "miracurl-marathahalli"
 RESTO_EMAIL = "infinity.admin@miracurl.com"
-RESTO_PASS = "Infinity@2026"
+RESTO_PASS = pw("RESTAURANT_ADMIN")
 RESTO_SLUG = "infinity-family-restaurant"
 OWNER_EMAIL = "delivered@resend.dev"
 

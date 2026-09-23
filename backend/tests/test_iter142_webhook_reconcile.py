@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import pytest
 import requests
 from pymongo import MongoClient
+from _creds import pw
 
 API = open("/app/frontend/.env").read().split("REACT_APP_BACKEND_URL=")[1].splitlines()[0].strip() + "/api"
 ENV = {k: v.strip().strip('"').strip("'") for k, v in (l.split("=", 1) for l in open("/app/backend/.env").read().splitlines() if "=" in l and not l.startswith("#"))}
@@ -106,7 +107,7 @@ def test_payment_failed_marks_pending():
 def test_events_archived_and_status_endpoint():
     assert db.razorpay_webhook_events.count_documents({"order_id": ORDER}) >= 3
     s = requests.Session()
-    s.post(f"{API}/auth/login", json={"email": "super@miracurl.com", "password": os.environ.get("SUPER_PW", "og9T@41Es#OQb6")}, timeout=30)
+    s.post(f"{API}/auth/login", json={"email": "super@miracurl.com", "password": os.environ.get("SUPER_PW", pw("SUPER_ADMIN"))}, timeout=30)
     r = s.get(f"{API}/super-admin/razorpay/webhook-status", timeout=30)
     assert r.status_code == 200, r.text
     j = r.json()
@@ -125,7 +126,7 @@ def test_refund_notice_recorded_and_reactivation_link():
 
 def test_offer_stats_endpoint():
     s = requests.Session()
-    s.post(f"{API}/auth/login", json={"email": "super@miracurl.com", "password": os.environ.get("SUPER_PW", "og9T@41Es#OQb6")}, timeout=30)
+    s.post(f"{API}/auth/login", json={"email": "super@miracurl.com", "password": os.environ.get("SUPER_PW", pw("SUPER_ADMIN"))}, timeout=30)
     r = s.get(f"{API}/super-admin/trial-offer/stats?days=90", timeout=30)
     assert r.status_code == 200, r.text
     j = r.json()

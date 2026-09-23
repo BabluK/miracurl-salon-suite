@@ -7,6 +7,7 @@ import sys as _sys
 
 _sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
+from _creds import pw
 
 def _load_base():
     v = os.environ.get("REACT_APP_BACKEND_URL")
@@ -24,7 +25,7 @@ def _load_base():
 
 BASE = _load_base()
 
-SUPER = ("super@miracurl.com", "og9T@41Es#OQb6")
+SUPER = ("super@miracurl.com", pw("SUPER_ADMIN"))
 ADMIN = ("admin@miracurl.com", password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD"), "miracurl-marathahalli")
 
 

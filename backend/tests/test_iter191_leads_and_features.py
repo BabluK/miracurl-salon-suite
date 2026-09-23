@@ -6,6 +6,7 @@
 import os
 import pytest
 import requests
+from _creds import pw
 
 def _load_backend_url():
     for line in open("/app/frontend/.env"):
@@ -17,13 +18,13 @@ def _load_backend_url():
 BASE = os.environ.get("REACT_APP_BACKEND_URL", _load_backend_url()).rstrip("/")
 
 SA_EMAIL = "admin@miracurl-suite.com"
-SA_PASS = "og9T@41Es#OQb6"
+SA_PASS = pw("SUPER_ADMIN")
 USD_EMAIL = "emma.glowaustin@test.com"
-USD_PASS = "Glow@12345"
+USD_PASS = pw("USD_OWNER")
 USD_SLUG = "glow-studio-austin"
 USD_TENANT_ID = "39311ac2-9403-4c17-b100-70f84e5b03e7"
 INR_EMAIL = "admin@miracurl.com"
-INR_PASS = "q6QY@tn3p#9DtL"
+INR_PASS = pw("SALON_ADMIN")
 INR_SLUG = "miracurl-marathahalli"
 
 

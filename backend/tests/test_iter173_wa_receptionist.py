@@ -5,16 +5,17 @@ import pytest
 import requests
 import asyncio
 from datetime import date, timedelta
+from _creds import pw
 
 BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 
 SALON_SLUG = "miracurl-marathahalli"
 SALON_EMAIL = "admin@miracurl.com"
-SALON_PWD = "q6QY@tn3p#9DtL"
+SALON_PWD = pw("SALON_ADMIN")
 
 RESTO_SLUG = "infinity-family-restaurant"
 RESTO_EMAIL = "infinity.admin@miracurl.com"
-RESTO_PWD = "Infinity@2026"
+RESTO_PWD = pw("RESTAURANT_ADMIN")
 
 
 def _login(slug, email, pwd):

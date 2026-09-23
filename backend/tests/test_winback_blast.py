@@ -7,13 +7,14 @@ import sys as _sys
 
 _sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
+from _creds import pw
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 TENANT_SLUG = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
 ADMIN_PASS = password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")
 MGR_EMAIL = "manager@miracurl.com"
-MGR_PASS = "Manager@1234"
+MGR_PASS = pw("MANAGER")
 
 
 def _login(email, password):

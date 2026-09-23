@@ -8,14 +8,15 @@ import time
 import uuid
 import pytest
 import requests
+from _creds import pw
 
 BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 API = f"{BASE}/api"
 
 # ---- credentials (from /app/memory/test_credentials.md) ----
-ADMIN = ("admin@miracurl.com", "q6QY@tn3p#9DtL", "miracurl-marathahalli")
-SUPER = ("super@miracurl.com", "og9T@41Es#OQb6", None)
-STAFF = ("priya.staff@miracurl.com", "Staff@5678", "miracurl-marathahalli")
+ADMIN = ("admin@miracurl.com", pw("SALON_ADMIN"), "miracurl-marathahalli")
+SUPER = ("super@miracurl.com", pw("SUPER_ADMIN"), None)
+STAFF = ("priya.staff@miracurl.com", pw("STAFF"), "miracurl-marathahalli")
 OTHER = ("owner@elegance.com", "Owner@123", "elegance-koramangala")
 
 

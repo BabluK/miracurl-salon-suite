@@ -8,6 +8,7 @@ import os, uuid, requests
 from datetime import datetime, timezone
 import pymongo
 import pytest
+from _creds import pw
 
 def _load_env():
     for p in ("/app/frontend/.env", "/app/backend/.env"):
@@ -28,9 +29,9 @@ MONGO = pymongo.MongoClient(os.environ.get("MONGO_URL", "mongodb://localhost:270
 DB = MONGO[os.environ.get("DB_NAME", "miracurl_db")]
 
 SA_EMAIL = "admin@miracurl-suite.com"
-SA_PWD = "og9T@41Es#OQb6"
+SA_PWD = pw("SUPER_ADMIN")
 INR_EMAIL = "admin@miracurl.com"
-INR_PWD = "q6QY@tn3p#9DtL"
+INR_PWD = pw("SALON_ADMIN")
 INR_SLUG = "miracurl-marathahalli"
 
 QA_SLUG = "qa-onboard-locks-2"

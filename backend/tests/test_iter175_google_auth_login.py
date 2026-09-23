@@ -8,6 +8,7 @@ Covers:
 """
 import os
 import requests
+from _creds import pw
 
 def _load_env():
     p = "/app/frontend/.env"
@@ -54,7 +55,7 @@ class TestPasswordLoginRegression:
     def test_salon_admin_login(self):
         s = requests.Session()
         r = s.post(LOGIN,
-                   json={"email": "admin@miracurl.com", "password": "q6QY@tn3p#9DtL"},
+                   json={"email": "admin@miracurl.com", "password": pw("SALON_ADMIN")},
                    headers={"X-Tenant-Slug": "miracurl-marathahalli"},
                    timeout=20)
         assert r.status_code == 200, f"{r.status_code}: {r.text[:200]}"
@@ -66,7 +67,7 @@ class TestPasswordLoginRegression:
     def test_super_admin_login(self):
         s = requests.Session()
         r = s.post(LOGIN,
-                   json={"email": "super@miracurl.com", "password": "og9T@41Es#OQb6"},
+                   json={"email": "super@miracurl.com", "password": pw("SUPER_ADMIN")},
                    timeout=20)
         assert r.status_code == 200, f"{r.status_code}: {r.text[:200]}"
         assert r.json().get("user", {}).get("role") == "super_admin"
@@ -74,7 +75,7 @@ class TestPasswordLoginRegression:
 
     def test_logout_clears_cookie(self):
         s = requests.Session()
-        s.post(LOGIN, json={"email": "super@miracurl.com", "password": "og9T@41Es#OQb6"}, timeout=20)
+        s.post(LOGIN, json={"email": "super@miracurl.com", "password": pw("SUPER_ADMIN")}, timeout=20)
         assert "access_token" in s.cookies
         csrf = s.cookies.get("csrf_token", "")
         r = s.post(f"{BASE_URL}/api/auth/logout", headers={"X-CSRF-Token": csrf}, timeout=15)

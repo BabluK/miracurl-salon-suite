@@ -2,10 +2,11 @@
 import os
 import time
 import requests
+from _creds import pw
 
 BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PASS = "q6QY@tn3p#9DtL"
+ADMIN_PASS = pw("SALON_ADMIN")
 TENANT = "miracurl-marathahalli"
 
 
@@ -50,7 +51,7 @@ def test_auth_me_and_tenants_current_authed():
 def test_super_admin_login_and_tenants_current_404():
     s = requests.Session()
     r = s.post(f"{BASE}/api/auth/login",
-               json={"email": "super@miracurl.com", "password": "og9T@41Es#OQb6"},
+               json={"email": "super@miracurl.com", "password": pw("SUPER_ADMIN")},
                timeout=15)
     assert r.status_code == 200, r.text[:200]
     # super admin has no tenant -> /tenants/current should 404 (or similar non-200)

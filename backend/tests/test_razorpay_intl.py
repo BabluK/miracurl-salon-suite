@@ -10,6 +10,7 @@ Covers iteration 197 review request:
 import os
 import pytest
 import requests
+from _creds import pw
 
 
 def _load_url():
@@ -30,7 +31,7 @@ BASE_URL = _load_url()
 API = f"{BASE_URL}/api"
 
 SALON_EMAIL = "admin@miracurl.com"
-SALON_PASSWORD = "q6QY@tn3p#9DtL"
+SALON_PASSWORD = pw("SALON_ADMIN")
 SALON_SLUG = "miracurl-marathahalli"
 OWNER_PIN = "4321"
 

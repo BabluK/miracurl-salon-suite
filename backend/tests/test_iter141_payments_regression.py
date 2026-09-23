@@ -26,6 +26,7 @@ import sys as _sys
 
 _sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
+from _creds import pw
 
 
 def _pdf_text(content: bytes) -> str:
@@ -46,7 +47,7 @@ DB_NAME = os.environ.get("DB_NAME")
 RZP_WEBHOOK_SECRET = os.environ.get("RAZORPAY_WEBHOOK_SECRET") or ""
 
 SA_EMAIL = "super@miracurl.com"
-SA_PASS = "og9T@41Es#OQb6"
+SA_PASS = pw("SUPER_ADMIN")
 TA_EMAIL = "admin@miracurl.com"
 TA_PASS = password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")
 TA_SLUG = "miracurl-marathahalli"

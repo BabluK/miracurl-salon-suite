@@ -13,6 +13,7 @@ import uuid
 import requests
 import pytest
 from creds import password_for
+from _creds import pw
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 SALON_SLUG = "miracurl-marathahalli"
@@ -21,7 +22,7 @@ SALON_PWD = password_for("admin@miracurl.com")
 OWNER_PIN = "4321"
 REST_SLUG = "infinity-family-restaurant"
 REST_EMAIL = "infinity.admin@miracurl.com"
-REST_PWD = "Infinity@2026"
+REST_PWD = pw("RESTAURANT_ADMIN")
 
 
 # --- helpers ----------------------------------------------------------------

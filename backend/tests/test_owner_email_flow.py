@@ -6,11 +6,12 @@ import uuid
 import requests
 from dotenv import load_dotenv
 from pymongo import MongoClient
+from _creds import pw
 
 load_dotenv("/app/backend/.env")
 BASE = os.environ.get("TEST_BASE", "http://localhost:8001").rstrip("/") + "/api"
 db = MongoClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
-SUPER = ("super@miracurl.com", "og9T@41Es#OQb6")
+SUPER = ("super@miracurl.com", pw("SUPER_ADMIN"))
 TAG = uuid.uuid4().hex[:6]
 E = lambda n: f"oe-{TAG}-{n}@example.com"  # noqa: E731
 

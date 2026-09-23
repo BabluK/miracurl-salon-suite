@@ -21,6 +21,7 @@ import sys as _sys
 
 _sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
+from _creds import pw
 
 def _load_frontend_url():
     if os.environ.get("REACT_APP_BACKEND_URL"):
@@ -39,7 +40,7 @@ SLUG = "miracurl-marathahalli"
 ADMIN_EMAIL = "admin@miracurl.com"
 ADMIN_PASS = password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PASS = "og9T@41Es#OQb6"
+SUPER_PASS = pw("SUPER_ADMIN")
 
 
 # ── auth helpers ───────────────────────────────────────────────────────────────

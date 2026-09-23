@@ -13,13 +13,14 @@ import requests
 import pytest
 from datetime import datetime, timezone, timedelta
 from creds import password_for
+from _creds import pw
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
 
 ADMIN = {"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com")}
-MANAGER = {"email": "manager@miracurl.com", "password": "Manager@Miracurl123"}
-STAFF = {"email": "priya.staff@miracurl.com", "password": "Priya@Miracurl123"}
+MANAGER = {"email": "manager@miracurl.com", "password": pw("MANAGER")}
+STAFF = {"email": "priya.staff@miracurl.com", "password": pw("STAFF")}
 
 
 def _login(creds):

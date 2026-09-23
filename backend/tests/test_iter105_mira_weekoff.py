@@ -5,6 +5,7 @@ import re
 import time
 import requests
 import pytest
+from _creds import pw
 
 BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 TENANT_SLUG = "miracurl-marathahalli"
@@ -14,7 +15,7 @@ ADMIN_EMAIL = "admin@miracurl.com"
 ADMIN_PW = _PW_ADMIN
 OWNER_PIN = "4321"
 STAFF_EMAIL = "priya.staff@miracurl.com"
-STAFF_PW = "Staff@5678"
+STAFF_PW = pw("STAFF")
 
 
 def _sid():

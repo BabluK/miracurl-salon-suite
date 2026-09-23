@@ -11,6 +11,7 @@ import sys as _sys
 
 _sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
+from _creds import pw
 
 def _read_env(path):
     try:
@@ -25,8 +26,8 @@ BASE = (os.environ.get("REACT_APP_BACKEND_URL") or _read_env("/app/frontend/.env
 API = BASE + "/api"
 
 ADMIN = ("admin@miracurl.com", password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD"))
-STAFF = ("priya.staff@miracurl.com", "Staff@5678")
-SUPER = ("super@miracurl.com", "og9T@41Es#OQb6")
+STAFF = ("priya.staff@miracurl.com", pw("STAFF"))
+SUPER = ("super@miracurl.com", pw("SUPER_ADMIN"))
 TSLUG = "miracurl-marathahalli"
 
 SVC_ID = "d6585359-1052-4dd0-b7dc-1c20cf9f2327"

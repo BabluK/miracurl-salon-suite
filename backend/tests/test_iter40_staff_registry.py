@@ -7,6 +7,7 @@ import requests
 import time
 from datetime import date, timedelta
 from creds import password_for
+from _creds import pw
 
 _RUN = str(int(time.time()))[-4:]
 
@@ -14,8 +15,8 @@ BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.
 
 ADMIN_MIRA = ("admin@miracurl.com", password_for("admin@miracurl.com"))
 ADMIN_ELEG = ("owner@elegance.com", _PW_ELEGANCE)
-MANAGER = ("manager@miracurl.com", "Manager@Miracurl123")
-STAFF = ("priya.staff@miracurl.com", "Priya@Miracurl123")
+MANAGER = ("manager@miracurl.com", pw("MANAGER"))
+STAFF = ("priya.staff@miracurl.com", pw("STAFF"))
 
 
 def _login(email, pw):

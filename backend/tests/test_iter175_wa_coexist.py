@@ -3,6 +3,7 @@ import os
 import asyncio
 import pytest
 import requests
+from _creds import pw
 
 BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 
@@ -15,7 +16,7 @@ def _login(slug, email, pwd):
 
 @pytest.fixture(scope="module")
 def salon():
-    return _login("miracurl-marathahalli", "admin@miracurl.com", "q6QY@tn3p#9DtL")
+    return _login("miracurl-marathahalli", "admin@miracurl.com", pw("SALON_ADMIN"))
 
 
 def test_status_shape(salon):

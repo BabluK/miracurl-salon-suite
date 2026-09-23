@@ -6,6 +6,7 @@ import sys as _sys
 
 _sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
+from _creds import pw
 
 API = os.popen("grep REACT_APP_BACKEND_URL /app/frontend/.env | cut -d= -f2").read().strip() + "/api"
 SLUG = "miracurl-marathahalli"
@@ -21,7 +22,7 @@ def _session(email, pwd, headers=None):
 
 
 def test_winner_card_flow():
-    sa = _session("super@miracurl.com", "og9T@41Es#OQb6")
+    sa = _session("super@miracurl.com", pw("SUPER_ADMIN"))
     H = {"X-CSRF-Token": sa.cookies.get("csrf_token") or ""}
     ad = _session("admin@miracurl.com", password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD"), {"X-Tenant-Slug": SLUG})
     TH = {"X-Tenant-Slug": SLUG, "X-CSRF-Token": ad.cookies.get("csrf_token") or "", "X-Owner-Pin": "4321"}
@@ -86,7 +87,7 @@ def test_winner_card_flow():
 
 
 def test_advisory_tracker_flow():
-    sa = _session("super@miracurl.com", "og9T@41Es#OQb6")
+    sa = _session("super@miracurl.com", pw("SUPER_ADMIN"))
     H = {"X-CSRF-Token": sa.cookies.get("csrf_token") or ""}
     ad = _session("admin@miracurl.com", password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD"), {"X-Tenant-Slug": SLUG})
     TH = {"X-Tenant-Slug": SLUG, "X-CSRF-Token": ad.cookies.get("csrf_token") or "", "X-Owner-Pin": "4321"}

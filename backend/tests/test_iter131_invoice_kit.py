@@ -10,6 +10,7 @@ import sys as _sys
 
 _sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
+from _creds import pw
 
 def _load_backend_url():
     v = os.environ.get("REACT_APP_BACKEND_URL")
@@ -27,7 +28,7 @@ def _load_backend_url():
 
 BASE = _load_backend_url()
 
-SUPER = {"email": "super@miracurl.com", "password": "og9T@41Es#OQb6"}
+SUPER = {"email": "super@miracurl.com", "password": pw("SUPER_ADMIN")}
 OWNER = {"email": "owner@elegance.com", "password": "Owner@123", "slug": "elegance-koramangala"}
 ADMIN = {"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD"), "slug": "miracurl-marathahalli"}
 

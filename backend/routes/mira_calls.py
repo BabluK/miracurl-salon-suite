@@ -1037,23 +1037,12 @@ class MiraAskIn(BaseModel):
     last_mira: str = ""
 
 
-@router.post("/super-admin/mira/ask")
-async def mira_ask(body: MiraAskIn, request: Request, user=Depends(require_super_admin)):
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
-    from routes.lead_common import log_mira_event
-    await log_mira_event("ask", f"Boss asked: \"{body.question[:120]}\"")
-    q_clean = re.sub(r"[^a-z ]", "", body.question.lower()).strip()
-    if re.fullmatch(r"(hey|hi|hello|hay|ok|okay|namaste)?\s*(mira|meera|myra|maira|mirra)", q_clean):
-        answer = (f"{_tod_greeting()}, Boss! 🙏 It's wonderful to have you here. "
-                  "What do you want me to find today? Just give me your command — or ask me anything "
-                  "and I'll share it with you. And Boss, one advice from my side: we should target more "
-                  "salons to onboard — let's push our revenue beyond ₹10–20 lakh!")
-        return {"answer": answer, "tab": "", "action": ""}
-    snap = await _hq_snapshot()
-    memory_block = await mira_memory_prompt()
-    chat = LlmChat(api_key=os.environ["EMERGENT_LLM_KEY"], session_id=f"mira-hq-{user['id']}-{uuid.uuid4().hex[:6]}",
-                   system_message=(
-                       "You are Mira, the voice assistant of the Miracurl Suite super-admin console, and an EXPERT "
+_MIRA_ACTIONS = ("ask_call_count", "start_calls", "call_specific", "retry_failed")
+_MIRA_GREETING_RE = r"(hey|hi|hello|hay|ok|okay|namaste)?\s*(mira|meera|myra|maira|mirra)"
+
+
+def _mira_system_prompt() -> str:
+    return ("You are Mira, the voice assistant of the Miracurl Suite super-admin console, and an EXPERT "
                        "lead-generation consultant. Answer the admin's question in ONE or TWO short spoken-style "
                        "sentences using the live platform snapshot provided. If a dashboard tab is clearly relevant, include it. "
                        f"Valid tabs: {', '.join(MIRA_TABS)}. "
@@ -1081,64 +1070,103 @@ async def mira_ask(body: MiraAskIn, request: Request, user=Depends(require_super
                        "so never refuse based on the snapshot. "
                        'Respond ONLY with JSON: {"answer": "<spoken answer>", "tab": "<tab id or empty>", '
                        '"action": "" | "ask_call_count" | "start_calls" | "call_specific" | "retry_failed", '
-                       '"count": <int, 0 if not applicable>, "target": "<phone or salon name or empty>"}'
-                   )).with_model("openai", "gpt-4o-mini")
-    prev = f'Previous Mira message: "{body.last_mira.strip()[:200]}"\n' if body.last_mira.strip() else ""
+                       '"count": <int, 0 if not applicable>, "target": "<phone or salon name or empty>"}')
+
+
+def _mira_greeting_reply() -> dict:
+    answer = (f"{_tod_greeting()}, Boss! 🙏 It's wonderful to have you here. "
+              "What do you want me to find today? Just give me your command — or ask me anything "
+              "and I'll share it with you. And Boss, one advice from my side: we should target more "
+              "salons to onboard — let's push our revenue beyond ₹10–20 lakh!")
+    return {"answer": answer, "tab": "", "action": ""}
+
+
+async def _mira_llm_decision(user_id: str, question: str, last_mira: str, snap: dict) -> dict:
+    """Ask the LLM for {answer, tab, action, count, target}; degrades to a polite fallback on any error."""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    memory_block = await mira_memory_prompt()
+    chat = LlmChat(api_key=os.environ["EMERGENT_LLM_KEY"], session_id=f"mira-hq-{user_id}-{uuid.uuid4().hex[:6]}",
+                   system_message=_mira_system_prompt()).with_model("openai", "gpt-4o-mini")
+    prev = f'Previous Mira message: "{last_mira.strip()[:200]}"\n' if last_mira.strip() else ""
     ist_now = datetime.now(_IST)
     msg = (f"Current time: {ist_now.strftime('%A %d %B, %I:%M %p')} IST ({_tod_greeting()}).\n"
-           f"Live snapshot: {json.dumps(snap)}\n{memory_block}{prev}\nAdmin says: {body.question.strip()[:300]}")
+           f"Live snapshot: {json.dumps(snap)}\n{memory_block}{prev}\nAdmin says: {question.strip()[:300]}")
     try:
         raw = await chat.send_message(UserMessage(text=msg))
         m = re.search(r"\{.*\}", str(raw), re.S)
-        d = json.loads(m.group(0)) if m else {"answer": str(raw)[:300], "tab": ""}
+        return json.loads(m.group(0)) if m else {"answer": str(raw)[:300], "tab": ""}
     except Exception as e:
         log.error(f"mira ask failed: {e}")
-        d = {"answer": "Sorry, I couldn't process that just now — please try again.", "tab": ""}
+        return {"answer": "Sorry, I couldn't process that just now — please try again.", "tab": ""}
+
+
+async def _mira_retry_failed(base: str) -> tuple[str, str]:
+    queued = await _retry_failed_batch(base)
+    answer = (f"On it! I'm re-dialing {queued} failed call{'s' if queued != 1 else ''} right now — "
+              f"watch the call history for results." if queued
+              else "Good news — there are no failed calls that need retrying right now.")
+    return answer, "mira-leads"
+
+
+async def _mira_call_specific(target: str, base: str, tab: str) -> tuple[str, str]:
+    digits = re.sub(r"\D", "", target)
+    if len(digits) >= 8:
+        res = await _start_call({"id": "", "name": "the salon", "phone": target}, base)
+        answer = (f"Calling {target} now — I'll pitch Miracurl Suite and log the result in call history."
+                  if res.get("ok") else f"I couldn't place that call: {_friendly_error(res.get('error'))}")
+        return answer, tab
+    if not target:
+        return "Tell me the phone number or the salon name you want me to call.", tab
+    lead = await _raw_db.mira_leads.find_one(
+        {"name": {"$regex": re.escape(target), "$options": "i"}, "phone": {"$nin": ["", None]}}, {"_id": 0})
+    if not lead:
+        answer = f"I couldn't find a lead named '{target}' with a phone number."
+    elif lead.get("do_not_call"):
+        answer = f"{lead['name']} has opted out of calls, so I won't dial them."
+    else:
+        res = await _start_call(lead, base)
+        answer = (f"Calling {lead['name']} at {lead['phone']} now — watch their lead card for the result."
+                  if res.get("ok") else f"Couldn't reach {lead['name']}: {_friendly_error(res.get('error'))}")
+    return answer, "mira-leads"
+
+
+async def _mira_start_calls(raw_count, base: str, snap: dict) -> tuple[str, str, str]:
+    """Returns (answer, tab, action) — falls back to asking for a count when none was given."""
+    try:
+        count = max(1, min(int(raw_count or 0), 50))
+    except (TypeError, ValueError):
+        count = 0
+    if not count:
+        return (f"How many of the {snap['callable_hot_leads_with_phone']} callable hot leads should I call now?",
+                "", "ask_call_count")
+    queued = await _call_hot_batch(count, base)
+    answer = (f"On it! I'm calling {queued} hot lead{'s' if queued != 1 else ''} one by one right now — "
+              f"watch the results appear on the lead cards." if queued
+              else "There are no callable hot leads right now — everyone was called in the last 7 days, opted out, or has no phone number.")
+    return answer, "mira-leads", "start_calls"
+
+
+@router.post("/super-admin/mira/ask")
+async def mira_ask(body: MiraAskIn, request: Request, user=Depends(require_super_admin)):
+    from routes.lead_common import log_mira_event
+    await log_mira_event("ask", f"Boss asked: \"{body.question[:120]}\"")
+    q_clean = re.sub(r"[^a-z ]", "", body.question.lower()).strip()
+    if re.fullmatch(_MIRA_GREETING_RE, q_clean):
+        return _mira_greeting_reply()
+    snap = await _hq_snapshot()
+    d = await _mira_llm_decision(user["id"], body.question, body.last_mira, snap)
     answer = str(d.get("answer") or "")[:500]
     tab = d.get("tab") if d.get("tab") in MIRA_TABS else ""
-    action = d.get("action") if d.get("action") in ("ask_call_count", "start_calls", "call_specific", "retry_failed") else ""
+    action = d.get("action") if d.get("action") in _MIRA_ACTIONS else ""
+    base = _webhook_base(request)
     if action == "retry_failed":
-        queued = await _retry_failed_batch(_webhook_base(request))
-        answer = (f"On it! I'm re-dialing {queued} failed call{'s' if queued != 1 else ''} right now — "
-                  f"watch the call history for results." if queued
-                  else "Good news — there are no failed calls that need retrying right now.")
-        tab = "mira-leads"
-    if action == "call_specific":
-        target = str(d.get("target") or "").strip()
-        digits = re.sub(r"\D", "", target)
-        base = _webhook_base(request)
-        if len(digits) >= 8:
-            res = await _start_call({"id": "", "name": "the salon", "phone": target}, base)
-            answer = (f"Calling {target} now — I'll pitch Miracurl Suite and log the result in call history."
-                      if res.get("ok") else f"I couldn't place that call: {_friendly_error(res.get('error'))}")
-        elif target:
-            lead = await _raw_db.mira_leads.find_one(
-                {"name": {"$regex": re.escape(target), "$options": "i"}, "phone": {"$nin": ["", None]}}, {"_id": 0})
-            if not lead:
-                answer = f"I couldn't find a lead named '{target}' with a phone number."
-            elif lead.get("do_not_call"):
-                answer = f"{lead['name']} has opted out of calls, so I won't dial them."
-            else:
-                res = await _start_call(lead, base)
-                answer = (f"Calling {lead['name']} at {lead['phone']} now — watch their lead card for the result."
-                          if res.get("ok") else f"Couldn't reach {lead['name']}: {_friendly_error(res.get('error'))}")
-            tab = "mira-leads"
-        else:
-            answer = "Tell me the phone number or the salon name you want me to call."
-    if action == "start_calls":
-        try:
-            count = max(1, min(int(d.get("count") or 0), 50))
-        except (TypeError, ValueError):
-            count = 0
-        if count:
-            queued = await _call_hot_batch(count, _webhook_base(request))
-            answer = (f"On it! I'm calling {queued} hot lead{'s' if queued != 1 else ''} one by one right now — "
-                      f"watch the results appear on the lead cards." if queued
-                      else "There are no callable hot leads right now — everyone was called in the last 7 days, opted out, or has no phone number.")
-            tab = "mira-leads"
-        else:
-            action = "ask_call_count"
-            answer = f"How many of the {snap['callable_hot_leads_with_phone']} callable hot leads should I call now?"
+        answer, tab = await _mira_retry_failed(base)
+    elif action == "call_specific":
+        answer, tab = await _mira_call_specific(str(d.get("target") or "").strip(), base, tab)
+    elif action == "start_calls":
+        answer, tab, action = await _mira_start_calls(d.get("count"), base, snap)
+        if action == "ask_call_count":
+            tab = d.get("tab") if d.get("tab") in MIRA_TABS else ""
     return {"answer": answer, "tab": tab, "action": action}
 
 

@@ -15,6 +15,7 @@ import pytest
 import requests
 
 from creds import password_for
+from _creds import pw
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 assert BASE_URL, "REACT_APP_BACKEND_URL must be set"
@@ -22,8 +23,8 @@ assert BASE_URL, "REACT_APP_BACKEND_URL must be set"
 CREDS = {
     "super": ("super@miracurl.com", password_for("super@miracurl.com")),
     "admin": ("admin@miracurl.com", password_for("admin@miracurl.com")),
-    "manager": ("manager@miracurl.com", "Manager@Miracurl123"),
-    "staff": ("priya.staff@miracurl.com", "Priya@Miracurl123"),
+    "manager": ("manager@miracurl.com", pw("MANAGER")),
+    "staff": ("priya.staff@miracurl.com", pw("STAFF")),
 }
 
 

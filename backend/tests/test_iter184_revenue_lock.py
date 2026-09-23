@@ -2,6 +2,7 @@
 import os
 import requests
 import pytest
+from _creds import pw
 
 def _get_base():
     url = os.environ.get("REACT_APP_BACKEND_URL")
@@ -21,9 +22,9 @@ def _get_base():
 BASE = _get_base()
 SLUG = "miracurl-marathahalli"
 OWNER_EMAIL = "admin@miracurl.com"
-OWNER_PASS = "q6QY@tn3p#9DtL"
+OWNER_PASS = pw("SALON_ADMIN")
 MGR_EMAIL = "manager@miracurl.com"
-MGR_PASS = "Manager@1234"
+MGR_PASS = pw("MANAGER")
 PIN = "4321"
 
 

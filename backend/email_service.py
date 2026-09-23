@@ -706,42 +706,60 @@ def restaurant_trial_reminder_email_html(restaurant_name: str, days_left: int, e
     </div>"""
 
 
-def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_url: str = "",
-                        business_type: str = "salon", owner_name: str = "", locked_modules: list | None = None) -> str:
-    """Welcome + one-time credentials — dark hero, login box, feature grid (enabled vs locked by plan)."""
-    from services.entitlements import MODULES
-    login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
-    img = poster_url or os.environ.get("WELCOME_IMAGE_URL", "")
-    hq_email = hq_inbox("support")
+def _welcome_copy(business_type: str, owner_name: str) -> dict:
+    """Vertical-specific wording for the welcome email hero."""
     is_resto = business_type == "restaurant"
-    first = html_lib.escape((owner_name or "").split(" ")[0] or "there")
-    noun = "restaurant" if is_resto else "salon"
-    tagline = "Good Food · Great Business" if is_resto else "Good Hair · Brighter You"
-    pillars = (["🧾 Manage Orders", "😊 Delight Customers", "📈 Grow Your Business", "⏱ Save Time & Effort"] if is_resto
-               else ["📅 Manage Bookings", "😊 Delight Customers", "📈 Grow Your Business", "⏱ Save Time & Effort"])
+    return {
+        "is_resto": is_resto,
+        "first": html_lib.escape((owner_name or "").split(" ")[0] or "there"),
+        "noun": "restaurant" if is_resto else "salon",
+        "tagline": "Good Food · Great Business" if is_resto else "Good Hair · Brighter You",
+        "pillars": (["🧾 Manage Orders", "😊 Delight Customers", "📈 Grow Your Business", "⏱ Save Time & Effort"] if is_resto
+                    else ["📅 Manage Bookings", "😊 Delight Customers", "📈 Grow Your Business", "⏱ Save Time & Effort"]),
+    }
+
+
+_RESTO_MODULE_NAMES = {"appointments": "Online orders & reservations", "services": "Menu management", "staff": "Staff management"}
+
+
+def _feature_grid(rows: list, is_resto: bool, on: bool = True) -> str:
+    """3-column ✅/🔒 feature table; empty string when there is nothing to show."""
+    color, icon = ("#2b2b33", "✅") if on else ("#9a948a", "🔒")
+    cells = []
+    for k, v in rows:
+        name = html_lib.escape(_RESTO_MODULE_NAMES.get(k, v) if is_resto else v)
+        cells.append(f'<td width="33%" style="padding:8px 6px;font-family:Arial,sans-serif;font-size:12px;color:{color};vertical-align:top">{icon}&nbsp;{name}</td>')
+    trs = "".join(f"<tr>{''.join(cells[i:i + 3])}</tr>" for i in range(0, len(cells), 3))
+    return f'<table width="100%" cellpadding="0" cellspacing="0">{trs}</table>' if cells else ""
+
+
+def _welcome_feature_blocks(locked_modules: list | None, is_resto: bool) -> tuple[str, str, int]:
+    """Returns (enabled grid html, locked block html, enabled count) based on the tenant's plan locks."""
+    from services.entitlements import MODULES
     locked = set(locked_modules or [])
     enabled = [(k, v) for k, v in MODULES.items() if k not in locked]
     locked_rows = [(k, v) for k, v in MODULES.items() if k in locked]
-    resto_names = {"appointments": "Online orders & reservations", "services": "Menu management", "staff": "Staff management"}
-    label = lambda k, v: html_lib.escape(resto_names.get(k, v) if is_resto else v)  # noqa: E731
-
-    def grid(rows, on=True):
-        cells = []
-        for k, v in rows:
-            color = "#2b2b33" if on else "#9a948a"
-            icon = "✅" if on else "🔒"
-            cells.append(f'<td width="33%" style="padding:8px 6px;font-family:Arial,sans-serif;font-size:12px;color:{color};vertical-align:top">{icon}&nbsp;{label(k, v)}</td>')
-        trs = "".join(f"<tr>{''.join(cells[i:i + 3])}</tr>" for i in range(0, len(cells), 3))
-        return f'<table width="100%" cellpadding="0" cellspacing="0">{trs}</table>' if cells else ""
-
     locked_block = (f'''
   <div style="margin-top:14px;padding:12px 14px;border:1px dashed #e3d5bd;border-radius:10px;background:#fbf8f1">
     <div style="font-family:Arial,sans-serif;font-size:12px;color:#8a6d1f;font-weight:bold">🔒 Not in your current plan — upgrade any time from Settings → Subscription</div>
-    {grid(locked_rows, on=False)}
+    {_feature_grid(locked_rows, is_resto, on=False)}
   </div>''' if locked_rows else "")
+    return _feature_grid(enabled, is_resto, on=True), locked_block, len(enabled)
+
+
+def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_url: str = "",
+                        business_type: str = "salon", owner_name: str = "", locked_modules: list | None = None) -> str:
+    """Welcome + one-time credentials — dark hero, login box, feature grid (enabled vs locked by plan)."""
+    login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
+    img = poster_url or os.environ.get("WELCOME_IMAGE_URL", "")
+    hq_email = hq_inbox("support")
+    c = _welcome_copy(business_type, owner_name)
+    first, noun, tagline = c["first"], c["noun"], c["tagline"]
+    enabled_grid, locked_block, enabled_count = _welcome_feature_blocks(locked_modules, c["is_resto"])
     img_row = (f'<tr><td style="padding:0"><img src="{img}" alt="Welcome to Miracurl" width="600" '
                f'style="display:block;width:100%"/></td></tr>') if img else ""
-    pillar_cells = "".join(f'<td align="center" style="padding:10px 4px;font-family:Arial,sans-serif;font-size:11px;color:#f3e5ab;border-right:1px solid rgba(255,255,255,.08)">{p}</td>' for p in pillars)
+    pillar_cells = "".join(f'<td align="center" style="padding:10px 4px;font-family:Arial,sans-serif;font-size:11px;color:#f3e5ab;border-right:1px solid rgba(255,255,255,.08)">{p}</td>' for p in c["pillars"])
+    salon, owner_email, temp_pw = html_lib.escape(salon_name), html_lib.escape(owner_email), html_lib.escape(temp_pw)
     return f"""
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f14;padding:28px 0">
 <tr><td align="center">
@@ -760,8 +778,8 @@ def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_
     <tr><td style="padding:18px 22px">
       <div style="font-size:18px;color:#1d1d24">🔒 Your Login Details</div>
       <table cellpadding="0" cellspacing="0" style="margin-top:10px;font-family:Arial,sans-serif;font-size:14px;color:#2b2b33;line-height:2">
-        <tr><td style="color:#6b6b74;width:110px">Username</td><td>: <b>{html_lib.escape(owner_email)}</b></td></tr>
-        <tr><td style="color:#6b6b74">Password</td><td>: <span style="font-family:monospace;background:#fff;border:1px dashed #d4af37;padding:2px 12px;border-radius:8px;font-weight:bold;color:#8a6d1f">{html_lib.escape(temp_pw)}</span></td></tr>
+        <tr><td style="color:#6b6b74;width:110px">Username</td><td>: <b>{owner_email}</b></td></tr>
+        <tr><td style="color:#6b6b74">Password</td><td>: <span style="font-family:monospace;background:#fff;border:1px dashed #d4af37;padding:2px 12px;border-radius:8px;font-weight:bold;color:#8a6d1f">{temp_pw}</span></td></tr>
         <tr><td style="color:#6b6b74">Login here</td><td>: <a href="{login_url}" style="color:#a08a4b;font-weight:bold">{login_url}</a></td></tr>
       </table>
       <div style="font-family:Arial,sans-serif;font-size:11px;color:#8a8a94;margin-top:6px">For security, please change your password after your first login.</div>
@@ -772,8 +790,8 @@ def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_
   </table>
 </td></tr>
 <tr><td style="padding:16px 36px 8px">
-  <div style="font-size:18px;color:#1d1d24;border-bottom:1px solid #ecdfc0;padding-bottom:8px">Explore Powerful Features <span style="font-family:Arial,sans-serif;font-size:11px;color:#8a8a94">· {len(enabled)} enabled for {html_lib.escape(salon_name)}</span></div>
-  {grid(enabled, on=True)}
+  <div style="font-size:18px;color:#1d1d24;border-bottom:1px solid #ecdfc0;padding-bottom:8px">Explore Powerful Features <span style="font-family:Arial,sans-serif;font-size:11px;color:#8a8a94">· {enabled_count} enabled for {salon}</span></div>
+  {enabled_grid}
   {locked_block}
 </td></tr>
 <tr><td style="padding:14px 36px 24px">

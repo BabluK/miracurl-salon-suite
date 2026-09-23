@@ -11,6 +11,7 @@ import uuid
 import pytest
 import requests
 from creds import password_for
+from _creds import pw
 
 def _read_frontend_env():
     p = "/app/frontend/.env"
@@ -24,7 +25,7 @@ BASE_URL = (os.environ.get("REACT_APP_BACKEND_URL") or _read_frontend_env()).rst
 API = f"{BASE_URL}/api"
 
 ADMIN = ("admin@miracurl.com", password_for("admin@miracurl.com"))
-STAFF = ("priya.staff@miracurl.com", "Priya@Miracurl123")
+STAFF = ("priya.staff@miracurl.com", pw("STAFF"))
 SUPER = ("super@miracurl.com", password_for("super@miracurl.com"))
 SLUG = "miracurl-marathahalli"
 

@@ -12,6 +12,7 @@ import time
 
 import pytest
 import requests
+from _creds import pw
 
 BACKEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if BACKEND_DIR not in sys.path:
@@ -31,7 +32,7 @@ BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.
 API = BASE + "/api"
 
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PW = "og9T@41Es#OQb6"
+SUPER_PW = pw("SUPER_ADMIN")
 TENANT_SLUG = "miracurl-marathahalli"
 
 

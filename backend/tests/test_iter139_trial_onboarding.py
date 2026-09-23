@@ -20,6 +20,7 @@ import pytest
 import requests
 from pymongo import MongoClient
 from dotenv import load_dotenv
+from _creds import pw
 
 load_dotenv("/app/backend/.env")
 load_dotenv("/app/frontend/.env")
@@ -29,7 +30,7 @@ MONGO_URL = os.environ.get("MONGO_URL")
 DB_NAME = os.environ.get("DB_NAME")
 
 SA_EMAIL = "super@miracurl.com"
-SA_PASS = "og9T@41Es#OQb6"
+SA_PASS = pw("SUPER_ADMIN")
 OWNER_EMAIL = "delivered@resend.dev"
 
 TS = int(time.time())

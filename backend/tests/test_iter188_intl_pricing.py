@@ -2,6 +2,7 @@
 import os
 import pytest
 import requests
+from _creds import pw
 
 BASE = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 if not BASE:
@@ -12,7 +13,7 @@ if not BASE:
 
 TENANT = "miracurl-marathahalli"
 OWNER_EMAIL = "admin@miracurl.com"
-OWNER_PWD = "q6QY@tn3p#9DtL"
+OWNER_PWD = pw("SALON_ADMIN")
 
 
 # --------- Public plans ---------

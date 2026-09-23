@@ -9,6 +9,7 @@ import sys as _sys
 
 _sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
+from _creds import pw
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 TENANT = "miracurl-marathahalli"
@@ -110,7 +111,7 @@ def test_campaigns_list_includes_delivered_read_booked():
 def test_staff_portal_login():
     r = requests.post(
         f"{BASE_URL}/api/auth/login",
-        json={"email": "priya.staff@miracurl.com", "password": "Staff@5678"},
+        json={"email": "priya.staff@miracurl.com", "password": pw("STAFF")},
         headers={"X-Tenant-Slug": TENANT},
     )
     assert r.status_code == 200, r.text

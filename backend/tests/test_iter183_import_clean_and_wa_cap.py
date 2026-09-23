@@ -7,6 +7,7 @@ import pytest
 import requests
 from pymongo import MongoClient
 from dotenv import load_dotenv
+from _creds import pw
 
 load_dotenv("/app/frontend/.env")
 BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
@@ -17,10 +18,10 @@ DB_NAME = "miracurl_db"
 
 SUPER_NEW = "super@miracurl-suite.com"
 SUPER_OLD = "super@miracurl.com"
-SUPER_PW = "og9T@41Es#OQb6"
+SUPER_PW = pw("SUPER_ADMIN")
 
 ADMIN_EMAIL = "admin@miracurl.com"
-ADMIN_PW = "q6QY@tn3p#9DtL"
+ADMIN_PW = pw("SALON_ADMIN")
 TENANT_SLUG = "miracurl-marathahalli"
 
 ELEGANCE_TID = "7b63242c-4f91-4a60-b408-89ee71426561"

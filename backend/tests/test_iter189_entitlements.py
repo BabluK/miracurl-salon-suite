@@ -2,17 +2,18 @@
 import os
 import pytest
 import requests
+from _creds import pw
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 
 SA_EMAIL = "admin@miracurl-suite.com"
-SA_PW = "og9T@41Es#OQb6"
+SA_PW = pw("SUPER_ADMIN")
 USD_OWNER_EMAIL = "emma.glowaustin@test.com"
-USD_OWNER_PW = "Glow@12345"
+USD_OWNER_PW = pw("USD_OWNER")
 USD_TENANT_SLUG = "glow-studio-austin"
 USD_TENANT_ID = "39311ac2-9403-4c17-b100-70f84e5b03e7"
 INR_OWNER_EMAIL = "admin@miracurl.com"
-INR_OWNER_PW = "q6QY@tn3p#9DtL"
+INR_OWNER_PW = pw("SALON_ADMIN")
 INR_TENANT_SLUG = "miracurl-marathahalli"
 
 

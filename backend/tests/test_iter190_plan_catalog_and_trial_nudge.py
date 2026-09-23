@@ -3,6 +3,7 @@ import os
 import pytest
 import requests
 from pathlib import Path
+from _creds import pw
 
 def _load_base():
     v = os.environ.get("REACT_APP_BACKEND_URL", "").strip()
@@ -18,12 +19,12 @@ def _load_base():
 BASE_URL = _load_base()
 
 SA_EMAIL = "admin@miracurl-suite.com"
-SA_PASSWORD = "og9T@41Es#OQb6"
+SA_PASSWORD = pw("SUPER_ADMIN")
 INR_EMAIL = "admin@miracurl.com"
-INR_PASSWORD = "q6QY@tn3p#9DtL"
+INR_PASSWORD = pw("SALON_ADMIN")
 INR_SLUG = "miracurl-marathahalli"
 USD_EMAIL = "emma.glowaustin@test.com"
-USD_PASSWORD = "Glow@12345"
+USD_PASSWORD = pw("USD_OWNER")
 USD_SLUG = "glow-studio-austin"
 
 

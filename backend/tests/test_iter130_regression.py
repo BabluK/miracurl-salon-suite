@@ -13,6 +13,7 @@ import sys as _sys
 
 _sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
+from _creds import pw
 
 def _read_env():
     try:
@@ -27,7 +28,7 @@ def _read_env():
 BASE_URL = (os.environ.get('REACT_APP_BACKEND_URL') or _read_env()).rstrip('/')
 TENANT = 'miracurl-marathahalli'
 SUPER_EMAIL = 'super@miracurl.com'
-SUPER_PASS = 'og9T@41Es#OQb6'
+SUPER_PASS = pw("SUPER_ADMIN")
 ADMIN_EMAIL = 'admin@miracurl.com'
 ADMIN_PASS = password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")
 OWNER_PIN = '4321'

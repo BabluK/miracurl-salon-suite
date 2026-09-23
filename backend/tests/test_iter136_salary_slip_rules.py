@@ -14,11 +14,12 @@ import sys as _sys
 
 _sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
+from _creds import pw
 
 BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 ADMIN = {"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")}
 SLUG = "miracurl-marathahalli"
-STAFF = {"email": "priya.staff@miracurl.com", "password": "Staff@5678"}
+STAFF = {"email": "priya.staff@miracurl.com", "password": pw("STAFF")}
 MONTH = "2026-08"
 
 

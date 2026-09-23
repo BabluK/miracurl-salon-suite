@@ -2,11 +2,12 @@
 import os
 import pytest
 import requests
+from _creds import pw
 
 BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 TENANT = "miracurl-marathahalli"
 EMAIL = "admin@miracurl.com"
-PWD = "q6QY@tn3p#9DtL"
+PWD = pw("SALON_ADMIN")
 
 
 @pytest.fixture(scope="module")

@@ -4,6 +4,7 @@ import io
 import pytest
 import requests
 from creds import password_for
+from _creds import pw
 
 BASE = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 if not BASE:
@@ -14,7 +15,7 @@ if not BASE:
 
 RESTO_SLUG = "infinity-family-restaurant"
 RESTO_EMAIL = "infinity.admin@miracurl.com"
-RESTO_PASS = "Infinity@2026"
+RESTO_PASS = pw("RESTAURANT_ADMIN")
 SALON_SLUG = "miracurl-marathahalli"
 SALON_EMAIL = "admin@miracurl.com"
 SALON_PASS = password_for("admin@miracurl.com")

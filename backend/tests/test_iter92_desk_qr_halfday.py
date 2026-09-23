@@ -2,7 +2,7 @@
 WA pitch (no DEMO_VIDEO_URL), SMS packs regression.
 
 Prereqs: preview env, admin@miracurl.com (password via tests/_creds.py),
-priya.staff@miracurl.com / Staff@5678 (see /app/memory/test_credentials.md).
+priya.staff@miracurl.com (password: see /app/memory/test_credentials.md).
 
 The tests mutate Priya's shift_start & monthly_base_salary + inject a QR
 check-in row for TODAY; a session-scoped fixture restores the original state
@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
+from _creds import pw
 
 load_dotenv("/app/backend/.env")
 load_dotenv("/app/frontend/.env")
@@ -28,7 +29,7 @@ ADMIN_PW = _PW_ADMIN
 SUPER_EMAIL = "super@miracurl.com"
 SUPER_PW = _PW_SUPER
 STAFF_EMAIL = "priya.staff@miracurl.com"
-STAFF_PW = "Staff@5678"
+STAFF_PW = pw("STAFF")
 
 MONGO = AsyncIOMotorClient(os.environ["MONGO_URL"])
 DB = MONGO[os.environ["DB_NAME"]]

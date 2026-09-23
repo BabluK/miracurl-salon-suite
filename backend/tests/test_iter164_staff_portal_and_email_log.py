@@ -8,6 +8,7 @@ import sys as _sys
 
 _sys.path.insert(0, _os.path.dirname(__file__))
 from _creds import password_for  # noqa: E402
+from _creds import pw
 
 def _load_frontend_env():
     env_path = Path("/app/frontend/.env")
@@ -20,11 +21,11 @@ def _load_frontend_env():
 BASE = _load_frontend_env().rstrip("/")
 TENANT = "miracurl-marathahalli"
 STAFF_EMAIL = "priya.staff@miracurl.com"
-STAFF_PASS = "Staff@5678"
+STAFF_PASS = pw("STAFF")
 ADMIN_EMAIL = "admin@miracurl.com"
 ADMIN_PASS = password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD")
 SUPER_EMAIL = "super@miracurl.com"
-SUPER_PASS = "og9T@41Es#OQb6"
+SUPER_PASS = pw("SUPER_ADMIN")
 
 
 def _login(email, pwd, tenant=None):

@@ -5,6 +5,7 @@ import uuid
 import pytest
 import requests
 from pymongo import MongoClient
+from _creds import pw
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
@@ -27,9 +28,9 @@ MC = MongoClient(_ENV["MONGO_URL"])
 DB = MC[_ENV["DB_NAME"]]
 
 SA_EMAIL = "admin@miracurl-suite.com"
-SA_PASS = "og9T@41Es#OQb6"
+SA_PASS = pw("SUPER_ADMIN")
 OWNER_EMAIL = "admin@miracurl.com"
-OWNER_PASS = "q6QY@tn3p#9DtL"
+OWNER_PASS = pw("SALON_ADMIN")
 OWNER_SLUG = "miracurl-marathahalli"
 
 
