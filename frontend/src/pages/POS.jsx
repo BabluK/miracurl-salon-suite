@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { miraCheer } from "@/components/dashboard/FloatingDjBot";
 import { openWhatsApp } from "@/lib/share";
 import { payLabel } from "@/components/pos/payLabels";
 import { useAuth } from "@/context/AuthContext";
@@ -617,6 +618,7 @@ export default function POS() {
         return;
       }
       toast.success(`Invoice ${data.invoice_no} created${data.points_earned ? ` · +${data.points_earned} pts earned` : ""}`);
+      miraCheer("bill");
       if (data.gift_card_applied > 0) {
         toast.success(`🎁 ${sym}${Number(data.gift_card_applied).toFixed(0)} deducted from gift card · ${sym}${Number(data.gift_card_balance_left || 0).toFixed(0)} balance left`, { duration: 8000 });
       }

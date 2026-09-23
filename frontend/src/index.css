@@ -1066,3 +1066,39 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 .floating-dj__stage.move-spin .mira-glow { animation-duration: 1.4s; }
 .floating-dj__stage.move-bounce .mira-glow, .floating-dj__stage.move-bounce ~ .floating-dj__spot { animation-duration: .55s; }
 @media (prefers-reduced-motion: reduce) { .floating-dj__stage img { animation: none !important; } }
+
+/* Floating DJ — Pranam (bhakti), mini mode, cheer confetti */
+.floating-dj__stage.move-pranam img, .mira-dance-pranam img { animation: dj-pranam 3.6s ease-in-out infinite !important; transform-origin: 50% 95%; }
+@keyframes dj-pranam {
+  0%, 100% { transform: rotateX(0deg) translateY(0); }
+  40%  { transform: rotateX(14deg) translateY(4px); }
+  60%  { transform: rotateX(14deg) translateY(4px); }
+}
+.mira-dance-pranam .mira-glow { animation-duration: 3.6s; background: radial-gradient(circle, rgba(255,170,60,.55) 0%, rgba(255,170,60,0) 70%); }
+.mira-diya { position: absolute; pointer-events: none; opacity: 0; z-index: 3; animation: mira-note-float 2.8s ease-out infinite; text-shadow: 0 0 10px rgba(255,180,60,.9); }
+.mira-diya.d1 { left: 74%; top: 36%; font-size: 18px; --nx: 10px; }
+.mira-diya.d2 { left: 10%; top: 30%; font-size: 14px; color: #ff9f43; --nx: -8px; animation-delay: .9s; }
+.mira-diya.d3 { left: 46%; top: 8%; font-size: 11px; color: #ffcc66; --nx: 4px; animation-delay: 1.8s; }
+.floating-dj.is-mini { width: 64px; }
+.floating-dj.is-mini .floating-dj__stage { width: 64px; height: 64px; cursor: pointer; }
+.floating-dj.is-mini .floating-dj__stage img { filter: drop-shadow(0 6px 10px rgba(0,0,0,.5)) drop-shadow(0 0 10px rgba(232,197,106,.4)); }
+.floating-dj.is-mini .floating-dj__spot { height: 10px; bottom: 0; }
+.floating-dj.is-mini .mira-note { font-size: 10px; }
+.floating-dj.is-mini .mira-note.n4, .floating-dj.is-mini .mira-note.n5, .floating-dj.is-mini .mira-diya.d2, .floating-dj.is-mini .mira-diya.d3 { display: none; }
+.floating-dj.is-mini .floating-dj__tools { top: -6px; right: -6px; }
+.floating-dj__stage.move-cheer img { animation: dj-cheer .5s cubic-bezier(.3,.7,.4,1) infinite !important; }
+@keyframes dj-cheer {
+  0%, 100% { transform: translateY(0) rotate(-4deg) scale(1); }
+  50%      { transform: translateY(-26px) rotate(4deg) scale(1.08); }
+}
+.floating-dj__confetti { position: absolute; inset: -30% -20% 20% -20%; pointer-events: none; z-index: 4; overflow: visible; }
+.floating-dj__confetti i { position: absolute; top: 40%; width: 7px; height: 11px; border-radius: 2px;
+  background: hsl(var(--h) 90% 60%); box-shadow: 0 0 6px hsl(var(--h) 90% 60% / .7);
+  animation: dj-confetti 1.6s cubic-bezier(.2,.7,.3,1) both; }
+@keyframes dj-confetti {
+  0%   { opacity: 0; transform: translateY(0) rotate(var(--r)) scale(.6); }
+  15%  { opacity: 1; transform: translateY(-70px) rotate(calc(var(--r) + 90deg)) scale(1); }
+  100% { opacity: 0; transform: translateY(70px) rotate(calc(var(--r) + 420deg)) scale(.9); }
+}
+.floating-dj.is-cheering .floating-dj__track { background: linear-gradient(90deg, #e8c56a, #c99a2e); color: #1a1408; border-color: #f6e27a; }
+@media (prefers-reduced-motion: reduce) { .floating-dj__confetti i, .mira-diya { animation: none; opacity: .8; } }

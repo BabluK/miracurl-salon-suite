@@ -160,6 +160,7 @@ const MOOD_POSE = {
   relaxing: { src: "/assets/dashboard/mira-dj.png", dance: "mira-dance-sway" },
   spa: { src: "/assets/dashboard/mira-spa.png", dance: "mira-dance-float" },
   positive: { src: "/assets/dashboard/mira-energy.png", dance: "mira-dance-jump" },
+  bhakti: { src: "/assets/dashboard/mira-pranam.png", dance: "mira-dance-pranam" },
 };
 export function MiraSuggestsCard() {
   const player = usePlayer();

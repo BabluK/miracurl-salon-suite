@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import api from "@/lib/api";
 import { Plus, Calendar as CalendarIcon, Clock, LayoutGrid, ChevronLeft, ChevronRight, CalendarDays, Link2 } from "lucide-react";
 import { toast } from "sonner";
+import { miraCheer } from "@/components/dashboard/FloatingDjBot";
 import { useAuth } from "@/context/AuthContext";
 import { getSelectedBranch } from "@/lib/branch";
 import { WeekGrid } from "@/components/appointments/WeekGrid";
@@ -113,7 +114,7 @@ export default function Appointments() {
     try {
       const { guest_phone, ...payload } = form;
       await api.post("/appointments", { ...payload, scheduled_at: new Date(form.scheduled_at).toISOString() });
-      toast.success("Appointment booked"); setOpen(false); load();
+      toast.success("Appointment booked"); miraCheer("booking"); setOpen(false); load();
     } catch (err) { toast.error("Booking failed"); }
   }
 
