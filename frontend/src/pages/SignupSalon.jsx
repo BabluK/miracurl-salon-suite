@@ -162,10 +162,14 @@ export default function SignupSalon() {
     [form.slug],
   );
 
-  const accent = form.business_type === "restaurant" ? "#c9892a" : "#e0397a";
-  const soft = form.business_type === "restaurant" ? "#fdf6e7" : "#fdf0f5";
+  const isRestoTheme = form.business_type === "restaurant";
+  const accent = isRestoTheme ? "#c9892a" : "#e0397a";
+  const soft = isRestoTheme ? "#fdf6e7" : "#fdf0f5";
+  const grad = isRestoTheme ? "linear-gradient(90deg,#c9892a,#d97706 55%,#f59e0b)" : "linear-gradient(90deg,#e0397a,#ec4899 55%,#f472b6)";
+  const glow = isRestoTheme ? "0 12px 30px -10px rgba(217,119,6,.55)" : "0 12px 30px -10px rgba(236,72,153,.55)";
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#faf7f4]" data-testid="signup-salon-page">
+    <div className={`min-h-screen relative overflow-hidden transition-[background] duration-500 ${isRestoTheme ? "bg-gradient-to-br from-[#fdf8f0] via-[#faf3e6] to-[#f4e8d3]" : "bg-gradient-to-br from-[#fdf0f5] via-[#fbf3f7] to-[#f4e6ee]"}`} data-testid="signup-salon-page">
+      <div id="signup-page-container" data-testid="signup-page-container" className="contents" />
       <Toaster theme="light" position="top-center" toastOptions={TOASTER_OPTIONS} />
       <ChatButton message="Hi Miracurl ✦ I'm signing up my salon and need a little help." label="Need help?" />
 
@@ -174,8 +178,8 @@ export default function SignupSalon() {
         <div className="flex items-center gap-3">
           <span className="hidden sm:inline text-sm text-slate-500">Already have an account?</span>
           <Link to="/login" data-testid="signup-have-account"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:scale-95"
-            style={{ background: accent }}>Sign in →</Link>
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold text-white whitespace-nowrap transition-[filter,transform] hover:brightness-110 active:scale-95"
+            style={{ background: grad, boxShadow: glow }}>Sign in →</Link>
         </div>
       </header>
       <div className="h-20" aria-hidden="true" />
@@ -183,13 +187,13 @@ export default function SignupSalon() {
       <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 py-6 pb-20">
         <div className="grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-6 lg:gap-8 items-stretch">
         <SignupHeroPanel resto={form.business_type === "restaurant"} />
-        <div className="bg-white rounded-[28px] shadow-[0_30px_80px_-30px_rgba(0,0,0,.25)] ring-1 ring-slate-100 p-6 sm:p-9" style={{ "--su-accent": accent, "--su-soft": soft }}>
+        <div className="bg-white rounded-[28px] shadow-[0_30px_80px_-30px_rgba(0,0,0,.25)] ring-1 ring-slate-100 p-6 sm:p-9" style={{ "--su-accent": accent, "--su-soft": soft, "--su-grad": grad }}>
           <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
             <span data-testid="signup-trial-badge" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] uppercase tracking-[0.16em] font-bold border"
               style={{ color: accent, borderColor: accent + "55", background: soft }}>
               <Sparkles className="w-3 h-3" /> {(newbiz || form.newly_opened) ? "90-Day Free Setup · New Business Offer" : form.business_type === "restaurant" ? "First Month Free · No credit card · Cancel anytime" : `${trialDays}-Day Free Trial · No credit card · Cancel anytime`}
             </span>
-            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-slate-100 border border-slate-200" data-testid="signup-region-toggle">
+            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-slate-100 border border-slate-200" data-testid="signup-region-toggle" id="currency-region-toggle">
               {[["in", "🇮🇳 ₹"], ["intl", "🌍 $"]].map(([k, l]) => (
                 <button key={k} type="button" data-testid={`signup-region-${k}`} onClick={() => pickRegion(k)}
                   className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${region === k ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"}`}>
@@ -235,7 +239,7 @@ export default function SignupSalon() {
                 data-testid="signup-next-btn"
                 type="button"
                 onClick={next}
-                className="inline-flex items-center gap-2 px-7 py-3 rounded-full text-white text-sm font-semibold hover:brightness-110 active:scale-95 transition-[filter,transform] shadow-[0_8px_20px_-6px_rgba(59,130,246,0.6)] transition" style={{ background: accent }}
+                className="inline-flex items-center gap-2 px-7 py-3 rounded-full text-white text-sm font-semibold hover:brightness-110 active:scale-95 transition-[filter,transform] shadow-[0_8px_20px_-6px_rgba(59,130,246,0.6)] transition" style={{ background: grad, boxShadow: glow }}
               >
                 Continue <ArrowRight className="w-4 h-4" />
               </button>
@@ -245,7 +249,7 @@ export default function SignupSalon() {
                 type="button"
                 onClick={submit}
                 disabled={busy}
-                className="inline-flex items-center gap-2 px-7 py-3 rounded-full text-white text-sm font-semibold hover:brightness-110 active:scale-95 transition-[filter,transform] disabled:opacity-60" style={{ background: accent }}
+                className="inline-flex items-center gap-2 px-7 py-3 rounded-full text-white text-sm font-semibold hover:brightness-110 active:scale-95 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-60" style={{ background: grad, boxShadow: glow }}
               >
                 {busy ? (form.business_type === "restaurant" ? "Creating your restaurant…" : "Creating your salon…") : <>{form.business_type === "restaurant" ? "Start free month" : "Start free trial"} <Gift className="w-4 h-4" /></>}
               </button>
@@ -277,9 +281,9 @@ function Stepper({ step, resto = false }) {
         const done = i < step;
         const active = i === step;
         return (
-          <div key={l} className="flex items-center gap-2 flex-shrink-0">
+          <div key={l} data-testid={`stepper-step-${i + 1}`} className="flex items-center gap-2 flex-shrink-0">
             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition ${
-              done ? "bg-[var(--su-accent)] text-white" :
+              done ? "text-white bg-[image:var(--su-grad)] shadow-md" :
               active ? "bg-[var(--su-soft)] border-2 border-[var(--su-accent)] text-[var(--su-accent)]" :
               "bg-slate-100 text-slate-400"
             }`}>
@@ -346,7 +350,8 @@ function SalonStep({ form, update }) {
           {[["salon", "💇 Salon / Spa", "Bookings, stylists & billing"], ["restaurant", "🍴 Restaurant", "Menu, table reservations & orders"]].map(([v, title, sub]) => (
             <button key={v} type="button" data-testid={`signup-type-${v}`}
               onClick={() => update({ business_type: v })}
-              className={`text-left rounded-xl border-2 px-4 py-3 transition-all ${form.business_type === v ? "border-[var(--su-accent)] bg-[var(--su-soft)] shadow-sm" : "border-slate-200 bg-white hover:border-sky-200"}`}>
+              data-testid={`business-type-${v}-button`}
+              className={`text-left rounded-xl border-2 px-4 py-3 transition-[transform,border-color,background-color] duration-200 hover:scale-[1.02] active:scale-[0.98] ${form.business_type === v ? "border-[var(--su-accent)] bg-[var(--su-soft)] shadow-sm" : "border-slate-200 bg-white hover:border-sky-200"}`}>
               <span className="block text-sm font-bold text-slate-800">{title}</span>
               <span className="block text-[11px] text-slate-400 mt-0.5">{sub}</span>
             </button>

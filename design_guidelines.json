@@ -1,179 +1,133 @@
 {
-  "theme": "LIGHT",
-  "project_name": "Miracurl Suite - Multi-Tenant Salon SaaS Gate Redesign",
-  "brand_lockup": "/assets/brand/gold-lockup-transparent.png",
-  "colors": {
-    "background": "#FAF8F5",
-    "background_alt": "#F4EFEA",
-    "card_bg": "#FFFFFF",
-    "card_subtle_bg": "#F7F4EF",
-    "card_border": "#E8E2D9",
-    "card_border_focus": "#C9A24A",
-    "navy_text_primary": "#0F1E33",
-    "navy_text_secondary": "#1E324D",
-    "muted_text": "#6B7280",
-    "light_muted_text": "#9CA3AF",
-    "gold_primary": "#C9A24A",
-    "gold_dark": "#B8893A",
-    "gold_light": "#F9F3EA",
-    "gold_border": "rgba(201, 162, 74, 0.35)",
-    "gold_gradient_button": "linear-gradient(135deg, #D4AF37 0%, #C9A24A 50%, #B8893A 100%)",
-    "gold_gradient_button_hover": "linear-gradient(135deg, #E0B83E 0%, #D4AF37 50%, #C49633 100%)",
-    "rose_pill_bg": "#FFEFEF",
-    "rose_pill_text": "#9B1C1C",
-    "rose_pill_border": "#F87171",
-    "emerald_pill_bg": "#ECFDF5",
-    "emerald_pill_text": "#065F46",
-    "emerald_pill_border": "#10B981",
-    "disabled_card_bg": "#F3ECE3",
-    "disabled_card_border": "#E2D9CE",
-    "disabled_card_text": "#9CA3AF"
-  },
+  "project_title": "Beauty & Restaurant SaaS Signup Page Redesign Guidelines",
+  "app_type": "saas_signup / marketing_conversion",
+  "design_archetype": "Dual Archetype - Pastel Soft & Romantic (Salon) vs Warm Amber & Epicurean (Restaurant)",
   "typography": {
-    "fonts": {
-      "heading_serif": "Playfair Display, Georgia, serif",
-      "body_sans": "Outfit, Inter, sans-serif",
-      "accent_script": "Caveat, cursive"
-    },
-    "font_sizes": {
-      "desktop": {
-        "h1": "text-3xl lg:text-4xl font-bold tracking-tight",
-        "h2": "text-2xl lg:text-3xl font-semibold",
-        "h3": "text-xl font-medium",
-        "body": "text-base leading-relaxed",
-        "caption": "text-sm text-muted-foreground",
-        "micro": "text-xs font-medium uppercase tracking-wider"
+    "headline_font": "Playfair Display, serif",
+    "script_font": "'Caveat', cursive (or 'Alex Brush', cursive loaded via Google Fonts)",
+    "body_font": "Outfit, sans-serif",
+    "font_loading_instructions": "Add Google Fonts link in index.html for 'Playfair Display:ital,wght@0,400..900;1,400..900', 'Caveat:wght@400..700', and 'Outfit:wght@300..700'",
+    "hierarchy": {
+      "hero_headline": "text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight font-serif leading-tight",
+      "script_decor": "font-script text-2xl sm:text-3xl font-medium tracking-wide leading-none",
+      "hero_subcopy": "text-sm sm:text-base font-sans font-normal leading-relaxed opacity-90",
+      "card_title": "text-xl sm:text-2xl font-bold font-sans tracking-tight",
+      "section_label": "text-xs font-semibold uppercase tracking-widest"
+    }
+  },
+  "theme_tokens": {
+    "salon_theme": {
+      "mode": "salon",
+      "accent_color": "#e0397a",
+      "accent_hover": "#c82a67",
+      "accent_light_bg": "rgba(224, 57, 122, 0.12)",
+      "accent_border": "rgba(224, 57, 122, 0.25)",
+      "page_bg_gradient": "bg-gradient-to-br from-[#fdf0f5] via-[#fbf3f7] to-[#f4e6ee]",
+      "hero_card_bg": "bg-gradient-to-br from-[#2a1320]/90 via-[#1f0e18]/85 to-[#140810]/95 backdrop-blur-xl border border-pink-500/20",
+      "hero_overlay_wash": "bg-gradient-to-t from-[#12050d] via-[#1a0a14]/75 to-pink-950/40",
+      "badge_bg": "bg-pink-500/15 border-pink-500/30 text-pink-300",
+      "stepper_active": "bg-gradient-to-r from-[#e0397a] to-[#f472b6] text-white shadow-lg shadow-pink-500/25",
+      "stepper_inactive": "bg-pink-100/60 text-pink-700/60",
+      "button_gradient": "bg-gradient-to-r from-[#e0397a] via-[#ec4899] to-[#f472b6] hover:from-[#d0296a] hover:to-[#e0397a] text-white shadow-lg shadow-pink-500/30",
+      "feature_chip_bg": "bg-pink-500/15 text-pink-300 border border-pink-500/20 shadow-sm",
+      "testimonial_card_bg": "bg-white/95 text-slate-800 shadow-xl shadow-pink-900/10 border border-pink-100",
+      "hero_photo_url": "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "hero_script_tagline": "Good Hair Brighter You ♡",
+      "hero_headline_markup": "Beauty Business <br/><span class=\"text-pink-400 font-serif italic\">Made Smarter</span>",
+      "hero_subtext": "Manage bookings, staff, billing, customers and grow your salon with AI",
+      "features": [
+        "Online Bookings & Calendar Sync",
+        "Staff Roster & Commission Tracking",
+        "Customer CRM & Automated WhatsApp",
+        "Fast POS, Thermal Billing & GST",
+        "Inventory & Product Sales Tracker"
+      ],
+      "testimonial": {
+        "quote": "Our revenue grew 40% in 3 months. The WhatsApp booking and staff commission features are pure magic!",
+        "author": "Priya Sharma",
+        "role": "Owner, Glow Unisex Salon & Spa"
       },
-      "mobile": {
-        "h1": "text-2xl font-bold tracking-tight",
-        "h2": "text-xl font-semibold",
-        "h3": "text-lg font-medium",
-        "body": "text-sm leading-normal",
-        "caption": "text-xs text-muted-foreground"
-      }
+      "footer_script": "More Beauty Stories Together ♡"
+    },
+    "restaurant_theme": {
+      "mode": "restaurant",
+      "accent_color": "#c9892a",
+      "accent_hover": "#b0741e",
+      "accent_light_bg": "rgba(201, 137, 42, 0.12)",
+      "accent_border": "rgba(201, 137, 42, 0.25)",
+      "page_bg_gradient": "bg-gradient-to-br from-[#fdf8f0] via-[#faf3e6] to-[#f4e8d3]",
+      "hero_card_bg": "bg-gradient-to-br from-[#241a10]/92 via-[#181109]/90 to-[#0f0a05]/96 backdrop-blur-xl border border-amber-500/20",
+      "hero_overlay_wash": "bg-gradient-to-t from-[#0e0803] via-[#1a120a]/80 to-amber-950/40",
+      "badge_bg": "bg-amber-500/15 border-amber-500/30 text-amber-300",
+      "stepper_active": "bg-gradient-to-r from-[#c9892a] to-[#f59e0b] text-white shadow-lg shadow-amber-500/25",
+      "stepper_inactive": "bg-amber-100/60 text-amber-800/60",
+      "button_gradient": "bg-gradient-to-r from-[#c9892a] via-[#d97706] to-[#f59e0b] hover:from-[#b0741e] hover:to-[#c9892a] text-white shadow-lg shadow-amber-500/30",
+      "feature_chip_bg": "bg-amber-500/15 text-amber-300 border border-amber-500/20 shadow-sm",
+      "testimonial_card_bg": "bg-white/95 text-slate-800 shadow-xl shadow-amber-900/10 border border-amber-100",
+      "hero_photo_url": "https://images.pexels.com/photos/16671750/pexels-photo-16671750.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "hero_script_tagline": "Good Food Happy People ♡",
+      "hero_headline_markup": "Restaurant Business <br/><span class=\"text-amber-400 font-serif italic\">Made Smarter</span>",
+      "hero_subtext": "Online orders, KOT, table management, POS billing & customer CRM engineered for high-volume dining",
+      "features": [
+        "Online Orders & Direct Table QR",
+        "Lightning POS, KOT & Split Bills",
+        "Live Table & Floor Plan Management",
+        "Customer CRM & Loyalty Campaigns",
+        "Recipe, Ingredient & Inventory Control",
+        "Automated WhatsApp & Marketing Tools"
+      ],
+      "testimonial": {
+        "quote": "Billing time dropped by 50% and table turnover doubled during peak dinner hours. Essential tool for any eatery!",
+        "author": "Ranjit Debnath",
+        "role": "Founder, The Urban Kitchen"
+      },
+      "footer_script": "Same Passion Bigger Possibilities ♡"
     }
   },
-  "layout_and_spacing": {
-    "border_radius": {
-      "card": "20px",
-      "card_large": "24px",
-      "pill": "9999px",
-      "button": "12px",
-      "input": "12px"
-    },
-    "shadows": {
-      "card": "0 8px 30px rgba(15, 30, 51, 0.06)",
-      "card_hover": "0 14px 40px rgba(15, 30, 51, 0.12)",
-      "gold_glow": "0 4px 20px rgba(201, 162, 74, 0.25)",
-      "inner_subtle": "inset 0 2px 4px rgba(0, 0, 0, 0.02)"
-    },
-    "spacing_rhythm": {
-      "section_padding": "p-6 md:p-10 lg:p-12",
-      "grid_gap": "gap-6 lg:gap-8",
-      "card_internal_padding": "p-6 md:p-8",
-      "element_stack": "space-y-4 md:space-y-6"
-    }
-  },
-  "pill_states": {
-    "Available": {
-      "bg": "#ECFDF5",
-      "text": "#065F46",
-      "border": "1px solid #A7F3D0",
-      "icon": "emerald pulse dot or check icon",
-      "label": "AVAILABLE"
-    },
-    "Locked": {
-      "bg": "#F3F4F6",
-      "text": "#6B7280",
-      "border": "1px solid #D1D5DB",
-      "icon": "padlock icon in soft amber/grey",
-      "label": "LOCKED • OUT OF RANGE (>100m)"
-    },
-    "OutsideBranch": {
-      "bg": "#FFEFEF",
-      "text": "#9B1C1C",
-      "border": "1px solid #FCA5A5",
-      "icon": "rose location mark pin",
-      "label": "You are here • Outside branch"
-    }
-  },
-  "disabled_card_treatment": {
-    "opacity": "0.75",
-    "cursor": "not-allowed",
-    "background": "#F3ECE3",
-    "border": "1px solid #E2D9CE",
-    "overlay_text": "GPS location must be within 100m of branch to sign in",
-    "button_state": "disabled with lock icon"
+  "layout_architecture": {
+    "desktop_grid": "grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12",
+    "left_column": "lg:col-span-6 flex flex-col justify-between relative rounded-3xl overflow-hidden shadow-2xl transition-all duration-500 min-h-[640px]",
+    "right_column": "lg:col-span-6 flex flex-col justify-center",
+    "trust_strip": "w-full border-t border-slate-200/60 bg-white/70 backdrop-blur-md py-6 mt-12 shadow-sm"
   },
   "micro_interactions": {
-    "button_primary_hover": "transform -translate-y-0.5 scale-[1.01] shadow-lg transition-all duration-200 ease-out",
-    "button_primary_press": "transform translate-y-0 scale-[0.99] transition-all duration-100",
-    "card_hover": "transform -translate-y-1 border-[#C9A24A]/60 shadow-[0_14px_40px_rgba(15,30,51,0.12)] transition-all duration-200 ease-out",
-    "badge_pulse": "animate-pulse"
+    "theme_transition": "transition-all duration-500 ease-in-out",
+    "business_type_card_hover": "hover:scale-[1.02] active:scale-[0.98] transition-transform duration-200",
+    "button_hover": "hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200",
+    "feature_item_stagger": "animate-fade-in-up"
   },
-  "screen_specifications": {
-    "Screen_A_Branch_Picker": {
-      "header_row": {
-        "brand_logo": "/assets/brand/gold-lockup-transparent.png",
-        "search_box": "Search by salon name, area or location...",
-        "location_button": "Use my current location",
-        "city_dropdown": "Filter by city"
-      },
-      "cards_grid": {
-        "card_elements": [
-          "Branch photo",
-          "MAIN SALON / SALON badge",
-          "Available / Locked pill",
-          "Branch name and Area",
-          "3 mini-stats: staff count, categories, operating hours",
-          "'Open This Salon' primary gold button"
-        ]
-      },
-      "right_callout": {
-        "icon": "Gold Shield with location lock tick",
-        "title": "Secure & location verified",
-        "body": "Staff can only access the branch they are at"
-      }
-    },
-    "Screen_B_Location_Denial": {
-      "left_column": {
-        "status_pill": "You are here • Outside branch (rose pill)",
-        "giant_headline": "Oops! (Gold serif) + You can't sign in from this location (Navy serif)",
-        "reason_text": "GPS verified location is outside allowed 100m geofence for selected branch.",
-        "features": "3 gold-circled feature icons (Geofence protection, Staff integrity, Live activity sync)",
-        "actions": "Gold 'Retry GPS' + Outlined 'Sign out'",
-        "support_link": "Need help? Contact support"
-      },
-      "right_column": {
-        "hero_photo_card": {
-          "tagline_italic": "Secure Salons Brighter Tomorrows",
-          "subline": "Your data. Your business. Always protected."
-        },
-        "nearest_branch_card": {
-          "title": "Your nearest branch",
-          "distance": "e.g. 2.4 km away",
-          "action": "Get Directions button with gold border",
-          "map_bg": "Faint architectural map pattern overlay"
-        }
-      },
-      "footer": {
-        "tagline": "FOR SALONS THAT DREAM BIGGER",
-        "decorations": "Gold horizontal rule dividers"
-      }
-    }
+  "testing_and_accessibility": {
+    "data_testid_convention": "kebab-case, role-based testing attributes",
+    "mandatory_test_ids": [
+      "signup-page-container",
+      "business-type-salon-button",
+      "business-type-restaurant-button",
+      "currency-region-toggle",
+      "stepper-step-1",
+      "stepper-step-2",
+      "stepper-step-3",
+      "stepper-step-4",
+      "newly-opened-yes-button",
+      "newly-opened-no-button",
+      "business-name-input",
+      "booking-url-input",
+      "signup-submit-button",
+      "hero-panel-container",
+      "hero-testimonial-card",
+      "trust-strip-container"
+    ]
   },
   "instructions_to_main_agent": [
-    "Target JavaScript files (.js/.jsx) for all React components in frontend/src/.",
-    "Replace existing dark-theme gate views with this warm light ivory (#FAF8F5) + navy (#0F1E33) + gold (#C9A24A) theme.",
-    "Implement GeoBranchGate.jsx and SalonSwitcher.jsx using these exact tokens and rounded-2xl / rounded-3xl radii.",
-    "Ensure every interactive element (buttons, inputs, cards, retry links, sign out links) includes data-testid attributes (kebab-case).",
-    "Maintain auto-pick logic when exactly 1 branch matches GPS (<100m).",
-    "Show faint map background for the nearest branch card."
+    "Ensure both Salon and Restaurant themes switch seamlessly when toggled without page reload.",
+    "Verify dark overlay gradients over photo backdrops keep headline and sub-copy text above 4.5:1 contrast ratio.",
+    "Ensure mobile layout stacks hero panel smoothly above or below form with responsive spacing.",
+    "Add font links for Playfair Display, Caveat, and Outfit in public/index.html if missing.",
+    "Ensure all buttons, inputs, steppers, and toggles have required data-testid attributes."
   ],
   "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
-    "Never use dark backgrounds for full screen unless explicitly requested for luxury night mode.",
-    "Avoid default system buttons; use custom rounded buttons with warm gold gradients.",
-    "Ensure 100% mobile and desktop responsiveness.",
-    "All interactive elements MUST have data-testid attributes."
+    "You tend to converge toward generic outputs. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Do not use transparent backgrounds on headers, dropdowns, or overlays with underlying text.",
+    "Ensure every key interactive element has data-testid attribute.",
+    "Use 2-3x generous padding inside bordered containers."
   ]
 }
