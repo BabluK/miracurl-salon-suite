@@ -173,7 +173,7 @@ export default function AppLayout() {
         }`}
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
-        <div className="relative px-2 pt-3 pb-1">
+        <div className="relative px-3 pt-3 pb-2 border-b border-[#d4af37]/10">
           <SidebarMiracurlLogo />
           <button
             className="lg:hidden absolute top-3 right-3 text-white/60 hover:text-white p-1"

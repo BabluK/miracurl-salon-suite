@@ -1,9 +1,20 @@
 // Miracurl master brand — shown to every tenant (salon or restaurant) at the top of the sidebar.
-export function SidebarMiracurlLogo() {
+export function SidebarMiracurlLogo({ variant = "sidebar" }) {
+  const login = variant === "login";
   return (
-    <div className="flex flex-col items-center select-none w-full" data-testid="sidebar-miracurl-logo-block">
-      <img src="/assets/brand/ms-suite-banner.png" alt="Miracurl Suite — Smart Salon & Restaurant Management Software" draggable="false"
-        className="w-full h-auto object-contain drop-shadow-[0_8px_26px_rgba(212,175,55,0.35)]" />
+    <div className={`ms-lockup ${login ? "ms-lockup--login" : ""}`} data-testid="sidebar-miracurl-logo-block">
+      <div className="ms-lockup__row">
+        <span className="ms-lockup__emblem" aria-hidden="true">
+          <img src="/assets/ms-logo-ring.png" alt="" draggable="false" />
+          <span className="ms-spark s1">✦</span><span className="ms-spark s2">✦</span><span className="ms-spark s3">✦</span>
+        </span>
+        <span className="ms-lockup__text">
+          <span className="ms-lockup__word" data-testid="sidebar-miracurl-wordmark">Miracurl</span>
+          <span className="ms-lockup__suite"><i /><b>Suite</b><i /></span>
+          <span className="ms-lockup__sub">Smart Salon &amp; Restaurant<br />Management Software</span>
+        </span>
+      </div>
+      <span className="ms-lockup__tag">Manage. Automate. Grow.</span>
     </div>
   );
 }

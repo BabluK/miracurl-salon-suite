@@ -1,136 +1,180 @@
 {
-  "project_name": "Miracurl Suite - Master Admin Dashboard Redesign",
-  "theme": "Light Sparkling Canvas (Dashboard-only) with Dual-Vertical Tenant Adaptation",
-  "scope": {
-    "dashboard_canvas": "Light sparkling background applies ONLY to the Dashboard page (/app/frontend/src/pages/Dashboard.jsx or sub-views). All other admin pages retain their standard light slate/clean theme.",
-    "brand_architecture": "Miracurl is the Master Brand across all tenants (Salon & Restaurant). The Miracurl logo MUST be prominently rendered at the top of the sidebar with tenant name displayed directly beneath it. 'Powered by Miracurl' marks are integrated in the top bar and sidebar footer."
+  "design_system_overview": {
+    "app_name": "Miracurl Suite",
+    "theme": "Dark Luxe Gold ('gold-night' #0a0907 background) for Admin Chrome & Dual-Mode for Login (~420px variant)",
+    "aesthetic_archetype": "ARCHETYPE 5: LUXURY & PRECISION (High-End Salon & Restaurant Enterprise SaaS)",
+    "primary_objective": "Replace flat JPG/PNG logo banner with a living, high-precision HTML/CSS brand lockup featuring CSS gold light-sweep shimmer, twinkling stars around ring emblem, breathing radial glow, and ultra-crisp typography."
+  },
+  "component_spec": {
+    "component_name": "SidebarMiracurlLogo & BrandMark Lockup",
+    "component_paths": [
+      "/app/frontend/src/components/MasterBrand.jsx",
+      "/app/frontend/src/components/BrandMark.jsx"
+    ],
+    "test_id": "sidebar-miracurl-logo-block",
+    "container_dimensions": {
+      "sidebar_variant": {
+        "width": "256px",
+        "padding": "16px 12px 12px 12px",
+        "background": "#0a0907",
+        "border_bottom": "1px solid rgba(212, 175, 55, 0.12)"
+      },
+      "login_variant": {
+        "width": "420px",
+        "padding": "24px 20px 20px 20px",
+        "background": "transparent"
+      }
+    }
+  },
+  "emblem_spec": {
+    "asset_path": "/assets/ms-logo-ring.png",
+    "sidebar_size": {
+      "width": "52px",
+      "height": "52px"
+    },
+    "login_size": {
+      "width": "72px",
+      "height": "72px"
+    },
+    "glow_effect": {
+      "box_shadow": "0 0 20px rgba(212, 175, 55, 0.35)",
+      "filter": "drop-shadow(0 6px 18px rgba(212, 175, 55, 0.45))",
+      "animation": "emblem-breath 4s ease-in-out infinite"
+    },
+    "sparkles": {
+      "count": 3,
+      "character": "✦",
+      "color": "#f6e27a",
+      "shadow": "0 0 8px rgba(246, 226, 122, 0.9)",
+      "positions": [
+        { "top": "-4px", "right": "-2px", "size": "13px", "delay": "0s" },
+        { "bottom": "2px", "left": "-4px", "size": "9px", "delay": "0.9s" },
+        { "top": "50%", "right": "-8px", "size": "10px", "delay": "1.8s" }
+      ],
+      "animation": "sparkle-twinkle 2.8s ease-in-out infinite"
+    }
   },
   "typography": {
-    "heading_font": "Playfair Display, serif",
-    "body_font": "Outfit, sans-serif",
-    "mono_font": "JetBrains Mono, monospace",
-    "scale": {
-      "h1_hero": "text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight",
-      "h2_section": "text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight",
-      "h3_card_title": "text-lg sm:text-xl font-semibold tracking-normal",
-      "body_text": "text-sm sm:text-base font-normal leading-relaxed",
-      "subtext_caption": "text-xs sm:text-sm font-medium text-slate-500",
-      "micro_label": "text-[10px] sm:text-xs font-bold uppercase tracking-widest"
+    "fonts_loaded": [
+      "Playfair Display (headings)",
+      "Outfit (body & uppercase subheadings)",
+      "Caveat (script accents)",
+      "JetBrains Mono (data & tags)"
+    ],
+    "wordmark": {
+      "text": "MIRACURL SUITE",
+      "font_family": "'Playfair Display', serif",
+      "sidebar_styles": {
+        "font_size": "18px",
+        "line_height": "1.15",
+        "font_weight": "700",
+        "letter_spacing": "0.08em",
+        "text_transform": "uppercase"
+      },
+      "login_styles": {
+        "font_size": "26px",
+        "line_height": "1.15",
+        "font_weight": "700",
+        "letter_spacing": "0.10em",
+        "text_transform": "uppercase"
+      },
+      "gold_gradient": "linear-gradient(110deg, #d4af37 0%, #f6e27a 30%, #ffffff 50%, #f6e27a 70%, #d4af37 100%)",
+      "gradient_background_size": "220% 100%",
+      "shimmer_animation": "gold-sweep 3.8s ease-in-out infinite"
     },
-    "rules": [
-      "Use Playfair Display for primary headers, key metrics focus, and high-impact card titles.",
-      "Use Outfit for readable body copy, tabular numbers, navigation items, and button text.",
-      "Never use default Inter or generic Sans for main section titles.",
-      "Maintain tight tracking (tracking-tight) on headings >= 24px."
-    ]
+    "subtitle": {
+      "text": "SMART SALON & RESTAURANT MANAGEMENT SOFTWARE",
+      "font_family": "'Outfit', sans-serif",
+      "font_size": "8.5px",
+      "font_weight": "600",
+      "letter_spacing": "0.22em",
+      "line_height": "1.3",
+      "text_transform": "uppercase",
+      "sidebar_color": "rgba(243, 227, 174, 0.75)",
+      "login_light_color": "#8f6a2a"
+    },
+    "tagline": {
+      "text": "Manage. Automate. Grow.",
+      "font_family": "'Caveat', cursive",
+      "font_size": "14px",
+      "font_weight": "600",
+      "letter_spacing": "0.06em",
+      "sidebar_color": "#e8c56a",
+      "text_shadow": "0 0 12px rgba(212, 175, 55, 0.4)"
+    }
+  },
+  "animation_keyframes": {
+    "gold_sweep": {
+      "name": "gold-sweep",
+      "css": "@keyframes gold-sweep { 0%, 15% { background-position: 200% 0; } 85%, 100% { background-position: -200% 0; } }"
+    },
+    "sparkle_twinkle": {
+      "name": "sparkle-twinkle",
+      "css": "@keyframes sparkle-twinkle { 0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); } 50% { opacity: 1; transform: scale(1.15) rotate(45deg); } }"
+    },
+    "emblem_breathe": {
+      "name": "emblem-breath",
+      "css": "@keyframes emblem-breath { 0%, 100% { transform: scale(1); filter: drop-shadow(0 4px 14px rgba(212, 175, 55, 0.35)); } 50% { transform: scale(1.03); filter: drop-shadow(0 8px 24px rgba(212, 175, 55, 0.65)); } }"
+    }
+  },
+  "hover_behaviour": {
+    "container_hover": {
+      "transform": "translateY(-1px)",
+      "emblem_scale": "scale(1.06)",
+      "glow_expand": "drop-shadow(0 10px 28px rgba(212, 175, 55, 0.8))",
+      "transition": "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
+    }
+  },
+  "accessibility_and_reduced_motion": {
+    "prefers_reduced_motion": "Disable gold-sweep, sparkle-twinkle, and emblem-breath animations. Set wordmark fill to static #D4AF37.",
+    "contrast_compliance": "All subtitle text rendered at 8.5px with tracking 0.22em on dark #0a0907 background meets APCA & WCAG AA 4.5:1 ratio."
   },
   "colors": {
-    "master_brand": {
-      "miracurl_gold": "#d4af37",
-      "miracurl_gold_light": "#f3e8c8",
-      "miracurl_rose_pink": "#ec4899",
-      "miracurl_dark_sidebar": "#0f0f12",
-      "miracurl_dark_sidebar_border": "rgba(255, 255, 255, 0.08)"
-    },
-    "vertical_accents": {
-      "salon": {
-        "primary": "#ec4899",
-        "primary_hover": "#db2777",
-        "secondary_soft": "#fdf2f8",
-        "border_tint": "rgba(236, 72, 153, 0.18)",
-        "sparkle_glow": "rgba(244, 114, 182, 0.35)",
-        "gradient_card_bg": "linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(253,242,248,0.75) 100%)"
-      },
-      "restaurant": {
-        "primary": "#f59e0b",
-        "primary_hover": "#d97706",
-        "secondary_soft": "#fffbeb",
-        "border_tint": "rgba(245, 158, 11, 0.22)",
-        "sparkle_glow": "rgba(251, 191, 36, 0.40)",
-        "gradient_card_bg": "linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(254,243,199,0.75) 100%)"
-      }
-    },
-    "dashboard_light_sparkle_canvas": {
-      "base_bg": "#faf9f5",
-      "gradient_mesh": "radial-gradient(at 10% 10%, rgba(255, 253, 245, 1) 0px, transparent 50%), radial-gradient(at 90% 20%, rgba(254, 243, 199, 0.45) 0px, transparent 50%), radial-gradient(at 50% 80%, rgba(253, 242, 248, 0.50) 0px, transparent 60%), radial-gradient(at 80% 90%, rgba(245, 243, 255, 0.40) 0px, transparent 50%)",
-      "card_bg_glass": "rgba(255, 255, 255, 0.82)",
-      "card_border": "rgba(226, 215, 195, 0.65)",
-      "card_shadow": "0 10px 30px -10px rgba(180, 150, 110, 0.12), 0 4px 12px -2px rgba(0,0,0,0.03)",
-      "card_hover_shadow": "0 20px 40px -12px rgba(180, 150, 110, 0.22), 0 8px 20px -4px rgba(0,0,0,0.06)"
+    "gold_primary": "#D4AF37",
+    "gold_bright": "#F6E27A",
+    "gold_muted": "#8A7028",
+    "dark_bg": "#0A0907",
+    "text_primary": "#FFFFFF",
+    "text_secondary": "#A1A1AA"
+  },
+  "layouts": {
+    "sidebar": "Flex col centered, 256px max width, zero horizontal overflow, optical vertical gap of 8px between emblem and wordmark",
+    "login": "Flex col centered, 420px max width, enhanced scale"
+  },
+  "grids": {
+    "mode": "MODE B: High Density Admin Sidebar Header"
+  },
+  "motion": {
+    "transitions": "transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s ease",
+    "interactive_elements": "Hover state intensifies gold glow and speeds up shimmer sweep"
+  },
+  "media": {
+    "logo_asset": "/assets/ms-logo-ring.png"
+  },
+  "3d libraries": {
+    "status": "Not required for lockup; pure hardware-accelerated CSS keyframe animations used for 60fps performance without layout shifts"
+  },
+  "image urls": [
+    {
+      "category": "Brand Emblem",
+      "description": "Gold ring emblem with MS initials and star accent",
+      "url": "/assets/ms-logo-ring.png"
     }
-  },
-  "visual_enhancers": {
-    "light_sparkling_background_implementation": {
-      "technique": "CSS Radial Shimmer Mesh + CSS Keyframe Glint/Sparkle Layer",
-      "css_rules": "/* Sparkle Canvas Container for Dashboard */\n.dashboard-sparkle-container {\n  position: relative;\n  background-color: #faf9f5;\n  background-image:\n    radial-gradient(circle at 15% 15%, rgba(212, 175, 55, 0.08) 0%, transparent 45%),\n    radial-gradient(circle at 85% 25%, var(--tenant-sparkle-tint, rgba(236, 72, 153, 0.08)) 0%, transparent 40%),\n    radial-gradient(circle at 50% 75%, rgba(255, 255, 255, 0.9) 0%, transparent 70%);\n  min-height: 100vh;\n  overflow-x: hidden;\n}\n.dashboard-sparkle-container::before {\n  content: '';\n  position: absolute;\n  inset: 0;\n  background-image: \n    radial-gradient(2px 2px at 20px 30px, rgba(212, 175, 55, 0.6), rgba(0,0,0,0)),\n    radial-gradient(2px 2px at 40px 70px, rgba(255, 255, 255, 0.9), rgba(0,0,0,0)),\n    radial-gradient(1.5px 1.5px at 90px 40px, var(--tenant-sparkle-core, rgba(236, 72, 153, 0.7)), rgba(0,0,0,0)),\n    radial-gradient(2px 2px at 160px 120px, rgba(212, 175, 55, 0.5), rgba(0,0,0,0)),\n    radial-gradient(1.5px 1.5px at 230px 190px, rgba(255, 255, 255, 0.95), rgba(0,0,0,0));\n  background-repeat: repeat;\n  background-size: 280px 280px;\n  opacity: 0.65;\n  animation: sparkleGlaze 12s ease-in-out infinite alternate;\n  pointer-events: none;\n  z-index: 0;\n}\n@keyframes sparkleGlaze {\n  0% { transform: translateY(0px) scale(1); opacity: 0.55; }\n  50% { transform: translateY(-6px) scale(1.02); opacity: 0.75; }\n  100% { transform: translateY(0px) scale(1); opacity: 0.55; }\n}\n@media (prefers-reduced-motion: reduce) {\n  .dashboard-sparkle-container::before {\n    animation: none;\n  }\n}",
-      "accessibility_note": "Ensures zero motion discomfort via prefers-reduced-motion media query. High contrast AA compliance maintained across all card surfaces with glass opacity set to minimum 0.82."
-    },
-    "cards_and_widgets": {
-      "glassmorphism": "backdrop-blur-xl bg-white/85 border border-[#eadfcb]/80 shadow-[0_8px_25px_-5px_rgba(212,175,55,0.08)] rounded-2xl transition-all duration-300",
-      "kpi_tiles": "p-5 sm:p-6 bg-gradient-to-br from-white/95 via-white/85 to-[#fefcf8]/90 backdrop-blur-md border border-[#eadfcb] rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200",
-      "charts": "p-6 bg-white/90 backdrop-blur-xl border border-[#eadfcb] rounded-2xl shadow-md",
-      "pills_and_badges": "px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide"
-    }
-  },
-  "branding_layout_specs": {
-    "sidebar_top": {
-      "structure": "Flex column alignment inside sidebar header",
-      "miracurl_logo": "Render <BrandMark /> or Miracurl Master Logo emblem with gold/pink gradient shimmer. Size: text-xl font-bold with sparkling 'CURL' accent.",
-      "tenant_name_sub_block": "Directly underneath Miracurl logo: render tenant name (e.g. 'Glamour Velvet Salon' or 'Bistro Elegance') with vertical icon badge (Scissors for Salon, Chef Hat/Utensils for Restaurant), styled in text-xs font-semibold text-amber-200/90 tracking-wide uppercase mt-1 px-2 py-0.5 rounded bg-white/10 border border-white/15 backdrop-blur-sm max-w-[200px] truncate"
-    },
-    "top_bar": {
-      "powered_by_mark": "Display a elegant pill on the top bar right section or left adjacent to page title: 'Powered by Miracurl' with a mini gold sparkle icon, text-[11px] font-medium text-amber-900/70 bg-amber-50/80 border border-amber-200/60 px-2.5 py-1 rounded-full shadow-2xs hover:bg-amber-100/80 transition-colors"
-    },
-    "sidebar_footer": {
-      "powered_by_mark": "Bottom of dark sidebar: 'Powered by Miracurl' badge with version/tenant info, styled with text-[11px] text-zinc-400 font-medium tracking-wider uppercase flex items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity"
-    }
-  },
-  "micro_interactions": {
-    "staggered_entrance": "Framer Motion or CSS staggered fade-slide-up for dashboard widgets (delay children by 0.05s)",
-    "kpi_hover": "Hover lifts card by -2px, darkens amber border tint slightly, enhances soft gold drop shadow",
-    "chart_pin_lock": "PIN unlocked reveals smooth blur-to-clear transition",
-    "button_press": "active:scale-95 transition-transform duration-100"
-  },
-  "component_path_mapping": {
-    "AppLayout": "/app/frontend/src/components/AppLayout.jsx",
-    "DashboardPage": "/app/frontend/src/pages/Dashboard.jsx",
-    "BrandMark": "/app/frontend/src/components/BrandMark.jsx",
-    "TenantBrandMark": "/app/frontend/src/components/TenantBrandMark.jsx",
-    "OwnerDashboardBits": "/app/frontend/src/components/dashboard/OwnerDashboardBits.jsx"
-  },
-  "required_data_testids": [
-    "dashboard-sparkle-canvas",
-    "sidebar-miracurl-logo-block",
-    "sidebar-tenant-name-under-logo",
-    "topbar-powered-by-miracurl",
-    "sidebar-footer-powered-by-miracurl",
-    "dashboard-kpi-tile-appointments",
-    "dashboard-kpi-tile-revenue",
-    "dashboard-kpi-tile-customers",
-    "dashboard-kpi-tile-stock",
-    "mira-day-offer-card",
-    "mira-blast-card",
-    "revenue-trend-chart-card",
-    "business-by-stylist-chart-card",
-    "rating-widget-card",
-    "upcoming-appointments-card",
-    "stock-alerts-card",
-    "whatsapp-reminders-card"
   ],
   "instructions_to_main_agent": [
-    "1. Apply the .dashboard-sparkle-container class exclusively to the Dashboard parent wrapper in Dashboard.jsx.",
-    "2. Ensure tenant vertical tint variables (--tenant-sparkle-tint) switch dynamically based on tenant.business_type or vertical ('salon' -> rose pink, 'restaurant' -> warm amber).",
-    "3. Update AppLayout.jsx sidebar header so Miracurl logo is ALWAYS shown prominently at top, with tenant name and vertical indicator pill directly underneath.",
-    "4. Add 'Powered by Miracurl' pill mark in the AppLayout top bar and sidebar footer.",
-    "5. Keep all existing widgets, PIN lock behaviors, charts, and functionality intact while layering the light sparkling canvas aesthetic and glass cards.",
-    "6. Verify all data-testids exist on the corresponding containers and interactive controls."
+    "Replace flat img '/assets/brand/ms-suite-banner.png' in MasterBrand.jsx (SidebarMiracurlLogo) with living HTML/CSS structure.",
+    "Use Playfair Display for 'MIRACURL SUITE' text with CSS gold gradient text fill and gold-sweep animation.",
+    "Add 3 absolute positioned twinkling stars around the ms-logo-ring.png image with staggered keyframe delays.",
+    "Add 'SMART SALON & RESTAURANT MANAGEMENT SOFTWARE' in Outfit 8.5px uppercase tracking-[0.22em].",
+    "Add 'Manage. Automate. Grow.' in Caveat 14px script below.",
+    "Ensure data-testid='sidebar-miracurl-logo-block' is attached to the parent container.",
+    "Update BrandMark.jsx to match the same CSS lockup for login/standalone uses."
   ],
-  "UNIVERSAL GUIDELINES FOR MAIN AGENT": {
-    "do_not_use_generic_centered_layouts": true,
-    "no_raw_transparent_dropdowns": true,
-    "no_inter_headings": true,
-    "no_ai_emojis_for_icons": true,
-    "smooth_transitions_only": true,
-    "always_include_data_testids": true
-  }
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "Never use generic centered layouts without intentional spacing and hierarchy.",
+    "Always set explicit data-testid attributes on key components.",
+    "Use specific transition properties instead of 'transition: all'.",
+    "Respect prefers-reduced-motion in CSS animation declarations.",
+    "Do not use dark colors as flat gradients, keep dark backgrounds rich with tinted noise/glint."
+  ]
 }
