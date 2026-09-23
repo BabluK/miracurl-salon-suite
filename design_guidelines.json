@@ -1,180 +1,170 @@
 {
-  "design_system_overview": {
-    "app_name": "Miracurl Suite",
-    "theme": "Dark Luxe Gold ('gold-night' #0a0907 background) for Admin Chrome & Dual-Mode for Login (~420px variant)",
-    "aesthetic_archetype": "ARCHETYPE 5: LUXURY & PRECISION (High-End Salon & Restaurant Enterprise SaaS)",
-    "primary_objective": "Replace flat JPG/PNG logo banner with a living, high-precision HTML/CSS brand lockup featuring CSS gold light-sweep shimmer, twinkling stars around ring emblem, breathing radial glow, and ultra-crisp typography."
-  },
-  "component_spec": {
-    "component_name": "SidebarMiracurlLogo & BrandMark Lockup",
-    "component_paths": [
-      "/app/frontend/src/components/MasterBrand.jsx",
-      "/app/frontend/src/components/BrandMark.jsx"
+  "brand_identity": {
+    "theme_name": "Gold-Night Premium Luxury",
+    "primary_dark_canvas": "#0a0907",
+    "primary_light_canvas": "#faf8f5",
+    "gold_palette": {
+      "gold_main": "#d4af37",
+      "gold_light": "#e8c56a",
+      "gold_shimmer": "#f6e27a",
+      "gold_dark": "#c99a2e",
+      "gold_amber": "#d97706",
+      "gold_amber_dark": "#b45309",
+      "gold_amber_light": "#f59e0b"
+    },
+    "typography": {
+      "heading": "Playfair Display, serif",
+      "body": "Outfit, sans-serif",
+      "script_accent": "Caveat, cursive"
+    },
+    "forbidden_colors": [
+      "#pink",
+      "#ff69b4",
+      "#ec4899",
+      "#f472b6",
+      "light pink",
+      "blush pink"
     ],
-    "test_id": "sidebar-miracurl-logo-block",
-    "container_dimensions": {
-      "sidebar_variant": {
-        "width": "256px",
-        "padding": "16px 12px 12px 12px",
-        "background": "#0a0907",
-        "border_bottom": "1px solid rgba(212, 175, 55, 0.12)"
-      },
-      "login_variant": {
-        "width": "420px",
-        "padding": "24px 20px 20px 20px",
-        "background": "transparent"
+    "master_assets": {
+      "ms_ring_logo": "/assets/ms-logo-ring-dark.png",
+      "salon_photo_primary": "/assets/onboarding/salon-interior.jpg",
+      "salon_photo_alt": "/assets/salon/hero-luxe.jpg",
+      "restaurant_photo_primary": "/assets/onboarding/restaurant-candle.jpg",
+      "restaurant_photo_alt": "/assets/login/restaurant.jpg",
+      "mira_dj": "/assets/dashboard/mira-dj.png",
+      "mira_energy": "/assets/dashboard/mira-energy.png"
+    }
+  },
+  "layout_composition": {
+    "desktop_split": {
+      "left_panel_width": "w-full lg:w-[45%] xl:w-[42%]",
+      "right_panel_width": "w-full lg:w-[55%] xl:w-[58%]",
+      "seam_treatment": "1px solid border gradient from rgba(212,175,55,0.3) to transparent, with subtle gold glow shadow"
+    },
+    "left_brand_panel": {
+      "background": "#0a0907 with .gold-night-canvas dark sparkle light overlay and GoldSparkles / DashboardAurora canvas backdrop",
+      "position": "sticky top-0 h-screen overflow-y-auto hidden lg:flex flex-col justify-between p-8 xl:p-12 text-white",
+      "elements_stack": [
+        "1. Brand Lockup: Animated MS Gold Ring (/assets/ms-logo-ring-dark.png) with shimmer text 'MIRACURL SUITE'",
+        "2. Dynamic Vertical Headline + Subtitle (Playfair Display font)",
+        "3. High-Res Photo Container with Gold Gradient Overlay & 1px Gold Edge",
+        "4. 4 Feature Tiles Grid (Glassmorphism card + Gold Icons)",
+        "5. 3 Trust Badge Pills (30-Day Free Trial, No Credit Card Required, Cancel Anytime)",
+        "6. Mira Bot Floating Avatar Badge with gentle ambient keyframe bounce"
+      ]
+    },
+    "right_form_panel": {
+      "background": "#faf8f5 (Luxury Cream/Ivory) with rich soft warm undertones",
+      "padding": "p-4 sm:p-8 md:p-12 lg:p-16",
+      "form_card": {
+        "background": "#ffffff (Pure White Card)",
+        "border": "1px solid rgba(212, 175, 55, 0.25)",
+        "shadow": "0 20px 40px -15px rgba(10, 9, 7, 0.08), 0 0 20px rgba(212, 175, 55, 0.05)",
+        "border_radius": "rounded-2xl sm:rounded-3xl"
       }
+    },
+    "mobile_behavior": {
+      "layout": "Flex-col stacked layout",
+      "top_brand_banner": "Collapsed compact band on mobile with dark #0a0907 background, mini MS gold ring lockup, vertical badge, and horizontal scroll trust badges",
+      "form_card_placement": "Directly below top brand banner with generous mobile padding (p-4)"
     }
   },
-  "emblem_spec": {
-    "asset_path": "/assets/ms-logo-ring.png",
-    "sidebar_size": {
-      "width": "52px",
-      "height": "52px"
-    },
-    "login_size": {
-      "width": "72px",
-      "height": "72px"
-    },
-    "glow_effect": {
-      "box_shadow": "0 0 20px rgba(212, 175, 55, 0.35)",
-      "filter": "drop-shadow(0 6px 18px rgba(212, 175, 55, 0.45))",
-      "animation": "emblem-breath 4s ease-in-out infinite"
-    },
-    "sparkles": {
-      "count": 3,
-      "character": "✦",
-      "color": "#f6e27a",
-      "shadow": "0 0 8px rgba(246, 226, 122, 0.9)",
-      "positions": [
-        { "top": "-4px", "right": "-2px", "size": "13px", "delay": "0s" },
-        { "bottom": "2px", "left": "-4px", "size": "9px", "delay": "0.9s" },
-        { "top": "50%", "right": "-8px", "size": "10px", "delay": "1.8s" }
-      ],
-      "animation": "sparkle-twinkle 2.8s ease-in-out infinite"
-    }
-  },
-  "typography": {
-    "fonts_loaded": [
-      "Playfair Display (headings)",
-      "Outfit (body & uppercase subheadings)",
-      "Caveat (script accents)",
-      "JetBrains Mono (data & tags)"
-    ],
-    "wordmark": {
-      "text": "MIRACURL SUITE",
-      "font_family": "'Playfair Display', serif",
-      "sidebar_styles": {
-        "font_size": "18px",
-        "line_height": "1.15",
-        "font_weight": "700",
-        "letter_spacing": "0.08em",
-        "text_transform": "uppercase"
+  "vertical_variants": {
+    "salon": {
+      "accent_tokens": {
+        "--su-accent": "#d4af37",
+        "--su-soft": "rgba(212, 175, 55, 0.12)",
+        "--su-grad": "linear-gradient(135deg, #d4af37 0%, #f6e27a 50%, #c99a2e 100%)"
       },
-      "login_styles": {
-        "font_size": "26px",
-        "line_height": "1.15",
-        "font_weight": "700",
-        "letter_spacing": "0.10em",
-        "text_transform": "uppercase"
+      "photo": "/assets/onboarding/salon-interior.jpg",
+      "mira_avatar": "/assets/dashboard/mira-dj.png",
+      "headline": "Empower Your Luxe Salon & Spa Business",
+      "subheadline": "All-in-one AI salon OS for appointment scheduling, POS billing, automated WhatsApp marketing, and client loyalty.",
+      "features": [
+        {"title": "Online Bookings", "desc": "24/7 self-service scheduling & WhatsApp reminders", "icon": "Calendar"},
+        {"title": "Staff & Roster", "desc": "Commission tracking & auto attendance", "icon": "Users"},
+        {"title": "Client CRM", "desc": "Automated re-booking & personalized offers", "icon": "Heart"},
+        {"title": "Luxe POS", "desc": "GST invoices, packages, and instant payment links", "icon": "CreditCard"}
+      ]
+    },
+    "restaurant": {
+      "accent_tokens": {
+        "--su-accent": "#d97706",
+        "--su-soft": "rgba(217, 119, 6, 0.12)",
+        "--su-grad": "linear-gradient(135deg, #d97706 0%, #f59e0b 50%, #b45309 100%)"
       },
-      "gold_gradient": "linear-gradient(110deg, #d4af37 0%, #f6e27a 30%, #ffffff 50%, #f6e27a 70%, #d4af37 100%)",
-      "gradient_background_size": "220% 100%",
-      "shimmer_animation": "gold-sweep 3.8s ease-in-out infinite"
-    },
-    "subtitle": {
-      "text": "SMART SALON & RESTAURANT MANAGEMENT SOFTWARE",
-      "font_family": "'Outfit', sans-serif",
-      "font_size": "8.5px",
-      "font_weight": "600",
-      "letter_spacing": "0.22em",
-      "line_height": "1.3",
-      "text_transform": "uppercase",
-      "sidebar_color": "rgba(243, 227, 174, 0.75)",
-      "login_light_color": "#8f6a2a"
-    },
-    "tagline": {
-      "text": "Manage. Automate. Grow.",
-      "font_family": "'Caveat', cursive",
-      "font_size": "14px",
-      "font_weight": "600",
-      "letter_spacing": "0.06em",
-      "sidebar_color": "#e8c56a",
-      "text_shadow": "0 0 12px rgba(212, 175, 55, 0.4)"
+      "photo": "/assets/onboarding/restaurant-candle.jpg",
+      "mira_avatar": "/assets/dashboard/mira-energy.png",
+      "headline": "Elevate Your Dining & Bistro Operations",
+      "subheadline": "Modern restaurant platform built for table reservations, KOT management, QR digital menus, and speed billing.",
+      "features": [
+        {"title": "Table Reservations", "desc": "Instant table booking & waitlist management", "icon": "Utensils"},
+        {"title": "Kitchen KOT", "desc": "Real-time kitchen order routing & display", "icon": "ChefHat"},
+        {"title": "QR Ordering", "desc": "Contactless table ordering & digital menu", "icon": "QrCode"},
+        {"title": "Speed Billing", "desc": "Split bills, table transfers & daily register", "icon": "Receipt"}
+      ]
     }
   },
-  "animation_keyframes": {
-    "gold_sweep": {
-      "name": "gold-sweep",
-      "css": "@keyframes gold-sweep { 0%, 15% { background-position: 200% 0; } 85%, 100% { background-position: -200% 0; } }"
+  "photo_treatment": {
+    "aspect_ratio": "aspect-[16/9] sm:aspect-[16/10]",
+    "container_styling": "relative rounded-2xl overflow-hidden border border-[#d4af37]/30 shadow-2xl group",
+    "overlay_gradient": "bg-gradient-to-t from-[#0a0907] via-[#0a0907]/40 to-transparent",
+    "hover_effect": "transition-transform duration-700 ease-out group-hover:scale-105"
+  },
+  "feature_tiles_styling": {
+    "grid_layout": "grid grid-cols-2 gap-3 xl:gap-4 my-6",
+    "card_background": "bg-white/[0.04] backdrop-blur-md border border-[#d4af37]/20 hover:border-[#d4af37]/50 transition-all duration-300 rounded-xl p-3.5 xl:p-4",
+    "icon_container": "w-8 h-8 rounded-lg bg-[#d4af37]/10 border border-[#d4af37]/30 flex items-center justify-center text-[#f6e27a] mb-2",
+    "title_font": "font-semibold text-sm text-white",
+    "desc_font": "text-xs text-white/70 line-clamp-2"
+  },
+  "trust_badges_styling": {
+    "container": "flex flex-wrap items-center gap-2 text-xs font-medium text-white/90 my-4",
+    "badge_pill": "flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#d4af37]/10 border border-[#d4af37]/30 backdrop-blur-sm text-[#f6e27a]"
+  },
+  "mira_bot_styling": {
+    "container": "relative flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-r from-white/[0.06] to-white/[0.02] border border-[#d4af37]/30 backdrop-blur-lg shadow-lg",
+    "avatar_size": "w-12 h-12 rounded-full border-2 border-[#f6e27a] p-0.5 bg-[#0a0907] animate-float",
+    "status_dot": "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]"
+  },
+  "form_components_restyling": {
+    "picker_toggle": {
+      "wrapper": "grid grid-cols-2 p-1 bg-[#f3efe9] rounded-xl border border-[#e5dfd5]",
+      "selected_item": "bg-white text-[#0a0907] font-semibold shadow-md border border-[#d4af37]/40 text-[#c99a2e]",
+      "unselected_item": "text-slate-600 hover:text-slate-900 font-medium"
     },
-    "sparkle_twinkle": {
-      "name": "sparkle-twinkle",
-      "css": "@keyframes sparkle-twinkle { 0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); } 50% { opacity: 1; transform: scale(1.15) rotate(45deg); } }"
+    "stepper": {
+      "active_step": "bg-gradient-to-r from-[#d4af37] to-[#c99a2e] text-black font-bold shadow-md shadow-[#d4af37]/20 ring-2 ring-[#d4af37]/30",
+      "completed_step": "bg-[#d4af37]/20 text-[#c99a2e] border border-[#d4af37]/40",
+      "inactive_step": "bg-slate-100 text-slate-400 border border-slate-200"
     },
-    "emblem_breathe": {
-      "name": "emblem-breath",
-      "css": "@keyframes emblem-breath { 0%, 100% { transform: scale(1); filter: drop-shadow(0 4px 14px rgba(212, 175, 55, 0.35)); } 50% { transform: scale(1.03); filter: drop-shadow(0 8px 24px rgba(212, 175, 55, 0.65)); } }"
+    "input_fields": {
+      "base": "w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-[#d4af37] focus:ring-2 focus:ring-[#d4af37]/20 bg-white text-slate-900 placeholder:text-slate-400 transition-all duration-200"
+    },
+    "primary_button": {
+      "gradient": "bg-gradient-to-r from-[#d4af37] via-[#f6e27a] to-[#c99a2e] hover:from-[#c99a2e] hover:to-[#d4af37] text-black font-semibold text-base px-6 py-3.5 rounded-xl shadow-lg shadow-[#d4af37]/25 hover:shadow-xl hover:shadow-[#d4af37]/35 transition-all duration-300 transform active:scale-[0.99]"
     }
   },
-  "hover_behaviour": {
-    "container_hover": {
-      "transform": "translateY(-1px)",
-      "emblem_scale": "scale(1.06)",
-      "glow_expand": "drop-shadow(0 10px 28px rgba(212, 175, 55, 0.8))",
-      "transition": "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
-    }
+  "header_navigation": {
+    "background": "backdrop-blur-md bg-white/80 border-b border-[#d4af37]/20 sticky top-0 z-40",
+    "logo": "MS Gold Ring Monogram (/assets/ms-logo-ring-dark.png) with 'MIRACURL SUITE' text",
+    "signin_button": "px-4 py-2 rounded-xl text-sm font-semibold border border-[#d4af37] text-[#c99a2e] hover:bg-[#d4af37] hover:text-black transition-all duration-200"
   },
-  "accessibility_and_reduced_motion": {
-    "prefers_reduced_motion": "Disable gold-sweep, sparkle-twinkle, and emblem-breath animations. Set wordmark fill to static #D4AF37.",
-    "contrast_compliance": "All subtitle text rendered at 8.5px with tracking 0.22em on dark #0a0907 background meets APCA & WCAG AA 4.5:1 ratio."
+  "motion_and_accessibility": {
+    "reduced_motion": "All CSS keyframe animations wrap in @media (prefers-reduced-motion: reduce)",
+    "contrast_compliance": "WCAG AA standard with high contrast ratio on both dark left canvas and white form right side"
   },
-  "colors": {
-    "gold_primary": "#D4AF37",
-    "gold_bright": "#F6E27A",
-    "gold_muted": "#8A7028",
-    "dark_bg": "#0A0907",
-    "text_primary": "#FFFFFF",
-    "text_secondary": "#A1A1AA"
-  },
-  "layouts": {
-    "sidebar": "Flex col centered, 256px max width, zero horizontal overflow, optical vertical gap of 8px between emblem and wordmark",
-    "login": "Flex col centered, 420px max width, enhanced scale"
-  },
-  "grids": {
-    "mode": "MODE B: High Density Admin Sidebar Header"
-  },
-  "motion": {
-    "transitions": "transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s ease",
-    "interactive_elements": "Hover state intensifies gold glow and speeds up shimmer sweep"
-  },
-  "media": {
-    "logo_asset": "/assets/ms-logo-ring.png"
-  },
-  "3d libraries": {
-    "status": "Not required for lockup; pure hardware-accelerated CSS keyframe animations used for 60fps performance without layout shifts"
-  },
-  "image urls": [
-    {
-      "category": "Brand Emblem",
-      "description": "Gold ring emblem with MS initials and star accent",
-      "url": "/assets/ms-logo-ring.png"
-    }
-  ],
-  "instructions_to_main_agent": [
-    "Replace flat img '/assets/brand/ms-suite-banner.png' in MasterBrand.jsx (SidebarMiracurlLogo) with living HTML/CSS structure.",
-    "Use Playfair Display for 'MIRACURL SUITE' text with CSS gold gradient text fill and gold-sweep animation.",
-    "Add 3 absolute positioned twinkling stars around the ms-logo-ring.png image with staggered keyframe delays.",
-    "Add 'SMART SALON & RESTAURANT MANAGEMENT SOFTWARE' in Outfit 8.5px uppercase tracking-[0.22em].",
-    "Add 'Manage. Automate. Grow.' in Caveat 14px script below.",
-    "Ensure data-testid='sidebar-miracurl-logo-block' is attached to the parent container.",
-    "Update BrandMark.jsx to match the same CSS lockup for login/standalone uses."
-  ],
-  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
-    "Never use generic centered layouts without intentional spacing and hierarchy.",
-    "Always set explicit data-testid attributes on key components.",
-    "Use specific transition properties instead of 'transition: all'.",
-    "Respect prefers-reduced-motion in CSS animation declarations.",
-    "Do not use dark colors as flat gradients, keep dark backgrounds rich with tinted noise/glint."
-  ]
+  "testing_and_data_ids": {
+    "signup_container": "data-testid=\"signup-page-container\"",
+    "left_brand_panel": "data-testid=\"signup-left-brand-panel\"",
+    "vertical_picker_salon": "data-testid=\"business-type-salon-button\"",
+    "vertical_picker_restaurant": "data-testid=\"business-type-restaurant-button\"",
+    "form_card": "data-testid=\"signup-form-card\"",
+    "stepper_container": "data-testid=\"signup-stepper-container\"",
+    "submit_button": "data-testid=\"signup-submit-button\"",
+    "trust_badges": "data-testid=\"signup-trust-badges\"",
+    "feature_tiles": "data-testid=\"signup-feature-tiles\"",
+    "mira_bot_badge": "data-testid=\"signup-mira-bot-badge\"",
+    "signin_link": "data-testid=\"signup-header-signin-link\""
+  }
 }

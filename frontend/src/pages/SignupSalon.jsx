@@ -6,7 +6,7 @@ import axios from "axios";
 import { Scissors, Sparkles, User, Mail, Lock, MapPin, Phone, Check, ArrowRight, ArrowLeft, Building2, Gift, AlertCircle, Eye, EyeOff, PartyPopper, X } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import BrandMark from "@/components/BrandMark";
-import { SignupHeroPanel, TRUST_STRIP } from "@/components/signup/SignupHeroPanel";
+import { SignupHeroPanel, TRUST_BADGES } from "@/components/signup/SignupHeroPanel";
 import ChatButton from "@/components/ChatButton";
 import { useAuth } from "@/context/AuthContext";
 import { setTenantSlug, formatApiError } from "@/lib/api";
@@ -163,31 +163,33 @@ export default function SignupSalon() {
   );
 
   const isRestoTheme = form.business_type === "restaurant";
-  const accent = isRestoTheme ? "#c9892a" : "#e0397a";
-  const soft = isRestoTheme ? "#fdf6e7" : "#fdf0f5";
-  const grad = isRestoTheme ? "linear-gradient(90deg,#c9892a,#d97706 55%,#f59e0b)" : "linear-gradient(90deg,#e0397a,#ec4899 55%,#f472b6)";
-  const glow = isRestoTheme ? "0 12px 30px -10px rgba(217,119,6,.55)" : "0 12px 30px -10px rgba(236,72,153,.55)";
+  const accent = isRestoTheme ? "#d97706" : "#c99a2e";
+  const soft = isRestoTheme ? "rgba(217,119,6,.12)" : "rgba(212,175,55,.14)";
+  const grad = isRestoTheme ? "linear-gradient(135deg,#d97706 0%,#f59e0b 50%,#b45309 100%)" : "linear-gradient(135deg,#d4af37 0%,#f6e27a 50%,#c99a2e 100%)";
+  const glow = isRestoTheme ? "0 12px 30px -10px rgba(217,119,6,.5)" : "0 12px 30px -10px rgba(212,175,55,.5)";
+  const trialLabel = (newbiz || form.newly_opened) ? "90-day free setup" : isRestoTheme ? "First month free" : `${trialDays}-day free trial`;
   return (
-    <div className={`min-h-screen relative overflow-hidden transition-[background] duration-500 ${isRestoTheme ? "bg-gradient-to-br from-[#fdf8f0] via-[#faf3e6] to-[#f4e8d3]" : "bg-gradient-to-br from-[#fdf0f5] via-[#fbf3f7] to-[#f4e6ee]"}`} data-testid="signup-salon-page">
+    <div className="min-h-screen relative overflow-hidden bg-[#faf8f5] su-cream" data-testid="signup-salon-page" data-vertical={isRestoTheme ? "restaurant" : "salon"}>
       <div id="signup-page-container" data-testid="signup-page-container" className="contents" />
       <Toaster theme="light" position="top-center" toastOptions={TOASTER_OPTIONS} />
       <ChatButton message="Hi Miracurl ✦ I'm signing up my salon and need a little help." label="Need help?" />
 
-      <header className="fixed top-0 inset-x-0 z-40 backdrop-blur-xl bg-white/85 border-b border-slate-100 px-6 py-3 sm:px-10 flex items-center justify-between">
-        <BrandMark variant="light" size="lg" />
-        <div className="flex items-center gap-3">
-          <span className="hidden sm:inline text-sm text-slate-500">Already have an account?</span>
+      <header className="gold-night-chrome fixed top-0 inset-x-0 z-40 border-b border-[#d4af37]/25 px-5 py-2.5 sm:px-8 flex items-center justify-between" data-testid="signup-header">
+        <div className="hidden sm:block"><BrandMark variant="dark" size="md" /></div>
+        <img src="/assets/ms-logo-ring-dark.png" alt="Miracurl Suite" className="sm:hidden w-10 h-10 object-contain" />
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="hidden sm:inline text-sm text-white/60">Already have an account?</span>
           <Link to="/login" data-testid="signup-have-account"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold text-white whitespace-nowrap transition-[filter,transform] hover:brightness-110 active:scale-95"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold text-[#1a1408] whitespace-nowrap transition-[filter,transform] hover:brightness-110 active:scale-95"
             style={{ background: grad, boxShadow: glow }}>Sign in →</Link>
         </div>
       </header>
-      <div className="h-20" aria-hidden="true" />
+      <div className="h-16" aria-hidden="true" />
 
-      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 py-6 pb-20">
-        <div className="grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-6 lg:gap-8 items-stretch">
-        <SignupHeroPanel resto={form.business_type === "restaurant"} />
-        <div className="bg-white rounded-[28px] shadow-[0_30px_80px_-30px_rgba(0,0,0,.25)] ring-1 ring-slate-100 p-6 sm:p-9" style={{ "--su-accent": accent, "--su-soft": soft, "--su-grad": grad }}>
+      <main className="relative z-10 lg:grid lg:grid-cols-[minmax(0,45%)_minmax(0,55%)] xl:grid-cols-[minmax(0,42%)_minmax(0,58%)] items-start">
+        <div className="lg:sticky lg:top-16 px-4 pt-4 lg:p-0"><SignupHeroPanel resto={form.business_type === "restaurant"} trialLabel={trialLabel} /></div>
+        <div className="px-4 sm:px-8 xl:px-14 py-6 lg:py-10 pb-20">
+        <div className="bg-white rounded-[28px] shadow-[0_20px_40px_-15px_rgba(10,9,7,.08),0_0_20px_rgba(212,175,55,.06)] border border-[#d4af37]/25 p-6 sm:p-9" data-testid="signup-form-card" style={{ "--su-accent": accent, "--su-soft": soft, "--su-grad": grad }}>
           <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
             <span data-testid="signup-trial-badge" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] uppercase tracking-[0.16em] font-bold border"
               style={{ color: accent, borderColor: accent + "55", background: soft }}>
@@ -239,7 +241,7 @@ export default function SignupSalon() {
                 data-testid="signup-next-btn"
                 type="button"
                 onClick={next}
-                className="inline-flex items-center gap-2 px-7 py-3 rounded-full text-white text-sm font-semibold hover:brightness-110 active:scale-95 transition-[filter,transform] shadow-[0_8px_20px_-6px_rgba(59,130,246,0.6)] transition" style={{ background: grad, boxShadow: glow }}
+                className="inline-flex items-center gap-2 px-7 py-3 rounded-full text-[#1a1408] text-sm font-semibold hover:brightness-110 active:scale-95 transition-[filter,transform] shadow-[0_8px_20px_-6px_rgba(59,130,246,0.6)] transition" style={{ background: grad, boxShadow: glow }}
               >
                 Continue <ArrowRight className="w-4 h-4" />
               </button>
@@ -249,7 +251,7 @@ export default function SignupSalon() {
                 type="button"
                 onClick={submit}
                 disabled={busy}
-                className="inline-flex items-center gap-2 px-7 py-3 rounded-full text-white text-sm font-semibold hover:brightness-110 active:scale-95 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-60" style={{ background: grad, boxShadow: glow }}
+                className="inline-flex items-center gap-2 px-7 py-3 rounded-full text-[#1a1408] text-sm font-semibold hover:brightness-110 active:scale-95 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-60" style={{ background: grad, boxShadow: glow }}
               >
                 {busy ? (form.business_type === "restaurant" ? "Creating your restaurant…" : "Creating your salon…") : <>{form.business_type === "restaurant" ? "Start free month" : "Start free trial"} <Gift className="w-4 h-4" /></>}
               </button>
@@ -258,15 +260,11 @@ export default function SignupSalon() {
           <p className="mt-3 text-[11px] text-slate-400">By signing up you agree to our <a href="/terms-of-service" className="underline hover:text-slate-600">Terms of Service</a> and <a href="/privacy-policy" className="underline hover:text-slate-600">Privacy Policy</a>.</p>
         </div>
 
-        </div>
-        <div className="mt-6 bg-white rounded-2xl ring-1 ring-slate-100 shadow-sm grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-100" data-testid="signup-trust-strip">
-          {TRUST_STRIP.map(([ic, t, s2]) => (
-            <div key={t} className="px-4 py-4 text-center">
-              <div className="text-xl" aria-hidden="true">{ic}</div>
-              <div className="text-sm font-semibold text-slate-800 mt-1">{t}</div>
-              <div className="text-[11px] text-slate-500">{s2}</div>
-            </div>
+        <div className="mt-6 flex flex-wrap justify-center gap-2 lg:hidden" data-testid="signup-trust-strip">
+          {TRUST_BADGES.map(([Icon, t]) => (
+            <span key={t} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-[#d4af37]/30 text-[#8a6d1f] text-xs font-medium"><Icon className="w-3.5 h-3.5" /> {t}</span>
           ))}
+        </div>
         </div>
       </main>
     </div>
@@ -283,7 +281,7 @@ function Stepper({ step, resto = false }) {
         return (
           <div key={l} data-testid={`stepper-step-${i + 1}`} className="flex items-center gap-2 flex-shrink-0">
             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition ${
-              done ? "text-white bg-[image:var(--su-grad)] shadow-md" :
+              done ? "text-[#1a1408] bg-[image:var(--su-grad)] shadow-md" :
               active ? "bg-[var(--su-soft)] border-2 border-[var(--su-accent)] text-[var(--su-accent)]" :
               "bg-slate-100 text-slate-400"
             }`}>
@@ -351,7 +349,7 @@ function SalonStep({ form, update }) {
             <button key={v} type="button" data-testid={`signup-type-${v}`}
               onClick={() => update({ business_type: v })}
               data-testid={`business-type-${v}-button`}
-              className={`text-left rounded-xl border-2 px-4 py-3 transition-[transform,border-color,background-color] duration-200 hover:scale-[1.02] active:scale-[0.98] ${form.business_type === v ? "border-[var(--su-accent)] bg-[var(--su-soft)] shadow-sm" : "border-slate-200 bg-white hover:border-sky-200"}`}>
+              className={`text-left rounded-xl border-2 px-4 py-3 transition-[transform,border-color,background-color] duration-200 hover:scale-[1.02] active:scale-[0.98] ${form.business_type === v ? "border-[var(--su-accent)] bg-[var(--su-soft)] shadow-sm" : "border-slate-200 bg-white hover:border-[#d4af37]/50"}`}>
               <span className="block text-sm font-bold text-slate-800">{title}</span>
               <span className="block text-[11px] text-slate-400 mt-0.5">{sub}</span>
             </button>
@@ -369,7 +367,7 @@ function SalonStep({ form, update }) {
           </button>
           <button type="button" data-testid="newly-opened-no-btn"
             onClick={() => update({ newly_opened: false, opening_date: "" })}
-            className={`text-left rounded-xl border-2 px-4 py-3 transition-all ${!form.newly_opened ? "border-[var(--su-accent)] bg-[var(--su-soft)] shadow-sm" : "border-slate-200 bg-white hover:border-sky-200"}`}>
+            className={`text-left rounded-xl border-2 px-4 py-3 transition-all ${!form.newly_opened ? "border-[var(--su-accent)] bg-[var(--su-soft)] shadow-sm" : "border-slate-200 bg-white hover:border-[#d4af37]/50"}`}>
             <span className="block text-sm font-bold text-slate-800">We're established</span>
             <span className="block text-[11px] text-slate-400 mt-0.5">Standard free trial</span>
           </button>

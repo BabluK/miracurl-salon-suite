@@ -5,7 +5,7 @@ export function SidebarMiracurlLogo({ variant = "sidebar" }) {
     <div className={`ms-lockup ${login ? "ms-lockup--login" : ""}`} data-testid="sidebar-miracurl-logo-block">
       <div className="ms-lockup__row">
         <span className="ms-lockup__emblem" aria-hidden="true">
-          <img src="/assets/ms-logo-ring.png" alt="" draggable="false" />
+          <img src="/assets/ms-logo-ring-dark.png" alt="" draggable="false" />
           <span className="ms-spark s1">✦</span><span className="ms-spark s2">✦</span><span className="ms-spark s3">✦</span>
         </span>
         <span className="ms-lockup__text">
