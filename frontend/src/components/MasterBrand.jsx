@@ -1,20 +1,12 @@
 // Miracurl master brand — shown to every tenant (salon or restaurant) at the top of the sidebar.
-export function SidebarMiracurlLogo({ variant = "sidebar" }) {
-  const login = variant === "login";
+export function SidebarMiracurlLogo() {
+  // HD user-supplied lockup; light-sweep + twinkles are masked to the logo pixels so the sparkle plays over "MIRACURL SUITE".
   return (
-    <div className={`ms-lockup ${login ? "ms-lockup--login" : ""}`} data-testid="sidebar-miracurl-logo-block">
-      <div className="ms-lockup__row">
-        <span className="ms-lockup__emblem" aria-hidden="true">
-          <img src="/assets/ms-logo-ring-dark.png" alt="" draggable="false" />
-          <span className="ms-spark s1">✦</span><span className="ms-spark s2">✦</span><span className="ms-spark s3">✦</span>
-        </span>
-        <span className="ms-lockup__text">
-          <span className="ms-lockup__word" data-text="Miracurl" data-testid="sidebar-miracurl-wordmark">Miracurl</span>
-          <span className="ms-lockup__suite"><i /><b>Suite</b><i /></span>
-          <span className="ms-lockup__sub">Smart Salon &amp; Restaurant<br />Management Software</span>
-        </span>
-      </div>
-      <span className="ms-lockup__tag">Manage. Automate. Grow.</span>
+    <div className="ms-hd" style={{ "--ms-mask": "url(/assets/brand/ms-hd-lockup.png)" }} data-testid="sidebar-miracurl-logo-block">
+      <img src="/assets/brand/ms-hd-lockup.png" alt="Miracurl Suite" draggable="false" className="ms-hd__img" />
+      <span className="ms-hd__sweep" aria-hidden="true" />
+      <span className="ms-hd__glint g1" aria-hidden="true" /><span className="ms-hd__glint g2" aria-hidden="true" /><span className="ms-hd__glint g3" aria-hidden="true" />
+      <span className="ms-spark s1">✦</span><span className="ms-spark s2">✦</span><span className="ms-spark s3">✦</span>
     </div>
   );
 }

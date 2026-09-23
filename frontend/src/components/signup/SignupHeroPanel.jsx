@@ -67,6 +67,17 @@ function TestimonialCard({ quotes }) {
   );
 }
 
+function LiveCounter({ resto }) {
+  const base = 1240, [n, setN] = useState(base - 60);
+  useEffect(() => { let cur = base - 60; const t = setInterval(() => { cur = Math.min(base, cur + 3); setN(cur); if (cur >= base) clearInterval(t); }, 40); return () => clearInterval(t); }, []);
+  return (
+    <div className="flex items-center gap-2.5 text-xs text-white/75" data-testid="signup-live-counter">
+      <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" /><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" /></span>
+      <span><b className="text-[#f6e27a] font-semibold tabular-nums" data-testid="signup-live-counter-value">{n.toLocaleString("en-IN")}+</b> salons &amp; restaurants onboarded{resto ? " · 180+ restaurants this year" : " · joining every day"}</span>
+    </div>
+  );
+}
+
 export function SignupHeroPanel({ resto = false, trialLabel }) {
   const v = resto ? RESTO : SALON;
   return (
@@ -116,6 +127,7 @@ export function SignupHeroPanel({ resto = false, trialLabel }) {
             </span>
           ))}
         </div>
+        <LiveCounter resto={resto} />
       </div>
     </aside>
   );

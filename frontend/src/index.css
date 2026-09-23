@@ -1123,3 +1123,20 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 .su-quote-in { animation: su-quote-in .5s cubic-bezier(.22,.8,.3,1) both; }
 @keyframes su-quote-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .su-quote-in { animation: none; } }
+
+/* HD Miracurl Suite lockup with masked light-sweep (sparkle plays over the logo only) */
+.ms-hd { position: relative; width: 100%; aspect-ratio: 1400 / 472; user-select: none; filter: drop-shadow(0 6px 22px rgba(212,175,55,.35)); transition: filter .3s ease; }
+.ms-hd:hover { filter: drop-shadow(0 8px 30px rgba(212,175,55,.6)); }
+.ms-hd__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; animation: ms-emblem-breath 4s ease-in-out infinite; }
+.ms-hd__sweep, .ms-hd__glint { position: absolute; inset: 0; pointer-events: none;
+  -webkit-mask-image: var(--ms-mask); mask-image: var(--ms-mask); -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
+.ms-hd__sweep { background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,.0) 44%, rgba(255,250,220,.95) 50%, rgba(255,255,255,0) 56%, transparent 60%);
+  background-size: 260% 100%; animation: ms-gold-sweep 4.2s ease-in-out infinite; mix-blend-mode: screen; }
+.ms-hd__glint { background: radial-gradient(circle, rgba(255,255,255,.95) 0%, rgba(255,240,190,.5) 25%, transparent 55%); background-repeat: no-repeat; background-size: 14% 40%; opacity: 0; animation: ms-glint-pop 5s ease-in-out infinite; mix-blend-mode: screen; }
+.ms-hd__glint.g1 { background-position: 70% 42%; animation-delay: .4s; }
+.ms-hd__glint.g2 { background-position: 40% 30%; animation-delay: 2.1s; }
+.ms-hd__glint.g3 { background-position: 88% 64%; animation-delay: 3.4s; }
+@keyframes ms-glint-pop { 0%, 100% { opacity: 0; } 8% { opacity: 1; } 18% { opacity: 0; } }
+.ms-hd .ms-spark.s1 { top: 4%; right: 6%; } .ms-hd .ms-spark.s2 { bottom: 6%; left: 2%; } .ms-hd .ms-spark.s3 { top: 46%; left: 30%; }
+@media (prefers-reduced-motion: reduce) { .ms-hd__img, .ms-hd__sweep, .ms-hd__glint { animation: none; } .ms-hd__sweep, .ms-hd__glint { display: none; } }
