@@ -7,6 +7,7 @@ const POSE = {
   spa: { src: "/assets/dashboard/mira-spa.png", dance: "mira-dance-float" },
   positive: { src: "/assets/dashboard/mira-energy.png", dance: "mira-dance-jump" },
 };
+const MOVES = ["groove", "spin", "moonwalk", "wave", "bounce"];
 const KEY = "mira.djbot.pos";
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return null; } };
 
@@ -20,6 +21,12 @@ export function FloatingDjBot() {
   const drag = useRef(null);
   const playing = !!player.track;
   const pose = POSE[player.track?.id] || POSE.relaxing;
+  const [move, setMove] = useState(0);
+  useEffect(() => {
+    if (!playing) return;
+    const t = setInterval(() => setMove(m => (m + 1) % MOVES.length), 4200);
+    return () => clearInterval(t);
+  }, [playing]);
 
   useEffect(() => { localStorage.setItem(KEY, JSON.stringify({ pos, locked })); }, [pos, locked]);
   useEffect(() => { if (playing) setHidden(false); }, [playing, player.track?.id]);
@@ -53,7 +60,7 @@ export function FloatingDjBot() {
         </button>
         <button onClick={() => setHidden(true)} title="Hide until next song" data-testid="floating-dj-hide-btn"><X className="w-3.5 h-3.5" /></button>
       </div>
-      <div className={`floating-dj__stage mira-dancing ${pose.dance}`} onMouseDown={onDown} onTouchStart={onDown}>
+      <div className={`floating-dj__stage mira-dancing ${pose.dance} move-${MOVES[move]}`} data-move={MOVES[move]} data-testid="floating-dj-stage" onMouseDown={onDown} onTouchStart={onDown}>
         <span className="floating-dj__spot" />
         <span className="mira-glow" />
         <span className="mira-note n1">♪</span><span className="mira-note n2">♫</span><span className="mira-note n3">♪</span>

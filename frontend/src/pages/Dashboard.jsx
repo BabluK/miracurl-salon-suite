@@ -18,7 +18,6 @@ import { QuickMusicBar } from "@/components/QuickMusicBar";
 import { LogoStudio } from "@/components/LogoStudio";
 import MySalonsOverview from "@/components/MySalonsOverview";
 import { DashboardAurora } from "@/components/DashboardAurora";
-import { FloatingDjBot } from "@/components/dashboard/FloatingDjBot";
 import { MiraDayOffer } from "@/components/MiraDayOffer";
 import { CircleBonusCard } from "@/components/CircleBonusCard";
 import { WinbackNudges } from "@/components/WinbackNudges";
@@ -192,7 +191,6 @@ export default function Dashboard() {
   return (
     <div className="gold-night-canvas relative isolate overflow-hidden -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-vertical={tenant?.business_type === "restaurant" ? "restaurant" : "salon"} data-testid="dashboard-page">
       <DashboardAurora />
-      <FloatingDjBot />
       <DashboardHero user={user} tenant={tenant} slug={slug} data={data} bookingUrl={bookingUrl} onCopy={copyLink} inr={inr} loadMs={isOwner ? loadMs : 0} />
       {isOwner && <WaCreditsBanner />}
 

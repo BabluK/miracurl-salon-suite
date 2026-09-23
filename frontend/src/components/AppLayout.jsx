@@ -11,6 +11,7 @@ import { RoleBadge } from "./RoleBadge";
 import { AdminLockScreen } from "./AdminLockScreen";
 import { UpgradeGate } from "@/components/UpgradeGate";
 import { FloatingPlayer } from "@/components/FloatingPlayer";
+import { FloatingDjBot } from "@/components/dashboard/FloatingDjBot";
 import BranchSwitcher from "./BranchSwitcher";
 import SalonSwitcher from "./SalonSwitcher";
 import api from "@/lib/api";
@@ -350,6 +351,7 @@ export default function AppLayout() {
 
       {/* Movable music mini-player — persists across pages while playing */}
       <FloatingPlayer />
+      <FloatingDjBot />
 
       {/* PWA install banner — auto-shown when installable, or on demand via
           the "Install app" menu item. Copy tuned for the logged-in salon app. */}
