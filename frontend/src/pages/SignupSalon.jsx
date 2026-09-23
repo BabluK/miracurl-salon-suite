@@ -6,6 +6,7 @@ import axios from "axios";
 import { Scissors, Sparkles, User, Mail, Lock, MapPin, Phone, Check, ArrowRight, ArrowLeft, Building2, Gift, AlertCircle, Eye, EyeOff, PartyPopper, X } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import BrandMark from "@/components/BrandMark";
+import { SignupHeroPanel, TRUST_STRIP } from "@/components/signup/SignupHeroPanel";
 import ChatButton from "@/components/ChatButton";
 import { useAuth } from "@/context/AuthContext";
 import { setTenantSlug, formatApiError } from "@/lib/api";
@@ -161,50 +162,43 @@ export default function SignupSalon() {
     [form.slug],
   );
 
+  const accent = form.business_type === "restaurant" ? "#c9892a" : "#e0397a";
+  const soft = form.business_type === "restaurant" ? "#fdf6e7" : "#fdf0f5";
   return (
-    <div className="min-h-screen relative overflow-hidden bg-white" data-testid="signup-salon-page">
+    <div className="min-h-screen relative overflow-hidden bg-[#faf7f4]" data-testid="signup-salon-page">
       <Toaster theme="light" position="top-center" toastOptions={TOASTER_OPTIONS} />
       <ChatButton message="Hi Miracurl ✦ I'm signing up my salon and need a little help." label="Need help?" />
 
-      {/* Decorative blobs */}
-      <div className="pointer-events-none absolute -right-32 -top-32 w-[520px] h-[520px] rounded-full opacity-80"
-           style={{ background: "radial-gradient(circle at 30% 30%, #ec4899, #d946ef 40%, #6366f1 80%, transparent 100%)" }} />
-      <div className="pointer-events-none absolute -left-40 -bottom-44 w-[520px] h-[520px] rounded-full opacity-70"
-           style={{ background: "radial-gradient(circle at 60% 40%, #818cf8, #a78bfa 40%, #ec4899 80%, transparent 100%)" }} />
-
-      <header className="fixed top-0 inset-x-0 z-40 backdrop-blur-xl bg-white/85 border-b border-[#e9d9ae]/50 px-8 py-3 sm:px-14 flex items-center justify-between">
+      <header className="fixed top-0 inset-x-0 z-40 backdrop-blur-xl bg-white/85 border-b border-slate-100 px-6 py-3 sm:px-10 flex items-center justify-between">
         <BrandMark variant="light" size="lg" />
-        <Link to="/login" className="text-sm text-sky-600 hover:text-sky-700 font-medium" data-testid="signup-have-account">
-          Already have an account? Sign in →
-        </Link>
-      </header>
-      <div className="h-24" aria-hidden="true" />
-
-
-      <main className="relative z-10 max-w-3xl mx-auto px-4 sm:px-8 py-10 pb-24">
-        <div className="text-center max-w-xl mx-auto mb-10">
-          <span data-testid="signup-trial-badge" className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] uppercase tracking-[0.18em] font-semibold ${(newbiz || form.newly_opened) ? "bg-amber-50 border border-amber-200 text-amber-700" : "bg-sky-50 border border-sky-100 text-sky-600"}`}>
-            <Sparkles className="w-3 h-3" /> {(newbiz || form.newly_opened) ? "90-Day Free Setup · New Business Offer" : form.business_type === "restaurant" ? "First Month Free · No credit card" : `${trialDays}-Day Free Trial · No credit card`}
-          </span>
-          <h1 className="font-playfair text-4xl sm:text-5xl tracking-tight text-slate-900 mt-4">Bring your {form.business_type === "restaurant" ? "restaurant" : "salon"} online ✦</h1>
-          <p className="text-slate-600 mt-3 text-sm sm:text-base">
-            {form.business_type === "restaurant"
-              ? "Set up your menu, QR table ordering, reservations and billing in under 90 seconds. Cancel anytime — no questions asked."
-              : "Set up bookings, billing, staff, and customer reviews in under 90 seconds. Cancel anytime during the trial — no questions asked."}
-          </p>
-          <div className="mt-5 inline-flex items-center gap-1 p-1 rounded-full bg-slate-100 border border-slate-200" data-testid="signup-region-toggle">
-            {[["in", "🇮🇳 India · ₹"], ["intl", "🌍 International · $"]].map(([k, l]) => (
-              <button key={k} type="button" data-testid={`signup-region-${k}`} onClick={() => pickRegion(k)}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${region === k
-                  ? "bg-white shadow text-sky-600"
-                  : "text-slate-500 hover:text-slate-700"}`}>
-                {l}
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center gap-3">
+          <span className="hidden sm:inline text-sm text-slate-500">Already have an account?</span>
+          <Link to="/login" data-testid="signup-have-account"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold text-white transition-[filter,transform] hover:brightness-110 active:scale-95"
+            style={{ background: accent }}>Sign in →</Link>
         </div>
+      </header>
+      <div className="h-20" aria-hidden="true" />
 
-        <div className="bg-white rounded-2xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.15)] ring-1 ring-slate-100 p-6 sm:p-10">
+      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-8 py-6 pb-20">
+        <div className="grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-6 lg:gap-8 items-stretch">
+        <SignupHeroPanel resto={form.business_type === "restaurant"} />
+        <div className="bg-white rounded-[28px] shadow-[0_30px_80px_-30px_rgba(0,0,0,.25)] ring-1 ring-slate-100 p-6 sm:p-9" style={{ "--su-accent": accent, "--su-soft": soft }}>
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
+            <span data-testid="signup-trial-badge" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] uppercase tracking-[0.16em] font-bold border"
+              style={{ color: accent, borderColor: accent + "55", background: soft }}>
+              <Sparkles className="w-3 h-3" /> {(newbiz || form.newly_opened) ? "90-Day Free Setup · New Business Offer" : form.business_type === "restaurant" ? "First Month Free · No credit card · Cancel anytime" : `${trialDays}-Day Free Trial · No credit card · Cancel anytime`}
+            </span>
+            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-slate-100 border border-slate-200" data-testid="signup-region-toggle">
+              {[["in", "🇮🇳 ₹"], ["intl", "🌍 $"]].map(([k, l]) => (
+                <button key={k} type="button" data-testid={`signup-region-${k}`} onClick={() => pickRegion(k)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${region === k ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"}`}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <Stepper step={step} resto={form.business_type === "restaurant"} />
 
           {step === 0 && (
@@ -241,7 +235,7 @@ export default function SignupSalon() {
                 data-testid="signup-next-btn"
                 type="button"
                 onClick={next}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-sky-500 to-blue-500 text-white text-sm font-semibold hover:from-sky-600 hover:to-blue-600 shadow-[0_8px_20px_-6px_rgba(59,130,246,0.6)] transition"
+                className="inline-flex items-center gap-2 px-7 py-3 rounded-full text-white text-sm font-semibold hover:brightness-110 active:scale-95 transition-[filter,transform] shadow-[0_8px_20px_-6px_rgba(59,130,246,0.6)] transition" style={{ background: accent }}
               >
                 Continue <ArrowRight className="w-4 h-4" />
               </button>
@@ -251,7 +245,7 @@ export default function SignupSalon() {
                 type="button"
                 onClick={submit}
                 disabled={busy}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-rose-500 to-fuchsia-600 text-white text-sm font-semibold hover:from-rose-600 hover:to-fuchsia-700 shadow-[0_8px_20px_-6px_rgba(244,63,94,0.55)] transition disabled:opacity-60"
+                className="inline-flex items-center gap-2 px-7 py-3 rounded-full text-white text-sm font-semibold hover:brightness-110 active:scale-95 transition-[filter,transform] disabled:opacity-60" style={{ background: accent }}
               >
                 {busy ? (form.business_type === "restaurant" ? "Creating your restaurant…" : "Creating your salon…") : <>{form.business_type === "restaurant" ? "Start free month" : "Start free trial"} <Gift className="w-4 h-4" /></>}
               </button>
@@ -260,31 +254,13 @@ export default function SignupSalon() {
           <p className="mt-3 text-[11px] text-slate-400">By signing up you agree to our <a href="/terms-of-service" className="underline hover:text-slate-600">Terms of Service</a> and <a href="/privacy-policy" className="underline hover:text-slate-600">Privacy Policy</a>.</p>
         </div>
 
-        <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-          {(form.business_type === "restaurant" ? (isIntl ? [
-            { v: "$0", l: "First month" },
-            { v: effNewbiz() ? "90 days" : `${trialDays} days`, l: "Free trial" },
-            { v: catalog?.resto_intl_half?.price ? `${fmtUSD(catalog.resto_intl_half.price)}` : "—", l: "6-month plan" },
-            { v: catalog?.resto_intl_annual?.price ? `${fmtUSD(catalog.resto_intl_annual.price)}` : "—", l: "Annual plan" },
-          ] : [
-            { v: "₹0", l: "First month" },
-            { v: catalog?.resto_quarter?.price ? kFmt(catalog.resto_quarter.price) : "—", l: "3-month plan" },
-            { v: catalog?.resto_half?.price ? kFmt(catalog.resto_half.price) : "—", l: "6-month plan" },
-            { v: catalog?.resto_annual?.price ? kFmt(catalog.resto_annual.price) : "—", l: "Annual plan" },
-          ]) : isIntl ? [
-            { v: "$0", l: "Trial cost" },
-            { v: effNewbiz() ? "90 days" : `${trialDays} days`, l: "Free trial" },
-            { v: catalog?.intl_pro_monthly?.price ? `${fmtUSD(catalog.intl_pro_monthly.price)}/mo` : "—", l: "Professional plan" },
-            { v: catalog?.intl_pro_annual?.price ? `${fmtUSD(catalog.intl_pro_annual.price)}/yr` : "—", l: "Pro annual" },
-          ] : [
-            { v: "₹0", l: "Trial cost" },
-            { v: effNewbiz() ? "90 days" : `${trialDays} days`, l: "Free trial" },
-            { v: catalog?.half_year?.price ? kFmt(catalog.half_year.price) : "—", l: "6-month plan" },
-            { v: catalog?.annual?.price ? kFmt(catalog.annual.price) : "—", l: "Annual plan" },
-          ]).map(c => (
-            <div key={c.l} className="bg-white/70 backdrop-blur-sm rounded-lg border border-slate-200 px-3 py-3">
-              <div className="text-lg font-bold text-slate-800">{c.v}</div>
-              <div className="text-[10px] uppercase tracking-wider text-slate-500 mt-0.5">{c.l}</div>
+        </div>
+        <div className="mt-6 bg-white rounded-2xl ring-1 ring-slate-100 shadow-sm grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-100" data-testid="signup-trust-strip">
+          {TRUST_STRIP.map(([ic, t, s2]) => (
+            <div key={t} className="px-4 py-4 text-center">
+              <div className="text-xl" aria-hidden="true">{ic}</div>
+              <div className="text-sm font-semibold text-slate-800 mt-1">{t}</div>
+              <div className="text-[11px] text-slate-500">{s2}</div>
             </div>
           ))}
         </div>
@@ -303,14 +279,14 @@ function Stepper({ step, resto = false }) {
         return (
           <div key={l} className="flex items-center gap-2 flex-shrink-0">
             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition ${
-              done ? "bg-sky-500 text-white" :
-              active ? "bg-sky-50 border-2 border-sky-500 text-sky-600" :
+              done ? "bg-[var(--su-accent)] text-white" :
+              active ? "bg-[var(--su-soft)] border-2 border-[var(--su-accent)] text-[var(--su-accent)]" :
               "bg-slate-100 text-slate-400"
             }`}>
               {done ? <Check className="w-3.5 h-3.5" /> : i + 1}
             </div>
-            <span className={`text-xs uppercase tracking-[0.2em] hidden sm:inline ${active ? "text-sky-600" : done ? "text-slate-600" : "text-slate-300"}`}>{l}</span>
-            {i < labels.length - 1 && <div className={`w-6 sm:w-10 h-px ${done ? "bg-sky-500" : "bg-slate-200"}`} />}
+            <span className={`text-xs uppercase tracking-[0.2em] hidden sm:inline ${active ? "text-[var(--su-accent)]" : done ? "text-slate-600" : "text-slate-300"}`}>{l}</span>
+            {i < labels.length - 1 && <div className={`w-6 sm:w-10 h-px ${done ? "bg-[var(--su-accent)]" : "bg-slate-200"}`} />}
           </div>
         );
       })}
@@ -323,8 +299,8 @@ function Field({ label, icon: Icon, testid, type = "text", value, onChange, plac
     <div>
       <label className="block text-sm text-slate-600 mb-2 font-medium">{label}</label>
       <div className="relative">
-        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-sky-100 flex items-center justify-center">
-          <Icon className="w-3.5 h-3.5 text-sky-500" />
+        <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-[var(--su-soft)] flex items-center justify-center">
+          <Icon className="w-3.5 h-3.5 text-[var(--su-accent)]" />
         </div>
         {prefix && <span className="absolute left-14 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-mono">{prefix}</span>}
         <input
@@ -333,7 +309,7 @@ function Field({ label, icon: Icon, testid, type = "text", value, onChange, plac
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
-          className={`w-full ${prefix ? "pl-[7rem]" : "pl-14"} pr-12 py-3.5 rounded-xl bg-sky-50/70 border border-sky-100 text-slate-800 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300 focus:bg-white focus:border-sky-300 transition-all`}
+          className={`w-full ${prefix ? "pl-[7rem]" : "pl-14"} pr-12 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300 focus:bg-white focus:border-sky-300 transition-all`}
         />
         {trailing && <div className="absolute right-3.5 top-1/2 -translate-y-1/2">{trailing}</div>}
       </div>
@@ -367,10 +343,10 @@ function SalonStep({ form, update }) {
       <div>
         <p className="text-xs font-semibold text-slate-600 mb-2">What's your business?</p>
         <div className="grid grid-cols-2 gap-3">
-          {[["salon", "💇 Salon / Spa", "Bookings, stylists & billing"], ["restaurant", "🍽️ Restaurant", "Menu, table reservations & orders"]].map(([v, title, sub]) => (
+          {[["salon", "💇 Salon / Spa", "Bookings, stylists & billing"], ["restaurant", "🍴 Restaurant", "Menu, table reservations & orders"]].map(([v, title, sub]) => (
             <button key={v} type="button" data-testid={`signup-type-${v}`}
               onClick={() => update({ business_type: v })}
-              className={`text-left rounded-xl border-2 px-4 py-3 transition-all ${form.business_type === v ? "border-sky-400 bg-sky-50 shadow-sm" : "border-slate-200 bg-white hover:border-sky-200"}`}>
+              className={`text-left rounded-xl border-2 px-4 py-3 transition-all ${form.business_type === v ? "border-[var(--su-accent)] bg-[var(--su-soft)] shadow-sm" : "border-slate-200 bg-white hover:border-sky-200"}`}>
               <span className="block text-sm font-bold text-slate-800">{title}</span>
               <span className="block text-[11px] text-slate-400 mt-0.5">{sub}</span>
             </button>
@@ -388,7 +364,7 @@ function SalonStep({ form, update }) {
           </button>
           <button type="button" data-testid="newly-opened-no-btn"
             onClick={() => update({ newly_opened: false, opening_date: "" })}
-            className={`text-left rounded-xl border-2 px-4 py-3 transition-all ${!form.newly_opened ? "border-sky-400 bg-sky-50 shadow-sm" : "border-slate-200 bg-white hover:border-sky-200"}`}>
+            className={`text-left rounded-xl border-2 px-4 py-3 transition-all ${!form.newly_opened ? "border-[var(--su-accent)] bg-[var(--su-soft)] shadow-sm" : "border-slate-200 bg-white hover:border-sky-200"}`}>
             <span className="block text-sm font-bold text-slate-800">We're established</span>
             <span className="block text-[11px] text-slate-400 mt-0.5">Standard free trial</span>
           </button>
@@ -442,7 +418,7 @@ function SalonStep({ form, update }) {
                 </div>
                 {form.slug && (
                   <p className="text-[10px] text-slate-400 mt-1 truncate">
-                    Customers will visit <span className="text-sky-600 font-mono">{window.location.origin}/book/{form.slug}</span>
+                    Customers will visit <span className="text-[var(--su-accent)] font-mono">{window.location.origin}/book/{form.slug}</span>
                   </p>
                 )}
               </div>
@@ -516,7 +492,7 @@ function SalonStep({ form, update }) {
         prefix="/book/"
       />
       <p className="text-xs text-slate-500 -mt-2">
-        Customers will visit <span className="font-mono text-sky-600">{`${window.location.origin}/book/${form.slug || "your-slug"}`}</span>
+        Customers will visit <span className="font-mono text-[var(--su-accent)]">{`${window.location.origin}/book/${form.slug || "your-slug"}`}</span>
       </p>
     </div>
   );
@@ -577,7 +553,7 @@ function ReviewStep({ form, previewUrl, catalog, isIntl }) {
         <h2 className="text-2xl font-semibold text-slate-800">Review &amp; confirm</h2>
         <p className="text-sm text-slate-500 mt-1">We&apos;ll start your {isResto ? "FREE first month" : `${Number(catalog?.trial_days) || 30}-day free trial`} the moment you click below.</p>
       </div>
-      <div className="bg-sky-50/50 border border-sky-100 rounded-xl divide-y divide-sky-100" data-testid="signup-review">
+      <div className="bg-[var(--su-soft)] border border-slate-200 rounded-xl divide-y divide-slate-200" data-testid="signup-review">
         {rows.map(r => (
           <div key={r.label} className="flex items-start justify-between p-4 text-sm gap-4">
             <span className="text-slate-500 font-medium uppercase tracking-wider text-[10px] mt-1">{r.label}</span>
@@ -586,7 +562,7 @@ function ReviewStep({ form, previewUrl, catalog, isIntl }) {
         ))}
       </div>
       <div className="text-xs text-slate-500 flex items-start gap-2">
-        <Sparkles className="w-3.5 h-3.5 text-sky-500 mt-0.5 flex-shrink-0" />
+        <Sparkles className="w-3.5 h-3.5 text-[var(--su-accent)] mt-0.5 flex-shrink-0" />
         {isIntl && isResto ? (
           <span data-testid="signup-review-pricing-resto-intl">After your free month, choose {fmtUSD(catalog?.resto_intl_quarter?.price ?? 299)} / 3 months, {fmtUSD(catalog?.resto_intl_half?.price ?? 549)} / 6 months or {fmtUSD(catalog?.resto_intl_annual?.price ?? 999)} / year — billed in USD via secure international payment link.</span>
         ) : isIntl ? (

@@ -707,52 +707,84 @@ def restaurant_trial_reminder_email_html(restaurant_name: str, days_left: int, e
 
 
 def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_url: str = "",
-                        business_type: str = "salon") -> str:
+                        business_type: str = "salon", owner_name: str = "", locked_modules: list | None = None) -> str:
+    """Welcome + one-time credentials — dark hero, login box, feature grid (enabled vs locked by plan)."""
+    from services.entitlements import MODULES
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
     img = poster_url or os.environ.get("WELCOME_IMAGE_URL", "")
     hq_email = hq_inbox("support")
     is_resto = business_type == "restaurant"
-    journey = "Your restaurant's digital journey begins today 🎉" if is_resto else "Your salon's digital journey begins today 🎉"
-    suite_line = ("Your complete restaurant management suite is ready — QR table ordering, live kitchen tickets, "
-                  "POS billing, inventory, AI marketing and your own online menu page. Here are your one-time login details:"
-                  if is_resto else
-                  "Your complete salon management suite is ready — billing, appointments, staff, inventory, "
-                  "AI marketing and your own online booking page. Here are your one-time login details:")
-    mira_line = "your restaurant's AI assistant" if is_resto else "your salon's AI assistant"
+    first = html_lib.escape((owner_name or "").split(" ")[0] or "there")
+    noun = "restaurant" if is_resto else "salon"
+    tagline = "Good Food · Great Business" if is_resto else "Good Hair · Brighter You"
+    pillars = (["🧾 Manage Orders", "😊 Delight Customers", "📈 Grow Your Business", "⏱ Save Time & Effort"] if is_resto
+               else ["📅 Manage Bookings", "😊 Delight Customers", "📈 Grow Your Business", "⏱ Save Time & Effort"])
+    locked = set(locked_modules or [])
+    enabled = [(k, v) for k, v in MODULES.items() if k not in locked]
+    locked_rows = [(k, v) for k, v in MODULES.items() if k in locked]
+    resto_names = {"appointments": "Online orders & reservations", "services": "Menu management", "staff": "Staff management"}
+    label = lambda k, v: html_lib.escape(resto_names.get(k, v) if is_resto else v)  # noqa: E731
+
+    def grid(rows, on=True):
+        cells = []
+        for k, v in rows:
+            color = "#2b2b33" if on else "#9a948a"
+            icon = "✅" if on else "🔒"
+            cells.append(f'<td width="33%" style="padding:8px 6px;font-family:Arial,sans-serif;font-size:12px;color:{color};vertical-align:top">{icon}&nbsp;{label(k, v)}</td>')
+        trs = "".join(f"<tr>{''.join(cells[i:i + 3])}</tr>" for i in range(0, len(cells), 3))
+        return f'<table width="100%" cellpadding="0" cellspacing="0">{trs}</table>' if cells else ""
+
+    locked_block = (f'''
+  <div style="margin-top:14px;padding:12px 14px;border:1px dashed #e3d5bd;border-radius:10px;background:#fbf8f1">
+    <div style="font-family:Arial,sans-serif;font-size:12px;color:#8a6d1f;font-weight:bold">🔒 Not in your current plan — upgrade any time from Settings → Subscription</div>
+    {grid(locked_rows, on=False)}
+  </div>''' if locked_rows else "")
     img_row = (f'<tr><td style="padding:0"><img src="{img}" alt="Welcome to Miracurl" width="600" '
-               f'style="display:block;width:100%;border-radius:16px 16px 0 0"/></td></tr>') if img else ""
+               f'style="display:block;width:100%"/></td></tr>') if img else ""
+    pillar_cells = "".join(f'<td align="center" style="padding:10px 4px;font-family:Arial,sans-serif;font-size:11px;color:#f3e5ab;border-right:1px solid rgba(255,255,255,.08)">{p}</td>' for p in pillars)
     return f"""
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f14;padding:28px 0">
 <tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;font-family:Georgia,'Times New Roman',serif;box-shadow:0 8px 40px rgba(212,175,55,.25)">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:18px;overflow:hidden;font-family:Georgia,'Times New Roman',serif;box-shadow:0 8px 40px rgba(212,175,55,.25)">
 {img_row}
-<tr><td style="background:linear-gradient(135deg,#17171f,#26202b);padding:26px 36px;text-align:center">
-  <div style="color:#e6c66e;font-size:12px;letter-spacing:4px;text-transform:uppercase">✦ &nbsp;Welcome Onboard&nbsp; ✦</div>
-  <div style="color:#ffffff;font-size:26px;margin-top:8px">{html_lib.escape(salon_name)}</div>
-  <div style="color:#b9b0c4;font-size:13px;margin-top:6px;font-family:Arial,sans-serif">{journey}</div>
+<tr><td style="background:linear-gradient(135deg,#15110c,#2a2118 60%,#3a2a14);padding:30px 36px 22px">
+  <div style="color:#e6c66e;font-size:12px;letter-spacing:4px;text-transform:uppercase;font-family:Arial,sans-serif">MIRACURL SUITE · MANAGE · AUTOMATE · GROW</div>
+  <div style="color:#f3e5ab;font-size:13px;margin-top:18px;font-family:Arial,sans-serif">Hi {first},</div>
+  <div style="color:#ffffff;font-size:32px;line-height:1.15;margin-top:4px">Welcome to <span style="color:#e6c66e">Miracurl Suite!</span></div>
+  <div style="color:#cfc4b0;font-size:14px;margin-top:10px;line-height:1.6;font-family:Arial,sans-serif">Your journey towards a smarter, simpler and more successful {noun} business starts here.</div>
+  <div style="color:#e6c66e;font-size:12px;margin-top:10px;font-style:italic">{tagline} ♥</div>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:18px;border-top:1px solid rgba(255,255,255,.1)"><tr>{pillar_cells}</tr></table>
 </td></tr>
-<tr><td style="padding:30px 36px 10px">
-  <p style="margin:0;color:#2b2b33;font-size:15px;font-family:Arial,sans-serif">Namaste! We're delighted to have <b>{html_lib.escape(salon_name)}</b> on Miracurl.</p>
-  <p style="margin:12px 0 0;color:#55555f;font-size:14px;line-height:1.6;font-family:Arial,sans-serif">
-    {suite_line}</p>
-</td></tr>
-<tr><td style="padding:18px 36px">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#faf6ec;border:1px solid #ecdfc0;border-radius:12px">
-    <tr><td style="padding:18px 22px;font-size:14px;color:#2b2b33;line-height:2.1;font-family:Arial,sans-serif">
-      🔗 <b>Login:</b> <a href="{login_url}" style="color:#a08a4b;font-weight:bold">{login_url}</a><br/>
-      📧 <b>Email:</b> {owner_email}<br/>
-      🔑 <b>Temp password:</b> <span style="font-family:monospace;background:#fff;border:1px dashed #d4af37;padding:3px 12px;border-radius:8px;font-weight:bold;color:#8a6d1f">{temp_pw}</span>
+<tr><td style="padding:22px 36px 6px">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#fbf7ea;border:1px solid #ecdfc0;border-radius:14px">
+    <tr><td style="padding:18px 22px">
+      <div style="font-size:18px;color:#1d1d24">🔒 Your Login Details</div>
+      <table cellpadding="0" cellspacing="0" style="margin-top:10px;font-family:Arial,sans-serif;font-size:14px;color:#2b2b33;line-height:2">
+        <tr><td style="color:#6b6b74;width:110px">Username</td><td>: <b>{html_lib.escape(owner_email)}</b></td></tr>
+        <tr><td style="color:#6b6b74">Password</td><td>: <span style="font-family:monospace;background:#fff;border:1px dashed #d4af37;padding:2px 12px;border-radius:8px;font-weight:bold;color:#8a6d1f">{html_lib.escape(temp_pw)}</span></td></tr>
+        <tr><td style="color:#6b6b74">Login here</td><td>: <a href="{login_url}" style="color:#a08a4b;font-weight:bold">{login_url}</a></td></tr>
+      </table>
+      <div style="font-family:Arial,sans-serif;font-size:11px;color:#8a8a94;margin-top:6px">For security, please change your password after your first login.</div>
+    </td>
+    <td align="right" style="padding:18px 22px;vertical-align:middle">
+      <a href="{login_url}" style="background:linear-gradient(135deg,#d4af37,#e6c66e);color:#17171f;text-decoration:none;font-family:Arial,sans-serif;font-weight:bold;font-size:14px;padding:14px 26px;border-radius:12px;display:inline-block;white-space:nowrap">Login Now →</a>
     </td></tr>
   </table>
-  <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:22px 0 4px">
-    <a href="{login_url}" style="background:linear-gradient(135deg,#d4af37,#e6c66e);color:#17171f;text-decoration:none;font-family:Arial,sans-serif;font-weight:bold;font-size:14px;padding:13px 42px;border-radius:999px;display:inline-block">✦ &nbsp;Login &amp; Set Your Password&nbsp; ✦</a>
-  </td></tr></table>
-  <p style="margin:14px 0 0;font-size:12px;color:#8a8a94;text-align:center;font-family:Arial,sans-serif">You'll be asked to set your own password right after your first login.</p>
 </td></tr>
-<tr><td style="background:#17171f;padding:22px 36px;text-align:center">
-  <div style="color:#e6c66e;font-size:16px">✦ Miracurl ✦</div>
-  <div style="color:#8f8798;font-size:12px;margin-top:6px;font-family:Arial,sans-serif">Questions? Just reply to this email · +91-7206869271 · {hq_email}</div>
-  <div style="color:#5d5766;font-size:11px;margin-top:10px;font-family:Arial,sans-serif">Sent with ♥ by Mira — {mira_line}</div>
+<tr><td style="padding:16px 36px 8px">
+  <div style="font-size:18px;color:#1d1d24;border-bottom:1px solid #ecdfc0;padding-bottom:8px">Explore Powerful Features <span style="font-family:Arial,sans-serif;font-size:11px;color:#8a8a94">· {len(enabled)} enabled for {html_lib.escape(salon_name)}</span></div>
+  {grid(enabled, on=True)}
+  {locked_block}
+</td></tr>
+<tr><td style="padding:14px 36px 24px">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#fbf7ea;border-radius:12px"><tr>
+    <td style="padding:14px 18px;font-family:Arial,sans-serif;font-size:12px;color:#2b2b33;line-height:1.8">🎧 <b>Need help?</b> We're here for you.<br/>✉ {hq_email} &nbsp;·&nbsp; ☎ +91-7206869271 &nbsp;·&nbsp; 🌐 miracurl-suite.com</td>
+    <td align="right" style="padding:14px 18px;color:#a08a4b;font-style:italic;font-size:16px">Let's Grow Together ♥</td>
+  </tr></table>
+</td></tr>
+<tr><td style="background:#15110c;padding:18px 36px;text-align:center">
+  <div style="color:#e6c66e;font-size:14px;letter-spacing:3px">MIRACURL SUITE</div>
+  <div style="color:#8f8798;font-size:11px;margin-top:6px;font-family:Arial,sans-serif">For {noun}s that serve a bigger tomorrow · Sent with ♥ by Mira</div>
 </td></tr>
 </table>
 </td></tr></table>"""

@@ -89,6 +89,18 @@ def congrats_email_html(inv: dict, t: dict) -> str:
     logo = _abs(inv.get("tenant_logo_url"))
     poster = _abs(t.get("welcome_poster_url"))
     row = lambda k, v: f"<tr><td style='padding:7px 0;color:#777;font-size:13px'>{k}</td><td style='padding:7px 0;text-align:right;font-weight:bold;font-size:13px'>{v}</td></tr>"
+    from services.entitlements import MODULES, entitlements as _ent
+    _locked = set(_ent(t)["locked"])
+    _chip = lambda k, on: (f"<span style='display:inline-block;margin:3px 4px 3px 0;padding:4px 10px;border-radius:999px;font-family:Arial,sans-serif;font-size:11px;"  # noqa: E731
+                           f"{'background:#eefaf1;border:1px solid #bfe7cb;color:#1d6b3a' if on else 'background:#f6f3ec;border:1px dashed #d8cdb4;color:#8a8478'}'>"
+                           f"{'✅' if on else '🔒'} {e(MODULES[k])}</span>")
+    features_html = (
+        "<div style='margin-top:18px;background:#fff;border:1px solid #eadfc0;border-radius:12px;padding:14px 18px'>"
+        "<div style='font-size:13px;font-weight:bold;color:#2b2b33;font-family:Arial,sans-serif'>✨ What's included in your trial</div>"
+        "<div style='margin-top:8px'>" + "".join(_chip(k, True) for k in MODULES if k not in _locked) + "</div>"
+        + (("<div style='margin-top:10px;font-size:11px;color:#8a6d1f;font-family:Arial,sans-serif'><b>Not in your current plan</b> — upgrade any time from Settings → Subscription</div>"
+            "<div style='margin-top:4px'>" + "".join(_chip(k, False) for k in MODULES if k in _locked) + "</div>") if _locked else "")
+        + "</div>")
     logo_html = (f"<img src='{e(logo)}' alt='{e(t.get('name') or '')} logo' width='96' height='96' "
                  "style='width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid #d4af37;background:#fff;display:block;margin:0 auto 14px'/>"
                  if logo else "")
@@ -112,7 +124,8 @@ def congrats_email_html(inv: dict, t: dict) -> str:
           {row("Amount", "₹0.00 — complimentary")}
         </table>
         {poster_html}
-        <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:14px 18px;font-size:13px;font-family:Arial,sans-serif;line-height:1.9">
+        {features_html}
+        <div style="margin-top:14px;background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:14px 18px;font-size:13px;font-family:Arial,sans-serif;line-height:1.9">
           <b>📎 Attached</b><br/>
           1. <b>Free Trial Invoice</b> — {e(inv['number'])}.pdf (₹0, for your records)<br/>
           2. <b>Account Profile</b> — every detail we have on file for your {noun}, owner contacts, trial dates &amp; how to reach HQ<br/>

@@ -22,7 +22,9 @@ export const EmailOtpLogin = ({ email, onSuccess }) => {
     finally { setBusy(false); }
   };
   const verify = async (e) => {
-    e.preventDefault(); setBusy(true); setErr("");
+    e?.preventDefault?.(); e?.stopPropagation?.();
+    if (code.length !== 6 || busy) return;
+    setBusy(true); setErr("");
     try {
       const { data } = await api.post("/auth/otp/verify", { email, code });
       await refresh?.();
@@ -42,11 +44,12 @@ export const EmailOtpLogin = ({ email, onSuccess }) => {
           </button>
         </div>
       ) : (
-        <form onSubmit={verify} className="flex items-center gap-2">
-          <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="6-digit code" className="flex-1 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm tracking-[0.3em] font-semibold" data-testid="otp-code-input" />
-          <button type="submit" disabled={busy || code.length !== 6} className="px-3 py-2 rounded-full bg-emerald-600 text-white text-xs font-semibold disabled:opacity-50" data-testid="otp-verify-btn">{busy ? "…" : "Sign in"}</button>
+        <div className="flex items-center gap-2" data-testid="otp-code-form">
+          <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); verify(); } }}
+            inputMode="numeric" autoComplete="one-time-code" placeholder="6-digit code" className="flex-1 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm tracking-[0.3em] font-semibold" data-testid="otp-code-input" />
+          <button type="button" onClick={verify} disabled={busy || code.length !== 6} className="px-3 py-2 rounded-full bg-emerald-600 text-white text-xs font-semibold disabled:opacity-50" data-testid="otp-verify-btn">{busy ? "…" : "Sign in"}</button>
           <button type="button" onClick={request} disabled={busy} className="text-[11px] text-slate-500 underline" data-testid="otp-resend-btn">Resend</button>
-        </form>
+        </div>
       )}
       {err && <div className="text-rose-600 text-xs mt-2" data-testid="otp-error">{err}</div>}
     </div>

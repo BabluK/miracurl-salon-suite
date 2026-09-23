@@ -30,6 +30,7 @@ from email_service import (
     _weekly_report_html, _platform_digest_html,
 )
 from services.storage import _put_object, APP_NAME
+from services.entitlements import entitlements as _entitlements_of  # noqa: E402
 from schemas import TenantIn, TenantUpdateIn
 
 router = APIRouter()
@@ -609,7 +610,8 @@ async def create_tenant(body: TenantIn, user=Depends(require_super_admin)):
          if t["business_type"] == "restaurant"
          else "Welcome to Miracurl — your salon account is ready ✦"),
         _welcome_email_html(t["name"], body.owner_email.lower(), temp_pw, poster_url,
-                            business_type=t["business_type"]),
+                            business_type=t["business_type"], owner_name=body.owner_name,
+                            locked_modules=_entitlements_of(t)["locked"]),
         attachments=welcome_attachments)
     trial_kit_task()
     # Return the temp password ONCE so super-admin can copy/share it. Never
