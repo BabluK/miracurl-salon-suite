@@ -1003,3 +1003,31 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
   .ms-lockup__word::after { display: none; }
   .ms-spark { opacity: .7; }
 }
+
+/* ── Floating draggable DJ bot (dashboard, while a track plays) ── */
+.floating-dj { position: fixed; z-index: 80; width: 150px; user-select: none; touch-action: none;
+  animation: floating-dj-in .5s cubic-bezier(.2,.9,.3,1.2) both; }
+@keyframes floating-dj-in { from { opacity: 0; transform: translateY(24px) scale(.7); } to { opacity: 1; transform: none; } }
+.floating-dj__tools { position: absolute; top: 0; right: 4px; display: flex; gap: 4px; opacity: 0; transition: opacity .2s; z-index: 3; }
+.floating-dj:hover .floating-dj__tools { opacity: 1; }
+.floating-dj.is-locked .floating-dj__tools { opacity: .85; }
+.floating-dj__tools button { width: 24px; height: 24px; border-radius: 9999px; display: grid; place-items: center;
+  background: rgba(20,16,10,.85); color: #e8c56a; border: 1px solid rgba(212,175,55,.45); backdrop-filter: blur(6px); }
+.floating-dj__tools button:hover { background: #e8c56a; color: #1a1408; }
+.floating-dj__stage { position: relative; width: 150px; height: 160px; cursor: grab; }
+.floating-dj.is-locked .floating-dj__stage { cursor: default; }
+.floating-dj.is-free .floating-dj__stage:active { cursor: grabbing; }
+.floating-dj__stage img { position: relative; z-index: 2; width: 100%; height: 100%; object-fit: contain;
+  filter: drop-shadow(0 14px 22px rgba(0,0,0,.55)) drop-shadow(0 0 18px rgba(232,197,106,.35)); }
+.floating-dj__spot { position: absolute; left: 12%; right: 12%; bottom: 4px; height: 26px; border-radius: 9999px;
+  background: radial-gradient(ellipse at center, rgba(232,197,106,.55) 0%, rgba(232,197,106,.15) 45%, transparent 70%);
+  animation: floating-dj-spot 1.1s ease-in-out infinite; }
+@keyframes floating-dj-spot { 0%,100% { transform: scaleX(1); opacity: .7; } 50% { transform: scaleX(.8); opacity: 1; } }
+.floating-dj .mira-glow { inset: 18% 10% 10% 10%; }
+.floating-dj .mira-note { font-size: 18px; color: #f0d27a; text-shadow: 0 0 10px rgba(232,197,106,.8), 0 1px 0 rgba(0,0,0,.5); }
+.floating-dj .mira-note.n4 { left: 88%; top: 40%; --nx: 14px; animation-delay: .3s; font-size: 20px; }
+.floating-dj .mira-note.n5 { left: 12%; top: 48%; --nx: -12px; animation-delay: .85s; font-size: 14px; }
+.floating-dj__track { margin-top: -6px; text-align: center; font-size: 11px; font-weight: 600; color: #f3e3ae;
+  background: rgba(20,16,10,.8); border: 1px solid rgba(212,175,55,.35); border-radius: 9999px; padding: 3px 10px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; backdrop-filter: blur(6px); }
+@media (prefers-reduced-motion: reduce) { .floating-dj, .floating-dj__spot { animation: none; } }
