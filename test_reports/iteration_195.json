@@ -1,0 +1,40 @@
+{
+  "summary": "Frontend-only visual redesign of the salon admin Dashboard verified end-to-end. All 9 requested regression checks PASSED. Dashboard sparkle canvas + data-vertical=salon, aurora bg + glint layer render. Sidebar Miracurl master-brand logo block appears above the tenant brand mark on every page tested (dashboard/appointments/settings). Powered-by pills present in topbar (visible @1920, hidden @390) and sidebar footer. Mira DJ bot dances (data-dancing false→true, .mira-dancing class, 3 .mira-note spans, button toggles Play↔Stop) and returns to idle on Stop. All previously-dark cards (mira-assistant, mira-day-offer, quick-actions, low-stock, pending-approvals) now render dark text (rgb 15,23,42 / 30,41,59) — no white-on-white regressions. Day-offer <select> uses text-slate-700 with white option styling. KPI tiles render values; rating/pending-reviews/staff-performance widgets have dash-cream-card; month-revenue reveal/lock toggle present. Other admin pages (/appointments, /settings) correctly OMIT dashboard-sparkle-canvas but retain sidebar logo + powered-by pills. Mobile 390: no horizontal overflow, topbar pill hidden as expected (md:inline-flex).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "MiraDayOffer <option>", "issues": ["React hydration warning: <span> cannot be a child of <option>. Caused by instrumentation attaching x-ve-dynamic <span> wrappers inside <option> text. Console noise only — not a visual regression, but should be cleaned by wrapping option text as a plain string. Low priority."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "MiraDayOffer.jsx line ~55: dev-instrumentation is injecting a <span> inside <option>, producing a React hydration warning. Consider ensuring option label is a raw string (e.g. `{label}` computed outside JSX children) to suppress the warning in dev builds.",
+    "reminders-widget data-testid was not found on dashboard (widget may only render conditionally) — confirm this is intentional; task spec said 'if present' so treated as pass."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (skipped)", "frontend": "100% (9/9 checks)"},
+  "test_credentials": "admin@miracurl.com / q6QY@tn3p#9DtL (salon admin, tenant miracurl-marathahalli)",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Restaurant tenant regression NOT tested — no restaurant tenant creds in /app/memory/test_credentials.md. If a restaurant tenant is added later, verify [data-testid=dashboard-page] has data-vertical=restaurant. YouTube embed showing 'Video unavailable' in headless is expected per spec. Passkey + What's New popups are dismissed via 'Got it ✦' and 'Not now' buttons.",
+  "verified_evidence": {
+    "dashboard_sparkle_canvas": true,
+    "dashboard_data_vertical": "salon",
+    "aurora_and_glint": true,
+    "sidebar_logo_above_tenant": true,
+    "sidebar_tenant_text_contains_salon_name": true,
+    "topbar_pill_visible_at_1920": true,
+    "sidebar_footer_pill_present": true,
+    "bot_dance_cycle": "false -> true (mira-dancing, 3 notes, btn=Stop) -> false (0 notes)",
+    "text_colors": {"mira-assistant h2": "rgb(15,23,42)", "mira-day-offer": "rgb(30,41,59)", "quick-actions": "rgb(30,41,59)", "low-stock": "rgb(30,41,59)", "pending-approvals-tile": "rgb(30,41,59)", "day_offer_select": "rgb(51,65,85)"},
+    "widgets_have_dash_cream_card": {"rating-widget": true, "pending-reviews-widget": true, "staff-performance-card": true, "reminders-widget": "not present (optional)"},
+    "month_revenue_toggle_present": true,
+    "appointments_page": {"sparkle_canvas_absent": true, "sidebar_logo": true, "topbar_pill": true, "footer_pill": true},
+    "settings_page": {"sparkle_canvas_absent": true, "sidebar_logo": true, "topbar_pill": true, "footer_pill": true},
+    "mobile_390": {"topbar_pill_hidden": true, "horizontal_overflow": false}
+  }
+}

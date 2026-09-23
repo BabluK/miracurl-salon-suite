@@ -307,3 +307,13 @@
 - Composer: template chips set STARTERS text (so Send test is enabled), PhonePreview `disabledHint` + wa-test-hint amber note.
 - .336: Settings → BranchLocationsCard (owner pins per location, GPS or address/Maps link); GeoBranchGate auto-pick when exactly one branch within radius → manager/staff signed in directly (verified: manager at AECS pin landed on dashboard with no tap). Prod: manager login reset again (Pearl-Coral-OSkKFKNdwYM) after user changed pw & got locked.
 - .336: week-off one-time swap (auto-revert to original after swapped day; verified revert fn) + always_on_time staff blocked from week-off requests (API 400 + UI lock pill).
+
+
+## 2026-09-23 — Dashboard "light sparkling" redesign + Miracurl master brand + dancing Mira DJ bot
+- Design agent guidelines at /app/design_guidelines.json (Light Sparkling Canvas, dual-vertical tint).
+- Dashboard.jsx wrapper now `dashboard-sparkle-canvas dash-stagger` with `data-vertical` (salon → rose tint, restaurant → amber tint). DashboardAurora.jsx rewritten: aurora ribbons + repeating glint mesh + twinkling dots + 4-point stars (reduced-motion safe). Stagger entrance uses `animation-fill-mode: backwards` so fixed modals inside children aren't trapped by transforms.
+- Shared `.dash-cream-card` (the "Mira Suggests" cream/gold look) applied to EVERY dashboard widget incl. formerly dark/white ones: MiraAssistantCard, MiraDayOffer, LogoStudio, SetupBanner, MiraSocialNudge, MiracurlUpdates card (popup left dark), QuickMusicBar, WeeklyDigest, WinbackNudges, CircleBonus, MissedBill, Celebrations, TrialNudge, TrialCountdownRing, DailyReport, PendingApprovals, QuickActions, LowStock, SmsPoints, WhatsAppApprovals, BranchSwitchApprovals, BranchPinNudge, KPI Stat, GOLD_CARD, charts, reminders, referral banner. Hero, MembershipPromo, MySalonsOverview intentionally kept as dark photo cards.
+- NEW components/MasterBrand.jsx: `SidebarMiracurlLogo` (sidebar top, all tenants; tenant brand mark below it — data-testids sidebar-miracurl-logo-block / sidebar-tenant-name-under-logo) and `PoweredByMiracurl` pill (topbar-powered-by-miracurl md+, sidebar-footer-powered-by-miracurl).
+- Mira DJ bot (HeroBlocks MiraSuggestsCard) dances whenever any track plays: `.mira-dancing` + glow + 3 floating notes; `data-testid=mira-dj-bot data-dancing`.
+- Dummy Owner Dashboard (PIN 3642) untouched per user — user will delete it himself.
+- Tested: iteration_195.json — 9/9 frontend checks PASS (contrast, other pages unaffected, mobile).
