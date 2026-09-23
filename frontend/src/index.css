@@ -845,7 +845,7 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
   68%  { transform: rotate(-5deg) translateY(-2px); }
   82%  { transform: rotate(3deg) translateY(0); }
 }
-.mira-hi { position: absolute; left: -6px; top: 2px; z-index: 2; padding: 3px 9px; border-radius: 9999px 9999px 9999px 4px;
+.mira-hi { position: absolute; right: 78%; top: 6px; z-index: 2; white-space: nowrap; padding: 3px 10px; border-radius: 9999px 4px 9999px 9999px;
   background: #fff; color: #8a6d1f; font-size: 12px; font-weight: 700; letter-spacing: .02em;
   border: 1px solid #f1dfa8; box-shadow: 0 6px 16px -6px rgba(180,140,60,.45);
   animation: mira-hi-pop 2.4s ease-in-out 1 both; }

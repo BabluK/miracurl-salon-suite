@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { usePlayer } from "@/context/PlayerContext";
+import { useAuth } from "@/context/AuthContext";
 import { GoldSparkles } from "@/components/GoldSparkles";
 import { moodChannels, playPayload } from "@/constants/musicChannels";
 import { toast } from "sonner";
@@ -144,6 +145,12 @@ export function LowStockCard({ items = [], count = 0, sym = "₹" }) {
   );
 }
 
+const localHour = (tz) => {
+  try { return Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, timeZone: tz || undefined }).format(new Date())) % 24; }
+  catch { return new Date().getHours(); }
+};
+const botGreeting = (tz) => { const h = localHour(tz); return h < 12 ? "Good morning ✦" : h < 17 ? "Good afternoon ✦" : "Good evening ✦"; };
+
 const MOOD_POSE = {
   relaxing: { src: "/assets/dashboard/mira-dj.png", dance: "mira-dance-sway" },
   spa: { src: "/assets/dashboard/mira-spa.png", dance: "mira-dance-float" },
@@ -156,6 +163,7 @@ export function MiraSuggestsCard() {
   const cur = moods.find(m => m.id === mood) || moods[0];
   const playing = player.track && moods.some(m => m.id === player.track.id);
   const anyPlaying = !!player.track;
+  const { tenant } = useAuth();
   const [greet, setGreet] = useState(false);
   const botRef = useRef(null);
   useEffect(() => {
@@ -179,7 +187,7 @@ export function MiraSuggestsCard() {
           <p className="text-sm text-slate-500 mt-0.5">Start the day with 30 minutes of soothing salon music.</p>
         </div>
         <div ref={botRef} className={`relative shrink-0 w-24 h-24 -mt-2 -mr-2 ${anyPlaying ? `mira-dancing ${pose.dance}` : waving ? "mira-waving" : ""}`} data-testid="mira-dj-bot" data-dancing={anyPlaying ? "true" : "false"} data-waving={waving ? "true" : "false"}>
-          {waving && <span className="mira-hi" data-testid="mira-dj-greeting">Hi ✦</span>}
+          {waving && <span className="mira-hi" data-testid="mira-dj-greeting" data-tz={tenant?.timezone || ""}>{botGreeting(tenant?.timezone)}</span>}
           {anyPlaying && <>
             <span className="mira-glow" />
             <span className="mira-note n1">♪</span><span className="mira-note n2">♫</span><span className="mira-note n3">♪</span>
