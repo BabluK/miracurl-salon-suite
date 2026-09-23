@@ -173,8 +173,8 @@ export default function AppLayout() {
         }`}
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
-        <div className="relative px-3.5 pt-5 pb-3">
-          <SidebarMiracurlLogo resto={(tenant || brandTenant)?.business_type === "restaurant"} />
+        <div className="relative px-2 pt-3 pb-1">
+          <SidebarMiracurlLogo />
           <button
             className="lg:hidden absolute top-3 right-3 text-white/60 hover:text-white p-1"
             onClick={() => setSidebarOpen(false)}

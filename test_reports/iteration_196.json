@@ -1,0 +1,31 @@
+{
+  "summary": "Backend + Frontend verification of Miracurl 'gold-night' dashboard redesign, Mira DJ bot mood swaps, and Razorpay International (USD) subscription flow. 4/4 backend pytest checks pass. All frontend selector/behaviour requirements met on salon, restaurant and USD tenants. Razorpay iframe opens for USD tenant with LIVE keys (no payment completed).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AppLayout / all pages", "issues": ["React hydration warning: '<span> cannot be a child of <option>' in main content. Not blocking, but should be cleaned up in AppLayout render tree."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_razorpay_intl.py",
+    "/app/test_reports/pytest/razorpay_intl.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: fix invalid HTML nesting warning (<span> inside <option>) surfaced by React in AppLayout children."
+  ],
+  "critical_code_review_comments": [
+    "rzp_create_order correctly maps USD plans to currency=USD and skips GST; friendly 400 message matches spec for over-limit USD plans.",
+    "IntlSubscriptionCard gates on tenant.currency !== 'INR' — correct; INR tenant hides card, USD tenant hides RazorpayCard.",
+    "MiraSuggestsCard mood buttons correctly toggle data-pose + image src + animation class."
+  ],
+  "updated_files": ["/app/backend/tests/test_razorpay_intl.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Used /app/memory/test_credentials.md — salon admin admin@miracurl.com (miracurl-marathahalli, PIN 4321), restaurant infinity.admin@miracurl.com, USD tenant emma.glowaustin@test.com.",
+  "seed_data_creation": "Created 2 subscription_payments pending docs during backend tests (intl_starter_monthly + half_year); auto-cleaned via test_zzz_cleanup fixture.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file test_razorpay_intl.py is reusable. Run with: pytest backend/tests/test_razorpay_intl.py -o addopts=. Cleanup fixture deletes only status=created pending docs for created order_ids. All UI selectors from spec present and working: dashboard-page (gold-night-canvas + data-vertical), sidebar-miracurl-logo-block (gold-lockup-stacked.png naturalWidth=1000), sidebar-script-tagline ('Salon Smarter'/'Serve Smarter'), gold-night-chrome on aside + header, topbar-page-title/tagline, dashboard-hero + gold-sparkles overlays, mira-dj-bot data-dancing + mira-dj-pose data-pose transitions (idle→spa→positive→relaxing→idle) with correct image src and mira-dance-float/jump classes, settings-intl-card only for USD tenant with 'Razorpay International' text (no Stripe), Pay $39 & Activate button that successfully opens Razorpay checkout iframe (api.razorpay.com/v1/checkout).",
+  "rca of the issue": "No production bugs found — feature works as specified."
+}
