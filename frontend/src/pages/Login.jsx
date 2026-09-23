@@ -4,10 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { User, Lock, Eye, EyeOff, Globe } from "lucide-react";
 import { toast } from "sonner";
-import BrandMark from "@/components/BrandMark";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import { passkeySupported, loginWithPasskey } from "@/lib/webauthn";
 import { ensureFreshBuild } from "@/lib/cacheBust";
+import { DashboardAurora } from "@/components/DashboardAurora";
 import { LoginShowcase } from "@/components/LoginShowcase";
 import { LandingNav, LandingFooter, WhatsAppFloat, GoogleButton } from "@/components/LandingBits";
 import { EmailOtpLogin } from "@/components/EmailOtpLogin";
@@ -149,15 +149,15 @@ export default function Login() {
     : "Reset Password";
 
   return (
-    <div className="min-h-screen relative overflow-hidden" data-testid="login-page"
-         style={{ backgroundImage: "linear-gradient(135deg, rgba(253,247,242,.82) 0%, rgba(251,238,232,.78) 40%, rgba(247,241,230,.84) 100%), url(/assets/login/bg-salon.jpg)", backgroundSize: "cover", backgroundPosition: "center" }}>
+    <div className="gold-night-canvas min-h-screen relative isolate overflow-hidden" data-testid="login-page">
+      <DashboardAurora />
       {blocked && <SubscriptionBlockModal info={blocked} onClose={() => setBlocked(null)} />}
 
       {/* Mobile brand mark (desktop shows the full showcase panel) */}
-      <div className="lg:hidden absolute z-10 px-4 pt-4 max-w-[70%] md:[&_.brand-word]:hidden">
-        <BrandMark variant="light" size="lg" />
+      <div className="lg:hidden absolute z-10 px-3 pt-3 w-[62%] max-w-[300px]">
+        <img src="/assets/brand/ms-suite-banner.png" alt="Miracurl Suite" className="w-full h-auto object-contain" data-testid="login-brand-logo-mobile" />
       </div>
-      <div className="absolute right-5 top-4 z-10 hidden sm:inline-flex items-center gap-2 rounded-full bg-white/90 border border-slate-200 px-3.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm" data-testid="login-language-pill">
+      <div className="absolute right-5 top-4 z-10 hidden sm:inline-flex items-center gap-2 rounded-full bg-white/10 border border-[#d4af37]/30 px-3.5 py-1.5 text-xs font-medium text-white/85 shadow-sm backdrop-blur" data-testid="login-language-pill">
         <Globe className="w-3.5 h-3.5" /> English
       </div>
 
@@ -171,7 +171,7 @@ export default function Login() {
       <div className="relative z-10 max-w-[1640px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_500px] gap-8 xl:gap-14 items-center px-4 sm:px-8 py-4 lg:py-3">
         <LoginShowcase />
         <div className="relative w-full max-w-lg mx-auto lg:mx-0">
-          <div className="hidden xl:block absolute -right-16 top-1/2 -translate-y-1/2 font-playfair italic text-[#b58a2c] text-lg leading-snug text-center">Dream<br />Build<br />Serve<br />Grow<br />Together<br />♡</div>
+          <div className="hidden xl:block absolute -right-16 top-1/2 -translate-y-1/2 font-playfair italic text-[#e8c56a] text-lg leading-snug text-center sidebar-tagline">Dream<br />Build<br />Serve<br />Grow<br />Together<br />♡</div>
         <div className="w-full max-w-lg bg-white rounded-2xl shadow-[0_20px_50px_-15px_rgba(0,0,0,0.18)] ring-1 ring-slate-100 p-7 sm:p-8 animate-fade-up">
           <h1 className="text-center font-playfair text-4xl sm:text-[2.6rem] font-semibold text-slate-900 tracking-tight" data-testid="login-heading">
             {heading}

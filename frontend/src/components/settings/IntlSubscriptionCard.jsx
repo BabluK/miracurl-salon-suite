@@ -43,6 +43,7 @@ export function IntlSubscriptionCard() {
 
   const key = `intl_${tier}_${dur}`;
   const chosen = plans?.find(p => p.key === key);
+  const split = !!chosen && chosen.price > 500;
   const monthly = plans?.find(p => p.key === `intl_${tier}_monthly`);
   const saving = chosen && monthly && dur !== "monthly" ? monthly.price * 12 - chosen.price : 0;
 
@@ -58,7 +59,7 @@ export function IntlSubscriptionCard() {
         amount: order.amount,
         currency: order.currency,
         name: tenant?.business_type === "restaurant" ? "Miracurl ✦ Restaurant Suite" : "Miracurl ✦ Salon Suite",
-        description: order.plan_label,
+        description: order.installments === 2 ? `${order.plan_label} · Instalment 1 of 2` : order.plan_label,
         order_id: order.order_id,
         theme: { color: "#c99a2e" },
         prefill: { name: tenant?.name || "", email: tenant?.owner_email || "" },
@@ -147,8 +148,13 @@ export function IntlSubscriptionCard() {
         <button data-testid="intl-pay-btn" onClick={pay} disabled={busy || !chosen || cfg?.enabled === false}
           className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-[#e8c56a] to-[#c99a2e] text-[#1a1408] font-semibold text-sm hover:brightness-110 shadow-sm disabled:opacity-60">
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-          {busy ? "Opening…" : chosen ? `Pay ${fmtUSD(chosen.price)} & Activate` : "Choose a plan"}
+          {busy ? "Opening…" : chosen ? (split ? `Pay ${fmtUSD(chosen.price / 2)} now & Activate` : `Pay ${fmtUSD(chosen.price)} & Activate`) : "Choose a plan"}
         </button>
+        {split && (
+          <p className="text-[11px] text-slate-500 mt-2 leading-snug" data-testid="intl-installment-note">
+            Billed in <b>2 instalments of {fmtUSD(chosen.price / 2)}</b> (6 months each) — international card limit. Pay the 2nd instalment before the first half ends to keep the annual price.
+          </p>
+        )}
       </div>
     </div>
   );

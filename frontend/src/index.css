@@ -919,7 +919,15 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
   animation: dash-glint-glaze 14s ease-in-out infinite alternate;
   z-index: -1;
 }
-.sidebar-tagline { font-family: 'Caveat', cursive; color: #e8c56a; text-shadow: 0 0 14px rgba(212,175,55,.45); }
+.sidebar-tagline { color: #e8c56a; text-shadow: 0 0 16px rgba(212,175,55,.5); }
+.tagline-swirl { position: absolute; inset: -30% -10% -20% 20%; pointer-events: none; border-radius: 50%;
+  background:
+    radial-gradient(60% 45% at 78% 40%, rgba(232,197,106,.32) 0%, rgba(232,197,106,0) 70%),
+    radial-gradient(45% 30% at 55% 75%, rgba(212,175,55,.22) 0%, rgba(212,175,55,0) 70%),
+    radial-gradient(35% 20% at 90% 80%, rgba(255,240,200,.18) 0%, rgba(255,240,200,0) 70%);
+  filter: blur(6px); animation: tagline-swirl-drift 9s ease-in-out infinite alternate; }
+@keyframes tagline-swirl-drift { from { transform: translate(0,0) rotate(-6deg); } to { transform: translate(-6px,-8px) rotate(6deg); } }
+@media (prefers-reduced-motion: reduce) { .tagline-swirl { animation: none; } }
 @media (prefers-reduced-motion: reduce) {
   .dash-glint-layer, .dash-star, .dash-bokeh, .gold-night-chrome::before { animation: none; }
   .dash-star { opacity: .6; }

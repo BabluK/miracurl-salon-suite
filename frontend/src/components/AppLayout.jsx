@@ -219,9 +219,9 @@ export default function AppLayout() {
           <button
             data-testid="logout-btn"
             onClick={async () => { await logout(); nav("/login"); }}
-            className="nav-gold-hover flex items-center gap-2 text-sm text-white/60 w-full px-4 py-2.5 rounded-full border border-transparent transition-all"
+            className="nav-gold-hover flex items-center gap-3 text-[15px] text-white/80 w-full px-4 py-2.5 rounded-full border border-transparent transition-all"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-5 h-5" />
             Sign Out
           </button>
           <SidebarScriptTagline resto={(tenant || brandTenant)?.business_type === "restaurant"} />

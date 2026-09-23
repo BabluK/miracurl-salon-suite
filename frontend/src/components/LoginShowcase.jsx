@@ -5,32 +5,25 @@ const RESTO = ["Online Reservations", "Table Management", "POS & Billing", "Menu
 const MODULES = [[CalendarDays, "Appointments & Reservations"], [CreditCard, "POS & Billing"], [Users, "CRM & Loyalty"], [Package, "Inventory Management"], [UserCog, "Staff Management"], [BarChart3, "Reports & Analytics"], [Bot, "Mira AI Assistant"], [Megaphone, "Marketing Studio"]];
 const COUNTRIES = ["🇺🇸 US", "🇬🇧 UK", "🇦🇪 UAE", "🇮🇳 India", "🇦🇺 Australia", "🇸🇬 Singapore", "🇨🇦 Canada"];
 
-import { SparkleLogo } from "@/components/LandingBits";
 
 export function LoginShowcase() {
   return (
     <div className="hidden lg:flex flex-col gap-3 min-w-0" data-testid="login-showcase">
       <div className="flex items-start justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <SparkleLogo className="w-28 h-28" testid="login-brand-logo" />
-          <div>
-            <div className="font-playfair text-[2rem] leading-none tracking-wide text-[#8a6a1c]">MIRACURL SUITE</div>
-            <div className="text-[11px] tracking-[0.22em] font-semibold text-slate-700 mt-1.5">AI-POWERED BUSINESS MANAGEMENT PLATFORM</div>
-            <div className="mt-3 pt-2 border-t border-slate-400/50 text-[11px] tracking-[0.25em] font-semibold text-slate-800">SALONS &nbsp;|&nbsp; RESTAURANTS &nbsp;|&nbsp; AND BEYOND</div>
-          </div>
-        </div>
-        <div className="font-playfair italic text-[#b58a2c] text-2xl leading-tight text-right pr-6 pt-2 -rotate-6">Businesses<br />Run Better<br />With AI ♡</div>
+        <img src="/assets/brand/ms-suite-banner.png" alt="Miracurl Suite — Smart Salon & Restaurant Management Software" data-testid="login-brand-logo"
+          className="w-[420px] max-w-full h-auto object-contain drop-shadow-[0_10px_30px_rgba(212,175,55,0.35)]" />
+        <div className="font-playfair italic text-[#e8c56a] text-2xl leading-tight text-right pr-6 pt-2 -rotate-6 sidebar-tagline">Businesses<br />Run Better<br />With AI ♡</div>
       </div>
 
       <div>
-        <h1 className="font-playfair text-4xl xl:text-[3rem] leading-[1.08] text-slate-900 drop-shadow-sm" data-testid="login-showcase-heading">
-          One Platform.<br /><span className="text-[#b58a2c]">Two Industries.</span> Endless Possibilities.
+        <h1 className="font-playfair text-4xl xl:text-[3rem] leading-[1.08] text-white drop-shadow-sm" data-testid="login-showcase-heading">
+          One Platform.<br /><span className="text-[#e8c56a]">Two Industries.</span> Endless Possibilities.
         </h1>
-        <p className="text-xl font-semibold text-slate-800 mt-3">Manage. Automate. Grow.</p>
-        <p className="text-slate-700 text-sm mt-1">Everything you need to run your salon or restaurant — in one powerful platform.</p>
+        <p className="text-xl font-semibold text-[#f3e3ae] tracking-wide mt-3">Manage. Automate. Grow.</p>
+        <p className="text-white/65 text-sm mt-1">Everything you need to run your salon or restaurant — in one powerful platform.</p>
       </div>
 
-      <div className="grid grid-cols-2 rounded-[2rem] overflow-hidden shadow-2xl shadow-rose-900/15 ring-1 ring-white/60">
+      <div className="grid grid-cols-2 rounded-[2rem] overflow-hidden shadow-2xl shadow-black/50 ring-1 ring-[#d4af37]/30">
         <div className="relative min-h-[300px] bg-[#f6dfe6]" data-testid="login-salon-card">
           <img src="/assets/login/salon-people.jpg" alt="Stylist with a happy client" className="absolute inset-y-0 left-0 w-[52%] h-full object-cover object-[35%_20%]" style={{ WebkitMaskImage: "linear-gradient(90deg, #000 70%, transparent)", maskImage: "linear-gradient(90deg, #000 70%, transparent)" }} />
           <div className="relative ml-[50%] p-5 pl-3">
@@ -51,16 +44,16 @@ export function LoginShowcase() {
         </div>
       </div>
 
-      <div className="grid grid-cols-8 gap-2 rounded-2xl bg-white/85 backdrop-blur border border-white p-3 shadow-lg shadow-slate-300/50" data-testid="login-modules">
+      <div className="grid grid-cols-8 gap-2 rounded-2xl bg-white/[.06] backdrop-blur border border-[#d4af37]/20 p-3 shadow-lg shadow-black/40" data-testid="login-modules">
         {MODULES.map(([Icon, l]) => (
-          <div key={l} className="rounded-xl bg-[#faf6ef] border border-[#efe6d2] p-2.5 text-center">
-            <Icon className="w-5 h-5 mx-auto text-slate-800" />
-            <div className="text-[10px] leading-tight text-slate-700 mt-1.5">{l}</div>
+          <div key={l} className="rounded-xl bg-white/[.05] border border-white/10 p-2.5 text-center">
+            <Icon className="w-5 h-5 mx-auto text-[#e8c56a]" />
+            <div className="text-[10px] leading-tight text-white/80 mt-1.5">{l}</div>
           </div>
         ))}
       </div>
 
-      <div className="rounded-2xl bg-white/85 backdrop-blur border border-white px-5 py-3.5 shadow-lg shadow-slate-300/40 flex items-center gap-6 text-xs text-slate-700" data-testid="login-trust-strip">
+      <div className="rounded-2xl bg-white/[.06] backdrop-blur border border-[#d4af37]/20 px-5 py-3.5 shadow-lg shadow-black/40 flex items-center gap-6 text-xs text-white/70 [&_.font-bold]:text-white [&_.bg-slate-200]:bg-white/15 [&_.text-slate-600]:text-white/60 [&_.text-\[\#b58a2c\]]:text-[#e8c56a]" data-testid="login-trust-strip">
         <div className="flex items-center gap-2.5 shrink-0"><Store className="w-6 h-6 text-[#b58a2c]" /><div><div className="font-bold text-slate-900 text-sm">1000+</div>Happy Businesses</div></div>
         <div className="h-8 w-px bg-slate-200" />
         <div className="flex items-center gap-2.5 min-w-0 flex-1">

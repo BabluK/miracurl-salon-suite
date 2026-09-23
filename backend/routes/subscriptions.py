@@ -322,6 +322,9 @@ async def extend_subscription(sid: str, body: SubscriptionExtendIn, user=Depends
 # Keys + client live in services.billing (shared module — breaks the route-level import cycle).
 
 
+RZP_INTL_MAX_USD = 500  # Razorpay International single-charge cap on the Miracurl account
+
+
 class RzpOrderIn(BaseModel):
     plan: str  # key from PLAN_CATALOG (e.g. "6_months", "1_year")
     branch_tenant_ids: Optional[list] = None  # multi-branch plans: which branches the plan covers
@@ -363,11 +366,15 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
 
     currency = (plan.get("currency") or "INR").upper()
     price = float(plan["price"])
+    installments = 1
     if currency == "USD":
         # International plans: charged in USD via Razorpay International (export of service — no GST,
         # INR affiliate credits are not applied to dollar invoices).
         credits_used, payable = 0.0, price
-        tax = {"subtotal": price, "gst_rate_pct": 0, "gst": 0.0, "total": price, "gstin": "", "export": True}
+        if price > RZP_INTL_MAX_USD:
+            # Razorpay International caps a single charge — split the plan into 2 instalments of half the term each.
+            installments, payable = 2, round(price / 2, 2)
+        tax = {"subtotal": payable, "gst_rate_pct": 0, "gst": 0.0, "total": payable, "gstin": "", "export": True}
     else:
         credits = float(t.get("affiliate_credits") or 0)
         net = max(price - credits, 1)  # Razorpay min amount is ₹1 (100 paise)
@@ -394,8 +401,8 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
     except Exception as e:  # razorpay.errors.* — surface the gateway's reason instead of a 500
         msg = str(e)
         if currency != "INR" and "maximum amount" in msg.lower():
-            msg = (f"Razorpay declined this ${payable:,.0f} charge — it is above the international per-transaction limit on the "
-                   "Miracurl Razorpay account. Please choose a monthly plan for now, or contact support to raise the limit.")
+            msg = (f"Razorpay declined this ${payable:,.0f} charge — it is above the international per-transaction limit. "
+                   "Please choose a monthly plan for now, or contact support.")
         raise HTTPException(400, msg)
     # Track pending order server-side so we can reconcile on verify
     await db.subscription_payments.insert_one({
@@ -405,7 +412,7 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
         "tenant_id": t["id"],
         "plan": body.plan,
         "branch_tenant_ids": branch_ids or None,
-        "amount": payable, "tax": tax, "currency": currency,
+        "amount": payable, "tax": tax, "currency": currency, "installments": installments,
         "credits_applied": credits_used,
         "status": "created",
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -420,6 +427,9 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
         "payable_inr": payable,
         "full_price_inr": price,
         "payable": payable,
+        "installments": installments,
+        "installment_note": (f"Instalment 1 of 2 — ${payable:,.0f} now covers the first {plan['duration_days'] // 2} days; "
+                             f"pay the 2nd instalment before it ends to keep the annual price.") if installments == 2 else None,
         "tax": tax,
     }
 
@@ -572,6 +582,9 @@ async def _activate_pending_order(pending_doc: dict, payment_id: str, t: dict, r
     # Use the SERVER-recorded plan, never the client's — SEC-002 fix.
     server_plan = pending_doc["plan"]
     plan_info = await _fresh_plan_or_400(server_plan)
+    if int(pending_doc.get("installments") or 1) == 2:
+        plan_info = {**plan_info, "duration_days": int(plan_info["duration_days"]) // 2,
+                     "price": round(float(plan_info["price"]) / 2, 2), "label": f"{plan_info['label']} — instalment 1 of 2"}
     today_iso = now.date().isoformat()
 
     # Multi-branch plans: apply to every branch the owner picked at checkout.
@@ -579,7 +592,8 @@ async def _activate_pending_order(pending_doc: dict, payment_id: str, t: dict, r
     subs = await _apply_subscription_to_tenants(
         target_tids, server_plan, plan_info,
         payment_method="razorpay", payment_ref=payment_id,
-        notes=f"Razorpay order {pending_doc['razorpay_order_id']}; credits applied ₹{pending_doc.get('credits_applied',0)}",
+        notes=(f"Razorpay order {pending_doc['razorpay_order_id']}; credits applied ₹{pending_doc.get('credits_applied',0)}"
+               + ("; instalment 1 of 2 (half term) — 2nd instalment due before end date" if int(pending_doc.get("installments") or 1) == 2 else "")),
         start=now)
     sub = next((s for s in subs if s["tenant_id"] == t["id"]), subs[0])
 
