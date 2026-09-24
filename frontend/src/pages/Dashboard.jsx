@@ -12,6 +12,7 @@ import { CelebrationsCard } from "@/components/CelebrationsCard";
 import { MorningBriefing } from "@/components/MorningBriefing";
 import { MiracurlUpdates } from "@/components/MiracurlUpdates";
 import { getSelectedBranch } from "@/lib/branch";
+import { takeDashboardPrefetch, fetchDashboard } from "@/lib/dashPrefetch";
 import { WhatsAppApprovals } from "@/components/WhatsAppApprovals";
 import { BranchSwitchApprovals } from "@/components/BranchSwitchApprovals";
 import { QuickMusicBar } from "@/components/QuickMusicBar";
@@ -88,14 +89,13 @@ function Stat({ icon: Icon, label, value, hint, testid, color = "sky", action, n
 
 const dashCacheKey = (tenantId, b) => `mc_dash:${tenantId || ""}:${b || ""}`;
 const readDashCache = (k) => { try { return JSON.parse(sessionStorage.getItem(k) || "null"); } catch { return null; } };
-let _dashPaintedOnce = false; // first mount after a hard load measures from navigation start
-const _hardLoadedHere = /^\/(dashboard)?$/.test(window.location.pathname);
 
 export default function Dashboard() {
   const { tenant, user } = useAuth();
   // Perf: paint the last snapshot instantly (stale-while-revalidate), then refresh from the server.
   const [data, setData] = useState(() => readDashCache(dashCacheKey(tenant?.id, getSelectedBranch())));
   const [loadMs, setLoadMs] = useState(0);
+  const [settled, setSettled] = useState(false);
   const [showMonth, setShowMonth] = useState(false);
   const [blastOpen, setBlastOpen] = useState(false);
   const [reminders, setReminders] = useState({ count: 0, items: [] });
@@ -106,12 +106,11 @@ export default function Dashboard() {
     const fetchDash = () => {
       const b = getSelectedBranch();
       const key = dashCacheKey(tenant?.id, b);
-      const t0 = !_dashPaintedOnce && _hardLoadedHere ? 0 : performance.now();
-      api.get("/reports/dashboard", { params: b ? { branch: b } : {} })
+      const { t0, p } = takeDashboardPrefetch(b) || fetchDashboard(b);
+      p
         .then(r => {
           setData(r.data);
           setLoadMs(Math.max(50, Math.round(performance.now() - t0)));
-          _dashPaintedOnce = true;
           try { sessionStorage.setItem(key, JSON.stringify(r.data)); } catch { /* quota */ }
         })
         .catch(e => {
@@ -121,13 +120,18 @@ export default function Dashboard() {
             return;
           }
           toast.error(`Couldn't load dashboard: ${e?.response?.data?.detail || e?.message || "network error"}`);
-        });
+        })
+        .finally(() => setSettled(true));
     };
     fetchDash();
     window.addEventListener("branch-changed", fetchDash);
     if (isOwner) {
-      api.get("/dashboard/reminders").then(r => setReminders(r.data)).catch(() => {});
-      api.get("/billing/subscription-status").then(r => setSubStatus(r.data)).catch(() => {});
+      // Secondary calls wait for the KPI payload so /reports/dashboard never queues behind them.
+      const id = setTimeout(() => {
+        api.get("/dashboard/reminders").then(r => setReminders(r.data)).catch(() => {});
+        api.get("/billing/subscription-status").then(r => setSubStatus(r.data)).catch(() => {});
+      }, 400);
+      return () => { clearTimeout(id); window.removeEventListener("branch-changed", fetchDash); };
     }
     return () => window.removeEventListener("branch-changed", fetchDash);
   }, [isOwner, tenant?.id, user?.role]);
@@ -232,6 +236,7 @@ export default function Dashboard() {
       </div>
       <MembershipPromoCard resto={tenant?.business_type === "restaurant"} />
 
+      {settled && <>
       {isOwner && <WelcomeCongratsModal />}
       <RenewalBanner sub={subStatus} />
       {isOwner && <TrialNudgeBanner />}
@@ -255,6 +260,7 @@ export default function Dashboard() {
       {isOwner && <BranchSwitchApprovals />}
       <QuickMusicBar />
       {isOwner && <LogoStudio />}
+      </>}
 
       {/* Rating + Pending review widgets */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

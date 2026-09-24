@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import log from "@/lib/log";
 import api, { formatApiError, setTenantSlug, detectTenantSlug, isPublicPath, bumpSessionEpoch } from "@/lib/api";
 import { setSelectedBranch } from "@/lib/branch";
+import { prefetchDashboard } from "@/lib/dashPrefetch";
 
 const AuthContext = createContext(null);
 
@@ -64,6 +65,7 @@ export function AuthProvider({ children }) {
         if (cancelled) return;
         if (data.role === "manager" && data.branch) setSelectedBranch(data.branch);
         if (data.role === "super_admin") { setUser(data); return; }
+        prefetchDashboard();
         const t = await (tenantP || fetchCurrentTenant().catch(() => null));
         if (cancelled) return;
         // Tenant + user land in one batch → the shell paints once with full context.
