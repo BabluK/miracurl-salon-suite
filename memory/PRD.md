@@ -3679,3 +3679,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - MEDIUM: HQ revenue/MRR/ARR/top-tenants/CSV summed USD as INR. Added `amount_inr()` + `USD_INR_RATE` env (default 84.0) in `services/subscription_common.py`; CSV now has `amount, currency, amount_inr` columns. Manual payments record plan currency.
 - Kept by user choice: temporary Owner Dashboard (PIN 3642). Low: ad-hoc Mira dials log `lead_id:""` (harmless dead writes) — backlog.
 - Verified: unit script (stack +30d, single active sub, totals) + live `/api/super-admin/subscriptions/revenue` and `export.csv`.
+
+## 2026-09-24 — Animated gold logo reveal in sidebar + signup hero (build .360)
+- User-supplied Gemini video (16 MB / 1280×720 / with audio) → `public/assets/brand/ms-reveal.webm` (1.9 MB, VP9) + `ms-reveal.mp4` (2.4 MB, H.264 CRF 20 veryslow) + `ms-reveal-poster.jpg` (final frame). Audio stripped, centre-cropped 900×620 so the emblem fills the sidebar, no downscale (source pixels kept).
+- `SidebarMiracurlLogo` (MasterBrand.jsx) is now a muted autoplay `<video>`: plays once, holds the last frame, replays on hover/click (only when ended). Used by AppLayout sidebar and SignupHeroPanel. CSS `.ms-hd` → 900/620 aspect, rounded 14px, gold ring shadow; old sweep/glint/spark overlays removed (video has its own).
+- Encoder: ffmpeg via `imageio-ffmpeg` copied to /usr/local/bin/ffmpeg (dev-only, not a runtime dep).

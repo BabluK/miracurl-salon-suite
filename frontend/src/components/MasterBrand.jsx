@@ -1,12 +1,32 @@
-// Miracurl master brand — shown to every tenant (salon or restaurant) at the top of the sidebar.
+import { useRef } from "react";
+
+// Miracurl master brand — animated gold reveal (silent). Plays once on load, holds the final
+// "MIRACURL SUITE" frame, and replays on hover / click.
 export function SidebarMiracurlLogo() {
-  // HD user-supplied lockup; light-sweep + twinkles are masked to the logo pixels so the sparkle plays over "MIRACURL SUITE".
+  const ref = useRef(null);
+  const replay = () => {
+    const v = ref.current;
+    if (!v || !v.ended) return;
+    v.currentTime = 0;
+    v.play().catch(() => {});
+  };
   return (
-    <div className="ms-hd" style={{ "--ms-mask": "url(/assets/brand/ms-hd-lockup.png)" }} data-testid="sidebar-miracurl-logo-block">
-      <img src="/assets/brand/ms-hd-lockup.png" alt="Miracurl Suite" draggable="false" className="ms-hd__img" />
-      <span className="ms-hd__sweep" aria-hidden="true" />
-      <span className="ms-hd__glint g1" aria-hidden="true" /><span className="ms-hd__glint g2" aria-hidden="true" /><span className="ms-hd__glint g3" aria-hidden="true" />
-      <span className="ms-spark s1">✦</span><span className="ms-spark s2">✦</span><span className="ms-spark s3">✦</span>
+    <div className="ms-hd" onMouseEnter={replay} onClick={replay} data-testid="sidebar-miracurl-logo-block">
+      <video
+        ref={ref}
+        className="ms-hd__video"
+        autoPlay
+        muted
+        playsInline
+        preload="auto"
+        poster="/assets/brand/ms-reveal-poster.jpg"
+        aria-label="Miracurl Suite"
+        data-testid="sidebar-miracurl-logo-video"
+      >
+        <source src="/assets/brand/ms-reveal.webm" type="video/webm" />
+        <source src="/assets/brand/ms-reveal.mp4" type="video/mp4" />
+        <img src="/assets/brand/ms-reveal-poster.jpg" alt="Miracurl Suite" />
+      </video>
     </div>
   );
 }
