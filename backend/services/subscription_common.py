@@ -1,6 +1,7 @@
 """Subscription models + plan/Razorpay helpers shared by routes.subscriptions and routes.pay_links."""
 import hashlib
 import hmac
+import os
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -13,7 +14,8 @@ from services.billing import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, _rzp_client
 from services.plans import PLAN_CATALOG
 
 __all__ = ["Subscription", "SubscriptionPayment", "PLAN_CATALOG", "RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "_rzp_client",
-           "load_plan_overrides", "_plan_or_400", "_fresh_plan_or_400", "_apply_subscription_to_tenants", "_verify_rzp_signature"]
+           "load_plan_overrides", "_plan_or_400", "_fresh_plan_or_400", "_apply_subscription_to_tenants", "_verify_rzp_signature",
+           "amount_inr", "USD_INR_RATE"]
 
 
 class Subscription(BaseModel):
@@ -95,12 +97,40 @@ async def _fresh_plan_or_400(plan: str) -> dict:
     return _plan_or_400(plan)
 
 
+USD_INR_RATE = float(os.environ.get("USD_INR_RATE") or 84.0)
+
+
+def amount_inr(amount, currency: Optional[str]) -> float:
+    """Normalise a payment/plan amount to INR for HQ revenue reporting."""
+    val = float(amount or 0)
+    return round(val * USD_INR_RATE, 2) if (currency or "INR").upper() == "USD" else val
+
+
+async def _latest_active_end(tenant_ids: list, now: datetime) -> datetime:
+    """Latest unexpired end_date across the tenants' active subscriptions (or `now`)."""
+    latest = now
+    async for s in db.subscriptions.find({"tenant_id": {"$in": tenant_ids}, "status": "active"},
+                                         {"_id": 0, "end_date": 1}):
+        try:
+            end = datetime.fromisoformat(s["end_date"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if end.tzinfo is None:
+            end = end.replace(tzinfo=timezone.utc)
+        latest = max(latest, end)
+    return latest
+
+
 async def _apply_subscription_to_tenants(tenant_ids: list, plan_key: str, plan_info: dict,
                                          payment_method: str, payment_ref: Optional[str],
-                                         notes: Optional[str], start: Optional[datetime] = None) -> list:
+                                         notes: Optional[str], start: Optional[datetime] = None,
+                                         extend_existing: bool = True) -> list:
     """Create/replace an active subscription on every tenant in the group.
-    Per-branch sub price = plan price / branch count (keeps MRR stats correct)."""
+    Per-branch sub price = plan price / branch count (keeps MRR stats correct).
+    Early renewals stack on top of the unexpired term so paid days are never lost."""
     now = start or datetime.now(timezone.utc)
+    if extend_existing:
+        now = max(now, await _latest_active_end(tenant_ids, now))
     end_dt = now + timedelta(days=plan_info["duration_days"])
     per_branch_price = round(float(plan_info["price"]) / len(tenant_ids), 2)
     group_id = str(uuid.uuid4()) if len(tenant_ids) > 1 else None

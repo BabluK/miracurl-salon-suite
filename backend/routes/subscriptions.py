@@ -25,7 +25,7 @@ from services.orders import send_order_status_email
 from services.subscription_common import (  # noqa: F401 — re-exported: other routes import these from here
     Subscription, SubscriptionPayment, PLAN_CATALOG, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, _rzp_client,
     load_plan_overrides, _plan_or_400, _fresh_plan_or_400, _apply_subscription_to_tenants, _verify_rzp_signature,
-    visible_plans,
+    visible_plans, amount_inr,
 )
 
 router = APIRouter()
@@ -262,13 +262,15 @@ async def create_subscription(body: SubscriptionIn, user=Depends(require_super_a
     subs = await _apply_subscription_to_tenants(
         target_tids, body.plan, plan_info,
         payment_method=body.payment_method or "paytm",
-        payment_ref=body.payment_ref, notes=body.notes, start=start_dt)
+        payment_ref=body.payment_ref, notes=body.notes, start=start_dt,
+        extend_existing=body.start_date is None)
     sub = subs[0]
 
     pay = SubscriptionPayment(
         subscription_id=sub["id"],
         tenant_id=body.tenant_id,
         amount=body.amount_paid if body.amount_paid is not None else plan_info["price"],
+        currency=plan_info.get("currency") or "INR",
         paid_at=body.paid_at or today_iso,
         method=body.payment_method or "paytm",
         txn_ref=body.payment_ref,
@@ -1375,13 +1377,17 @@ async def delete_subscription(sid: str, user=Depends(require_super_admin)):
     return {"ok": True, "payments_deleted": pays.deleted_count}
 
 
+def _pay_inr(p: dict) -> float:
+    return amount_inr(p.get("amount"), p.get("currency"))
+
+
 def _revenue_totals(pays: list, now: datetime) -> dict:
     today_iso = now.date().isoformat()
     month_prefix = now.strftime("%Y-%m")
     return {
-        "today": round(sum(p["amount"] for p in pays if (p.get("paid_at") or "").startswith(today_iso)), 2),
-        "this_month": round(sum(p["amount"] for p in pays if (p.get("paid_at") or "").startswith(month_prefix)), 2),
-        "all_time": round(sum(p["amount"] for p in pays), 2),
+        "today": round(sum(_pay_inr(p) for p in pays if (p.get("paid_at") or "").startswith(today_iso)), 2),
+        "this_month": round(sum(_pay_inr(p) for p in pays if (p.get("paid_at") or "").startswith(month_prefix)), 2),
+        "all_time": round(sum(_pay_inr(p) for p in pays), 2),
     }
 
 
@@ -1390,7 +1396,7 @@ def _revenue_trend_30d(pays: list, now: datetime) -> list:
     for p in pays:
         d = (p.get("paid_at") or "")[:10]
         if d in by_day:
-            by_day[d] += p["amount"]
+            by_day[d] += _pay_inr(p)
     return [{"date": d, "amount": round(v, 2)} for d, v in by_day.items()]
 
 
@@ -1400,9 +1406,10 @@ def _mrr_and_plan_distribution(subs: list) -> tuple[float, list]:
     for s in subs:
         plan_key = s.get("plan") or "custom"
         plan_counts[plan_key] = plan_counts.get(plan_key, 0) + 1
-        # Normalise each active plan into a monthly-recurring number
+        # Normalise each active plan into a monthly-recurring INR number
         plan_days = PLAN_CATALOG.get(plan_key, {}).get("duration_days", 30) or 30
         plan_price = float(s.get("price") or PLAN_CATALOG.get(plan_key, {}).get("price") or 0)
+        plan_price = amount_inr(plan_price, PLAN_CATALOG.get(plan_key, {}).get("currency"))
         mrr += plan_price * (30.0 / plan_days)
     plan_dist = [{"plan": k, "label": PLAN_CATALOG.get(k, {}).get("label", k), "count": v}
                  for k, v in plan_counts.items()]
@@ -1438,7 +1445,7 @@ async def _top_revenue_tenants(pays: list, limit: int = 5) -> list:
     for p in pays:
         tid = p.get("tenant_id")
         if tid:
-            tenant_totals[tid] = tenant_totals.get(tid, 0.0) + float(p["amount"])
+            tenant_totals[tid] = tenant_totals.get(tid, 0.0) + _pay_inr(p)
     top_ids = sorted(tenant_totals, key=tenant_totals.get, reverse=True)[:limit]
     lookup = {t["id"]: t for t in await db.tenants.find(
         {"id": {"$in": top_ids}}, {"_id": 0, "id": 1, "slug": 1, "name": 1}
@@ -1497,7 +1504,7 @@ async def export_subscription_payments_csv(user=Depends(require_super_admin)):
         return f"'{s}" if s[:1] in ("=", "+", "-", "@") else s
 
     w.writerow(["paid_at", "tenant_slug", "tenant_name", "owner_email",
-                "amount_inr", "method", "txn_ref", "subscription_id", "notes"])
+                "amount", "currency", "amount_inr", "method", "txn_ref", "subscription_id", "notes"])
     for p in pays:
         t = t_map.get(p.get("tenant_id"), {})
         w.writerow([
@@ -1506,6 +1513,8 @@ async def export_subscription_payments_csv(user=Depends(require_super_admin)):
             _safe(t.get("name", "")),
             _safe(t.get("owner_email", "")),
             f"{float(p.get('amount') or 0):.2f}",
+            (p.get("currency") or "INR").upper(),
+            f"{_pay_inr(p):.2f}",
             _safe(p.get("method", "")),
             _safe(p.get("txn_ref", "")),
             p.get("subscription_id", ""),
