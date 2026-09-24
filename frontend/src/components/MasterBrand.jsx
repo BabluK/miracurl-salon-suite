@@ -1,24 +1,19 @@
-import { useRef } from "react";
-
-// Miracurl master brand — animated gold reveal (silent). Plays once on load, holds the final
-// "MIRACURL SUITE" frame, and replays on hover / click.
+// Miracurl master brand — animated gold reveal (silent), loops continuously. Browser overlays
+// (picture-in-picture, captions, controls) are disabled so only the animation shows.
 export function SidebarMiracurlLogo() {
-  const ref = useRef(null);
-  const replay = () => {
-    const v = ref.current;
-    if (!v || !v.ended) return;
-    v.currentTime = 0;
-    v.play().catch(() => {});
-  };
   return (
-    <div className="ms-hd" onMouseEnter={replay} onClick={replay} data-testid="sidebar-miracurl-logo-block">
+    <div className="ms-hd" data-testid="sidebar-miracurl-logo-block">
       <video
-        ref={ref}
         className="ms-hd__video"
         autoPlay
         muted
+        loop
         playsInline
         preload="auto"
+        disablePictureInPicture
+        disableRemotePlayback
+        controls={false}
+        controlsList="nodownload nofullscreen noremoteplayback noplaybackrate"
         poster="/assets/brand/ms-reveal-poster.jpg"
         aria-label="Miracurl Suite"
         data-testid="sidebar-miracurl-logo-video"

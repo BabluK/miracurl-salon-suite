@@ -1125,10 +1125,11 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 @media (prefers-reduced-motion: reduce) { .su-quote-in { animation: none; } }
 
 /* HD Miracurl Suite lockup with masked light-sweep (sparkle plays over the logo only) */
-.ms-hd { position: relative; width: 100%; aspect-ratio: 900 / 620; user-select: none; cursor: pointer; border-radius: 14px; overflow: hidden;
-  box-shadow: 0 6px 22px rgba(212,175,55,.28), inset 0 0 0 1px rgba(212,175,55,.22); transition: box-shadow .3s ease, transform .3s ease; }
-.ms-hd:hover { box-shadow: 0 8px 30px rgba(212,175,55,.55), inset 0 0 0 1px rgba(232,197,106,.45); transform: translateY(-1px); }
-.ms-hd__video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; background: #0a0806; }
+.ms-hd { position: relative; width: 100%; aspect-ratio: 900 / 620; user-select: none; border-radius: 14px; overflow: hidden;
+  box-shadow: 0 6px 22px rgba(212,175,55,.28), inset 0 0 0 1px rgba(212,175,55,.22); transition: box-shadow .3s ease; }
+.ms-hd:hover { box-shadow: 0 8px 30px rgba(212,175,55,.55), inset 0 0 0 1px rgba(232,197,106,.45); }
+.ms-hd__video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; background: #0a0806; pointer-events: none; }
+.ms-hd__video::-webkit-media-controls, .ms-hd__video::-webkit-media-controls-enclosure, .ms-hd__video::-webkit-media-controls-overlay-play-button { display: none !important; }
 .ms-hd__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; animation: ms-emblem-breath 4s ease-in-out infinite; }
 .ms-hd__sweep, .ms-hd__glint { position: absolute; inset: 0; pointer-events: none;
   -webkit-mask-image: var(--ms-mask); mask-image: var(--ms-mask); -webkit-mask-size: contain; mask-size: contain;
