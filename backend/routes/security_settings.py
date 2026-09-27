@@ -252,7 +252,7 @@ def _branch_metrics(invs: list, staff_names: dict) -> dict:
 @router.get("/auth/my-salons/overview")
 async def my_salons_overview(request: Request, period: str = "today", date_from: str = "", date_to: str = "",
                              user=Depends(get_current_user), t=Depends(current_tenant)):
-    """Group Dashboard (multi-salon owners): collections across all salons for a period
+    """Collection Review (single- or multi-salon owners): collections across all linked salons for a period
     (today / yesterday / 4d / 7d / 15d / 30d / week / month / last_month / 3m / 6m / YYYY-MM / custom?date_from&date_to).
     Locked behind the Owner PIN (header X-Owner-Pin)."""
     if user.get("role") not in ("admin", "super_admin"):
@@ -260,8 +260,8 @@ async def my_salons_overview(request: Request, period: str = "today", date_from:
     ids = set(user.get("tenant_ids") or [])
     if user.get("tenant_id"):
         ids.add(user["tenant_id"])
-    if len(ids) < 2:
-        raise HTTPException(400, "Only one salon is linked to your login")
+    if not ids:
+        raise HTTPException(400, "No salon is linked to your login")
     ph = (t or {}).get("security_pin_hash")
     if ph:
         pin = request.headers.get("X-Owner-Pin", "")

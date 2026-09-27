@@ -1,0 +1,32 @@
+{
+  "summary": "iter200 — WhatsApp Lead Nudge (auto-WA) tested end-to-end. Backend: 11/11 pytest checks green (GET/PUT/POST auto-wa contract, daily_limit persistence + restore, 422 on 0/101/-1/200, POST wa-intro on unknown lead → 404, briefing has wa_intros_sent_today & wa_intro_replies_today ints, salon-admin + anon get 401/403, unit tests _intro_params/_wa_phone/auto_wa_hot_leads-disabled). Frontend: super-admin → Lead Agent tab renders AutoWaToggle (unchecked) with status pill '0 sent today · 0 replies'; WhatsApp Blast button still present. STRICT policy honoured — never enabled the toggle and never called wa-intro on a real lead.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Super-admin Lead Agent", "issues": ["Pre-existing (not from this feature) React hydration warning: <button> nested inside another <button> — LeadEmailFix's edit button sits inside lead-toggle-<id>. Cosmetic only."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter200_lead_wa_auto.py",
+    "/app/test_reports/pytest/iter200.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routes/lead_wa_auto.py auto_wa_hot_leads(): the created_at filter uses ISO date-only string ('2026-09-27') compared against full ISO timestamps — works because the timestamp prefix compares correctly, but relies on lexicographic ordering with same-length strings. Safe today, but fragile if _now() format ever changes.",
+    "sent_today count in GET /auto-wa uses same date-prefix trick — same fragility. Consider a normalised 'created_date' field or a datetime range.",
+    "_wa_phone assumes India (+91) fallback for any 10-digit number after stripping leading 0 — international leads without country code will get mis-prefixed. OK today (India-only), but document assumption.",
+    "auto_wa_hot_leads relies on wa_intro_attempted_at + whatsapp_sent_at fields to avoid re-sends; ensure indexes on these + (created_at desc, reviews desc) for 40-lead scan to stay fast at scale.",
+    "note_lead_reply matches lead by phone-suffix regex on wa_intro_sent_at existence — if two leads share the last-10-digits (rare but possible with formatting), first match wins silently. Consider tie-breaking on most recent wa_intro_sent_at."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter200_lead_wa_auto.py"
+  ],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100% (toggle + status pill + Blast button all present, no blocking console errors)"},
+  "test_credentials": "Super-admin admin@miracurl-suite.com / og9T@41Es#OQb6 · salon admin admin@miracurl.com (tenant miracurl-marathahalli). Sourced from /app/memory/test_credentials.md via _creds.pw().",
+  "seed_data_creation": "None. daily_limit was toggled 25→30→25 and restored.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Auto-WA feature is stable. STRICT rule: never set enabled=true in PUT and never POST wa-intro on a real lead id — both send real WhatsApp messages via the APPROVED miracurl_lead_intro Meta template. Use the /wa-intro/does-not-exist path for 404 checks and the unit test for scheduler no-op. Fixture pattern in test_iter200_lead_wa_auto.py mirrors iter199 (cookie JWT + X-CSRF-Token from cookie jar for PUT/POST)."
+}

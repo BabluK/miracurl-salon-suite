@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="11" time="2.671" timestamp="2026-09-27T05:18:41.853375+00:00" hostname="agent-env-d1dfed1a-214d-43b3-ad1c-27a56ad52812"><testcase classname="tests.test_iter200_lead_wa_auto.TestPutAutoWa" name="test_put_persists_daily_limit" time="1.938" /><testcase classname="tests.test_iter200_lead_wa_auto.TestAuthGating" name="test_salon_admin_forbidden" time="1.141" /><testcase classname="tests.test_iter200_lead_wa_auto.TestAuthGating" name="test_anon_forbidden" time="0.145" /><testcase classname="tests.test_iter200_lead_wa_auto.TestGetAutoWa" name="test_get_returns_expected_keys" time="0.437" /><testcase classname="tests.test_iter200_lead_wa_auto.TestSendIntro" name="test_send_intro_unknown_lead_404" time="0.085" /><testcase classname="tests.test_iter200_lead_wa_auto.TestBriefing" name="test_briefing_has_wa_intro_counters" time="0.068" /><testcase classname="tests.test_iter200_lead_wa_auto.TestUnit" name="test_intro_params_and_wa_phone_and_disabled_scheduler" time="0.272"><failure message="KeyError: 'MONGO_URL'">tests/test_iter200_lead_wa_auto.py:149: in test_intro_params_and_wa_phone_and_disabled_scheduler
+    from routes.lead_wa_auto import _intro_params, _wa_phone, _local_hour, auto_wa_hot_leads
+routes/lead_wa_auto.py:12: in &lt;module&gt;
+    from database import _raw_db
+database.py:12: in &lt;module&gt;
+    mongo_url = os.environ['MONGO_URL']
+                ^^^^^^^^^^^^^^^^^^^^^^^
+&lt;frozen os&gt;:679: in __getitem__
+    ???
+E   KeyError: 'MONGO_URL'</failure></testcase><testcase classname="tests.test_iter200_lead_wa_auto.TestPutAutoWa" name="test_put_bad_daily_limit_422[0]" time="0.063" /><testcase classname="tests.test_iter200_lead_wa_auto.TestPutAutoWa" name="test_put_bad_daily_limit_422[101]" time="0.063" /><testcase classname="tests.test_iter200_lead_wa_auto.TestPutAutoWa" name="test_put_bad_daily_limit_422[-1]" time="0.064" /><testcase classname="tests.test_iter200_lead_wa_auto.TestPutAutoWa" name="test_put_bad_daily_limit_422[200]" time="0.062" /></testsuite></testsuites>
