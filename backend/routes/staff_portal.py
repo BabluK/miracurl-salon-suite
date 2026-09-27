@@ -317,7 +317,7 @@ def _half_day_amount(staff: dict) -> float:
     """Half of one day's salary: (monthly base / 30) / 2."""
     base = float(staff.get("monthly_base_salary") or 0)
     return round(base / 30 / 2, 2)
-AUTO_CHECKOUT_HOURS = 15    # forgot to check out — shift auto-closes at 15h (10 AM check-in → 1 AM), so late-night OT is kept
+AUTO_CHECKOUT_HOURS = 15    # forgot to check out — shift auto-closes (at shift end, at most 15h) with NO overtime credited
 
 
 class GeoIn(BaseModel):
@@ -438,7 +438,9 @@ def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
 
 
 async def _auto_close_stale_attendance():
-    """Close any shift still open after 15h (staff forgot to check out)."""
+    """Close any shift still open after 15h (staff forgot to check out).
+    Closes at the rostered shift end (never later than +15h) and credits NO overtime — a guessed
+    check-out time must not create phantom OT; the owner can adjust the day manually if needed."""
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=AUTO_CHECKOUT_HOURS)).isoformat()
     stale = await db.attendance.find(
         {"check_out_at": None, "check_in_at": {"$ne": None, "$lt": cutoff}},
@@ -449,12 +451,29 @@ async def _auto_close_stale_attendance():
         except (ValueError, TypeError):
             continue
         co = ci + timedelta(hours=AUTO_CHECKOUT_HOURS)
-        staff = await db.staff.find_one({"id": rec["staff_id"]}, {"_id": 0}) or {}
-        ot_h, ot_pay = _overtime_for(staff, co.astimezone(IST_TZ))
+        staff = await db.staff.find_one({"id": rec["staff_id"]}, {"_id": 0, "shift_end": 1}) or {}
+        h, m = _parse_hhmm(staff.get("shift_end"), "21:00")
+        shift_end = ci.astimezone(IST_TZ).replace(hour=h, minute=m, second=0, microsecond=0)
+        if shift_end > ci:
+            co = min(co, shift_end.astimezone(timezone.utc))
+        hours = round((co - ci).total_seconds() / 3600, 2)
         await db.attendance.update_one(
             {"id": rec["id"]},
-            {"$set": {"check_out_at": co.isoformat(), "hours_worked": float(AUTO_CHECKOUT_HOURS),
-                      "auto_checked_out": True, "overtime_hours": ot_h, "overtime_pay": ot_pay, **_ot_status(ot_pay)}})
+            {"$set": {"check_out_at": co.isoformat(), "hours_worked": hours, "auto_checked_out": True,
+                      "overtime_hours": 0.0, "overtime_pay": 0.0, "ot_status": None,
+                      "ot_approved_hours": None, "ot_approved_pay": None,
+                      "ot_note": "Auto-closed at shift end (no check-out) — overtime not credited"}})
+
+
+async def fix_auto_closed_overtime() -> int:
+    """One-off cleanup (all tenants): auto-closed shifts must never carry pending/approved guessed overtime."""
+    from database import _raw_db
+    r = await _raw_db.attendance.update_many(
+        {"auto_checked_out": True, "overtime_pay": {"$gt": 0}, "ot_status": {"$ne": "approved"}},
+        {"$set": {"overtime_hours": 0.0, "overtime_pay": 0.0, "ot_status": None,
+                  "ot_approved_hours": None, "ot_approved_pay": None,
+                  "ot_note": "Auto-closed shift (no check-out) — overtime not credited"}})
+    return r.modified_count
 
 
 class WaiveFineIn(BaseModel):

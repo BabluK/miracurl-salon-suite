@@ -68,7 +68,7 @@ from routes.public_chat import router as public_chat_router  # noqa: E402
 from routes.sales import router as sales_router  # noqa: E402
 from routes.gift_cards import router as gift_cards_router  # noqa: E402
 from routes.premium_membership import router as premium_membership_router  # noqa: E402
-from routes.mira_calls import router as mira_calls_router  # noqa: E402
+from routes.mira_hq import router as mira_hq_router  # noqa: E402
 from routes.registry import router as registry_router  # noqa: E402
 from routes.appointments_pos import router as appointments_pos_router  # noqa: E402
 from routes.invoice_edits import router as invoice_edits_router  # noqa: E402
@@ -131,8 +131,8 @@ from schedulers import (  # noqa: E402
     _cctv_poll_scheduler, _renewal_reminder_scheduler, _review_request_scheduler, _weekly_register_scheduler,
     _demo_followup_scheduler, _late_alert_scheduler, _weekly_package_scheduler,
     _lead_followup_scheduler, _staff_exit_scheduler, _sms_reminder_scheduler,
-    _gift_card_scheduler, _mira_auto_call_scheduler, _mira_digest_scheduler,
-    _lead_heat_scheduler, _callback_redial_scheduler, _phone_backfill_task, _weekly_win_scheduler,
+    _gift_card_scheduler, _mira_digest_scheduler,
+    _lead_heat_scheduler, _phone_backfill_task, _weekly_win_scheduler,
     _feedback_reminder_scheduler, _salon_digest_scheduler, _db_health_scheduler,
     _temp_transfer_scheduler, _open_bill_alert_scheduler, _manager_access_report_scheduler, _cash_report_scheduler,
     _late_digest_scheduler, _google_review_alert_scheduler, _daily_special_scheduler, _lead_nudge_scheduler,
@@ -146,7 +146,7 @@ for _r in (
     inventory_router, tenant_settings_router, crm_router, briefings_router,
     reviews_router, reports_router, public_site_router, super_admin_router,
     data_cleanup_router, super_admin_ops_router, assistant_router, offers_router,
-    public_chat_router, sales_router, registry_router, appointments_pos_router, invoice_edits_router, gift_cards_router, mira_calls_router,
+    public_chat_router, sales_router, registry_router, appointments_pos_router, invoice_edits_router, gift_cards_router, mira_hq_router,
     premium_membership_router,
     mira_studio_router, social_connect_router, mira_calendar_router, mira_autopilot_router,
     promo_video_router, platform_tools_router, promo_image_router, offer_flyer_router, hair_colors_router,
@@ -210,7 +210,7 @@ async def on_startup():
         _late_alert_scheduler, _renewal_reminder_scheduler, _demo_followup_scheduler, _lead_followup_scheduler,
         _review_request_scheduler, _referral_nudge_scheduler, _newbiz_followup_scheduler,
         _google_review_alert_scheduler, _monthly_report_scheduler, _weekly_report_scheduler, _birthday_scheduler,
-        _sms_reminder_scheduler, _gift_card_scheduler, _mira_auto_call_scheduler, _callback_redial_scheduler,
+        _sms_reminder_scheduler, _gift_card_scheduler,
         _weekly_win_scheduler, _feedback_reminder_scheduler, _salon_digest_scheduler, _open_bill_alert_scheduler,
         _manager_access_report_scheduler, _late_digest_scheduler, _daily_special_scheduler, _lead_nudge_scheduler,
         _colour_price_reminder_scheduler, autopilot_scheduler, weekly_promo_scheduler,
@@ -400,6 +400,12 @@ async def on_startup():
                                              "done_at": datetime.now(timezone.utc).isoformat()})
         logging.info("rescored %s mira leads — %s flagged newly-opened", len(leads), flagged)
 
+    async def _fix_auto_closed_ot():
+        from routes.staff_portal import fix_auto_closed_overtime
+        n = await fix_auto_closed_overtime()
+        if n:
+            logging.info("cleared guessed overtime on %s auto-closed attendance records", n)
+
     async def _db_prep():
         # Runs in the BACKGROUND so the pod passes its readiness probe immediately.
         # Any single failure (e.g. index option conflicts / duplicate keys on the
@@ -407,7 +413,8 @@ async def on_startup():
         for name, step in (("indexes", _ensure_indexes), ("migrations", _run_migrations),
                            ("seeds", _run_seeds), ("stuck-runs", _recover_stuck_runs),
                            ("last-visited-backfill", _backfill_last_visited),
-                           ("lead-newbiz-backfill", _backfill_lead_newbiz)):
+                           ("lead-newbiz-backfill", _backfill_lead_newbiz),
+                           ("auto-closed-ot-fix", _fix_auto_closed_ot)):
             try:
                 await step()
                 logging.info("startup db-prep step '%s' done", name)

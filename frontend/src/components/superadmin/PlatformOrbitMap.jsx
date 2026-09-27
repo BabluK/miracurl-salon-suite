@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { Building2, Receipt, CalendarCheck, Mic, Wand2, Briefcase, ShieldCheck, Bell, BarChart3, Users, Video, Globe, PhoneCall } from "lucide-react";
+import { Building2, Receipt, CalendarCheck, Mic, Wand2, Briefcase, ShieldCheck, Bell, BarChart3, Users, Video, Globe } from "lucide-react";
 import api from "@/lib/api";
 
 const HUB = { x: 42, y: 48 };
@@ -185,22 +185,6 @@ export function PlatformOrbitMap({ onGoTab }) {
       </div>
 
       <div className="space-y-4">
-        <div className="rounded-2xl bg-slate-950 border border-indigo-900/50 p-4" data-testid="map-mira-calls-card">
-          <div className="flex items-center gap-2 text-white text-sm font-bold">
-            <PhoneCall className="w-4 h-4 text-fuchsia-400" /> Mira Outbound Calls
-          </div>
-          <div className="grid grid-cols-2 gap-2 mt-3">
-            {[["Calls made", live?.call_stats?.total], ["Today", live?.call_stats?.today],
-              ["🎉 Interested", live?.call_stats?.interested], ["💬 AI conversations", live?.call_stats?.conversations]].map(([l, v]) => (
-              <div key={l} className="bg-white/5 rounded-xl px-3 py-2">
-                <div className="text-lg font-bold text-white">{v ?? "—"}</div>
-                <div className="text-[10px] text-white/40">{l}</div>
-              </div>
-            ))}
-          </div>
-          <button onClick={() => onGoTab?.("mira-leads")} data-testid="map-goto-leads" className="mt-2 text-[11px] text-fuchsia-400 hover:text-fuchsia-300">Open Lead Agent →</button>
-        </div>
-
         <div className="rounded-2xl bg-slate-950 border border-indigo-900/50 p-4" data-testid="map-live-activity">
           <div className="flex items-center justify-between">
             <span className="text-white text-sm font-bold">Live Activity Stream</span>

@@ -416,20 +416,9 @@ async def _gift_card_scheduler() -> None:
         await asyncio.sleep(3600)
 
 
-async def _mira_auto_call_scheduler() -> None:
-    """Every 10 min: Mira auto-calls hot leads discovered in the last 24h (if enabled)."""
-    from routes.mira_calls import auto_call_hot_leads
-    while True:
-        try:
-            await auto_call_hot_leads()
-        except Exception as e:
-            logging.error(f"mira auto-call scheduler error: {e}")
-        await asyncio.sleep(600)
-
-
 async def _mira_digest_scheduler() -> None:
     """Every 15 min: send Mira's evening digest once daily after 7 PM IST."""
-    from routes.mira_calls import send_daily_digest
+    from routes.mira_hq import send_daily_digest
     while True:
         try:
             if await send_daily_digest():
@@ -506,22 +495,6 @@ async def _lead_heat_scheduler() -> None:
         await asyncio.sleep(3600)
 
 
-async def _callback_redial_scheduler() -> None:
-    """Every 15 min: dial due timed callbacks and morning redials — each gated by the LEAD's local hours."""
-    from routes.mira_calls import run_callback_redials, run_timed_callbacks
-    while True:
-        try:
-            timed = await run_timed_callbacks()
-            if timed:
-                logging.info(f"timed callbacks dialed: {timed}")
-            n = await run_callback_redials()
-            if n:
-                logging.info(f"callback redials (lead-local morning): {n}")
-        except Exception as e:
-            logging.error(f"callback redial scheduler error: {e}")
-        await asyncio.sleep(900)
-
-
 async def _phone_backfill_task() -> None:
     """One-shot on startup: convert national lead phone numbers to international format (idempotent via flag)."""
     from routes.lead_gen import run_phone_backfill
@@ -541,7 +514,7 @@ async def _phone_backfill_task() -> None:
 
 async def _weekly_win_scheduler() -> None:
     """Monday ≥ 09:00 IST: email Mira's Weekly Win Report (idempotent per ISO week)."""
-    from routes.mira_calls import send_weekly_win_report
+    from routes.mira_hq import send_weekly_win_report
     while True:
         try:
             if await send_weekly_win_report():

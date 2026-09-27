@@ -163,224 +163,6 @@ function FunnelCards({ stats }) {
   );
 }
 
-function AutoCallToggle() {
-  const [s, setS] = useState(null);
-  useEffect(() => { api.get("/super-admin/mira-calls/auto-settings").then(r => setS(r.data)).catch(() => {}); }, []);
-  if (!s) return null;
-  const toggle = async () => {
-    const next = { ...s, enabled: !s.enabled };
-    setS(next);
-    try {
-      await api.put("/super-admin/mira-calls/auto-settings", next);
-      toast.success(next.enabled
-        ? `⚡ Auto campaign ON — Mira will call new hot leads within the hour (10 AM–7 PM IST, max ${next.daily_limit}/day)`
-        : "Auto campaign paused");
-    } catch (e) { setS(s); toast.error(e.response?.data?.detail || "Couldn't save"); }
-  };
-  return (
-    <label data-testid="lead-auto-call-toggle" title="Every 10 minutes Mira checks for freshly discovered hot leads and calls them automatically — business hours only, with a daily cap"
-      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold cursor-pointer transition-colors ${s.enabled ? "border-violet-400 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-500 hover:border-violet-300"}`}>
-      <input type="checkbox" checked={s.enabled} onChange={toggle} className="accent-violet-600 w-4 h-4" />
-      ⚡ Auto-call new hot leads
-    </label>
-  );
-}
-
-const CALL_STATUS_STYLE = {
-  completed: "bg-emerald-100 text-emerald-700", failed: "bg-rose-100 text-rose-600",
-  initiated: "bg-sky-100 text-sky-700", queued: "bg-slate-100 text-slate-500",
-  "no-answer": "bg-amber-100 text-amber-700", busy: "bg-amber-100 text-amber-700",
-};
-
-function RecordingPlayer({ callId, duration }) {
-  const [src, setSrc] = useState("");
-  const [loading, setLoading] = useState(false);
-  const load = async () => {
-    setLoading(true);
-    try {
-      const r = await api.get(`/super-admin/mira-calls/${callId}/recording`, { responseType: "blob" });
-      setSrc(URL.createObjectURL(r.data));
-    } catch { toast.error("Couldn't load the recording from Twilio"); }
-    finally { setLoading(false); }
-  };
-  if (src) return <audio controls autoPlay src={src} className="h-8 mt-1.5 w-full max-w-xs" data-testid={`call-recording-audio-${callId}`} />;
-  return (
-    <button onClick={load} disabled={loading} data-testid={`call-recording-btn-${callId}`}
-      className="text-[10px] text-emerald-600 font-semibold mt-1 inline-flex items-center gap-1 disabled:opacity-50">
-      {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : "🎧"} Play recording{duration ? ` (${duration}s)` : ""}
-    </button>
-  );
-}
-
-function CallHistoryPanel() {
-  const [open, setOpen] = useState(false);
-  const [data, setData] = useState(null);
-  const [expand, setExpand] = useState("");
-  const [retrying, setRetrying] = useState(false);
-  const reload = useCallback(() => api.get("/super-admin/mira-calls").then(r => setData(r.data)).catch(() => {}), []);
-  useEffect(() => {
-    if (open && !data) reload();
-  }, [open, data, reload]);
-  const retryFailed = async () => {
-    if (!await confirmAsync("Mira will re-dial everyone whose latest call FAILED (skipping opt-outs and leads who already said yes). Start retrying?")) return;
-    setRetrying(true);
-    try {
-      const { data: res } = await api.post("/super-admin/mira-calls/retry-failed");
-      if (!res.queued) { toast.info("No failed calls to retry right now"); return; }
-      toast.success(`📞 Retrying ${res.queued} failed call${res.queued !== 1 ? "s" : ""} — refresh in a minute to see results`);
-      setTimeout(reload, 5000);
-    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't start the retries"); }
-    finally { setRetrying(false); }
-  };
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200" data-testid="call-history-panel">
-      <div className="flex items-center gap-2 pr-3">
-        <button onClick={() => setOpen(o => !o)} data-testid="call-history-toggle"
-          className="flex-1 flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-700">
-          <span>📞 Mira Call History {data ? `· ${data.stats.total} calls (${data.stats.interested} 🎉 interested · ${data.stats.failed} failed)` : ""}</span>
-          <span className="text-slate-400">{open ? "▲" : "▼"}</span>
-        </button>
-        {data?.stats?.failed > 0 && (
-          <button onClick={retryFailed} disabled={retrying} data-testid="retry-failed-calls-btn"
-            title="Re-dial every lead whose latest call failed — perfect after upgrading your Twilio account"
-            className="shrink-0 text-xs px-3.5 py-2 rounded-lg bg-gradient-to-r from-rose-500 to-orange-500 text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
-            {retrying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "🔁"} Retry {data.stats.failed} failed
-          </button>
-        )}
-      </div>
-      {open && (
-        <div className="px-4 pb-4 space-y-2 max-h-96 overflow-y-auto">
-          <p className="text-[10px] text-slate-400" data-testid="recording-hint">🎧 Recordings appear on <b>answered</b> calls a few seconds after they end — failed and unanswered calls have no audio to record.</p>
-          {!data && <p className="text-xs text-slate-400">Loading…</p>}
-          {data?.items?.length === 0 && <p className="text-xs text-slate-400">No calls yet — hit "Mira Call Hot Leads" or ask Mira to call.</p>}
-          {(data?.items || []).map((c) => (
-            <div key={c.id} className="border border-slate-100 rounded-xl px-3 py-2" data-testid={`call-row-${c.id}`}>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-semibold text-slate-700">{c.lead_name || c.phone}</span>
-                <span className="text-[10px] text-slate-400 font-mono">{c.phone}</span>
-                <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full ${CALL_STATUS_STYLE[c.status] || "bg-slate-100 text-slate-500"}`}>{c.status}</span>
-                {c.result && <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">{c.result.replace("_", " ")}</span>}
-                {c.duration > 0 && <span className="text-[10px] text-slate-400">{c.duration}s</span>}
-                {c.auto && <span className="text-[9px] font-bold text-amber-600">⚡ auto</span>}
-                <span className="ml-auto text-[10px] text-slate-400">{new Date(c.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
-              </div>
-              {c.error_friendly && <p className="text-[10px] text-rose-500 mt-1">⚠ {c.error_friendly}</p>}
-              {c.callback_at && <p className="text-[10px] text-amber-600 mt-0.5" data-testid={`callback-time-${c.id}`}>⏰ Owner asked to call back: {new Date(c.callback_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</p>}
-              {c.recording_url && <RecordingPlayer callId={c.id} duration={c.recording_duration} />}
-              {c.convo?.length > 0 && (
-                <button onClick={() => setExpand(expand === c.id ? "" : c.id)} data-testid={`call-transcript-btn-${c.id}`}
-                  className="text-[10px] text-violet-600 font-semibold mt-1">💬 {expand === c.id ? "Hide" : "Show"} conversation ({Math.ceil(c.convo.length / 2)} turns)</button>
-              )}
-              {expand === c.id && (
-                <div className="mt-2 space-y-1 bg-slate-50 rounded-lg p-2">
-                  {c.convo.map((m, i) => (
-                    <p key={i} className={`text-[11px] ${m.role === "mira" ? "text-violet-700" : "text-slate-600"}`}>
-                      <b>{m.role === "mira" ? "Mira" : "Owner"}:</b> {m.text}
-                    </p>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ScheduledCallsPanel() {
-  const [items, setItems] = useState(null);
-  const [open, setOpen] = useState(false);
-  const [editId, setEditId] = useState("");
-  const [editVal, setEditVal] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const load = () => api.get("/super-admin/mira-calls/scheduled").then(r => setItems(r.data.items)).catch(() => {});
-  useEffect(() => { load(); const t = setInterval(load, 60000); return () => clearInterval(t); }, []);
-
-  const cancel = async (l) => {
-    if (!await confirmAsync(`Cancel Mira's scheduled call to ${l.name || l.phone}?`)) return;
-    try {
-      await api.post(`/super-admin/mira-calls/scheduled/${l.id}/cancel`);
-      toast.success(`Call to ${l.name || "lead"} cancelled — Mira won't ring them`);
-      load();
-    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't cancel"); }
-  };
-
-  const startEdit = (l) => {
-    setEditId(l.id);
-    const d = new Date(l.callback_at);
-    const pad = (n) => String(n).padStart(2, "0");
-    setEditVal(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
-  };
-
-  const saveReschedule = async (l) => {
-    if (!editVal) { toast.error("Pick the new date & time"); return; }
-    setSaving(true);
-    try {
-      await api.post(`/super-admin/mira-calls/scheduled/${l.id}/reschedule`, { callback_at: new Date(editVal).toISOString() });
-      toast.success(`Mira will now ring ${l.name || "the lead"} at the new time ⏰`);
-      setEditId("");
-      load();
-    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't reschedule"); }
-    finally { setSaving(false); }
-  };
-
-  const when = (iso) => {
-    try {
-      const d = new Date(iso);
-      const mins = Math.round((d - Date.now()) / 60000);
-      const rel = mins <= 0 ? "due now" : mins < 60 ? `in ${mins}m` : mins < 1440 ? `in ${Math.round(mins / 60)}h` : `in ${Math.round(mins / 1440)}d`;
-      return `${d.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} IST · ${rel}`;
-    } catch { return iso; }
-  };
-
-  if (!items || items.length === 0) return null;
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200" data-testid="scheduled-calls-panel">
-      <button onClick={() => setOpen(o => !o)} data-testid="scheduled-calls-toggle"
-        className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-slate-700">
-        <span>⏰ Scheduled Calls · {items.length} queued — who Mira will ring next</span>
-        <span className="text-slate-400">{open ? "▲" : "▼"}</span>
-      </button>
-      {open && (
-        <div className="px-4 pb-4 space-y-2 max-h-96 overflow-y-auto">
-          {items.map(l => (
-            <div key={l.id} className="border border-slate-100 rounded-xl px-3 py-2 flex items-center gap-2 flex-wrap" data-testid={`scheduled-call-${l.id}`}>
-              <span className="text-xs font-semibold text-slate-700">{l.name || l.phone}</span>
-              {l.city && <span className="text-[10px] text-slate-400">{l.city}</span>}
-              <span className="text-[10px] text-slate-400 font-mono">{l.phone}</span>
-              {typeof l.score === "number" && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-600">🔥 {l.score}</span>}
-              <span className="text-[10px] font-semibold text-sky-600 ml-auto">📞 {when(l.callback_at)}</span>
-              <button onClick={() => (editId === l.id ? setEditId("") : startEdit(l))} data-testid={`reschedule-scheduled-${l.id}`}
-                className="text-[10px] font-bold px-2.5 py-1 rounded-full border border-sky-200 text-sky-600 hover:bg-sky-50">
-                ⏰ Move
-              </button>
-              <button onClick={() => cancel(l)} data-testid={`cancel-scheduled-${l.id}`}
-                className="text-[10px] font-bold px-2.5 py-1 rounded-full border border-rose-200 text-rose-600 hover:bg-rose-50">
-                ✕ Cancel
-              </button>
-              {editId === l.id && (
-                <div className="w-full flex items-center gap-2 mt-1" data-testid={`reschedule-form-${l.id}`}>
-                  <input type="datetime-local" value={editVal} onChange={(e) => setEditVal(e.target.value)}
-                    min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
-                    data-testid={`reschedule-input-${l.id}`}
-                    className="text-[11px] px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700" />
-                  <button onClick={() => saveReschedule(l)} disabled={saving} data-testid={`reschedule-save-${l.id}`}
-                    className="text-[10px] font-bold px-3 py-1.5 rounded-full bg-sky-500 text-white hover:bg-sky-600 disabled:opacity-50">
-                    {saving ? "Saving…" : "✓ Save new time"}
-                  </button>
-                  <button onClick={() => setEditId("")} className="text-[10px] text-slate-400 hover:text-slate-600">Cancel</button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function LeadRow({ lead, onRefresh }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState("");
@@ -434,12 +216,6 @@ function LeadRow({ lead, onRefresh }) {
     await api.post(`/super-admin/mira-leads/${lead.id}/stage`, { stage });
     toast.success("Status updated ✦");
   }, "stage");
-
-  const miraCall = () => act(async () => {
-    if (!await confirmAsync(`Mira will call ${lead.phone} now and pitch Miracurl Suite. Proceed?`)) return;
-    await api.post(`/super-admin/mira-calls/${lead.id}/call`);
-    toast.success("📞 Mira is dialing — the result will show on this lead in a minute");
-  }, "mira-call");
 
   const findEmail = () => act(async () => {
     const { data } = await api.post(`/super-admin/mira-leads/${lead.id}/find-email`);
@@ -575,13 +351,6 @@ function LeadRow({ lead, onRefresh }) {
               <button onClick={sendWhatsApp} disabled={!!busy} data-testid={`lead-whatsapp-${lead.id}`}
                 className="text-xs px-4 py-2 rounded-lg bg-[#25D366] text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
                 {busy === "whatsapp" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageCircle className="w-3.5 h-3.5" />} Send via WhatsApp
-              </button>
-            )}
-            {lead.phone && !lead.do_not_call && (
-              <button onClick={miraCall} disabled={!!busy} data-testid={`lead-mira-call-${lead.id}`}
-                title="Mira voice-calls this lead with the Miracurl pitch — press 1 sends the demo pack"
-                className="text-xs px-3.5 py-2 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
-                {busy === "mira-call" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Phone className="w-3.5 h-3.5" />} Mira Call
               </button>
             )}
             {isSent && lead.phone && (
@@ -778,20 +547,6 @@ export function MiraLeadAgent() {
             ⏹ Stop
           </button>
         )}
-        <button data-testid="lead-call-hot-btn"
-          onClick={async () => {
-            if (!await confirmAsync("Mira will VOICE-CALL every hot lead with a phone number (max 20, not called in the last 7 days), pitch Miracurl Suite and offer the demo + trial on keypress 1. Start calling?")) return;
-            try {
-              const { data } = await api.post("/super-admin/mira-calls/call-hot", { limit: 20 });
-              if (!data.queued) { toast.info(data.note || "No callable hot leads right now"); return; }
-              toast.success(`📞 Mira is calling ${data.queued} hot leads — results appear on each lead card`);
-            } catch (e) { toast.error(e.response?.data?.detail || "Couldn't start the calls"); }
-          }}
-          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white text-sm font-bold inline-flex items-center gap-2"
-          title="Mira voice-calls all hot leads with your pitch script — press 1 sends the demo pack by email">
-          📞 Mira Call Hot Leads
-        </button>
-        <AutoCallToggle />
         <button data-testid="wa-blast-open-btn" onClick={() => setBlastOpen(true)}
           className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold inline-flex items-center gap-2 hover:bg-emerald-700"
           title="Mira composes a personalized WhatsApp message for every uncontacted lead — you tap through and send">
@@ -831,10 +586,6 @@ export function MiraLeadAgent() {
           {(runs[0].log || []).slice(-14).map((l, i) => <p key={i}>{l}</p>)}
         </div>
       )}
-
-      <CallHistoryPanel />
-
-      <ScheduledCallsPanel />
 
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2" data-testid="lead-filter-tabs">
