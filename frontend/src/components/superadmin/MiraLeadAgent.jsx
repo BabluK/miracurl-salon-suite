@@ -7,6 +7,7 @@ import { WaQuickInvite } from "@/components/superadmin/WaQuickInvite";
 import { CityWatchCard } from "@/components/superadmin/CityWatchCard";
 import { WaBlastModal } from "@/components/superadmin/WaBlastModal";
 import { LeadEmailFix } from "@/components/superadmin/LeadEmailFix";
+import { AutoWaToggle } from "@/components/superadmin/AutoWaToggle";
 
 const STATUS_STYLE = {
   drafted: "bg-amber-100 text-amber-700", no_email: "bg-slate-100 text-slate-500",
@@ -197,6 +198,12 @@ function LeadRow({ lead, onRefresh }) {
     }
   }, "whatsapp");
 
+  const sendWaIntro = () => act(async () => {
+    if (!await confirmAsync(`Mira will send her WhatsApp intro (approved Meta template) to ${lead.phone} now. Proceed?`)) return;
+    await api.post(`/super-admin/mira-leads/${lead.id}/wa-intro`);
+    toast.success("💬 WhatsApp intro sent from the Miracurl number — replies show on this lead");
+  }, "wa-intro");
+
   const sendSlotPicker = () => act(async () => {
     await api.post(`/super-admin/mira-leads/${lead.id}/send-slot-picker`);
     toast.success(`Time-picker sent to ${lead.email} — they'll choose a demo slot 📅`);
@@ -352,6 +359,18 @@ function LeadRow({ lead, onRefresh }) {
                 className="text-xs px-4 py-2 rounded-lg bg-[#25D366] text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
                 {busy === "whatsapp" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageCircle className="w-3.5 h-3.5" />} Send via WhatsApp
               </button>
+            )}
+            {lead.phone && !lead.do_not_call && !lead.wa_opt_out && !lead.wa_intro_sent_at && (
+              <button onClick={sendWaIntro} disabled={!!busy} data-testid={`lead-wa-intro-${lead.id}`}
+                title="Mira sends her WhatsApp intro from the Miracurl business number (Meta template) — replies land here"
+                className="text-xs px-3.5 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
+                {busy === "wa-intro" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageCircle className="w-3.5 h-3.5" />} WA Intro
+              </button>
+            )}
+            {lead.wa_intro_sent_at && (
+              <span data-testid={`lead-wa-intro-sent-${lead.id}`} className={`text-[10px] font-bold px-2 py-1 rounded-full ${lead.wa_intro_replied_at ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                {lead.wa_intro_replied_at ? "💬 replied on WhatsApp" : "💬 WA intro sent"}
+              </span>
             )}
             {isSent && lead.phone && (
               <a href={`tel:${lead.phone}`} data-testid={`lead-call-${lead.id}`} title={`Call ${lead.phone}`}
@@ -547,6 +566,7 @@ export function MiraLeadAgent() {
             ⏹ Stop
           </button>
         )}
+        <AutoWaToggle />
         <button data-testid="wa-blast-open-btn" onClick={() => setBlastOpen(true)}
           className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold inline-flex items-center gap-2 hover:bg-emerald-700"
           title="Mira composes a personalized WhatsApp message for every uncontacted lead — you tap through and send">

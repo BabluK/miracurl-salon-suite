@@ -105,6 +105,8 @@ async def _lead_snapshot(today: str) -> dict:
         "leads_heated_up_this_week": (rd.get("risers") or [])[:3] if (rd.get("ran_at") or "") >= week_ago else [],
         "emails_drafted_awaiting_your_approval": await _raw_db.mira_leads.count_documents(
             {"status": {"$in": ["drafted", "researched"]}, "email": {"$nin": ["", None]}}),
+        "wa_intros_sent_today": await _raw_db.mira_wa_intros.count_documents({"created_at": {"$gte": today}}),
+        "wa_intro_replies_today": await _raw_db.mira_leads.count_documents({"wa_intro_replied_at": {"$gte": today}}),
     }
 
 
@@ -156,6 +158,14 @@ def _briefing_summary(snap: dict) -> str:
     return "; ".join(bits[:4]) if bits else "everything is calm right now"
 
 
+def _briefing_wa_report(snap: dict) -> str:
+    n, r = snap["wa_intros_sent_today"], snap["wa_intro_replies_today"]
+    if not n and not r:
+        return ""
+    rep = f" WhatsApp: I introduced Miracurl to {_plural(n, 'hot lead', 'hot leads')} today"
+    return rep + (f" — {_plural(r, 'reply', 'replies')} already, check the Lead Agent!" if r else ".")
+
+
 def _briefing_suggestion(snap: dict) -> str:
     drafted = snap["emails_drafted_awaiting_your_approval"]
     if drafted:
@@ -183,7 +193,7 @@ async def mira_briefing(user=Depends(require_super_admin)):
     snap = await _hq_snapshot()
     stock_note = low_stock_line(await _hq_wallet())
     text = (f"Hey Miracurl! {_tod_greeting()}! {_briefing_summary(snap)}."
-            f"{await _briefing_heat_note()}{_briefing_suggestion(snap)} "
+            f"{_briefing_wa_report(snap)}{await _briefing_heat_note()}{_briefing_suggestion(snap)} "
             + (f"{stock_note} " if stock_note else "")
             + "How may I help you today — what details do you want me to show?")
     _health, _orphans, alerts = await _system_health()
@@ -252,7 +262,8 @@ def _mira_system_prompt() -> str:
                        "LANGUAGE: reply in the SAME language the admin used — English or Hindi (Devanagari script). "
                        "Hinglish (Hindi words in Latin script) counts as Hindi: reply in Devanagari Hindi. "
                        "BE PROACTIVE: if emails_drafted_awaiting_your_approval > 0, suggest approving them. If "
-                       "hot_leads_with_phone is large, suggest a WhatsApp or email outreach session. You may also "
+                       "hot_leads_with_phone is large, suggest a WhatsApp or email outreach session (you auto-send WhatsApp intros to "
+                       "fresh hot leads when the owner enables it in the Lead Agent — wa_intros_sent_today shows today's count). You may also "
                        "suggest hunting leads in a new city when the pipeline looks thin. You do NOT make phone calls — "
                        "if asked to call someone, say outreach happens over WhatsApp and email and offer that instead. "
                        'Respond ONLY with JSON: {"answer": "<spoken answer>", "tab": "<tab id or empty>"}')

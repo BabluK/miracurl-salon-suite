@@ -25,6 +25,12 @@ async def handle_inbound_message(msg: dict, value: dict) -> None:
     }
     await _raw_db.whatsapp_messages.insert_one(doc)
     log.info("whatsapp inbound %s from %s (%s): %.80s", msg.get("type"), msg.get("from"), (tenant or {}).get("slug") or "platform", doc["text"])
+    if not tenant:
+        try:
+            from routes.lead_wa_auto import note_lead_reply
+            await note_lead_reply(doc["wa_id"], doc["text"])
+        except Exception:  # noqa: BLE001
+            log.exception("lead reply tracking failed for %s", msg.get("id"))
     try:
         await mira_whatsapp_reply(doc, tenant)
     except Exception:  # noqa: BLE001 — a failed AI reply must never fail the webhook

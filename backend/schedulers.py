@@ -416,6 +416,17 @@ async def _gift_card_scheduler() -> None:
         await asyncio.sleep(3600)
 
 
+async def _mira_auto_wa_scheduler() -> None:
+    """Every 10 min: Mira WhatsApp-intros hot leads discovered in the last 48h (if enabled + template approved)."""
+    from routes.lead_wa_auto import auto_wa_hot_leads
+    while True:
+        try:
+            await auto_wa_hot_leads()
+        except Exception as e:
+            logging.error(f"mira auto-WA scheduler error: {e}")
+        await asyncio.sleep(600)
+
+
 async def _mira_digest_scheduler() -> None:
     """Every 15 min: send Mira's evening digest once daily after 7 PM IST."""
     from routes.mira_hq import send_daily_digest
