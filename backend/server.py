@@ -407,6 +407,12 @@ async def on_startup():
         if n:
             logging.info("cleared guessed overtime on %s auto-closed attendance records", n)
 
+    async def _purge_own_leads():
+        from routes.lead_gen import purge_own_business_leads
+        n = await purge_own_business_leads()
+        if n:
+            logging.info("rejected %s pipeline leads that are our own salons", n)
+
     async def _db_prep():
         # Runs in the BACKGROUND so the pod passes its readiness probe immediately.
         # Any single failure (e.g. index option conflicts / duplicate keys on the
@@ -415,7 +421,8 @@ async def on_startup():
                            ("seeds", _run_seeds), ("stuck-runs", _recover_stuck_runs),
                            ("last-visited-backfill", _backfill_last_visited),
                            ("lead-newbiz-backfill", _backfill_lead_newbiz),
-                           ("auto-closed-ot-fix", _fix_auto_closed_ot)):
+                           ("auto-closed-ot-fix", _fix_auto_closed_ot),
+                           ("own-salon-lead-purge", _purge_own_leads)):
             try:
                 await step()
                 logging.info("startup db-prep step '%s' done", name)

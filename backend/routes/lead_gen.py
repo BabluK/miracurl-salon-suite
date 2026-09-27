@@ -560,17 +560,59 @@ async def _ai_candidates(city: str, target: int, existing: set, noun: str) -> li
     return [c for c in (plan.get("salons") or []) if c.get("name") and c["name"].strip().lower() not in existing][:target]
 
 
+
+_BRAND_WORDS = ("miracurl",)
+
+
+def _norm_biz(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", (name or "").lower()).strip()
+
+
+async def _own_business_filter():
+    """Returns is_own(candidate) — True for the platform's own tenants (name / phone / website / brand word)."""
+    from email_service import _LOGIN_ONLY_DOMAINS
+    tenants = await _raw_db.tenants.find({}, {"_id": 0, "name": 1, "phone": 1, "website": 1, "slug": 1}).to_list(500)
+    names = {_norm_biz(t.get("name")) for t in tenants if t.get("name")}
+    phones = {"".join(ch for ch in (t.get("phone") or "") if ch.isdigit())[-10:] for t in tenants if t.get("phone")}
+    sites = {(t.get("website") or "").lower().replace("https://", "").replace("http://", "").split("/")[0].removeprefix("www.")
+             for t in tenants if t.get("website")} | set(_LOGIN_ONLY_DOMAINS)
+
+    def is_own(c: dict) -> bool:
+        n = _norm_biz(c.get("name"))
+        if any(w in n for w in _BRAND_WORDS) or (n and n in names):
+            return True
+        ph = "".join(ch for ch in (c.get("phone") or (c.get("_place") or {}).get("phone") or "") if ch.isdigit())[-10:]
+        if ph and ph in phones:
+            return True
+        site = (c.get("website") or "").lower().replace("https://", "").replace("http://", "").split("/")[0].removeprefix("www.")
+        return bool(site) and site in sites
+    return is_own
+
+
+async def purge_own_business_leads() -> int:
+    """Startup/idempotent: reject any pipeline lead that is actually one of our own salons."""
+    is_own = await _own_business_filter()
+    n = 0
+    async for l in _raw_db.mira_leads.find({"status": {"$nin": ["rejected", "customer"]}},
+                                           {"_id": 0, "id": 1, "name": 1, "phone": 1, "website": 1}):
+        if is_own(l):
+            await _raw_db.mira_leads.update_one({"id": l["id"]}, {"$set": {"status": "rejected", "reject_reason": "own_business"}})
+            n += 1
+    return n
+
+
 async def _find_candidates(client: httpx.AsyncClient, city: str, target: int, existing: set,
                            areas: list | None = None, vertical: str = "salon") -> tuple:
     """Returns (source, candidates, note). Google Maps when available, else Mira AI research."""
     noun = "restaurant" if vertical == "restaurant" else "salon"
+    is_own = await _own_business_filter()
     raw, note = await _places_search(client, city, max(target * 3, 40), areas=areas, vertical=vertical)
-    places = [p for p in raw if p["name"] and p["name"].lower() not in existing][:target]
+    places = [p for p in raw if p["name"] and p["name"].lower() not in existing and not is_own(p)][:target]
     if places:
         return "maps", [{"name": p["name"], "website": p["website"], "area": p["address"], "_place": p} for p in places], ""
     if raw:
         note = "all Maps results already contacted"
-    return "ai", await _ai_candidates(city, target, existing, noun), note
+    return "ai", [c for c in await _ai_candidates(city, target, existing, noun) if not is_own(c)], note
 
 
 async def _build_candidate_lead(client: httpx.AsyncClient, cand: dict, city: str, run_id: str,

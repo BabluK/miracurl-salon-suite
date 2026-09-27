@@ -176,6 +176,41 @@ async def search_phone(q: str, user=Depends(get_current_user)):
     return out[:6]
 
 
+@router.get("/customers/invalid-phones")
+async def customer_invalid_phones(user=Depends(require_admin)):
+    """Guests whose saved number can't receive WhatsApp/SMS (wrong length, bad start digit, placeholder)."""
+    docs = await db.customers.find(
+        {}, {"_id": 0, "id": 1, "name": 1, "phone": 1, "country_code": 1, "visits": 1, "total_spent": 1,
+             "last_visit": 1}).to_list(5000)
+    out = []
+    for c in docs:
+        reason = _phone_problem(c.get("phone"), c.get("country_code") or "+91")
+        if reason:
+            out.append({**c, "reason": reason})
+    out.sort(key=lambda c: (-(c.get("visits") or 0), c.get("name") or ""))
+    return out
+
+
+def _phone_problem(phone: str, cc: str) -> str:
+    digits = re.sub(r"\D", "", phone or "")
+    if not digits:
+        return "No number saved"
+    if cc in ("+91", "91"):
+        if digits.startswith("91") and len(digits) == 12:
+            digits = digits[2:]
+        digits = digits.lstrip("0")
+        if len(digits) != 10:
+            return f"Indian number must be 10 digits (has {len(digits)})"
+        if digits[0] not in "6789":
+            return "Indian mobile numbers start with 6, 7, 8 or 9"
+        if len(set(digits)) <= 2:
+            return "Looks like a placeholder (repeated digits)"
+        return ""
+    if len(digits) < 7 or len(digits) > 15:
+        return f"Number has {len(digits)} digits — expected 7–15"
+    return ""
+
+
 @router.get("/customers/duplicates")
 async def customer_duplicates(user=Depends(require_admin)):
     """Groups of CRM records sharing the same phone number (last 10 digits)."""

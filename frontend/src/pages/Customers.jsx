@@ -3,13 +3,14 @@ import WaCampaignModal from "@/components/crm/WaCampaignModal";
 import WaCampaignPage from "@/components/crm/WaCampaignPage";
 import { ImportCustomersModal } from "@/components/customers/ImportCustomersModal";
 import api from "@/lib/api";
-import { Plus, X, Search, Edit3, Trash2, Mail, Award, Download, Upload, Wallet, History, GitMerge, RefreshCw, Users, Star, IndianRupee, Heart, MessageCircle, CalendarDays, Clock3, ArrowUpDown, Crown } from "lucide-react";
+import { Plus, X, Search, Edit3, Trash2, Mail, Award, Download, Upload, Wallet, History, GitMerge, RefreshCw, Users, PhoneOff, Star, IndianRupee, Heart, MessageCircle, CalendarDays, Clock3, ArrowUpDown, Crown } from "lucide-react";
 import { CrmStat, CrmPager, sortCustomers } from "@/components/crm/CrmBits";
 import { toast } from "sonner";
 import { askConfirm } from "@/components/ConfirmDialog";
 import { WalletDialog } from "@/components/WalletDialog";
 import { CustomerHistoryModal } from "@/components/crm/CustomerHistoryModal";
 import { MergeDuplicatesModal } from "@/components/crm/MergeDuplicatesModal";
+import { InvalidPhonesModal } from "@/components/crm/InvalidPhonesModal";
 import { COUNTRY_CODES, phoneDisplay } from "@/lib/countryCodes";
 import { ReachOutMenu } from "@/components/customers/ReachOutMenu";
 import { RecentInvoices } from "@/components/crm/RecentInvoices";
@@ -22,6 +23,7 @@ export default function Customers() {
   const [walletFor, setWalletFor] = useState(null);
   const [historyFor, setHistoryFor] = useState(null);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [badPhonesOpen, setBadPhonesOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [selected, setSelected] = useState(() => new Set());
   const [campaignOpen, setCampaignOpen] = useState(false);
@@ -173,6 +175,7 @@ export default function Customers() {
         <div className="flex items-center gap-2 flex-wrap">
           {[["import-customers-btn", () => setImportOpen(true), Upload, "Import CSV", "Bring guests in from a CSV / Excel export"],
             ["merge-duplicates-btn", () => setMergeOpen(true), GitMerge, "Merge duplicates", "Find & merge guests saved twice with the same number"],
+            ["fix-phones-btn", () => setBadPhonesOpen(true), PhoneOff, "Fix numbers", "Guests whose phone number is invalid — WhatsApp & SMS can't reach them"],
             ["resync-stats-btn", resyncStats, RefreshCw, "Recalculate spend", "Recalculate every guest's Spent & Visits from actual bills"],
             ["export-customers-csv-btn", exportCsv, Download, "Export CSV", "Download all customers as CSV (Name, Number, Email, Gender…)"]].map(([id, fn, Icon, label, title]) => (
             <button key={id} data-testid={id} onClick={fn} title={title} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm text-slate-700 hover:border-[#9b3a4e]/40 hover:text-[#7f2d3f] shadow-sm transition-colors">
@@ -291,6 +294,7 @@ export default function Customers() {
       {walletFor && <WalletDialog customer={walletFor} onClose={() => setWalletFor(null)} onChanged={load} />}
       {historyFor && <CustomerHistoryModal customer={historyFor} onClose={() => setHistoryFor(null)} />}
       {mergeOpen && <MergeDuplicatesModal onClose={() => setMergeOpen(false)} onMerged={load} />}
+      {badPhonesOpen && <InvalidPhonesModal onClose={() => setBadPhonesOpen(false)} onFixed={load} />}
       {campaignOpen && <WaCampaignModal customers={list.filter(c => selected.has(c.id))} onClose={() => setCampaignOpen(false)} onQueued={() => setSelected(new Set())} />}
       {importOpen && <ImportCustomersModal onClose={() => setImportOpen(false)} onDone={load} />}
 
