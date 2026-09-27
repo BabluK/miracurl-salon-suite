@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { PlanTierPanel } from "@/components/superadmin/PlanTierPanel";
 import { toast } from "sonner";
-import { X, MessageSquare, Bot, Megaphone, ShieldCheck, ShieldOff, Loader2, Phone, CheckCircle2, Rocket, PauseCircle, Send, FileSignature } from "lucide-react";
+import { X, MessageSquare, Bot, Megaphone, ShieldCheck, ShieldOff, Loader2, Phone, CheckCircle2, Rocket, PauseCircle, Send, FileSignature, Crown } from "lucide-react";
+import { DashboardAurora } from "@/components/DashboardAurora";
 
 function Switch({ on, onChange, busy, testid }) {
   return (
@@ -49,26 +50,27 @@ export function TenantFeaturesModal({ tenant, onClose, onChanged }) {
   const checklistDone = items.length > 0 && items.every(i => cl[i.key]);
   const canGoLive = d?.agreement?.accepted && checklistDone;
   return (
-    <div className="fixed inset-0 z-[120] flex items-start justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto" onClick={onClose} data-testid="tenant-features-modal">
-      <div className="relative w-full max-w-2xl rounded-[28px] bg-[#f7f5f0] shadow-[0_40px_80px_-30px_rgba(0,0,0,.7)] my-auto overflow-hidden ring-1 ring-black/10" onClick={e => e.stopPropagation()}>
-        <div className="relative bg-[#15151b] text-white px-6 pt-6 pb-7 overflow-hidden">
-          <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-[#d4af37]/15 blur-3xl" />
-          <div className="absolute inset-0 opacity-[0.06] bg-[radial-gradient(circle_at_20%_20%,#fff_1px,transparent_1px)] bg-[length:14px_14px]" />
-          <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors" data-testid="tenant-features-close"><X className="w-4 h-4" /></button>
-          <div className="relative">
-            <div className="text-[10px] uppercase tracking-[0.35em] text-[#d4af37] font-semibold">HQ control centre</div>
-            <h3 className="font-playfair text-3xl mt-1 leading-tight">{tenant.name}</h3>
-            <p className="text-xs text-white/60 mt-1">/{tenant.slug} · {tenant.plan || "trial"}{tenant.location ? ` · ${tenant.location}` : ""}</p>
+    <div className="fixed inset-0 z-[120] flex items-start justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto" onClick={onClose} data-testid="tenant-features-modal">
+      <div className="relative w-full max-w-2xl rounded-[28px] bg-[#f7f5f0] su-cream shadow-[0_40px_80px_-30px_rgba(0,0,0,.7)] my-auto overflow-hidden ring-1 ring-[#d4af37]/40" onClick={e => e.stopPropagation()}>
+        <div className="gold-night-canvas relative isolate overflow-hidden text-white px-6 pt-6 pb-7 border-b border-[#d4af37]/30" data-vertical={tenant.business_type === "restaurant" ? "restaurant" : "salon"}>
+          <DashboardAurora />
+          <button type="button" onClick={onClose} aria-label="Close"
+            className="absolute z-30 top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-[#d4af37]/30 ring-1 ring-white/20 hover:ring-[#d4af37]/60 flex items-center justify-center transition-colors"
+            data-testid="tenant-features-close"><X className="w-4 h-4" /></button>
+          <div className="relative z-10 pr-12 su-stagger">
+            <div className="text-[10px] uppercase tracking-[0.35em] text-[#d4af37] font-semibold inline-flex items-center gap-2"><Crown className="w-3.5 h-3.5" /> HQ control centre</div>
+            <h3 className="font-playfair text-3xl sm:text-4xl mt-1 leading-tight"><span className="su-gold-word" data-text={tenant.name}>{tenant.name}</span></h3>
+            <p className="text-xs text-white/60 mt-1.5">/{tenant.slug} · {tenant.plan || "trial"}{tenant.location ? ` · ${tenant.location}` : ""}</p>
             {d && (
               <div className="flex flex-wrap gap-2 mt-4" data-testid="hq-status-chips">
                 {[["SMS", d.sms], ["WhatsApp", d.whatsapp], [d.campaign?.name || "Campaign", d.campaign?.on], ["Support access", d.support_access]].map(([l, on]) => (
-                  <span key={l} className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold tracking-wide ${on ? "border-emerald-400/50 bg-emerald-400/15 text-emerald-200" : "border-white/15 bg-white/5 text-white/45"}`}>{on ? "● " : "○ "}{l}</span>
+                  <span key={l} className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold tracking-wide backdrop-blur-md ${on ? "border-[#d4af37]/60 bg-[#d4af37]/15 text-[#f3e3ae]" : "border-white/15 bg-white/5 text-white/45"}`}>{on ? "● " : "○ "}{l}</span>
                 ))}
               </div>
             )}
           </div>
         </div>
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-5 su-stagger">
         <p className="text-xs text-slate-500 -mt-1">You decide which paid channels & programmes this salon gets. <b>OFF</b> = hidden in their app and sending blocked. Every switch is written to the salon's audit log.</p>
         {!d ? <div className="py-10 text-center text-slate-400"><Loader2 className="w-5 h-5 animate-spin inline" /></div> : (
           <>

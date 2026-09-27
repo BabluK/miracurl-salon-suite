@@ -487,26 +487,21 @@ async def _fetch_template_row(client, key: str, kind: str, tpl_id: str) -> dict:
 
 def _mark_receipt_rows(rows: list[dict], receipt_kind: str) -> None:
     for r in rows:
-        if r["kind"] not in ("billing", "billing_v2"):
-            continue
-        r["in_use"] = r["kind"] == receipt_kind
-        if r["kind"] == "billing_v2" and r.get("template_id") and not r["ok"] and not r.get("reason"):
-            r["fix"] = ("Saved ✓ — receipts switch to this template automatically the moment MSG91 marks it DLT-verified "
-                        "(checked every 10 min). Until then the legacy receipt is used.")
+        if r["kind"] == "billing_v2":
+            r["in_use"] = r["kind"] == receipt_kind
 
 
 @router.get("/super-admin/sms-templates-health")
 async def hq_sms_templates_health(admin=Depends(require_super_admin)):
     """Every MSG91 DLT template used by the platform: verified & active, or the exact reason it won't deliver."""
     import httpx
-    from sms_service import _V2_READY, MSG91_TEMPLATES, msg91_template_id, receipt_sms_kind
+    from sms_service import MSG91_TEMPLATES, msg91_template_id, receipt_sms_kind
     key = os.environ.get("MSG91_AUTHKEY", "")
     if not key:
         raise HTTPException(400, "MSG91_AUTHKEY missing in this environment")
     async with httpx.AsyncClient(timeout=20.0) as client:
         rows = [await _fetch_template_row(client, key, kind, tpl_id) if (tpl_id := msg91_template_id(kind)) else _missing_template_row(kind)
                 for kind in MSG91_TEMPLATES]
-    _V2_READY["at"] = 0.0  # force a fresh v2 check on every health run
     _mark_receipt_rows(rows, await receipt_sms_kind())
     return {"ok": all(r["ok"] for r in rows if not (r.get("missing") and r["kind"] == "billing_v2")),
             "sender": os.environ.get("MSG91_SENDER_ID", ""), "templates": rows, "checked_at": datetime.now(timezone.utc).isoformat()}

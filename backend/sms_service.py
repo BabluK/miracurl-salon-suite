@@ -24,8 +24,7 @@ MSG91_TEMPLATES: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "birthday":     ("MSG91_TPL_BIRTHDAY",     "6aad49f494e67f01f40b14a2", ("name", "offer")),
     "festival":     ("MSG91_TPL_FESTIVAL",     "6aad491cd077278ca60eae23", ("name", "festival", "offer")),
     "special":      ("MSG91_TPL_SPECIAL",      "6aad4a4adf4726e0d1013f14", ("name", "offer", "valid_till")),
-    "billing":      ("MSG91_TPL_BILLING",      "6aaed91266b259e2920c73d3", ("name", "invoice", "amount", "salon", "points")),  # legacy receipt — fallback only
-    # Current receipt: miracurl_salon_service_payment_v2 (DLT 1777178999296070143, approved 21 Sep 2026):
+    # Receipt: miracurl_salon_service_payment_v2 (DLT 1777178999296070143, approved 21 Sep 2026):
     # "Miracurl AI Salon Suite: Payment of Rs ##var1## received for ##var2## service. Visit https://miracurl-suite.com"
     "billing_v2":   ("MSG91_TPL_BILLING_V2",   "6ab13736d65b55eb1d09ac54", ("amount", "service")),
     "otp":          ("MSG91_TPL_OTP",          "6aae14594f99d7fba7049633", ("var1",)),  # miracurl_otp (DLT verified): "…verification code is ##var1##…"
@@ -35,9 +34,6 @@ MSG91_TEMPLATES: dict[str, tuple[str, str, tuple[str, ...]]] = {
 def msg91_template_id(kind: str) -> str:
     env_key, default, _ = MSG91_TEMPLATES.get(kind) or ("", "", ())
     return os.environ.get(env_key, default) if env_key else ""
-
-
-_V2_READY = {"at": 0.0, "ok": False, "tpl": ""}
 
 
 RECEIPT_TPL_V2 = "6ab13736d65b55eb1d09ac54"  # miracurl_salon_service_payment_v2
@@ -55,20 +51,8 @@ async def msg91_template_verified(tpl_id: str) -> bool:
 
 
 async def receipt_sms_kind() -> str:
-    """Salon-branded v2 receipt once its MSG91 template is DLT-verified (auto-switch, checked every 10 min); legacy until then."""
-    import time
-    tpl = msg91_template_id("billing_v2")
-    if not tpl:
-        return "billing"
-    now = time.time()
-    if _V2_READY["tpl"] != tpl or now - _V2_READY["at"] > 600:
-        try:
-            ok = await msg91_template_verified(tpl)
-        except Exception as e:  # noqa: BLE001 — keep last known state on network hiccups
-            log.warning("msg91 v2 template check failed: %s", e)
-            ok = _V2_READY["ok"] if _V2_READY["tpl"] == tpl else False
-        _V2_READY.update({"at": now, "ok": ok, "tpl": tpl})
-    return "billing_v2" if _V2_READY["ok"] else "billing"
+    """POS receipts always go via the DLT-verified miracurl_salon_service_payment_v2 template."""
+    return "billing_v2"
 
 
 async def apply_hq_sms_template_ids() -> int:

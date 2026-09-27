@@ -315,18 +315,10 @@ async def send_receipt_channels(inv: dict, cust: dict, t: dict, points_earned: i
             if not cust.get("phone"):
                 out["sms"] = {"sent": False, "error": "no_phone"}
             else:
-                from sms_service import receipt_sms_kind, send_tenant_sms
-                first = (inv.get("customer_name") or "Guest").split()[0][:30]
-                kind = await receipt_sms_kind()
-                salon, pts, inv_no, amt = (t.get("name") or "your salon")[:30], str(points_earned or 0), str(inv.get("invoice_no") or "")[:30], f"{inv['total']:.0f}"
-                sms_vars = [amt, _receipt_service_label(inv)] if kind == "billing_v2" else [first, inv_no, amt, salon, pts]
+                from sms_service import send_tenant_sms
                 out["sms"] = await send_tenant_sms(
-                    t["id"], cust["phone"], _receipt_sms_text(t, inv, points_earned), kind=kind, sms_vars=sms_vars)
-                if kind == "billing_v2" and not out["sms"].get("sent"):
-                    # template not yet live at MSG91 → legacy receipt so the guest still gets a confirmation
-                    out["sms"] = await send_tenant_sms(
-                        t["id"], cust["phone"], _receipt_sms_text(t, inv, points_earned), kind="billing", sms_vars=[first, inv_no, amt, salon, pts])
-                    out["sms"]["fallback"] = "billing"
+                    t["id"], cust["phone"], _receipt_sms_text(t, inv, points_earned), kind="billing_v2",
+                    sms_vars=[f"{inv['total']:.0f}", _receipt_service_label(inv)])
         except Exception as e:  # noqa: BLE001
             out["sms"] = {"sent": False, "error": str(e)[:200]}
     if "whatsapp" in channels:
