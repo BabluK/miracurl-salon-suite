@@ -96,7 +96,7 @@ export default function Kitchen() {
           fresh.forEach(c => toast.warning(
             c.kind === "water" ? `💧 Table ${c.table_no} is asking for water` :
             c.kind === "bill" ? `🧾 Table ${c.table_no} is asking for the bill` :
-            c.kind === "paid" ? `✅ Table ${c.table_no} says they've paid by UPI — verify & close` :
+            c.kind === "paid" ? `💬 Table ${c.table_no} says they've paid by UPI — NOT verified: check your UPI app, then complete the bill in POS` :
             `🙋 Table ${c.table_no} is calling a waiter`, { duration: 15000 }));
         }
       }
@@ -252,10 +252,10 @@ export default function Kitchen() {
             {calls.map(c => (
               <div key={c.id} data-testid={`table-call-${c.id}`}
                 className="flex items-center gap-3 rounded-2xl border-2 border-rose-300 bg-rose-50 px-4 py-2.5">
-                <span className="text-lg">{c.kind === "water" ? "💧" : c.kind === "bill" ? "🧾" : c.kind === "paid" ? "✅" : "🙋"}</span>
+                <span className="text-lg">{c.kind === "water" ? "💧" : c.kind === "bill" ? "🧾" : c.kind === "paid" ? "💬" : "🙋"}</span>
                 <div>
                   <p className="text-sm font-extrabold text-slate-800">Table {c.table_no}</p>
-                  <p className="text-[10px] text-slate-500">{c.kind === "water" ? "needs water" : c.kind === "bill" ? "wants the bill" : c.kind === "paid" ? "says paid by UPI — verify in app & mark paid" : "calling a waiter"} · {age(c.created_at)}</p>
+                  <p className="text-[10px] text-slate-500">{c.kind === "water" ? "needs water" : c.kind === "bill" ? "wants the bill" : c.kind === "paid" ? "claims UPI payment (unverified) — confirm in your UPI app, then complete the bill in POS" : "calling a waiter"} · {age(c.created_at)}</p>
                 </div>
                 <button onClick={() => resolveCall(c.id)} data-testid={`call-done-${c.id}`}
                   className="ml-2 text-[11px] font-bold px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">✓ Done</button>

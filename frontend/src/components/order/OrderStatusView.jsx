@@ -111,7 +111,7 @@ export function OrderStatusView({ salon, done, liveStatus, live, resumed, onOrde
           </div>
         )}
 
-        <PayAtTableCard slug={slug} orderId={done.id} live={live} />
+        <PayAtTableCard slug={slug} orderId={done.id} live={live} guestToken={done.guest_token} />
         {(liveStatus === "served" || liveStatus === "billed") && <TableFeedbackCard slug={slug} orderId={done.id} salonName={salon?.name} initialRating={feedbackRating} />}
 
         <div className="mt-10 flex items-center gap-3"><span className="flex-1 border-t border-white/15" /><p className="text-[12px] tracking-[0.35em] uppercase text-white/80">{salon.name}</p><span className="flex-1 border-t border-white/15" /></div>

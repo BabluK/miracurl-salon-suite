@@ -6,7 +6,7 @@ import { QrCode, Smartphone, CheckCircle2, Loader2, Copy } from "lucide-react";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 /** Guest-side "Pay at table": UPI QR + tap-to-pay intent once the bill is raised (status billed, not yet paid). */
-export function PayAtTableCard({ slug, orderId, live }) {
+export function PayAtTableCard({ slug, orderId, live, guestToken }) {
   const [claimed, setClaimed] = useState(!!live?.paid_claimed_at);
   const [busy, setBusy] = useState(false);
   if (!live || live.status !== "billed") return null;
@@ -24,7 +24,7 @@ export function PayAtTableCard({ slug, orderId, live }) {
   const claim = async () => {
     setBusy(true);
     try {
-      await axios.post(`${BACKEND_URL}/api/public/table-order-paid-claim/${slug}/${orderId}`);
+      await axios.post(`${BACKEND_URL}/api/public/table-order-paid-claim/${slug}/${orderId}`, { token: guestToken });
       setClaimed(true);
       toast.success("Thanks! Our team will confirm your payment in a moment");
     } catch (e) { toast.error(e?.response?.data?.detail || "Couldn't notify the team — please show your payment to the waiter"); }
@@ -53,10 +53,15 @@ export function PayAtTableCard({ slug, orderId, live }) {
             <Smartphone className="w-4 h-4" /> Pay ₹{amount.toLocaleString("en-IN")} with UPI app
           </a>
           <button onClick={copyVpa} className="mt-2 w-full text-xs text-white/60 inline-flex items-center justify-center gap-1.5" data-testid="pay-at-table-copy-vpa"><Copy className="w-3 h-3" /> {pay.vpa}</button>
-          <button onClick={claim} disabled={busy || claimed} data-testid="pay-at-table-claim-btn"
-            className="mt-3 w-full py-3 rounded-full border-2 border-emerald-400/60 text-emerald-200 text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-70">
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} {claimed ? "Team notified — confirming your payment" : "I've paid — notify the team"}
-          </button>
+          {guestToken ? (
+            <button onClick={claim} disabled={busy || claimed} data-testid="pay-at-table-claim-btn"
+              className="mt-3 w-full py-3 rounded-full border-2 border-emerald-400/60 text-emerald-200 text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-70">
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} {claimed ? "Team notified — confirming your payment" : "I've paid — notify the team"}
+            </button>
+          ) : (
+            <p className="mt-3 text-center text-xs text-white/60" data-testid="pay-at-table-show-waiter">After paying, please show the payment screen to your waiter</p>
+          )}
+          <p className="mt-2 text-center text-[10px] text-white/40">Payment is confirmed by our team once it reflects — this page will show ✅ when done</p>
         </>
       ) : (
         <p className="mt-3 text-sm text-white/70" data-testid="pay-at-table-no-upi">Please pay at the counter or ask your waiter — cash, card and UPI accepted.</p>

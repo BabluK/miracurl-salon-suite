@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-27.370"
-BUILD_TIME = "27 Sep 2026, 03:40 PM IST"
+BUILD = "2026-09-27.371"
+BUILD_TIME = "27 Sep 2026, 04:05 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-27.371", "note": "Security audit #2 fixes (SEC-001): table orders get a per-order guest_token (only returned to the ordering phone) and 16-char ids; /public/table-order-paid-claim requires the token (403 otherwise) and is explicitly UNVERIFIED in Kitchen wording; re-scanned sessions see 'show payment to waiter' instead of the claim button. Global daily caps on /public/product-orders (500) and /public/table-order (1500/restaurant)."},
     {"build": "2026-09-27.370", "note": "Auto mark paid: settle_table_orders_for_invoice (staff_admin.py) called from POST /invoices/{id}/complete → table orders with that invoice_no become paid; mark-billed paid=True and settle both auto-resolve open 'paid'/'bill' table pings (_resolve_paid_pings, auto_resolved=bill_paid). Pay-at-table amount prefers bill_total (one bill per table)."},
     {"build": "2026-09-27.369", "note": "Pay at table: /public/table-order-status returns paid/invoice + pay{vpa,amount,link} for billed-unpaid orders (UPI ID from Settings → Gift cards & payments); /public/table-order-upi-qr PNG; /public/table-order-paid-claim → table_calls kind=paid (deduped 3 min) shown in Kitchen as ✅ verify & close. Guest page keeps polling through served until paid/cancelled/3h; table-active-order re-scan also lands on served/billed-unpaid orders. PayAtTableCard (QR, UPI intent button, copy VPA, I've paid). Guest Visit Card: GET /table-orders/guest/{phone} (visits, orders, spend, favourites, CRM link, history) opened by tapping the guest line in Order history."},
     {"build": "2026-09-27.368", "note": "Kitchen: 'Recently closed' → date-grouped Order history (GET /table-orders/history?days&q: served/billed/cancelled, tenant-tz day groups with count/total/paid total, guest name+phone search) via components/kitchen/OrderHistory.jsx; Bill button only for served-unbilled. QR dine-in: OrderStatusView opens the games view immediately after a fresh order (header live-status pill, 'Order details' back button, 'Track my order' + Call waiter); status view gets 'Play games while you wait'; finished orders always show status. Today Revenue Cash/UPI/Card chips."},

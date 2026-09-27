@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field, EmailStr, field_validator
 
 from database import _raw_db, db, _current_tenant_id
 from security import (
-    public_rate_limit, durable_rate_limit, require_super_admin,
+    public_rate_limit, durable_rate_limit, require_super_admin, global_daily_cap,
 )
 from models import (
     Customer, Appointment, MAX_CUSTOMER_CREDIT, REFERRAL_REWARD_REFERRER, REFERRAL_REWARD_REFERRED,
@@ -720,6 +720,7 @@ def _order_receipt_html(order: dict, pay_link: str = "") -> str:
 @router.post("/public/product-orders")
 async def create_product_order(body: ProductOrderIn, request: Request):
     await public_rate_limit(request, key_suffix="product-order", limit=10, window_sec=600)
+    await global_daily_cap("product-order", 500, "Orders are very busy right now — please try again in a while.")
     cfg = await _raw_db.platform_settings.find_one({"key": "products"}, {"_id": 0}) or {}
     if not cfg.get("available"):
         raise HTTPException(400, "Products are not available for ordering yet")
@@ -875,6 +876,7 @@ async def create_table_order(slug: str, body: TableOrderIn, request: Request):
     if (t.get("business_type") or "salon") != "restaurant":
         raise HTTPException(400, "Table ordering is only available for restaurants")
     await public_rate_limit(request, key_suffix=f"tableorder:{slug}", limit=15, window_sec=600)
+    await global_daily_cap(f"table-order:{t['id']}", 1500, "Ordering is very busy right now — please ask your waiter.")
     ids = [str(i.get("id")) for i in body.items if i.get("id")]
     menu = {m["id"]: m for m in await db.services.find(
         {"id": {"$in": ids}, "active": True}, {"_id": 0}).to_list(60)}
@@ -913,7 +915,7 @@ async def create_table_order(slug: str, body: TableOrderIn, request: Request):
                             phone=phone_digits, crm_status="pending").model_dump()
             await db.customers.insert_one(cust)
         customer_id = cust["id"]
-    order = {"id": uuid.uuid4().hex[:8], "tenant_id": t["id"], "table_no": body.table_no,
+    order = {"id": uuid.uuid4().hex[:16], "guest_token": secrets.token_urlsafe(18), "tenant_id": t["id"], "table_no": body.table_no,
              "customer_name": (body.customer_name or "").strip()[:80],
              "customer_phone": phone_digits, "customer_id": customer_id, "guests": body.guests,
              "items": items, "subtotal": subtotal,
@@ -923,7 +925,7 @@ async def create_table_order(slug: str, body: TableOrderIn, request: Request):
              "created_at": datetime.now(timezone.utc).isoformat()}
     await _raw_db.table_orders.insert_one(order)
     order.pop("_id", None)
-    return {"ok": True, "order": order}
+    return {"ok": True, "order": order}  # guest_token stays only on the ordering phone (never in re-scan / status responses)
 
 
 @router.get("/public/table-active-order/{slug}/{table_no}")
@@ -1020,14 +1022,22 @@ async def public_table_order_upi_qr(slug: str, order_id: str, request: Request):
     return _Resp(content=buf.getvalue(), media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
+class PaidClaimIn(BaseModel):
+    token: str = Field(..., min_length=8, max_length=64)
+
+
 @router.post("/public/table-order-paid-claim/{slug}/{order_id}")
-async def public_table_order_paid_claim(slug: str, order_id: str, request: Request):
-    """Diner taps 'I have paid' after scanning the UPI QR — pings the Kitchen so staff can verify & close the table."""
+async def public_table_order_paid_claim(slug: str, order_id: str, body: PaidClaimIn, request: Request):
+    """Diner taps 'I have paid' after scanning the UPI QR — an UNVERIFIED ping to the Kitchen (never marks paid).
+    Bound to the ordering phone via the order's guest_token (SEC-001: no spoofed claims from guessed ids)."""
     t = await resolve_tenant_from_slug(slug)
     await public_rate_limit(request, key_suffix=f"paidclaim:{slug}", limit=30, window_sec=600)
-    o = await _raw_db.table_orders.find_one({"tenant_id": t["id"], "id": order_id}, {"_id": 0, "table_no": 1, "status": 1, "paid": 1})
+    o = await _raw_db.table_orders.find_one({"tenant_id": t["id"], "id": order_id},
+                                            {"_id": 0, "table_no": 1, "status": 1, "paid": 1, "guest_token": 1})
     if not o or o.get("status") != "billed" or o.get("paid"):
         raise HTTPException(400, "This order has no pending UPI payment")
+    if not o.get("guest_token") or not secrets.compare_digest(o["guest_token"], body.token):
+        raise HTTPException(403, "Only the phone that placed this order can send a payment note — please show your payment to the waiter")
     now = datetime.now(timezone.utc).isoformat()
     recent = (datetime.now(timezone.utc) - timedelta(minutes=3)).isoformat()
     await _raw_db.table_orders.update_one({"tenant_id": t["id"], "id": order_id}, {"$set": {"paid_claimed_at": now}})
