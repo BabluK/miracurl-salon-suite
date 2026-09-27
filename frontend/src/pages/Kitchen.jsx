@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { ChefHat, QrCode, Printer, CheckCircle2, Flame, XCircle, Download, Loader2 } from "lucide-react";
 import { CategorySpecials } from "@/components/CategorySpecials";
+import { OrderHistory } from "@/components/kitchen/OrderHistory";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -145,7 +146,6 @@ export default function Kitchen() {
   }
 
   const open = orders.filter(o => ["new", "preparing"].includes(o.status));
-  const closed = orders.filter(o => !["new", "preparing"].includes(o.status)).slice(0, 20);
 
   const Ticket = ({ o }) => (
     <div data-testid={`kitchen-ticket-${o.id}`} className={`rounded-2xl border-2 p-4 ${STATUS_STYLE[o.status]}`}>
@@ -337,14 +337,7 @@ export default function Kitchen() {
         </section>
       )}
 
-      {closed.length > 0 && (
-        <section>
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Recently closed</h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
-            {closed.map(o => <Ticket key={o.id} o={o} />)}
-          </div>
-        </section>
-      )}
+      <OrderHistory refreshKey={orders.map(o => `${o.id}:${o.status}:${o.paid ? 1 : 0}`).join("|")} onBill={billTable} />
     </div>
   );
 }

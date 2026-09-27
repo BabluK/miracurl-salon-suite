@@ -1,26 +1,40 @@
 import { useEffect, useState } from "react";
-import { Check, FileText, Flame, UtensilsCrossed, ChefHat, Bell } from "lucide-react";
+import { Check, FileText, Flame, UtensilsCrossed, ChefHat, Bell, Gamepad2, ArrowLeft } from "lucide-react";
 import { WaitGames } from "./WaitGames";
 import { TableFeedbackCard } from "./TableFeedbackCard";
 
-const GAMES_AFTER_MS = 3 * 60 * 1000;
 const STEPS = [
   ["new", FileText, "Order received", "The kitchen has your ticket"],
   ["preparing", Flame, "Cooking now", "Our chefs are on it"],
   ["served", UtensilsCrossed, "Served — enjoy!", "Your food will be at your table soon"],
 ];
-const sinceOrder = (done) => Date.now() - new Date(done.created_at || Date.now()).getTime();
+const STATUS_LABEL = { new: "Order received", preparing: "Cooking now", served: "Served — enjoy!", billed: "Billed", cancelled: "Cancelled" };
 
-/** Post-order screen: live status timeline, resume banner, order details, and games after a 10-minute wait. */
+/** Post-order screen: games open right after ordering (fresh order), with a back button to the live status + order details. */
 export function OrderStatusView({ salon, done, liveStatus, resumed, onOrderMore, onCallWaiter, slug, feedbackRating = 0 }) {
-  const [showGames, setShowGames] = useState(() => sinceOrder(done) > GAMES_AFTER_MS);
-  const [details, setDetails] = useState(false);
   const finished = ["served", "billed", "cancelled"].includes(liveStatus);
-  useEffect(() => {
-    if (showGames || finished) return;
-    const t = setTimeout(() => setShowGames(true), Math.max(0, GAMES_AFTER_MS - sinceOrder(done)));
-    return () => clearTimeout(t);
-  }, [done, showGames, finished]);
+  const [view, setView] = useState(() => (!resumed && !finished ? "games" : "status"));
+  const [details, setDetails] = useState(false);
+  useEffect(() => { if (finished) setView("status"); }, [finished]);
+
+  if (view === "games") return (
+    <div className="min-h-screen bg-[#0b0a09] text-white px-5 pt-5 pb-10 relative overflow-hidden max-w-md mx-auto shadow-[0_0_80px_rgba(0,0,0,0.8)]" data-testid="order-games-view">
+      <div className="flex items-center justify-between gap-3">
+        <button onClick={() => setView("status")} data-testid="games-back-to-order" className="inline-flex items-center gap-1.5 text-sm font-semibold text-gold px-3 py-2 rounded-full border border-gold/40 bg-white/[0.04]"><ArrowLeft className="w-4 h-4" /> Order details</button>
+        <span className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 inline-flex items-center gap-1.5" data-testid="games-live-status"><span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> {STATUS_LABEL[liveStatus] || "Order received"}</span>
+      </div>
+      <div className="text-center mt-5">
+        <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/15 border-[3px] border-emerald-400 flex items-center justify-center shadow-[0_0_40px_rgba(52,211,153,0.35)]"><Check className="w-8 h-8 text-emerald-400" strokeWidth={3.5} /></div>
+        <h1 className="font-playfair text-[26px] leading-tight mt-3">Order sent <span className="text-gold">to the kitchen!</span></h1>
+        <p className="text-white/75 text-sm mt-1.5">Order <b className="text-gold">#{String(done.id).slice(0, 8)}</b> · Table {done.table_no} · ₹{Number(done.total || 0).toLocaleString("en-IN")}</p>
+        <p className="font-caveat text-gold text-2xl mt-3 flex items-center justify-center gap-2"><Gamepad2 className="w-5 h-5" /> Play a game while we cook ♡</p>
+      </div>
+      <WaitGames salon={salon} />
+      <button onClick={() => setView("status")} data-testid="games-view-order-btn" className="mt-5 w-full py-3.5 rounded-full border-2 border-gold/60 text-white text-base font-semibold inline-flex items-center justify-center gap-2"><FileText className="w-4 h-4" /> Track my order & view details</button>
+      <button onClick={onCallWaiter} data-testid="games-call-waiter-btn" className="mt-3 w-full py-2.5 rounded-full border border-white/15 text-white/80 text-sm font-semibold inline-flex items-center justify-center gap-2"><Bell className="w-3.5 h-3.5" /> Call waiter</button>
+    </div>
+  );
+
   const activeIdx = liveStatus === "billed" || liveStatus === "served" ? 2 : liveStatus === "preparing" ? 1 : 0;
   const placedAt = done.created_at ? new Date(done.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "";
 
@@ -84,6 +98,7 @@ export function OrderStatusView({ salon, done, liveStatus, resumed, onOrderMore,
         <p className="text-center text-sm text-white/70 mt-6" data-testid="order-more-prompt">Would you like to order anything else? We're happy to assist you.</p>
         <button onClick={onOrderMore} data-testid="order-again-btn" className="mt-3 w-full py-4 rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-black text-lg font-bold flex items-center justify-center gap-3 shadow-[0_10px_30px_rgba(245,158,11,0.35)]"><UtensilsCrossed className="w-5 h-5" /> Order something else <span aria-hidden>→</span></button>
         <button onClick={() => setDetails(d => !d)} data-testid="order-details-btn" className="mt-3 w-full py-4 rounded-full border-2 border-gold/60 text-white text-lg font-semibold">{details ? "Hide Order Details" : "View Order Details"}</button>
+        {!finished && <button onClick={() => setView("games")} data-testid="order-play-games-btn" className="mt-3 w-full py-3.5 rounded-full bg-white/[0.06] border border-white/15 text-white text-base font-semibold inline-flex items-center justify-center gap-2"><Gamepad2 className="w-5 h-5 text-gold" /> Play games while you wait</button>}
         {details && (
           <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm" data-testid="order-details">
             {(done.items || []).map((it, i) => (
@@ -96,7 +111,6 @@ export function OrderStatusView({ salon, done, liveStatus, resumed, onOrderMore,
         )}
 
         {(liveStatus === "served" || liveStatus === "billed") && <TableFeedbackCard slug={slug} orderId={done.id} salonName={salon?.name} initialRating={feedbackRating} />}
-        {showGames && !finished && <WaitGames salon={salon} />}
 
         <div className="mt-10 flex items-center gap-3"><span className="flex-1 border-t border-white/15" /><p className="text-[12px] tracking-[0.35em] uppercase text-white/80">{salon.name}</p><span className="flex-1 border-t border-white/15" /></div>
         <p className="text-center text-[10px] tracking-[0.3em] uppercase text-white/50 mt-2">Good food • Great company</p>

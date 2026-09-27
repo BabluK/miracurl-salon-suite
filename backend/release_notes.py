@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-27.367"
-BUILD_TIME = "27 Sep 2026, 02:15 PM IST"
+BUILD = "2026-09-27.368"
+BUILD_TIME = "27 Sep 2026, 02:45 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-27.368", "note": "Kitchen: 'Recently closed' → date-grouped Order history (GET /table-orders/history?days&q: served/billed/cancelled, tenant-tz day groups with count/total/paid total, guest name+phone search) via components/kitchen/OrderHistory.jsx; Bill button only for served-unbilled. QR dine-in: OrderStatusView opens the games view immediately after a fresh order (header live-status pill, 'Order details' back button, 'Track my order' + Call waiter); status view gets 'Play games while you wait'; finished orders always show status. Today Revenue Cash/UPI/Card chips."},
     {"build": "2026-09-27.367", "note": "Restaurant dashboards get their own hero (photo, 'Serve Smarter Everyday', 'Restaurant page', reservations wording, Mira 'restaurant companion'). Shared HqDialogHeader (gold-night aurora, z-30 close) on Edit tenant, Pay link, new GrantCreditsModal (+50/100/300/500 chips, balance + HQ stock) and Control Centre."},
     {"build": "2026-09-27.366", "note": "Legacy DLT-rejected MSG91 'billing' receipt template removed; receipts always miracurl_salon_service_payment_v2 (receipt_sms_kind constant). HQ Control Centre modal: close X was under the header content layer (fixed) + gold-night header redesign."},
     {"build": "2026-09-27.365", "note": "Own-salon lead filter: lead_gen._own_business_filter (tenant names/phones/websites + 'miracurl' + login-only domains) on Maps & AI candidates; startup step own-salon-lead-purge rejects existing own-business leads. CRM 'Fix numbers': GET /customers/invalid-phones + InvalidPhonesModal (inline country code + number + Save)."},
@@ -174,6 +175,8 @@ RELEASES = [
         "changes": [
             "⚡ Dashboard opens in a blink — your figures now load in about a fifth of a second (the little 'Loaded in' badge shows it in milliseconds)",
             "💵 Today Revenue now shows how much came in as Cash · UPI · Card for the day, right under the total",
+            "🍽️ Kitchen → Order history: closed & paid tables grouped day by day (Today / Yesterday / date) with time, guest name & phone, Paid ✅ / Billed / Cancelled badges, daily totals and a search box — track every guest visit by date",
+            "🎮 QR dine-in: the moment a guest sends their order, the games screen opens to keep them entertained — with a clear 'Order details' back button and live status pill; 'Play games while you wait' brings them back any time",
             "🎞️ New animated gold Miracurl Suite logo in the sidebar and on the sign-up page (plays silently, loops)",
             "🍽️ Restaurant dashboards finally look like a restaurant — new dining-room hero, 'Serve Smarter Everyday', reservations wording and 'Restaurant page' link",
             "📊 Collection Review for EVERY owner (single branch too): Today / Yesterday / 7-30 days / week / month / custom range, Cash-UPI-Card split, top services — Owner-PIN protected, in a calm cream theme that reads well on phones",

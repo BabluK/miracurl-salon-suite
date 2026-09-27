@@ -1044,6 +1044,39 @@ async def list_table_orders(admin=Depends(require_admin)):
     return await db.table_orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
 
 
+@router.get("/table-orders/history")
+async def table_order_history(days: int = 7, q: str = "", admin=Depends(require_admin)):
+    """Closed tickets (served / billed / cancelled) for the last N days, grouped by the restaurant's local day."""
+    from services.day_window import _tenant_tz
+    days = max(1, min(days, 90))
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    flt = {"status": {"$nin": ["new", "preparing"]}, "created_at": {"$gte": since}}
+    if q.strip():
+        rx = {"$regex": re.escape(q.strip()), "$options": "i"}
+        flt["$or"] = [{"customer_name": rx}, {"customer_phone": rx}, {"invoice_no": rx}, {"id": rx}]
+    rows = await db.table_orders.find(flt, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    from database import _current_tenant_id
+    tid = _current_tenant_id.get()
+    tz = _tenant_tz(await _raw_db.tenants.find_one({"id": tid}, {"_id": 0, "timezone": 1}) if tid else None)
+    groups: dict = {}
+    for o in rows:
+        try:
+            day = datetime.fromisoformat(o["created_at"]).astimezone(tz).date().isoformat()
+        except (KeyError, ValueError, TypeError):
+            day = (o.get("created_at") or "")[:10]
+        g = groups.setdefault(day, {"date": day, "orders": [], "total": 0.0, "paid_total": 0.0, "count": 0})
+        g["orders"].append(o)
+        if o.get("status") != "cancelled":
+            g["count"] += 1
+            g["total"] += float(o.get("total") or 0)
+            if o.get("paid"):
+                g["paid_total"] += float(o.get("total") or 0)
+    out = sorted(groups.values(), key=lambda g: g["date"], reverse=True)
+    for g in out:
+        g["total"], g["paid_total"] = round(g["total"], 2), round(g["paid_total"], 2)
+    return {"days": days, "groups": out}
+
+
 class MarkBilledIn(BaseModel):
     ids: list = []
     paid: bool = True
