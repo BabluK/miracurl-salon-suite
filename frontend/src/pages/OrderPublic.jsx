@@ -35,6 +35,7 @@ export default function OrderPublic() {
   const [activeCat, setActiveCat] = useState("All");
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [liveStatus, setLiveStatus] = useState("new");
+  const [live, setLive] = useState(null);
   const [photoDish, setPhotoDish] = useState(null);
   const [guest, setGuest] = useState(null);
   const [lookingUp, setLookingUp] = useState(false);
@@ -67,12 +68,17 @@ export default function OrderPublic() {
   useEffect(() => {
     if (!done) return;
     setLiveStatus(done.status || "new");
+    const startedAt = Date.now();
     const iv = setInterval(() => {
       axios.get(`${BACKEND_URL}/api/public/table-order-status/${slug}/${done.id}`)
         .then(r => {
           setLiveStatus(r.data.status);
+          setLive(r.data);
           if (r.data.feedback?.rating) setFeedbackRating(r.data.feedback.rating);
-          if (["served", "billed", "cancelled"].includes(r.data.status)) { clearInterval(iv); localStorage.removeItem(ACTIVE_KEY(slug)); }
+          if (["served", "billed", "cancelled"].includes(r.data.status)) localStorage.removeItem(ACTIVE_KEY(slug));
+          // keep polling through 'served' so the guest sees the bill + UPI QR; stop once paid / cancelled / 3h
+          const settled = r.data.status === "cancelled" || (r.data.status === "billed" && r.data.paid);
+          if (settled || Date.now() - startedAt > 3 * 60 * 60 * 1000) clearInterval(iv);
         }).catch(() => {});
     }, 10000);
     return () => clearInterval(iv);
@@ -132,7 +138,7 @@ export default function OrderPublic() {
   if (!salon) return <div className="min-h-screen bg-[#0d0b10] flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-gold" /></div>;
 
   if (done) return (
-    <OrderStatusView salon={salon} done={done} liveStatus={liveStatus} resumed={resumed} slug={slug} feedbackRating={feedbackRating}
+    <OrderStatusView salon={salon} done={done} liveStatus={liveStatus} live={live} resumed={resumed} slug={slug} feedbackRating={feedbackRating}
       onCallWaiter={() => callStaff("waiter")}
       onOrderMore={() => { localStorage.removeItem(ACTIVE_KEY(slug)); setDone(null); setQty({}); }} />
   );

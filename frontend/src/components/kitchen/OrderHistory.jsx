@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
+import { GuestVisitCard } from "@/components/kitchen/GuestVisitCard";
 import { Search, CalendarDays, Receipt } from "lucide-react";
 
 const fmtDay = (iso) => {
@@ -20,7 +21,7 @@ function Badge({ o }) {
   return <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-200">Served · not billed</span>;
 }
 
-function HistoryCard({ o, onBill }) {
+function HistoryCard({ o, onBill, onGuest }) {
   return (
     <div className={`rounded-2xl border p-3.5 bg-white ${o.status === "cancelled" ? "opacity-60" : ""}`} data-testid={`history-order-${o.id}`}>
       <div className="flex items-center justify-between gap-2">
@@ -28,7 +29,9 @@ function HistoryCard({ o, onBill }) {
         <Badge o={o} />
       </div>
       {(o.customer_name || o.customer_phone) && (
-        <p className="text-[11px] text-slate-500 mt-0.5" data-testid={`history-guest-${o.id}`}>{o.customer_name || "Guest"}{o.customer_phone ? ` · ${o.customer_phone}` : ""}{o.guests ? ` · ${o.guests} guests` : ""}</p>
+        <button type="button" onClick={() => o.customer_phone && onGuest?.(o)} disabled={!o.customer_phone} title={o.customer_phone ? "See this guest's visits & favourites" : ""}
+          className="text-[11px] text-slate-500 mt-0.5 text-left enabled:hover:text-amber-700 enabled:underline-offset-2 enabled:hover:underline" data-testid={`history-guest-${o.id}`}>
+          {o.customer_name || "Guest"}{o.customer_phone ? ` · ${o.customer_phone}` : ""}{o.guests ? ` · ${o.guests} guests` : ""}</button>
       )}
       <ul className="mt-1.5 text-xs text-slate-600 space-y-0.5">
         {o.items.slice(0, 4).map((i, idx) => <li key={idx}><b className="text-slate-800">{i.qty}×</b> {i.name}</li>)}
@@ -43,6 +46,7 @@ function HistoryCard({ o, onBill }) {
 }
 
 export function OrderHistory({ refreshKey, onBill }) {
+  const [guest, setGuest] = useState(null);
   const [days, setDays] = useState(7);
   const [q, setQ] = useState("");
   const [data, setData] = useState(null);
@@ -80,10 +84,11 @@ export function OrderHistory({ refreshKey, onBill }) {
             <span className="flex-1 border-t border-slate-200" />
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
-            {g.orders.map(o => <HistoryCard key={o.id} o={o} onBill={onBill} />)}
+            {g.orders.map(o => <HistoryCard key={o.id} o={o} onBill={onBill} onGuest={setGuest} />)}
           </div>
         </div>
       ))}
+      {guest && <GuestVisitCard phone={guest.customer_phone} name={guest.customer_name} onClose={() => setGuest(null)} />}
     </section>
   );
 }

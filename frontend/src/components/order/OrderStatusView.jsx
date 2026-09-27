@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, FileText, Flame, UtensilsCrossed, ChefHat, Bell, Gamepad2, ArrowLeft } from "lucide-react";
 import { WaitGames } from "./WaitGames";
+import { PayAtTableCard } from "./PayAtTableCard";
 import { TableFeedbackCard } from "./TableFeedbackCard";
 
 const STEPS = [
@@ -11,7 +12,7 @@ const STEPS = [
 const STATUS_LABEL = { new: "Order received", preparing: "Cooking now", served: "Served — enjoy!", billed: "Billed", cancelled: "Cancelled" };
 
 /** Post-order screen: games open right after ordering (fresh order), with a back button to the live status + order details. */
-export function OrderStatusView({ salon, done, liveStatus, resumed, onOrderMore, onCallWaiter, slug, feedbackRating = 0 }) {
+export function OrderStatusView({ salon, done, liveStatus, live, resumed, onOrderMore, onCallWaiter, slug, feedbackRating = 0 }) {
   const finished = ["served", "billed", "cancelled"].includes(liveStatus);
   const [view, setView] = useState(() => (!resumed && !finished ? "games" : "status"));
   const [details, setDetails] = useState(false);
@@ -110,6 +111,7 @@ export function OrderStatusView({ salon, done, liveStatus, resumed, onOrderMore,
           </div>
         )}
 
+        <PayAtTableCard slug={slug} orderId={done.id} live={live} />
         {(liveStatus === "served" || liveStatus === "billed") && <TableFeedbackCard slug={slug} orderId={done.id} salonName={salon?.name} initialRating={feedbackRating} />}
 
         <div className="mt-10 flex items-center gap-3"><span className="flex-1 border-t border-white/15" /><p className="text-[12px] tracking-[0.35em] uppercase text-white/80">{salon.name}</p><span className="flex-1 border-t border-white/15" /></div>

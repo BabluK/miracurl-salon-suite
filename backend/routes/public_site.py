@@ -928,14 +928,15 @@ async def create_table_order(slug: str, body: TableOrderIn, request: Request):
 
 @router.get("/public/table-active-order/{slug}/{table_no}")
 async def public_table_active_order(slug: str, table_no: int, request: Request):
-    """Re-scan of the same table QR (any browser) lands the diner on their live order until it is served/billed."""
+    """Re-scan of the same table QR (any browser) lands the diner on their live order until the bill is paid."""
     await public_rate_limit(request, key_suffix="table-active", limit=60, window_sec=600)
     t = await resolve_tenant_from_slug(slug)
     since = (datetime.now(timezone.utc) - timedelta(hours=3)).isoformat()
     o = await db.table_orders.find_one(
-        {"tenant_id": t["id"], "table_no": table_no, "status": {"$in": ["new", "preparing"]}, "created_at": {"$gte": since}},
+        {"tenant_id": t["id"], "table_no": table_no, "created_at": {"$gte": since},
+         "$or": [{"status": {"$in": ["new", "preparing", "served"]}}, {"status": "billed", "paid": {"$ne": True}}]},
         {"_id": 0, "id": 1, "status": 1, "table_no": 1, "total": 1, "subtotal": 1, "discount": 1, "created_at": 1,
-         "items": 1, "guests": 1, "customer_name": 1}, sort=[("created_at", -1)])
+         "items": 1, "guests": 1, "customer_name": 1, "paid": 1, "invoice_no": 1, "invoice_total": 1}, sort=[("created_at", -1)])
     if o:  # SEC-001: never expose phone/customer_id publicly; first name is enough for the greeting
         o["customer_name"] = (o.get("customer_name") or "").split(" ")[0]
     return {"order": o}
@@ -977,10 +978,64 @@ async def public_table_order_status(slug: str, order_id: str, request: Request):
     await public_rate_limit(request, key_suffix=f"orderstatus:{slug}", limit=200, window_sec=600)
     o = await _raw_db.table_orders.find_one(
         {"tenant_id": t["id"], "id": order_id},
-        {"_id": 0, "id": 1, "status": 1, "table_no": 1, "total": 1, "created_at": 1, "feedback.rating": 1})
+        {"_id": 0, "id": 1, "status": 1, "table_no": 1, "total": 1, "created_at": 1, "feedback.rating": 1,
+         "paid": 1, "invoice_no": 1, "invoice_total": 1, "paid_claimed_at": 1})
     if not o:
         raise HTTPException(404, "Order not found")
+    if o.get("status") == "billed" and not o.get("paid"):
+        o["pay"] = _table_pay_info(t, o)
     return o
+
+
+def _table_pay_info(t: dict, o: dict) -> dict | None:
+    """UPI intent for 'pay at table' — uses the restaurant's UPI ID from Settings → Gift cards & payments."""
+    from urllib.parse import quote as _q
+    vpa = ((t.get("gift_cards") or {}).get("upi_id") or "").strip()
+    amount = float(o.get("invoice_total") or o.get("total") or 0)
+    if not vpa or amount <= 0:
+        return None
+    note = f"Table {o.get('table_no')} {o.get('invoice_no') or str(o.get('id'))[:8]}"
+    link = (f"upi://pay?pa={_q(vpa)}&pn={_q((t.get('name') or 'Restaurant')[:38])}"
+            f"&am={amount:.2f}&cu=INR&tn={_q(note[:40])}")
+    return {"vpa": vpa, "amount": round(amount, 2), "link": link, "payee": t.get("name") or "Restaurant"}
+
+
+@router.get("/public/table-order-upi-qr/{slug}/{order_id}")
+async def public_table_order_upi_qr(slug: str, order_id: str, request: Request):
+    """PNG QR of the UPI intent for a billed-but-unpaid table order (scan with any UPI app)."""
+    import io as _io
+    import qrcode
+    from fastapi.responses import Response as _Resp
+    t = await resolve_tenant_from_slug(slug)
+    await public_rate_limit(request, key_suffix=f"upiqr:{slug}", limit=200, window_sec=600)
+    o = await _raw_db.table_orders.find_one({"tenant_id": t["id"], "id": order_id}, {"_id": 0})
+    info = _table_pay_info(t, o) if o and o.get("status") == "billed" and not o.get("paid") else None
+    if not info:
+        raise HTTPException(404, "No UPI payment pending for this order")
+    qr = qrcode.QRCode(box_size=9, border=2)
+    qr.add_data(info["link"])
+    qr.make(fit=True)
+    buf = _io.BytesIO()
+    qr.make_image(fill_color="#1c1207", back_color="#FFFDF7").save(buf, format="PNG")
+    return _Resp(content=buf.getvalue(), media_type="image/png", headers={"Cache-Control": "no-store"})
+
+
+@router.post("/public/table-order-paid-claim/{slug}/{order_id}")
+async def public_table_order_paid_claim(slug: str, order_id: str, request: Request):
+    """Diner taps 'I have paid' after scanning the UPI QR — pings the Kitchen so staff can verify & close the table."""
+    t = await resolve_tenant_from_slug(slug)
+    await public_rate_limit(request, key_suffix=f"paidclaim:{slug}", limit=30, window_sec=600)
+    o = await _raw_db.table_orders.find_one({"tenant_id": t["id"], "id": order_id}, {"_id": 0, "table_no": 1, "status": 1, "paid": 1})
+    if not o or o.get("status") != "billed" or o.get("paid"):
+        raise HTTPException(400, "This order has no pending UPI payment")
+    now = datetime.now(timezone.utc).isoformat()
+    recent = (datetime.now(timezone.utc) - timedelta(minutes=3)).isoformat()
+    await _raw_db.table_orders.update_one({"tenant_id": t["id"], "id": order_id}, {"$set": {"paid_claimed_at": now}})
+    if await _raw_db.table_calls.find_one({"tenant_id": t["id"], "order_id": order_id, "kind": "paid", "created_at": {"$gte": recent}}):
+        return {"ok": True, "deduped": True}
+    await _raw_db.table_calls.insert_one({"id": str(uuid.uuid4()), "tenant_id": t["id"], "table_no": o["table_no"],
+                                          "kind": "paid", "order_id": order_id, "status": "open", "created_at": now})
+    return {"ok": True}
 
 
 class TableCallIn(BaseModel):

@@ -1044,6 +1044,32 @@ async def list_table_orders(admin=Depends(require_admin)):
     return await db.table_orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
 
 
+@router.get("/table-orders/guest/{phone}")
+async def table_order_guest_card(phone: str, admin=Depends(require_admin)):
+    """One diner's dine-in history: visits, spend, favourite dishes, CRM link."""
+    digits = re.sub(r"\D", "", phone)[-10:]
+    if len(digits) < 7:
+        raise HTTPException(400, "Phone number required")
+    rx = {"$regex": f"{digits}$"}
+    orders = await db.table_orders.find({"customer_phone": rx, "status": {"$ne": "cancelled"}},
+                                        {"_id": 0}).sort("created_at", -1).to_list(500)
+    dish: dict = {}
+    for o in orders:
+        for it in o.get("items") or []:
+            d = dish.setdefault(it.get("name") or "Item", {"name": it.get("name") or "Item", "qty": 0, "orders": 0})
+            d["qty"] += int(it.get("qty") or 0)
+            d["orders"] += 1
+    fav = sorted(dish.values(), key=lambda d: (-d["qty"], d["name"]))[:6]
+    cust = await db.customers.find_one({"phone": rx}, {"_id": 0, "id": 1, "name": 1, "visits": 1, "total_spent": 1,
+                                                       "loyalty_points": 1, "last_visit": 1, "tags": 1, "birthday": 1})
+    days = sorted({(o.get("created_at") or "")[:10] for o in orders})
+    return {"phone": digits, "name": next((o.get("customer_name") for o in orders if o.get("customer_name")), None) or (cust or {}).get("name"),
+            "visits": len(days), "orders": len(orders),
+            "spend": round(sum(float(o.get("invoice_total") or o.get("total") or 0) for o in orders), 2),
+            "first_visit": days[0] if days else None, "last_visit": days[-1] if days else None,
+            "favourites": fav, "customer": cust, "history": orders[:50]}
+
+
 @router.get("/table-orders/history")
 async def table_order_history(days: int = 7, q: str = "", admin=Depends(require_admin)):
     """Closed tickets (served / billed / cancelled) for the last N days, grouped by the restaurant's local day."""
