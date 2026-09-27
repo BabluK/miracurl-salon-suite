@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import api, { formatApiError } from "@/lib/api";
 import { toast } from "sonner";
-import { X, Save, KeyRound, Mail, Copy, Link2, Unlink, Store, Loader2, Fingerprint, CreditCard, AlertTriangle } from "lucide-react";
+import { Save, KeyRound, Mail, Copy, Link2, Unlink, Store, Loader2, Fingerprint, CreditCard, AlertTriangle, Pencil } from "lucide-react";
+import { HqDialogHeader } from "@/components/superadmin/HqDialogHeader";
 import { confirmAsync } from "@/components/ConfirmDialog";
 import { TrialControlCard } from "@/components/superadmin/TrialControlCard";
 import { PaidPlanCard } from "./PaidPlanCard";
@@ -174,26 +175,21 @@ export function EditTenantModal({ tenant, onClose, onSaved, onRefresh }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex bg-slate-900/50 backdrop-blur-sm p-3 sm:p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg m-auto flex flex-col max-h-[88vh] overflow-hidden" onClick={e => e.stopPropagation()} data-testid="edit-tenant-modal">
-        {/* Pinned header — always visible, never scrolls away */}
-        <div className="p-4 sm:p-5 pb-3 border-b border-slate-100 space-y-3 shrink-0 bg-white">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 truncate pr-2">Edit — {tenant.name}</h3>
-            <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700 shrink-0" data-testid="edit-tenant-close"><X className="w-5 h-5" /></button>
-          </div>
-          {/* Unique Tenant ID — whole row is tap-to-copy */}
+    <div className="fixed inset-0 z-50 flex bg-black/70 backdrop-blur-sm p-3 sm:p-4" onClick={onClose}>
+      <div className="bg-[#f7f5f0] su-cream rounded-[28px] shadow-[0_40px_80px_-30px_rgba(0,0,0,.7)] ring-1 ring-[#d4af37]/40 w-full max-w-lg m-auto flex flex-col max-h-[88vh] overflow-hidden" onClick={e => e.stopPropagation()} data-testid="edit-tenant-modal">
+        <HqDialogHeader kicker="Edit tenant" title={tenant.name} icon={Pencil} onClose={onClose} closeTestId="edit-tenant-close" vertical={tenant.business_type === "restaurant" ? "restaurant" : "salon"}
+          subtitle={`/${tenant.slug}${tenant.plan ? ` · ${tenant.plan}` : ""}`}>
           <button type="button" onClick={() => copyText(tenant.id, "Tenant ID")}
-            className="w-full flex items-center gap-2 bg-fuchsia-50/60 hover:bg-fuchsia-50 border border-fuchsia-200 rounded-lg px-3 py-2 text-left cursor-pointer"
+            className="mt-4 w-full flex items-center gap-2 bg-white/5 hover:bg-[#d4af37]/10 border border-[#d4af37]/30 rounded-xl px-3 py-2 text-left cursor-pointer backdrop-blur-md transition-colors"
             data-testid="tenant-id-row" title="Tap to copy Tenant ID">
-            <Fingerprint className="w-4 h-4 text-fuchsia-500 shrink-0" />
+            <Fingerprint className="w-4 h-4 text-[#e8c56a] shrink-0" />
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] uppercase tracking-wider text-fuchsia-500 font-semibold">Unique Tenant ID — tap to copy</div>
-              <div className="font-mono text-xs text-slate-700 break-all" data-testid="tenant-id-value">{tenant.id}</div>
+              <div className="text-[10px] uppercase tracking-wider text-[#d4af37] font-semibold">Unique Tenant ID — tap to copy</div>
+              <div className="font-mono text-xs text-white/85 break-all" data-testid="tenant-id-value">{tenant.id}</div>
             </div>
-            <span className="p-1.5 text-fuchsia-600 bg-white border border-fuchsia-200 rounded shrink-0" data-testid="copy-tenant-id"><Copy className="w-4 h-4" /></span>
+            <span className="p-1.5 text-[#e8c56a] bg-white/10 border border-[#d4af37]/40 rounded shrink-0" data-testid="copy-tenant-id"><Copy className="w-4 h-4" /></span>
           </button>
-        </div>
+        </HqDialogHeader>
 
         {/* Scrollable body */}
         <div className="p-4 sm:p-5 space-y-5 overflow-y-auto">

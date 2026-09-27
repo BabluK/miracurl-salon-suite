@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { X, Copy, Mail, Loader2, Trash2, CreditCard } from "lucide-react";
+import { Copy, Mail, Loader2, Trash2, CreditCard } from "lucide-react";
+import { HqDialogHeader } from "@/components/superadmin/HqDialogHeader";
 import { confirmAsync } from "@/components/ConfirmDialog";
 
 const STATUS_STYLE = {
@@ -63,15 +64,11 @@ export default function PayLinkModal({ tenant, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" data-testid="pay-link-modal" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[88vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="font-playfair text-xl flex items-center gap-2"><CreditCard className="w-5 h-5 text-amber-600" /> Subscription Payment Link</h2>
-            <p className="text-xs text-slate-500 mt-0.5">{tenant.name} · owner pays directly, plan activates instantly</p>
-          </div>
-          <button onClick={onClose} data-testid="pay-link-close" className="text-slate-400 hover:text-slate-700"><X className="w-5 h-5" /></button>
-        </div>
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" data-testid="pay-link-modal" onClick={onClose}>
+      <div className="bg-[#f7f5f0] su-cream rounded-[28px] ring-1 ring-[#d4af37]/40 shadow-[0_40px_80px_-30px_rgba(0,0,0,.7)] w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <HqDialogHeader kicker="Subscription payment link" title={tenant.name} icon={CreditCard} onClose={onClose} closeTestId="pay-link-close" vertical={tenant.business_type === "restaurant" ? "restaurant" : "salon"}
+          subtitle={`/${tenant.slug} · owner pays directly, plan activates instantly`} />
+        <div className="p-6 overflow-y-auto">
 
         {!data ? <div className="py-8 text-center text-slate-400 text-sm">Loading…</div> : (
           <>
@@ -153,6 +150,7 @@ export default function PayLinkModal({ tenant, onClose }) {
             )}
           </>
         )}
+        </div>
       </div>
     </div>
   );

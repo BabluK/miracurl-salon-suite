@@ -24,6 +24,7 @@ import { EditTenantModal } from "@/components/superadmin/EditTenantModal";
 import { LoginCheckCard } from "@/components/superadmin/LoginCheckCard";
 import { Handshake, ShieldAlert, ToggleRight } from "lucide-react";
 import { TenantFeaturesModal } from "@/components/superadmin/TenantFeaturesModal";
+import { GrantCreditsModal } from "@/components/superadmin/GrantCreditsModal";
 import { setActAsSalon } from "@/lib/api";
 import { SuperProfileCard, HealthBadge, AiInsightsPanel, RenewalNudge, HqInbox } from "@/components/SuperAdminExtras";
 import EngineerPanel from "@/components/EngineerPanel";
@@ -365,26 +366,9 @@ export default function SuperAdmin() {
     });
   }
 
-  async function grantCredits(t, channel = "sms") {
-    const label = channel === "sms" ? "SMS" : "WhatsApp";
-    const bal = channel === "sms" ? t.sms_points || 0 : t.wa_points || 0;
-    let stock = null;
-    try { const { data } = await api.get("/super-admin/credit-wallet"); stock = channel === "sms" ? data.sms_stock : data.whatsapp_stock; } catch { /* show without stock */ }
-    askConfirm({
-      title: `Grant ${label} credits to ${t.name}`,
-      message: `Current balance: ${bal}. ${stock !== null ? `HQ has ${stock.toLocaleString("en-IN")} ${label} credits in stock — the grant is deducted from it and ledgered.` : ""} 1 credit = 1 ${label} message.`,
-      confirmLabel: "Grant credits", inputLabel: "Credits to grant", defaultValue: "100",
-      action: async (val) => {
-        const points = parseInt(val, 10);
-        if (!points || points < 1) { toast.error("Enter a positive number of credits"); return; }
-        try {
-          const { data } = await api.post(`/super-admin/tenants/${t.id}/sms-points?channel=${channel}`, { points });
-          toast.success(`${t.name} now has ${data.balance} ${label} credits ✦`);
-          load();
-        } catch (e) { toast.error(e.response?.data?.detail || `Couldn't grant ${label} credits`); }
-      },
-    });
-  }
+  const [grantFor, setGrantFor] = useState(null); // { tenant, channel }
+  const grantCredits = (t, channel = "sms") => setGrantFor({ tenant: t, channel });
+
 
   function publicBookingUrl(slug) {
     return `${window.location.origin}/book/${slug}`;
@@ -846,6 +830,7 @@ export default function SuperAdmin() {
       {smsLogFor && <SmsLogModal tenant={smsLogFor} onClose={() => setSmsLogFor(null)} />}
       <ResetFeaturesModal open={resetOpen} onClose={() => setResetOpen(false)} onDone={load} />
       {featuresFor && <TenantFeaturesModal tenant={featuresFor} onClose={() => setFeaturesFor(null)} />}
+      {grantFor && <GrantCreditsModal tenant={grantFor.tenant} channel={grantFor.channel} onClose={() => setGrantFor(null)} onDone={load} />}
 
       <TenantQuickView tenant={quickFor} onClose={() => setQuickFor(null)} onProfilePdf={profilePdf} />
       {editFor && (

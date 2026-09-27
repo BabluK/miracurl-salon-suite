@@ -19,15 +19,24 @@ const QUOTES = [
 
 const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good Morning" : h < 17 ? "Good Afternoon" : "Good Evening"; };
 
+const RESTO_QUOTES = [
+  ["A full table tonight starts with a remembered guest from last night.", "Mira AI"],
+  ["People forget the price of a meal, never how it made them feel.", "Mira AI"],
+  ["Every empty seat is a reservation waiting for a reminder.", "Mira AI"],
+  ["Serve with heart and the reviews write themselves.", "Mira AI"],
+];
+
 export function DashboardHero({ user, tenant, slug, data, bookingUrl, onCopy, inr, loadMs }) {
+  const resto = tenant?.business_type === "restaurant";
   const salonUrl = slug ? `${window.location.origin}/salon/${slug}` : "";
-  const copySalon = () => navigator.clipboard?.writeText(salonUrl).then(() => toast.success("Salon page link copied ✦")).catch(() => toast.error("Couldn't copy — long-press the link"));
-  const [q, by] = QUOTES[new Date().getDate() % QUOTES.length];
+  const pageLabel = resto ? "Restaurant page" : "Salon page";
+  const copySalon = () => navigator.clipboard?.writeText(salonUrl).then(() => toast.success(`${pageLabel} link copied ✦`)).catch(() => toast.error("Couldn't copy — long-press the link"));
+  const [q, by] = (resto ? RESTO_QUOTES : QUOTES)[new Date().getDate() % (resto ? RESTO_QUOTES : QUOTES).length];
   const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const n = data.today_bookings || 0;
   return (
     <section className="relative overflow-hidden rounded-3xl text-white min-h-[260px] shadow-[0_30px_60px_-30px_rgba(0,0,0,.6)]" data-testid="dashboard-hero">
-      <img src="/assets/dashboard/hero-salon.jpg" alt="" className="absolute inset-0 w-full h-full object-cover object-right" />
+      <img src={resto ? "/assets/dashboard/hero-restaurant.jpg" : "/assets/dashboard/hero-salon.jpg"} alt="" className="absolute inset-0 w-full h-full object-cover object-right" data-testid="dashboard-hero-image" data-vertical={resto ? "restaurant" : "salon"} />
       <div className="absolute inset-0 bg-gradient-to-r from-[#0b0a08]/95 via-[#0b0a08]/70 to-[#0b0a08]/25" />
       <div className="absolute inset-0 bg-gradient-to-t from-[#0b0a08]/70 via-transparent to-transparent" />
       <GoldSparkles count={44} stars={10} bokeh={14} seed={3} />
@@ -40,7 +49,7 @@ export function DashboardHero({ user, tenant, slug, data, bookingUrl, onCopy, in
           </h1>
           <p className="text-white/80 mt-3 text-sm sm:text-base">{today}</p>
           <p className="text-white/75 text-sm sm:text-base" data-testid="hero-today-collection">
-            ✦ {n} appointment{n === 1 ? "" : "s"} today · Collection {inr(data.today_revenue)} from {data.today_invoices} bill{data.today_invoices === 1 ? "" : "s"} — Here&apos;s your daily snapshot.
+            ✦ {n} {resto ? "reservation" : "appointment"}{n === 1 ? "" : "s"} today · Collection {inr(data.today_revenue)} from {data.today_invoices} bill{data.today_invoices === 1 ? "" : "s"} — Here&apos;s your daily snapshot.
           </p>
           <div className="mt-5 max-w-xl rounded-2xl bg-white/[.06] backdrop-blur-md border border-[#e8c56a]/25 px-5 py-4 flex gap-4" data-testid="hero-quote">
             <Quote className="w-6 h-6 text-[#e8c56a] shrink-0" />
@@ -52,7 +61,7 @@ export function DashboardHero({ user, tenant, slug, data, bookingUrl, onCopy, in
         </div>
         <div className="flex flex-col items-end gap-4">
           <div className="hidden lg:block font-playfair italic text-4xl xl:text-5xl text-[#e8c56a] leading-[1.15] text-right drop-shadow-[0_6px_20px_rgba(232,197,106,.35)] select-none" style={{ fontStyle: "italic" }}>
-            Beauty<br />Grows<br />Confidence <span className="not-italic">♡</span>
+            {resto ? <>Serve<br />Smarter<br />Everyday <span className="not-italic">♡</span></> : <>Beauty<br />Grows<br />Confidence <span className="not-italic">♡</span></>}
           </div>
           <div className="w-full max-w-sm rounded-2xl bg-white/[.08] backdrop-blur-md border border-white/15 p-3" data-testid="booking-link-widget">
             <div className="text-[10px] uppercase tracking-[.22em] text-[#e8c56a] font-semibold mb-1.5">Public booking link</div>
@@ -63,7 +72,7 @@ export function DashboardHero({ user, tenant, slug, data, bookingUrl, onCopy, in
               <a data-testid="open-booking-link-btn" href={bookingUrl} target="_blank" rel="noreferrer" className="px-3 py-2 rounded-lg bg-white/10 border border-white/15 text-white text-xs font-semibold inline-flex items-center gap-1 hover:bg-white/20"><ExternalLink className="w-3.5 h-3.5" /> Open</a>
             </div>
             <div className="mt-2.5 pt-2.5 border-t border-white/10 flex items-center gap-2" data-testid="salon-page-link-widget">
-              <span className="text-[10px] uppercase tracking-[.18em] text-white/55 shrink-0">Salon page</span>
+              <span className="text-[10px] uppercase tracking-[.18em] text-white/55 shrink-0">{pageLabel}</span>
               <span className="flex-1 min-w-0 truncate text-[11px] font-mono text-white/70" data-testid="salon-page-url">{salonUrl}</span>
               <button data-testid="copy-salon-page-btn" onClick={copySalon} className="p-1.5 rounded-md bg-white/10 border border-white/15 text-white hover:bg-white/20" title="Copy salon page link"><Copy className="w-3.5 h-3.5" /></button>
               <a data-testid="open-salon-page-btn" href={salonUrl} target="_blank" rel="noreferrer" className="p-1.5 rounded-md bg-white/10 border border-white/15 text-white hover:bg-white/20" title="Open salon page"><ExternalLink className="w-3.5 h-3.5" /></a>
@@ -82,7 +91,7 @@ const MIRA_ACTIONS = [
   ["Answer queries 24/7", MessageCircle, "/assistant", "mira-act-assistant"],
 ];
 
-export function MiraAssistantCard({ inactive }) {
+export function MiraAssistantCard({ inactive, resto = false }) {
   const [blast, setBlast] = useState(false);
   return (
     <section className="relative overflow-hidden rounded-3xl bg-[#0f0e0b] text-white p-6 sm:p-7 border border-[#e8c56a]/20 shadow-[0_30px_60px_-30px_rgba(0,0,0,.7)]" data-testid="mira-assistant-card">
@@ -93,8 +102,8 @@ export function MiraAssistantCard({ inactive }) {
             <MiraAvatar size={112} speaking />
             <div>
               <h2 className="font-playfair text-2xl sm:text-3xl leading-tight">Mira AI Assistant</h2>
-              <p className="text-white/60 text-sm">Your salon&apos;s smart companion</p>
-              <p className="text-[11px] text-[#e8c56a]/80 mt-1 inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Online · watching bookings, stock &amp; guests</p>
+              <p className="text-white/60 text-sm">Your {resto ? "restaurant" : "salon"}&apos;s smart companion</p>
+              <p className="text-[11px] text-[#e8c56a]/80 mt-1 inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Online · watching {resto ? "reservations, orders" : "bookings, stock"} &amp; guests</p>
             </div>
           </div>
           <div className="mt-5 rounded-2xl bg-white/[.06] border border-[#e8c56a]/20 p-5">

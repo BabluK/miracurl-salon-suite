@@ -230,7 +230,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] gap-4" data-testid="dashboard-mira-row">
-        <MiraAssistantCard inactive={data.inactive_customers_30d} />
+        <MiraAssistantCard inactive={data.inactive_customers_30d} resto={tenant?.business_type === "restaurant"} />
         <LowStockCard items={data.low_stock_items || []} count={data.low_stock_count || 0} />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)] gap-4" data-testid="dashboard-actions-row">
