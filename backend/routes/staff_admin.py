@@ -1124,7 +1124,33 @@ async def mark_table_orders_billed(body: MarkBilledIn, admin=Depends(require_adm
         {"id": {"$in": ids}, "status": {"$ne": "cancelled"}},
         {"$set": {"status": "billed", "updated_at": now, "billed_at": now, "paid": body.paid,
                   "paid_at": now if body.paid else None, "invoice_no": body.invoice_no, "bill_total": bill_total}})
+    if body.paid:
+        await _resolve_paid_pings(ids)
     return {"ok": True, "billed": r.modified_count}
+
+
+async def _resolve_paid_pings(order_ids: list) -> None:
+    """Bill settled → auto-close the guests' '✅ I've paid' / '🧾 bill please' pings for those tables."""
+    tables = [r["table_no"] async for r in db.table_orders.find({"id": {"$in": order_ids}}, {"_id": 0, "table_no": 1})]
+    now = datetime.now(timezone.utc).isoformat()
+    await db.table_calls.update_many(
+        {"status": "open", "kind": {"$in": ["paid", "bill"]},
+         "$or": [{"order_id": {"$in": order_ids}}, {"table_no": {"$in": tables}}]},
+        {"$set": {"status": "done", "resolved_at": now, "auto_resolved": "bill_paid"}})
+
+
+async def settle_table_orders_for_invoice(invoice_no: Optional[str]) -> int:
+    """POS bill completed (paid) → every table order on that bill becomes paid automatically."""
+    if not invoice_no:
+        return 0
+    now = datetime.now(timezone.utc).isoformat()
+    ids = [r["id"] async for r in db.table_orders.find(
+        {"invoice_no": invoice_no, "paid": {"$ne": True}, "status": {"$ne": "cancelled"}}, {"_id": 0, "id": 1})]
+    if not ids:
+        return 0
+    await db.table_orders.update_many({"id": {"$in": ids}}, {"$set": {"status": "billed", "paid": True, "paid_at": now, "updated_at": now}})
+    await _resolve_paid_pings(ids)
+    return len(ids)
 
 
 class TableOrderStatusIn(BaseModel):

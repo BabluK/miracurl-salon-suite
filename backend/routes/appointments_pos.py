@@ -783,6 +783,8 @@ async def complete_open_invoice(iid: str, body: InvoiceCompleteIn,
     needed = {i["ref_id"]: int(i.get("qty") or 1) for i in inv.get("items", []) if i.get("type") == "product"}
     inv["points_earned"] = await _apply_post_invoice_effects(cust, totals, _loyalty_rules(t), needed, inv.get("appointment_id"))
     await _complete_billed_appointment(inv.get("appointment_id"))
+    from routes.staff_admin import settle_table_orders_for_invoice
+    await settle_table_orders_for_invoice(inv.get("invoice_no"))  # dine-in: bill paid → table orders auto-paid
     await db.invoices.update_one({"id": iid}, {"$set": {"points_earned": inv["points_earned"]}})
     inv["membership_cashback"] = await _apply_membership_cashback(inv, cust)
     inv["gift_cards_issued"] = await _issue_pos_gift_cards(inv, cust, t)

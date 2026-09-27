@@ -936,7 +936,7 @@ async def public_table_active_order(slug: str, table_no: int, request: Request):
         {"tenant_id": t["id"], "table_no": table_no, "created_at": {"$gte": since},
          "$or": [{"status": {"$in": ["new", "preparing", "served"]}}, {"status": "billed", "paid": {"$ne": True}}]},
         {"_id": 0, "id": 1, "status": 1, "table_no": 1, "total": 1, "subtotal": 1, "discount": 1, "created_at": 1,
-         "items": 1, "guests": 1, "customer_name": 1, "paid": 1, "invoice_no": 1, "invoice_total": 1}, sort=[("created_at", -1)])
+         "items": 1, "guests": 1, "customer_name": 1, "paid": 1, "invoice_no": 1, "invoice_total": 1, "bill_total": 1}, sort=[("created_at", -1)])
     if o:  # SEC-001: never expose phone/customer_id publicly; first name is enough for the greeting
         o["customer_name"] = (o.get("customer_name") or "").split(" ")[0]
     return {"order": o}
@@ -979,7 +979,7 @@ async def public_table_order_status(slug: str, order_id: str, request: Request):
     o = await _raw_db.table_orders.find_one(
         {"tenant_id": t["id"], "id": order_id},
         {"_id": 0, "id": 1, "status": 1, "table_no": 1, "total": 1, "created_at": 1, "feedback.rating": 1,
-         "paid": 1, "invoice_no": 1, "invoice_total": 1, "paid_claimed_at": 1})
+         "paid": 1, "invoice_no": 1, "invoice_total": 1, "bill_total": 1, "paid_claimed_at": 1})
     if not o:
         raise HTTPException(404, "Order not found")
     if o.get("status") == "billed" and not o.get("paid"):
@@ -991,7 +991,7 @@ def _table_pay_info(t: dict, o: dict) -> dict | None:
     """UPI intent for 'pay at table' — uses the restaurant's UPI ID from Settings → Gift cards & payments."""
     from urllib.parse import quote as _q
     vpa = ((t.get("gift_cards") or {}).get("upi_id") or "").strip()
-    amount = float(o.get("invoice_total") or o.get("total") or 0)
+    amount = float(o.get("bill_total") or o.get("invoice_total") or o.get("total") or 0)
     if not vpa or amount <= 0:
         return None
     note = f"Table {o.get('table_no')} {o.get('invoice_no') or str(o.get('id'))[:8]}"

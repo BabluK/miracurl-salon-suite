@@ -10,7 +10,7 @@ export function PayAtTableCard({ slug, orderId, live }) {
   const [claimed, setClaimed] = useState(!!live?.paid_claimed_at);
   const [busy, setBusy] = useState(false);
   if (!live || live.status !== "billed") return null;
-  const amount = Number(live.invoice_total || live.total || 0);
+  const amount = Number(live.bill_total || live.invoice_total || live.total || 0);
 
   if (live.paid) return (
     <div className="mt-5 rounded-3xl border border-emerald-400/40 bg-emerald-500/10 p-5 text-center" data-testid="pay-at-table-paid">
