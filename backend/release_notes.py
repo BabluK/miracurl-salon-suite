@@ -2,11 +2,30 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-22.348"
-BUILD_TIME = "22 Sep 2026, 11:15 AM IST"
+BUILD = "2026-09-27.367"
+BUILD_TIME = "27 Sep 2026, 02:15 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-27.367", "note": "Restaurant dashboards get their own hero (photo, 'Serve Smarter Everyday', 'Restaurant page', reservations wording, Mira 'restaurant companion'). Shared HqDialogHeader (gold-night aurora, z-30 close) on Edit tenant, Pay link, new GrantCreditsModal (+50/100/300/500 chips, balance + HQ stock) and Control Centre."},
+    {"build": "2026-09-27.366", "note": "Legacy DLT-rejected MSG91 'billing' receipt template removed; receipts always miracurl_salon_service_payment_v2 (receipt_sms_kind constant). HQ Control Centre modal: close X was under the header content layer (fixed) + gold-night header redesign."},
+    {"build": "2026-09-27.365", "note": "Own-salon lead filter: lead_gen._own_business_filter (tenant names/phones/websites + 'miracurl' + login-only domains) on Maps & AI candidates; startup step own-salon-lead-purge rejects existing own-business leads. CRM 'Fix numbers': GET /customers/invalid-phones + InvalidPhonesModal (inline country code + number + Save)."},
+    {"build": "2026-09-27.364", "note": "Lead follow-ups skip no-real-inbox (@miracurl.com login-only) leads once (follow_up_skipped) — no more daily 'skipped' rows. WhatsApp: winback._wa_number validates numbers (malformed skipped before a credit is spent); Meta 'failed' status auto-refunds the tenant's template credit (sms_credit_log meta_delivery_failed_refund); wallet shows plain-English 131049/131026 reasons. /reports/dashboard today_by_mode → Today Revenue shows Cash · UPI · Card."},
+    {"build": "2026-09-27.363", "note": "WhatsApp Lead Nudge: routes/lead_wa_auto.py — Meta template miracurl_lead_intro (APPROVED) auto-sent to hot leads found in last 48h during their local 10–19h, daily cap, opt-out/reply tracking via platform-number inbound; AutoWaToggle + per-lead 'WA Intro' in Lead Agent; Mira briefing reports intros/replies. Collection Review now available to single-branch owners (light cream theme, mobile chips)."},
+    {"build": "2026-09-27.362", "note": "Voice calling removed completely: routes/mira_calls.py → routes/mira_hq.py (briefing/ask/speak, platform-map live, digests, memory, Face-ID kept); Twilio voice webhooks, /super-admin/mira-calls/*, auto-call + callback-redial schedulers, Lead Agent call UI and Platform Map calls card deleted. Overtime: auto-closed shifts (no check-out) end at shift_end with 0 OT; startup step auto-closed-ot-fix clears guessed OT."},
+    {"build": "2026-09-24.361", "note": "Dashboard load 3.5s → ~100-200ms: lib/dashPrefetch fires /reports/dashboard as soon as /auth/me resolves; below-fold widgets mount after the KPI payload (settled); reminders/subscription-status deferred 400ms; SpeedPulse measures request→paint and prints ms."},
+    {"build": "2026-09-24.360", "note": "Animated gold 'MS → Miracurl Suite' reveal replaces the static sidebar/signup logo: user video → silent 900×620 WebM+MP4 (~2 MB from 16 MB), loops, PiP/controls disabled. Code Review #1 fixes: early renewals stack on unexpired end_date; HQ revenue/MRR/CSV normalise USD→INR (amount_inr, USD_INR_RATE)."},
+    {"build": "2026-09-23.359", "note": "Signup page design-agent pass: dual theme (salon blush / restaurant amber), Caveat script, gradient CTA/stepper, trust badges, rotating testimonials, live signup counter."},
+    {"build": "2026-09-23.358", "note": "OTP 'Email me a code' login fixed (nested form). Signup two-column redesign; welcome + trial-kit emails list enabled modules."},
+    {"build": "2026-09-23.357", "note": "Attendance previous week-off decision delete fixed (confirmAsync). 403 MODULE_LOCKED toast with 'See plans'. Onboarding module picker (module_locks on create)."},
+    {"build": "2026-09-23.356", "note": "Lead email fixer (email_real, PUT edit_lead validation). Entitlements v2: API tier enforcement, per-tenant module_locks, grandfathering before GATING_FROM; HQ 'What this salon can use' grid. Plan feature editor on Billing."},
+    {"build": "2026-09-23.355", "note": "USD trial-ending nudge (module usage → recommended tier). Configurable plan catalog: custom plans CRUD in HQ Billing; landing renders custom cards."},
+    {"build": "2026-09-23.354", "note": "US pricing refresh ($39/$79/$149/$399, annual = 2 months free) + USD tier entitlements (23 modules, tier matrix, competitor compare); UpgradeGate for locked routes."},
+    {"build": "2026-09-23.353", "note": "Temporary Owner Dashboard redesigned light (briefing card, snapshot tiles, revenue breakdown, team & payments)."},
+    {"build": "2026-09-22.352", "note": "Temporary illustrative Owner Dashboard (Settings card → /owner-dashboard, PIN-gated, deletable by owner)."},
+    {"build": "2026-09-22.351", "note": "Single Owner-PIN unlock (GET /reports/team-unlock) for month revenue + revenue trend + business by stylist."},
+    {"build": "2026-09-22.350", "note": "Revenue Trend (7-day) card joins the team lock for managers."},
+    {"build": "2026-09-22.349", "note": "Team lock: hide_month_revenue ON → managers see gold locks on This Month + Business by Stylist; Owner PIN reveals."},
     {"build": "2026-09-22.348", "note": "Public booking honours leave + one-time week-off swaps: public_site._staff_off_reason(s, day, leaves) (leave > swap date > effective weekday: original after swap) used by /public/availability (per-stylist block message incl. on_leave, Any-stylist capacity excludes off staff), _resolve_staff (409 on leave/week-off; Any skips them) and BookPublic.steps StaffStep (swap-aware greyed card + label). /public/staff already returned leaves + week_off_* fields."},
     {"build": "2026-09-22.347", "note": "Team page KPIs honour today: GET /staff adds today_status (on_leave via approved leave_requests · week_off via week_off_day or one-time week_off_swap_date, tenant tz) → On Duty excludes them, Away/On Leave counts + sub-line, StaffCard leave/week-off badges. DELETE /week-off-requests/{rid} (decided only; pending → 400; audited) + trash icon on Previous decisions in Attendance week-off card (now lists approved+rejected). Roster branch shown as a pill with the distinguishing part (shortBranch: strips shared prefix, full name on hover)."},
     {"build": "2026-09-22.346", "note": "Timezone select (Settings → Branding) options were white-on-white (index.css global input colour) → explicit dark colour + global rule: input/select/textarea with bg-white/bg-slate-50 (and their options) render #0f172a. Double dashboard load after login on prod = post-deploy PWA cache-bust reload (AppLayout cache-version check) → extracted to lib/cacheBust.ensureFreshBuild(): runs on the LOGIN page first (reload happens before sign-in) and only reloads when a service worker/cache actually existed."},
@@ -150,6 +169,23 @@ BUILD_LOG = [
 ]
 
 RELEASES = [
+    {
+        "date": "2026-09-27 (Faster dashboard, smarter WhatsApp & a golden new look ✨)",
+        "changes": [
+            "⚡ Dashboard opens in a blink — your figures now load in about a fifth of a second (the little 'Loaded in' badge shows it in milliseconds)",
+            "💵 Today Revenue now shows how much came in as Cash · UPI · Card for the day, right under the total",
+            "🎞️ New animated gold Miracurl Suite logo in the sidebar and on the sign-up page (plays silently, loops)",
+            "🍽️ Restaurant dashboards finally look like a restaurant — new dining-room hero, 'Serve Smarter Everyday', reservations wording and 'Restaurant page' link",
+            "📊 Collection Review for EVERY owner (single branch too): Today / Yesterday / 7-30 days / week / month / custom range, Cash-UPI-Card split, top services — Owner-PIN protected, in a calm cream theme that reads well on phones",
+            "⏱️ Overtime fixed: if a stylist forgets to check out, the shift now auto-closes at shift end with NO overtime — only real late check-outs earn OT (minutes past shift end × their rate)",
+            "📱 CRM → 'Fix numbers': a list of guests whose phone number can't receive WhatsApp/SMS (wrong length, bad start digit, placeholder) with the reason — correct the code + number inline and save",
+            "💬 WhatsApp credits are refunded automatically when Meta reports a message could not be delivered; malformed numbers are skipped before a credit is spent",
+            "🧾 Receipt SMS always goes via the DLT-verified template — the old rejected one is retired",
+            "🌍 Paying in USD? Renewing early no longer shortens your plan — the new term is added on top of the days you still have",
+            "Super Admin: voice calling (auto-dialer, call history) removed; Mira now WhatsApp-intros fresh hot leads during their business hours (toggle in Lead Agent) and reports intros/replies in her briefing",
+            "Super Admin: Edit tenant, Pay link, Grant credits and Control Centre dialogs share the new gold-night header; Control Centre close button fixed; leads that are your own salons are auto-skipped; skipped follow-up rows for login-only emails are gone",
+        ],
+    },
     {
         "date": "2026-09-21 (Unlock & set passwords anywhere 🔓)",
         "changes": [
