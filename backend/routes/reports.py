@@ -264,9 +264,11 @@ async def dashboard(branch: Optional[str] = None, user=Depends(require_admin), t
     trend = [{"date": (now_local - timedelta(days=o)).date().isoformat(),
               "revenue": round(by_day.get((now_local - timedelta(days=o)).date().isoformat(), 0.0), 2)}
              for o in range(6, -1, -1)]
+    today_modes, _ = _payment_mode_buckets(invoices_today)
     return {
         "compare": compare,
         "today_revenue": round(sum(float(inv.get("total") or 0) for inv in invoices_today), 2),
+        "today_by_mode": {k: round(v, 2) for k, v in today_modes.items()},
         "today_bookings": len(appts_today),
         "today_invoices": len(invoices_today),
         "month_revenue": (None if locked else round(sum(float(inv.get("total") or 0) for inv in invoices_month), 2)),

@@ -52,6 +52,13 @@ function SmsTemplatesHealth() {
   );
 }
 
+const WA_ERROR_HINT = {
+  131049: "131049 Meta frequency cap — this person already got too many marketing messages from businesses recently; Meta drops extra ones. Try again in a few days or use a utility template",
+  131026: "131026 Undeliverable — number isn't on WhatsApp (or malformed / old app / hasn't accepted WhatsApp terms)",
+  131047: "131047 Re-engagement needed — more than 24h since the customer last replied; only templates allowed",
+  130472: "130472 Marketing opt-out — this user has stopped receiving marketing messages from your business",
+  131051: "131051 Unsupported message type",
+};
 const WA_STATUS_STYLE = { read: "bg-emerald-100 text-emerald-800", delivered: "bg-emerald-50 text-emerald-700", sent: "bg-sky-50 text-sky-700", accepted: "bg-slate-100 text-slate-600", failed: "bg-rose-100 text-rose-800" };
 
 function RecentWaSends({ rows }) {
@@ -66,7 +73,7 @@ function RecentWaSends({ rows }) {
             <span className="text-slate-500 shrink-0">{new Date(m.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
             <span className="font-mono text-slate-700">+{m.wa_id}</span>
             <span className="text-slate-500 truncate">{m.template || m.type}</span>
-            {m.status === "failed" && <span className="text-rose-700 truncate">{(m.errors || []).map(e => `${e.code} ${e.title || ""}`).join("; ")}</span>}
+            {m.status === "failed" && <span className="text-rose-700 truncate" title={(m.errors || []).map(e => `${e.code} ${e.title || ""}`).join("; ")}>{(m.errors || []).map(e => WA_ERROR_HINT[e.code] || `${e.code} ${e.title || ""}`).join("; ")}{m.credit_refunded ? " · credit refunded" : ""}</span>}
           </li>
         ))}
       </ul>

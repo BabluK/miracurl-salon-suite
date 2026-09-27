@@ -1690,6 +1690,11 @@ async def run_lead_followups() -> dict:
     for lead in due:
         if lead.get("unsubscribed"):
             continue
+        if not _has_real_inbox(lead.get("email")):
+            # login-only @miracurl.com / placeholder domains can never receive mail — flag once, stop daily retries
+            await _raw_db.mira_leads.update_one(
+                {"id": lead["id"]}, {"$set": {"follow_up_sent_at": _now(), "follow_up_skipped": "no_real_inbox"}})
+            continue
         subject, body = _followup_email(lead, plans)
         base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
         html = ("".join(f"<p>{p}</p>" for p in body.split("\n") if p.strip())

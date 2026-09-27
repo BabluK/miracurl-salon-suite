@@ -137,8 +137,15 @@ class BlastIn(BaseModel):
 
 
 def _wa_number(phone: str) -> str:
-    d = "".join(ch for ch in (phone or "") if ch.isdigit())
-    return d if len(d) > 10 else (f"91{d}" if len(d) == 10 else "")
+    """E.164 digits or '' when the number can't be a real WhatsApp account (saves credits + 131026 failures)."""
+    d = "".join(ch for ch in (phone or "") if ch.isdigit()).lstrip("0")
+    if len(d) == 10 and d[0] in "6789":
+        return f"91{d}"
+    if len(d) == 12 and d.startswith("91") and d[2] in "6789":
+        return d
+    if 11 <= len(d) <= 15 and not d.startswith("91"):
+        return d
+    return ""
 
 
 @router.get("/winback/blast/preview")

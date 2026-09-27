@@ -37,6 +37,22 @@ async def handle_inbound_message(msg: dict, value: dict) -> None:
         log.exception("mira whatsapp reply failed for %s", msg.get("id"))
 
 
+async def _refund_credit(message_id: str | None) -> None:
+    """Meta never delivered a tenant's marketing template (131049 cap / 131026 undeliverable) → give the credit back once."""
+    if not message_id:
+        return
+    doc = await _raw_db.whatsapp_messages.find_one_and_update(
+        {"message_id": message_id, "tenant_id": {"$ne": None}, "own_number": {"$ne": True}, "type": "template",
+         "credit_refunded": {"$ne": True}},
+        {"$set": {"credit_refunded": True}}, projection={"_id": 0, "tenant_id": 1, "template": 1})
+    if not doc:
+        return
+    await _raw_db.tenants.update_one({"id": doc["tenant_id"]}, {"$inc": {"wa_points": 1}})
+    await _raw_db.sms_credit_log.insert_one({"tenant_id": doc["tenant_id"], "points": 1, "source": "meta_delivery_failed_refund",
+                                             "channel": "whatsapp", "template": doc.get("template"), "message_id": message_id, "at": _now()})
+    log.info("refunded 1 WhatsApp credit to tenant %s for undelivered %s", doc["tenant_id"], message_id)
+
+
 async def handle_status_update(st: dict, value: dict) -> None:
     """Business → customer lifecycle: sent / delivered / read / failed."""
     key = f"status:{st.get('id')}:{st.get('status')}"
@@ -46,6 +62,7 @@ async def handle_status_update(st: dict, value: dict) -> None:
     if st.get("status") == "failed":
         upd["errors"] = st.get("errors") or []
         log.warning("whatsapp message %s FAILED for %s: %s", st.get("id"), st.get("recipient_id"), upd["errors"])
+        await _refund_credit(st.get("id"))
     if st.get("conversation"):
         upd["conversation"] = st.get("conversation")
     if st.get("pricing"):

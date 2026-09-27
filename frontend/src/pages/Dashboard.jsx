@@ -200,7 +200,11 @@ export default function Dashboard() {
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Stat icon={IndianRupee} label="Today Revenue" value={inr(data.today_revenue)} hint={`${data.today_invoices} invoices`} testid="kpi-revenue-today" color="emerald" now={data.today_revenue} prev={data.compare?.yesterday_revenue} vs="vs yesterday" />
+        <Stat icon={IndianRupee} label="Today Revenue" value={inr(data.today_revenue)} testid="kpi-revenue-today" color="emerald" now={data.today_revenue} prev={data.compare?.yesterday_revenue} vs="vs yesterday"
+          hint={<span className="flex flex-wrap items-center gap-x-2 gap-y-0.5" data-testid="kpi-revenue-modes"><span>{data.today_invoices} invoices</span>
+            <span className="text-slate-300">·</span><span>Cash <b className="text-slate-700">{inr(data.today_by_mode?.cash)}</b></span>
+            <span className="text-slate-300">·</span><span>UPI <b className="text-slate-700">{inr(data.today_by_mode?.upi)}</b></span>
+            <span className="text-slate-300">·</span><span>Card <b className="text-slate-700">{inr(data.today_by_mode?.card)}</b></span></span>} />
         <Stat icon={Calendar} label="Today Bookings" value={data.today_bookings} hint="appointments scheduled" testid="kpi-bookings-today" color="sky" now={data.today_bookings} prev={data.compare?.yesterday_bookings} vs="vs yesterday" />
         <Stat icon={TrendingUp} label="This Month" color="amber" testid="kpi-revenue-month" now={monthMasked ? null : (data.month_revenue ?? peekValue)} prev={monthMasked || data.month_revenue == null ? null : data.compare?.last_month_revenue} vs="vs last month"
           value={monthMasked
