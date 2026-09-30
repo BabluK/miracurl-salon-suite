@@ -3780,3 +3780,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-30 — Annual Switch Celebration
 - `/billing/razorpay/verify` returns `celebration {saved, credit, to_label, currency, annual}` for mid-term upgrades (saved = yearly-equivalent of old plan − new price; monthly→annual = ₹1,460). `lib/celebrate.js` (canvas-confetti) fires gold confetti + dark-gold toast "You saved ₹1,460 🎉" in RazorpayCard on success. Verified with mocked Razorpay handler.
 - Prod SMS follow-up: deployer confirmed MSG91_AUTHKEY present in prod → "SMS: not configured" not caused by secrets; needs receipt-path investigation (pending).
+
+## 2026-09-30 — Logo plays once per login · Nudge snooze
+- `MasterBrand.jsx`: sidebar reveal video no longer loops; plays once after login (`sessionStorage.ms_logo_played`, cleared in `afterAuth`), then shows the still poster on subsequent pages.
+- `UpgradeNudge`: × button snoozes for 7 days per tenant (`localStorage.upgrade_nudge_snooze_<tenantId>`), toast confirms. Verified via screenshot flow.

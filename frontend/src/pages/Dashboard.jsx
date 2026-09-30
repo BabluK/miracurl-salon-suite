@@ -3,7 +3,7 @@ import { BrandSplash } from "@/components/BrandSplash";
 import api from "@/lib/api";
 import pinApi, { getWithFreshPin } from "@/lib/ownerPin";
 import { useAuth } from "@/context/AuthContext";
-import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare, Send, Bell, Check, Clock, ArrowRight, Lock, Unlock, Eye, EyeOff, Sparkles } from "lucide-react";
+import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare, Send, Bell, Check, Clock, ArrowRight, Lock, Unlock, Eye, EyeOff, Sparkles, X } from "lucide-react";
 import { ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, ReferenceDot } from "recharts";
 import { toast } from "sonner";
 import ReviewBlastModal from "./ReviewBlastModal";
@@ -247,7 +247,7 @@ export default function Dashboard() {
       {settled && <>
       {isOwner && <WelcomeCongratsModal />}
       <RenewalBanner sub={subStatus} />
-      <UpgradeNudge nudge={subStatus?.upgrade_nudge} />
+      <UpgradeNudge nudge={subStatus?.upgrade_nudge} tenantId={tenant?.id} />
       {isOwner && <TrialNudgeBanner />}
       {isOwner && <TrialCountdownRing />}
       <ReferralNudgeBanner />
@@ -533,9 +533,18 @@ function ReferralNudgeBanner() {
   );
 }
 
-function UpgradeNudge({ nudge }) {
-  if (!nudge) return null;
+const SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;
+function UpgradeNudge({ nudge, tenantId }) {
+  const key = `upgrade_nudge_snooze_${tenantId || "t"}`;
+  const [snoozed, setSnoozed] = useState(() => { try { return Number(localStorage.getItem(key) || 0) > Date.now(); } catch { return false; } });
+  if (!nudge || snoozed) return null;
   const sym = nudge.currency === "USD" ? "$" : "₹";
+  const snooze = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    try { localStorage.setItem(key, String(Date.now() + SNOOZE_MS)); } catch { /* private mode */ }
+    setSnoozed(true);
+    toast("Okay — I'll remind you about the annual plan in 7 days.", { duration: 3500 });
+  };
   return (
     <a href="/settings#subscription" data-testid="upgrade-nudge"
       className="group flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-900 hover:bg-emerald-100 transition">
@@ -544,6 +553,10 @@ function UpgradeNudge({ nudge }) {
         Renewal in {nudge.days_remaining} day{nudge.days_remaining === 1 ? "" : "s"} — <b>switch to {nudge.to_label.replace(/ \(1 branch\).*$/, "")}, save {sym}{Number(nudge.save).toLocaleString("en-IN")}</b> a year. Pay only the difference today.
       </span>
       <span className="text-xs font-semibold text-emerald-700 group-hover:underline whitespace-nowrap">Upgrade →</span>
+      <button type="button" onClick={snooze} data-testid="upgrade-nudge-snooze" aria-label="Remind me in 7 days" title="Remind me in 7 days"
+        className="ml-1 -mr-1 p-1 rounded-md text-emerald-700/60 hover:text-emerald-900 hover:bg-emerald-200/60 transition">
+        <X className="w-3.5 h-3.5" />
+      </button>
     </a>
   );
 }

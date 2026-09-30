@@ -88,6 +88,7 @@ export function AuthProvider({ children }) {
   const afterAuth = useCallback(async (data) => {
     bumpSessionEpoch();
     clearSectionUnlocks();
+    try { sessionStorage.removeItem("ms_logo_played"); } catch { /* private mode */ }
     if ((data.user.role === "manager" || data.user.role === "staff") && data.user.branch) setSelectedBranch(data.user.branch);
     if (data.user.role === "super_admin") {
       setTenant(null);
