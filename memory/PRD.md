@@ -3776,3 +3776,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-30 — Upgrade Nudge + prod SMS check
 - `subscription-status` now returns `upgrade_nudge` (short-term plan, ≤10 days left, annual saves >0): monthly/quarter → annual saves ₹1,460. `UpgradeNudge` one-liner rendered under RenewalBanner on Dashboard (links /settings#subscription, uses mid-term upgrade). Verified via unit check + mocked-UI screenshot.
 - Prod SMS: `sms_configured()` only needs MSG91_AUTHKEY (sender/flow optional). Deployer debug requested to report which MSG91_* keys are missing in production — user must add them in Deployment Panel secrets and redeploy.
+
+## 2026-09-30 — Annual Switch Celebration
+- `/billing/razorpay/verify` returns `celebration {saved, credit, to_label, currency, annual}` for mid-term upgrades (saved = yearly-equivalent of old plan − new price; monthly→annual = ₹1,460). `lib/celebrate.js` (canvas-confetti) fires gold confetti + dark-gold toast "You saved ₹1,460 🎉" in RazorpayCard on success. Verified with mocked Razorpay handler.
+- Prod SMS follow-up: deployer confirmed MSG91_AUTHKEY present in prod → "SMS: not configured" not caused by secrets; needs receipt-path investigation (pending).

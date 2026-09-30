@@ -739,7 +739,19 @@ async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=De
         from services.tax_invoice import email_invoice
         asyncio.create_task(email_invoice(t, paid["id"], PLAN_CATALOG.get(server_plan, {}).get("label", "")))
     return {"ok": True, "subscription_id": sub["id"], "end_date": sub["end_date"],
-            "plan": server_plan, "branches": len(target_tids)}
+            "plan": server_plan, "branches": len(target_tids), "celebration": _upgrade_celebration(pending_doc, server_plan)}
+
+
+def _upgrade_celebration(pending_doc: dict, new_key: str) -> Optional[dict]:
+    """Mid-term upgrade to a longer plan → how much the owner saves per year vs. staying on the short plan."""
+    upg = pending_doc.get("upgrade") or {}
+    cur, new = PLAN_CATALOG.get(upg.get("from_plan") or ""), PLAN_CATALOG.get(new_key)
+    if not upg.get("eligible") or not cur or not new:
+        return None
+    per_year = float(cur["price"]) * round(365 / max(int(cur.get("duration_days") or 1), 1))
+    saved = round(per_year - float(new["price"]))
+    return {"saved": max(saved, 0), "credit": float(upg.get("credit") or 0), "to_label": new["label"],
+            "currency": new.get("currency") or "INR", "annual": int(new.get("duration_days") or 0) >= 365}
 
 
 async def _wh_payment_failed(order_id: str, payment: dict, logger) -> None:

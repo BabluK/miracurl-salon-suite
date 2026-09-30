@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { CreditCard, Check, Sparkles, Loader2, Store } from "lucide-react";
 import { trackPurchase } from "@/lib/analytics";
+import { celebrateUpgrade } from "@/lib/celebrate";
 
 function loadRazorpayScript() {
   return new Promise(resolve => {
@@ -118,13 +119,14 @@ export function RazorpayCard() {
         },
         handler: async (rzp) => {
           try {
-            await api.post("/billing/razorpay/verify", {
+            const { data: done } = await api.post("/billing/razorpay/verify", {
               plan: chosen.key,
               razorpay_order_id: rzp.razorpay_order_id,
               razorpay_payment_id: rzp.razorpay_payment_id,
               razorpay_signature: rzp.razorpay_signature,
             });
-            toast.success("Payment successful — subscription active ✦");
+            if (done?.celebration) celebrateUpgrade(done.celebration);
+            else toast.success("Payment successful — subscription active ✦");
             trackPurchase({ transaction_id: rzp.razorpay_payment_id, value: (order.amount || 0) / 100, currency: order.currency || "INR", plan: chosen.key, gateway: "razorpay", source: "settings" });
           } catch (e) {
             toast.error(e.response?.data?.detail || "Verification failed. Contact support.");
