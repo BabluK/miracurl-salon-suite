@@ -691,8 +691,8 @@ def restaurant_trial_reminder_email_html(restaurant_name: str, days_left: int, e
           Renew now so QR ordering, kitchen tickets, POS billing and Mira AI keep serving without a pause.</p>
         <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:16px 20px;margin:18px 0;font-size:14px;font-family:Arial,sans-serif;line-height:2">
           🍽️ <b>Restaurant plans</b><br/>
+          · Monthly — <b>₹1,000</b><br/>
           · 3-Month — <b>₹3,000</b><br/>
-          · 6-Month — <b>₹6,000</b><br/>
           · Annual — <b>₹12,000</b> <span style="color:#1f7a4d;font-size:12px">(best value)</span>
         </div>
         {credit_row}

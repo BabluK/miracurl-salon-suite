@@ -400,10 +400,10 @@ async def _send_newbiz_plan_email(tenant: dict, owner_email: str, trial_end: str
     await load_plan_overrides()
     resto = tenant.get("business_type") == "restaurant"
     intl = tenant.get("currency") == "USD"
-    keys = {(False, False): ("half_year", "annual"),
+    keys = {(False, False): ("monthly", "quarter", "annual"),
             (False, True): ("intl_pro_monthly", "intl_pro_annual"),
-            (True, False): ("resto_half", "resto_annual"),
-            (True, True): ("resto_intl_half", "resto_intl_annual")}[(resto, intl)]
+            (True, False): ("resto_monthly", "resto_quarter", "resto_annual"),
+            (True, True): ("resto_intl_monthly", "resto_intl_quarter", "resto_intl_annual")}[(resto, intl)]
     from routes.subscriptions import load_plan_overrides
     await load_plan_overrides()  # live super-admin prices, not the boot-time defaults
     plans = [PLAN_CATALOG[k] for k in keys if k in PLAN_CATALOG]

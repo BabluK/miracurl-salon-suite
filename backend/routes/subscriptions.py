@@ -330,6 +330,38 @@ RZP_INTL_MAX_USD = 500  # Razorpay International single-charge cap on the Miracu
 class RzpOrderIn(BaseModel):
     plan: str  # key from PLAN_CATALOG (e.g. "6_months", "1_year")
     branch_tenant_ids: Optional[list] = None  # multi-branch plans: which branches the plan covers
+    upgrade: bool = False  # mid-term upgrade: credit the unused part of the current plan, pay only the difference
+
+
+async def _upgrade_quote(t: dict, new_key: str) -> dict:
+    """Mid-term upgrade maths: unused value of the active plan (price × remaining/duration) is credited
+    against the higher plan; the new term starts today. Only same-currency, same-vertical, higher plans qualify."""
+    new = await _fresh_plan_or_400(new_key)
+    sub = await db.subscriptions.find_one({"tenant_id": t["id"], "status": "active"}, {"_id": 0})
+    if not sub:
+        return {"eligible": False, "reason": "No active paid plan — this would be a fresh purchase."}
+    cur = PLAN_CATALOG.get(sub.get("plan")) or {}
+    if not cur:
+        return {"eligible": False, "reason": "Current plan is unknown."}
+    if (cur.get("currency") or "INR") != (new.get("currency") or "INR") or (cur.get("vertical") or "salon") != (new.get("vertical") or "salon"):
+        return {"eligible": False, "reason": "Upgrades must stay in the same currency and business type."}
+    today = datetime.now(timezone.utc).date()
+    end = datetime.fromisoformat(sub["end_date"]).date() if sub.get("end_date") else today
+    remaining = max((end - today).days, 0)
+    cur_duration = max(int(cur.get("duration_days") or 1), 1)
+    if sub.get("plan") == new_key or (float(new["price"]) <= float(cur["price"]) and int(new.get("branches") or 1) <= int(cur.get("branches") or 1)):
+        return {"eligible": False, "reason": "Pick a higher plan to upgrade — renewals stack on top of your current term instead."}
+    unused = round(float(sub.get("price") or cur["price"]) * remaining / cur_duration, 2)
+    credit = round(min(unused, float(new["price"]) - 1), 2)
+    return {"eligible": True, "from_plan": sub.get("plan"), "from_label": cur.get("label"), "to_plan": new_key, "to_label": new["label"],
+            "remaining_days": remaining, "current_end_date": sub.get("end_date"), "unused_value": unused, "credit": credit,
+            "new_price": float(new["price"]), "amount_due": round(float(new["price"]) - credit, 2),
+            "new_end_date": (today + timedelta(days=int(new["duration_days"]))).isoformat(), "currency": new.get("currency") or "INR"}
+
+
+@router.get("/billing/upgrade-quote")
+async def upgrade_quote(plan: str, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    return await _upgrade_quote(t, plan)
 
 
 class RzpVerifyIn(BaseModel):
@@ -369,6 +401,12 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
     currency = (plan.get("currency") or "INR").upper()
     price = float(plan["price"])
     installments = 1
+    upgrade = None
+    if body.upgrade:
+        upgrade = await _upgrade_quote(t, body.plan)
+        if not upgrade.get("eligible"):
+            raise HTTPException(400, upgrade.get("reason") or "Not eligible for a mid-term upgrade")
+        price = float(upgrade["amount_due"])  # only the difference is charged
     if currency == "USD":
         # International plans: charged in USD via Razorpay International (export of service — no GST,
         # INR affiliate credits are not applied to dollar invoices).
@@ -397,6 +435,8 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
                 "plan": body.plan,
                 "currency": currency,
                 "credits_applied_inr": str(credits_used),
+                "upgrade_from": (upgrade or {}).get("from_plan") or "",
+                "upgrade_credit": str((upgrade or {}).get("credit") or 0),
                 "gst_pct": str(tax["gst_rate_pct"]), "gst_inr": str(tax["gst"]), "gstin": tax["gstin"],
             },
         })
@@ -416,6 +456,7 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
         "branch_tenant_ids": branch_ids or None,
         "amount": payable, "tax": tax, "currency": currency, "installments": installments,
         "credits_applied": credits_used,
+        "upgrade": upgrade,
         "status": "created",
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
@@ -426,8 +467,9 @@ async def rzp_create_order(body: RzpOrderIn, user=Depends(require_tenant_admin),
         "key_id": RAZORPAY_KEY_ID,
         "plan_label": plan["label"],
         "credits_applied": credits_used,
+        "upgrade": upgrade,
         "payable_inr": payable,
-        "full_price_inr": price,
+        "full_price_inr": float(plan["price"]),
         "payable": payable,
         "installments": installments,
         "installment_note": (f"Instalment 1 of 2 — ${payable:,.0f} now covers the first {plan['duration_days'] // 2} days; "
@@ -591,12 +633,19 @@ async def _activate_pending_order(pending_doc: dict, payment_id: str, t: dict, r
 
     # Multi-branch plans: apply to every branch the owner picked at checkout.
     target_tids = pending_doc.get("branch_tenant_ids") or [t["id"]]
+    upg = pending_doc.get("upgrade") or {}
     subs = await _apply_subscription_to_tenants(
         target_tids, server_plan, plan_info,
         payment_method="razorpay", payment_ref=payment_id,
         notes=(f"Razorpay order {pending_doc['razorpay_order_id']}; credits applied ₹{pending_doc.get('credits_applied',0)}"
+               + (f"; mid-term upgrade from {upg.get('from_plan')} — unused ₹{upg.get('credit')} credited, paid difference only" if upg.get("eligible") else "")
                + ("; instalment 1 of 2 (half term) — 2nd instalment due before end date" if int(pending_doc.get("installments") or 1) == 2 else "")),
-        start=now)
+        start=now, extend_existing=not upg.get("eligible"))
+    if upg.get("eligible"):
+        await db.subscriptions.update_many(
+            {"tenant_id": {"$in": target_tids}, "status": "cancelled", "cancelled_reason": "superseded by new subscription",
+             "cancelled_at": {"$gte": now.isoformat()}},
+            {"$set": {"cancelled_reason": f"upgraded to {server_plan} — unused value ₹{upg.get('credit', 0)} credited"}})
     sub = next((s for s in subs if s["tenant_id"] == t["id"]), subs[0])
 
     # Apply any banked referral free months the buyer earned earlier.

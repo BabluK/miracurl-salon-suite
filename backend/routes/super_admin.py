@@ -227,7 +227,7 @@ async def _super_platform_stats() -> str:
     p = pays[0] if pays else {}
     lines += ["", "=== MIRACURL SAAS SUBSCRIPTION REVENUE (paid to you by the salons) ===",
               f"this month: Rs {p.get('this_month', 0):,.0f} | all-time: Rs {p.get('all_time', 0):,.0f}",
-              "plan prices: 6-Month Rs 12,000 | Annual Rs 20,000"]
+              "plan prices: Monthly Rs 1,455 | 3-Month Rs 4,365 | Annual Rs 16,000 (1 month free)"]
     return "\n".join(lines)
 
 

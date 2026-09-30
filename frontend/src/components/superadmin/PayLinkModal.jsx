@@ -14,7 +14,7 @@ const STATUS_STYLE = {
 
 export default function PayLinkModal({ tenant, onClose }) {
   const [data, setData] = useState(null);
-  const [plan, setPlan] = useState("half_year");
+  const [plan, setPlan] = useState("annual");
   const [amount, setAmount] = useState("");
   const [months, setMonths] = useState(6);
   const [note, setNote] = useState("");
@@ -24,7 +24,7 @@ export default function PayLinkModal({ tenant, onClose }) {
 
   const load = () => api.get(`/super-admin/pay-links?tenant_id=${tenant.id}`).then(r => {
     setData(r.data);
-    if (r.data.plans?.length && !r.data.plans.some(p => p.key === "half_year")) setPlan(r.data.plans[0].key);
+    if (r.data.plans?.length && !r.data.plans.some(p => p.key === "annual")) setPlan(r.data.plans[0].key);
   }).catch(() => {});
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tenant.id]);
 

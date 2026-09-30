@@ -1,8 +1,11 @@
 """Subscription plan catalog — shared by routes and services (no route imports here)."""
 
 PLAN_CATALOG = {
+    # Salon India (INR) — Annual ₹16,000 = 11 months paid + 1 month free → monthly ₹1,455 (16,000 ÷ 11), 3-Month ₹4,365
+    "monthly":   {"label": "Monthly Plan (1 branch)", "price": 1455.0,  "duration_days": 31,  "branches": 1},
+    "quarter":   {"label": "3-Month Plan (1 branch)", "price": 4365.0,  "duration_days": 92,  "branches": 1},
     "half_year": {"label": "6-Month Plan (1 branch)", "price": 12000.0, "duration_days": 183, "branches": 1},
-    "annual":    {"label": "Annual Plan (1 branch)",  "price": 20000.0, "duration_days": 365, "branches": 1},
+    "annual":    {"label": "Annual Plan (1 branch) — 1 month free",  "price": 16000.0, "duration_days": 365, "branches": 1, "highlight": True},
     "two_branch_half":     {"label": "2-Branch 6-Month", "price": 24000.0, "duration_days": 183, "branches": 2},
     "two_branch_annual":   {"label": "2-Branch Annual",  "price": 40000.0, "duration_days": 365, "branches": 2},
     "three_branch_half":   {"label": "3-Branch 6-Month", "price": 36000.0, "duration_days": 183, "branches": 3},
@@ -18,10 +21,12 @@ PLAN_CATALOG = {
     "intl_premium_annual":   {"label": "Premium AI Annual (USD)",    "price": 1490.0, "duration_days": 365, "branches": 1, "currency": "USD", "tier": "premium"},
     "intl_enterprise_monthly": {"label": "Enterprise Monthly (USD)", "price": 399.0,  "duration_days": 31,  "branches": 5, "currency": "USD", "tier": "enterprise"},
     # Restaurant vertical (INR) — first month free via the 30-day restaurant trial at signup
+    "resto_monthly": {"label": "Restaurant Monthly", "price": 1000.0,  "duration_days": 31,  "branches": 1, "vertical": "restaurant"},
     "resto_quarter": {"label": "Restaurant 3-Month", "price": 3000.0,  "duration_days": 92,  "branches": 1, "vertical": "restaurant"},
     "resto_half":    {"label": "Restaurant 6-Month", "price": 6000.0,  "duration_days": 183, "branches": 1, "vertical": "restaurant"},
     "resto_annual":  {"label": "Restaurant Annual",  "price": 12000.0, "duration_days": 365, "branches": 1, "vertical": "restaurant"},
     # Restaurant vertical (USD) — international pricing
+    "resto_intl_monthly": {"label": "Restaurant Monthly (USD)", "price": 99.0,  "duration_days": 31,  "branches": 1, "currency": "USD", "vertical": "restaurant"},
     "resto_intl_quarter": {"label": "Restaurant 3-Month (USD)", "price": 299.0, "duration_days": 92,  "branches": 1, "currency": "USD", "vertical": "restaurant"},
     "resto_intl_half":    {"label": "Restaurant 6-Month (USD)", "price": 549.0, "duration_days": 183, "branches": 1, "currency": "USD", "vertical": "restaurant"},
     "resto_intl_annual":  {"label": "Restaurant Annual (USD)",  "price": 999.0, "duration_days": 365, "branches": 1, "currency": "USD", "vertical": "restaurant"},

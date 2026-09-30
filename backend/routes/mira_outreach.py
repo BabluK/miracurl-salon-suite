@@ -372,3 +372,85 @@ async def run_now(dry_run: bool = False, user=Depends(require_super_admin)):
 @router.get("/super-admin/mira/outreach/countries")
 async def list_countries(user=Depends(require_super_admin)):
     return {"countries": [{"iso": k, "dial": v[0]} for k, v in _COUNTRIES.items()], "cities": _WORLD_CITIES}
+
+
+# ---------------- Reply Inbox: Mira drafts the demo invite, Boss sends in one tap ----------------
+
+_REPLY_FIELDS = {"_id": 0, "id": 1, "name": 1, "owner_name": 1, "email": 1, "phone": 1, "city": 1, "status": 1, "vertical": 1,
+                 "replied_at": 1, "last_reply_at": 1, "reply_subject": 1, "last_reply_text": 1,
+                 "wa_intro_replied_at": 1, "wa_intro_reply": 1, "demo_draft": 1, "demo_invite_sent_at": 1, "meeting": 1}
+
+
+@router.get("/super-admin/mira/replies")
+async def mira_replies(user=Depends(require_super_admin)):
+    """Every lead that wrote back by email OR WhatsApp, newest first, with their message + Mira's cached draft."""
+    rows = await _raw_db.mira_leads.find(
+        {"$or": [{"replied_at": {"$exists": True}}, {"wa_intro_replied_at": {"$exists": True}}]}, _REPLY_FIELDS).to_list(300)
+    for r in rows:
+        r["channel"] = "email" if r.get("replied_at") else "whatsapp"
+        r["reply_text"] = r.get("last_reply_text") or r.get("wa_intro_reply") or ""
+        r["replied_at"] = r.get("last_reply_at") or r.get("replied_at") or r.get("wa_intro_replied_at")
+    rows.sort(key=lambda r: r.get("replied_at") or "", reverse=True)
+    return {"count": len(rows), "awaiting": sum(1 for r in rows if not r.get("demo_invite_sent_at") and r.get("status") not in ("demo", "customer")), "replies": rows}
+
+
+def _demo_url() -> str:
+    return f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/demo"
+
+
+async def draft_demo_reply(lead: dict) -> dict:
+    from routes.mira_common import _ask_json
+    vert = "restaurant" if (lead.get("vertical") or "salon") == "restaurant" else "salon"
+    reply = (lead.get("last_reply_text") or lead.get("wa_intro_reply") or "").strip()[:1500]
+    first = (lead.get("owner_name") or lead.get("name") or "there").split()[0].title()
+    out = await _ask_json(
+        f"You are Mira, the warm and sharp sales assistant of Miracurl Suite — SaaS for {vert}s (bookings/QR ordering, POS billing, "
+        "staff, WhatsApp marketing, AI receptionist). A prospect replied to our outreach. Write a SHORT personal reply email "
+        "(max 120 words, 3 short paragraphs, plain text with \\n between paragraphs) that: 1) thanks them and answers or "
+        "acknowledges what they said, 2) invites them to a free 20-minute live demo and asks them to pick a slot at the demo link "
+        f"{_demo_url()} (mention the link once), 3) signs off as 'Mira & the Miracurl team'. Match their language (English/Hindi/Hinglish). "
+        'Never invent prices. Return JSON: {"subject": "<Re: subject, max 70 chars>", "body": "<email body>"}',
+        f"Business: {lead.get('name')} ({vert}, {lead.get('city')}). Contact first name: {first}.\n"
+        f"Their reply subject: {lead.get('reply_subject') or '—'}\nTheir reply:\n{reply or '(no text captured — they replied on WhatsApp)'}")
+    draft = {"subject": (out.get("subject") or f"Re: Miracurl Suite demo for {lead.get('name') or 'you'}")[:120],
+             "body": (out.get("body") or "").strip()[:2500], "drafted_at": _now()}
+    await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {"demo_draft": draft}})
+    return draft
+
+
+@router.post("/super-admin/mira-leads/{lid}/draft-demo-reply")
+async def draft_demo_reply_ep(lid: str, user=Depends(require_super_admin)):
+    lead = await _raw_db.mira_leads.find_one({"id": lid}, {"_id": 0})
+    if not lead:
+        raise HTTPException(404, "Lead not found")
+    return await draft_demo_reply(lead)
+
+
+class DemoReplyIn(BaseModel):
+    subject: str = Field(..., min_length=2, max_length=160)
+    body: str = Field(..., min_length=10, max_length=4000)
+
+
+@router.post("/super-admin/mira-leads/{lid}/send-demo-reply")
+async def send_demo_reply(lid: str, body: DemoReplyIn, user=Depends(require_super_admin)):
+    from email_service import _send_email, marketing_email_html
+    lead = await _raw_db.mira_leads.find_one({"id": lid}, {"_id": 0})
+    if not lead:
+        raise HTTPException(404, "Lead not found")
+    if not lead.get("email"):
+        raise HTTPException(400, "No email on this lead — reply on WhatsApp instead")
+    html = marketing_email_html("Miracurl Suite", body.body, _demo_url(), "Pick my demo slot ✦")
+    res = await _send_email([lead["email"]], body.subject, html, reply_to=_lead_reply_to(), from_name="Mira at Miracurl",
+                            book_url=_demo_url(), book_label="Book a demo ✦")
+    if not res.get("sent"):
+        raise HTTPException(502, f"Send failed: {res.get('error')}")
+    sets = {"demo_invite_sent_at": _now(), "demo_invite_by": user.get("email"), "demo_draft": None}
+    if lead.get("status") not in ("demo", "customer"):
+        sets["status"] = "demo"
+    await _raw_db.mira_leads.update_one({"id": lid}, {"$set": sets})
+    await _raw_db.mira_outreach_log.insert_one({
+        "id": str(uuid.uuid4()), "day": _today(), "created_at": _now(), "channel": "demo_invite", "lead_id": lid,
+        "name": lead.get("name") or "", "vertical": lead.get("vertical") or "salon", "city": lead.get("city") or "",
+        "country": _country_of(lead.get("city")), "email": lead["email"], "detail": body.subject[:160]})
+    await log_mira_event("result", f"📅 Demo invite sent to {lead.get('name') or lead['email']} — Boss approved Mira's reply.")
+    return {"ok": True, "sent_to": lead["email"]}

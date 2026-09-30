@@ -40,11 +40,13 @@ const SMALL_FEATURES = [
 const PLANS = [
   { key: "trial", title: "Free Trial", price: "₹0", per: "30 days", cta: "Start trial", primary: false,
     items: ["All features unlocked", "Up to 50 customers", "Email support", "Cancel anytime"] },
-  { key: "half_year", title: "6-Month Plan", price: "₹12,000", per: "for 6 months", cta: "Get started", primary: false,
+  { key: "monthly", title: "Monthly Plan", price: "₹1,455", per: "per month · cancel anytime", cta: "Get started", primary: false,
     items: ["Unlimited customers", "Unlimited bookings", "Per-stylist commission", "WhatsApp support", "All features"] },
-  { key: "annual", title: "Annual Plan", price: "₹20,000", per: "for 1 year — save ₹4,000", cta: "Best value", primary: true,
-    items: ["Everything in 6-Month", "12 months access", "Priority support", "Custom branding next year"] },
-  { key: "multi_branch", title: "Multi-Branch", price: "from ₹40,000", per: "2 branches ₹40k/yr (₹24k/6mo) · 3 branches ₹60k/yr (₹36k/6mo) · 5+ ₹70k/yr", cta: "For salon chains", primary: false,
+  { key: "quarter", title: "3-Month Plan", price: "₹4,365", per: "for 3 months · flexible", cta: "Pay quarterly", primary: false,
+    items: ["Everything in Monthly", "One payment per quarter", "WhatsApp support", "All features"] },
+  { key: "annual", title: "Annual Plan", price: "₹16,000", per: "for 1 year — 1 month FREE", cta: "Best value", primary: true,
+    items: ["Everything in Monthly", "12 months for the price of 11", "Priority support", "Custom branding next year"] },
+  { key: "multi_branch", title: "Multi-Branch", price: "from ₹40,000", per: "2 branches ₹40k/yr · 3 branches ₹60k/yr · 5+ ₹70k/yr", cta: "For salon chains", primary: false,
     items: ["Everything in Annual", "5+ branches, one account", "Branch-wise reports", "Dedicated onboarding"] },
 ];
 
@@ -95,11 +97,10 @@ function customPlanCards(c, currency, vertical = "salon") {
 
 function buildPlans(c) {
   if (!c) return PLANS;
-  const hy = c.half_year?.price, an = c.annual?.price;
-  const b2a = c.two_branch_annual?.price, b2h = c.two_branch_half?.price;
-  const b3a = c.three_branch_annual?.price, b3h = c.three_branch_half?.price, b5a = c.multi_branch_annual?.price;
-  const anyMulti = b2a || b2h || b3a || b3h || b5a || c.multi_branch_half?.price;
-  const kept = PLANS.filter(p => (p.key === "trial") || (p.key === "half_year" ? !!hy : p.key === "annual" ? !!an : p.key === "multi_branch" ? !!anyMulti : true));
+  const mo = c.monthly?.price, qt = c.quarter?.price, an = c.annual?.price;
+  const b2a = c.two_branch_annual?.price, b3a = c.three_branch_annual?.price, b5a = c.multi_branch_annual?.price;
+  const anyMulti = b2a || b3a || b5a;
+  const kept = PLANS.filter(p => (p.key === "trial") || (p.key === "monthly" ? !!mo : p.key === "quarter" ? !!qt : p.key === "annual" ? !!an : p.key === "multi_branch" ? !!anyMulti : true));
   const catKey = (k) => (k === "multi_branch" ? "two_branch_annual" : k);
   const anyHl = Object.entries(c).some(([k, v]) => v && typeof v === "object" && v.highlight && !k.startsWith("intl_") && !k.startsWith("resto_"));
   const decorate = (p) => {
@@ -108,11 +109,12 @@ function buildPlans(c) {
   };
   return [...kept.map(p => {
     if (p.key === "trial" && c.trial_days) return { ...p, per: `${c.trial_days} days` };
-    if (p.key === "half_year" && hy) return { ...p, price: fmtINR(hy) };
-    if (p.key === "annual" && an) return { ...p, price: fmtINR(an), per: hy && hy * 2 > an ? `for 1 year — save ${fmtINR(hy * 2 - an)}` : "for 1 year" };
+    if (p.key === "monthly" && mo) return { ...p, price: fmtINR(mo) };
+    if (p.key === "quarter" && qt) return { ...p, price: fmtINR(qt), per: mo && mo * 3 > qt ? `for 3 months — save ${fmtINR(mo * 3 - qt)}` : "for 3 months · flexible" };
+    if (p.key === "annual" && an) return { ...p, price: fmtINR(an), per: mo && mo * 12 > an ? `for 1 year — save ${fmtINR(mo * 12 - an)} (1 month free)` : "for 1 year" };
     if (p.key === "multi_branch" && b2a) return {
       ...p, price: `from ${fmtINR(b2a)}`,
-      per: `2 branches ${kINR(b2a)}/yr (${kINR(b2h)}/6mo) · 3 branches ${kINR(b3a)}/yr (${kINR(b3h)}/6mo) · 5+ ${kINR(b5a)}/yr`,
+      per: `2 branches ${kINR(b2a)}/yr · 3 branches ${kINR(b3a)}/yr · 5+ ${kINR(b5a)}/yr`,
     };
     return p;
   }).map(decorate), ...customPlanCards(c, "INR")];
@@ -646,7 +648,7 @@ export default function Landing({ scrollTo }) {
           </div>
         </div>
         {region === "in" ? (
-        <div className={`grid grid-cols-1 md:grid-cols-2 gap-5 ${plans.length >= 4 ? "lg:grid-cols-4" : plans.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+        <div className={`grid grid-cols-1 md:grid-cols-2 gap-5 ${plans.length >= 5 ? "lg:grid-cols-5" : plans.length === 4 ? "lg:grid-cols-4" : plans.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
           {plans.map(p => (
             <div key={p.key} data-testid={`plan-${p.key}`}
                  className={`rounded-3xl p-7 relative bg-[#0F0F10] border transition-colors ${p.primary

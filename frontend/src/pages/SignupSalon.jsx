@@ -567,13 +567,13 @@ function ReviewStep({ form, previewUrl, catalog, isIntl }) {
       <div className="text-xs text-slate-500 flex items-start gap-2">
         <Sparkles className="w-3.5 h-3.5 text-[var(--su-accent)] mt-0.5 flex-shrink-0" />
         {isIntl && isResto ? (
-          <span data-testid="signup-review-pricing-resto-intl">After your free month, choose {fmtUSD(catalog?.resto_intl_quarter?.price ?? 299)} / 3 months, {fmtUSD(catalog?.resto_intl_half?.price ?? 549)} / 6 months or {fmtUSD(catalog?.resto_intl_annual?.price ?? 999)} / year — billed in USD via secure international payment link.</span>
+          <span data-testid="signup-review-pricing-resto-intl">After your free month, choose {fmtUSD(catalog?.resto_intl_monthly?.price ?? 99)} / month, {fmtUSD(catalog?.resto_intl_quarter?.price ?? 299)} / 3 months or {fmtUSD(catalog?.resto_intl_annual?.price ?? 999)} / year — billed in USD via secure international payment link.</span>
         ) : isIntl ? (
           <span data-testid="signup-review-pricing-intl">After your trial, plans start at {fmtUSD(catalog?.intl_starter_monthly?.price ?? 39)}/month (Starter) — Professional from {fmtUSD(catalog?.intl_pro_monthly?.price ?? 79)}/month, annual plans get 2 months free. Billed in USD via secure international payment link.</span>
         ) : isResto ? (
-          <span data-testid="signup-review-pricing-resto">After your free month, choose ₹{Number(catalog?.resto_quarter?.price ?? 3000).toLocaleString("en-IN")} / 3 months, ₹{Number(catalog?.resto_half?.price ?? 6000).toLocaleString("en-IN")} / 6 months or ₹{Number(catalog?.resto_annual?.price ?? 12000).toLocaleString("en-IN")} / 1 year. We&apos;ll send payment instructions via WhatsApp before it ends.</span>
+          <span data-testid="signup-review-pricing-resto">After your free month, choose ₹{Number(catalog?.resto_monthly?.price ?? 1000).toLocaleString("en-IN")} / month, ₹{Number(catalog?.resto_quarter?.price ?? 3000).toLocaleString("en-IN")} / 3 months or ₹{Number(catalog?.resto_annual?.price ?? 12000).toLocaleString("en-IN")} / 1 year. We&apos;ll send payment instructions via WhatsApp before the trial expires.</span>
         ) : (
-          <span data-testid="signup-review-pricing-in">After your trial, choose {catalog?.half_year?.price ? `₹${Number(catalog.half_year.price).toLocaleString("en-IN")}` : "a 6-month"} / 6 months or {catalog?.annual?.price ? `₹${Number(catalog.annual.price).toLocaleString("en-IN")}` : "an annual"} / 1 year. We&apos;ll send payment instructions via WhatsApp before the trial expires.</span>
+          <span data-testid="signup-review-pricing-in">After your trial, pay flexibly — ₹{Number(catalog?.monthly?.price ?? 1455).toLocaleString("en-IN")} / month, ₹{Number(catalog?.quarter?.price ?? 4365).toLocaleString("en-IN")} / 3 months or ₹{Number(catalog?.annual?.price ?? 16000).toLocaleString("en-IN")} / year (1 month free). We&apos;ll send payment instructions via WhatsApp before the trial expires.</span>
         )}
       </div>
     </div>

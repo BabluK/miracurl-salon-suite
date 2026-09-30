@@ -230,10 +230,10 @@ async def send_renewal_nudges() -> int:
             continue
         await _raw_db.tenants.update_one(
             {"id": t["id"]}, {"$set": {"renewal_nudged_for": t["subscription_end_date"]}})
-        plan_key = t.get("plan") if t.get("plan") in PLAN_CATALOG else "half_year"
+        plan_key = t.get("plan") if t.get("plan") in PLAN_CATALOG else "annual"
         info = PLAN_CATALOG.get(plan_key) or {}
         if info.get("currency") or int(info.get("branches") or 1) != 1:
-            plan_key = "half_year"
+            plan_key = "annual"
         info = await _fresh_plan_or_400(plan_key)
         link = {
             "id": str(uuid.uuid4()), "token": secrets.token_urlsafe(8),
@@ -277,10 +277,10 @@ async def create_trial_pay_link(t: dict, note: str, now: datetime | None = None,
     if (t.get("currency") or "INR") != "INR":
         raise ValueError("trial pay links are INR/Razorpay only")
     now = now or _now()
-    plan_key = t.get("plan") if t.get("plan") in PLAN_CATALOG else "half_year"
+    plan_key = t.get("plan") if t.get("plan") in PLAN_CATALOG else "annual"
     info = PLAN_CATALOG.get(plan_key) or {}
     if info.get("currency") or int(info.get("branches") or 1) != 1:
-        plan_key = "half_year"
+        plan_key = "annual"
     info = await _fresh_plan_or_400(plan_key)
     price = float(info["price"])
     discount = 0.0

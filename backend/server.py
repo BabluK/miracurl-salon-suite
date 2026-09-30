@@ -413,6 +413,19 @@ async def on_startup():
         if n:
             logging.info("rejected %s pipeline leads that are our own salons", n)
 
+    async def _plans_v2_monthly():
+        # One-time (2026-09-30): retire every 6-month plan from public sale, annual → ₹16,000 (1 month free), monthly/3-month added.
+        if await _raw_db.system_flags.find_one({"key": "plans_v2_monthly"}):
+            return
+        now = datetime.now(timezone.utc).isoformat()
+        for k in ("half_year", "two_branch_half", "three_branch_half", "multi_branch_half", "resto_half", "resto_intl_half"):
+            await _raw_db.plan_overrides.update_one({"key": k}, {"$set": {"key": k, "hidden": True, "updated_at": now, "updated_by": "migration:plans_v2"}}, upsert=True)
+        await _raw_db.plan_overrides.update_one({"key": "annual"}, {"$set": {"key": "annual", "price": 16000.0, "label": "Annual Plan (1 branch) — 1 month free",
+                                                                             "highlight": True, "hidden": False, "updated_at": now, "updated_by": "migration:plans_v2"}}, upsert=True)
+        await _raw_db.system_flags.insert_one({"key": "plans_v2_monthly", "ran_at": now})
+        from services.subscription_common import load_plan_overrides
+        await load_plan_overrides()
+
     async def _db_prep():
         # Runs in the BACKGROUND so the pod passes its readiness probe immediately.
         # Any single failure (e.g. index option conflicts / duplicate keys on the
@@ -422,7 +435,8 @@ async def on_startup():
                            ("last-visited-backfill", _backfill_last_visited),
                            ("lead-newbiz-backfill", _backfill_lead_newbiz),
                            ("auto-closed-ot-fix", _fix_auto_closed_ot),
-                           ("own-salon-lead-purge", _purge_own_leads)):
+                           ("own-salon-lead-purge", _purge_own_leads),
+                           ("plans-v2-monthly", _plans_v2_monthly)):
             try:
                 await step()
                 logging.info("startup db-prep step '%s' done", name)

@@ -410,7 +410,7 @@ function RevenueKpi({ label, value, icon: Icon, color, testid }) {
 function NewSubscriptionModal({ tenants, plans, onClose, onCreated }) {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [tenantId, setTenantId] = useState(tenants[0]?.id || "");
-  const [plan, setPlan] = useState("half_year");
+  const [plan, setPlan] = useState("annual");
   const [branchIds, setBranchIds] = useState([]);
   const [paymentRef, setPaymentRef] = useState("");
   const [paidAt, setPaidAt] = useState(today);

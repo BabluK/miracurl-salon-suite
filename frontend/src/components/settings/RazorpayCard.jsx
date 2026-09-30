@@ -19,10 +19,11 @@ function loadRazorpayScript() {
 export function RazorpayCard() {
   const { user } = useAuth();
   const [cfg, setCfg] = useState(null);
-  const [selected, setSelected] = useState("half_year");
+  const [selected, setSelected] = useState("annual");
   const [busy, setBusy] = useState(false);
   const [tenant, setTenant] = useState(null);
   const [branchIds, setBranchIds] = useState([]);
+  const [quote, setQuote] = useState(null);
 
   const salons = user?.salons || [];
   const ownedCount = Math.max(salons.length, 1);
@@ -42,6 +43,11 @@ export function RazorpayCard() {
   useEffect(() => {
     if (tenant?.business_type === "restaurant") setSelected("resto_quarter");
   }, [tenant]);
+  useEffect(() => {
+    if (!selected || !tenant?.current_subscription_id) { setQuote(null); return; }
+    api.get(`/billing/upgrade-quote?plan=${encodeURIComponent(selected)}`).then(r => setQuote(r.data)).catch(() => setQuote(null));
+  }, [selected, tenant?.current_subscription_id]);
+  const upgrading = !!quote?.eligible;
 
   if (!cfg) return null;
   if (!cfg.enabled) return null;
@@ -90,6 +96,7 @@ export function RazorpayCard() {
       if (!ok) { toast.error("Couldn't load Razorpay — check your internet"); return; }
       const { data: order } = await api.post("/billing/razorpay/order", {
         plan: chosen.key,
+        upgrade: upgrading,
         ...(needBranches ? { branch_tenant_ids: branchIds } : {}),
       });
       const options = {
@@ -215,6 +222,21 @@ export function RazorpayCard() {
         </div>
       )}
 
+      {upgrading && (
+        <div className="mt-4 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-900" data-testid="upgrade-quote">
+          <div className="font-semibold flex items-center gap-1.5"><Sparkles className="w-4 h-4 text-emerald-600" /> Mid-term upgrade — pay only the difference</div>
+          <p className="text-xs mt-1 text-emerald-800/80">
+            {quote.remaining_days} unused day{quote.remaining_days === 1 ? "" : "s"} of your <b>{quote.from_label}</b> are worth <b>₹{Number(quote.unused_value).toLocaleString("en-IN")}</b> — credited against <b>{quote.to_label}</b>.
+            New term starts today and runs to <b>{quote.new_end_date}</b>.
+          </p>
+          <div className="mt-2 text-xs flex flex-wrap gap-x-4 gap-y-1">
+            <span>Plan price ₹{Number(quote.new_price).toLocaleString("en-IN")}</span>
+            <span className="text-emerald-700">− credit ₹{Number(quote.credit).toLocaleString("en-IN")}</span>
+            <span className="font-bold" data-testid="upgrade-amount-due">= ₹{Number(quote.amount_due).toLocaleString("en-IN")} + GST</span>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-5 gap-3">
         <div className="text-xs text-slate-500">
           Payments secured by <b>Razorpay</b>. Cards / UPI / NetBanking accepted.
@@ -231,12 +253,12 @@ export function RazorpayCard() {
           className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-semibold text-sm hover:from-indigo-600 hover:to-blue-700 shadow-sm disabled:opacity-60"
         >
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-          {busy ? "Opening…" : chosen ? `Pay ₹${withGst(chosen.price).toLocaleString("en-IN")}` : "Choose a plan"}
+          {busy ? "Opening…" : chosen ? (upgrading ? `Upgrade — pay ₹${withGst(quote.amount_due).toLocaleString("en-IN")}` : `Pay ₹${withGst(chosen.price).toLocaleString("en-IN")}`) : "Choose a plan"}
         </button>
       </div>
       {chosen && gstPct > 0 && (
         <div className="mt-2 text-xs text-slate-500 text-right" data-testid="plan-gst-note">
-          ₹{Number(chosen.price).toLocaleString("en-IN")} + {gstPct}% GST ₹{(withGst(chosen.price) - Number(chosen.price)).toLocaleString("en-IN")}
+          ₹{Number(upgrading ? quote.amount_due : chosen.price).toLocaleString("en-IN")} + {gstPct}% GST ₹{(withGst(upgrading ? quote.amount_due : chosen.price) - Number(upgrading ? quote.amount_due : chosen.price)).toLocaleString("en-IN")}
           {tax?.gstin ? ` · GSTIN ${tax.gstin}` : " · tax invoice issued by " + (tax?.legal_name || "Miracurl Studio")}
           {tax?.msme ? ` · MSME ${tax.msme}` : ""}
         </div>
