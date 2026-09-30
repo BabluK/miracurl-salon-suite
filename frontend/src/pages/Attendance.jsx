@@ -6,6 +6,7 @@ import { OvertimeApprovals } from "@/components/attendance/OvertimeApprovals";
 import { ConfirmDialog, askConfirm, confirmAsync } from "@/components/ConfirmDialog";
 import { getSelectedBranch, mainSalonLabel } from "@/lib/branch";
 import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
 import { BranchLoginsCard } from "@/components/BranchLoginsCard";
 import {
   Clock, CheckCircle2, CircleAlert, UserCheck, Calendar, ArrowLeft, MapPin, QrCode, Download, Mail, Trash2,
@@ -58,8 +59,11 @@ export default function Attendance() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null); // {sid, name} for history modal
   const [showQr, setShowQr] = useState(false);
-  const qrBranch = getSelectedBranch();
-  const qrUrl = `${API}/attendance/desk-qr${qrBranch ? `?branch=${encodeURIComponent(qrBranch)}` : ""}`;
+  const { tenant } = useAuth();
+  const [qrBranch, setQrBranch] = useState(() => getSelectedBranch() || "");
+  const qrBranchOptions = [{ v: tenant?.location || "Main branch", l: mainSalonLabel(tenant) }, ...(tenant?.branches || []).map(b => ({ v: b.name, l: b.name }))];
+  const qrBranchLabel = qrBranch || qrBranchOptions[0].v;
+  const qrUrl = `${API}/attendance/desk-qr?branch=${encodeURIComponent(qrBranchLabel)}`;
   const [showManual, setShowManual] = useState(false);
   const [dlg, setDlg] = useState(null); // {title, message, inputLabel?, defaultValue?, confirmLabel, danger, action}
 
@@ -160,7 +164,13 @@ export default function Attendance() {
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" data-testid="desk-qr-modal" onClick={() => setShowQr(false)}>
               <div className="bg-white rounded-2xl p-5 text-center max-w-sm w-full max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 <h3 className="font-playfair text-xl">Staff Check-in QR</h3>
-                {qrBranch && <p className="text-[11px] font-bold text-violet-600 mt-0.5" data-testid="desk-qr-branch-tag">📍 {qrBranch}</p>}
+                <p className="text-[11px] font-bold text-violet-600 mt-0.5" data-testid="desk-qr-branch-tag">📍 {qrBranchLabel}</p>
+                {qrBranchOptions.length > 1 && (
+                  <select value={qrBranchLabel} onChange={e => setQrBranch(e.target.value)} data-testid="desk-qr-branch-select"
+                    className="mt-2 text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-700">
+                    {qrBranchOptions.map(b => <option key={b.v} value={b.v}>{b.l}</option>)}
+                  </select>
+                )}
                 <p className="text-xs text-slate-500 mt-1">Print & keep this poster at the salon desk — staff scan it with their phone camera to check in instantly (no GPS needed). Late fines & half-day rules still apply.</p>
                 <img src={qrUrl} alt="Staff check-in QR poster" data-testid="desk-qr-img"
                   className="w-64 mx-auto my-4 rounded-xl shadow-lg border border-slate-200" />
@@ -339,7 +349,7 @@ export default function Attendance() {
                           >waive</button>
                         </span>
                       )}
-                      {r.check_in_method === "qr" && <span className="text-sky-600">via desk QR</span>}
+                      {r.check_in_method === "qr" && <span className="text-sky-600">via desk QR{r.check_in_branch ? ` · ${r.check_in_branch}` : ""}</span>}
                       {r.late_penalty > 0 && (
                         <span className="text-red-600 flex items-center gap-1.5" data-testid={`late-fine-${r.staff_id}`}>
                           −₹{r.late_penalty} ({r.late_minutes}m late)

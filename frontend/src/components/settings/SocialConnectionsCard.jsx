@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { Instagram, Star, Link2, Unlink, Loader2, KeyRound } from "lucide-react";
+import { Instagram, Star, Link2, Unlink, Loader2, KeyRound, RefreshCw } from "lucide-react";
 import { confirmAsync } from "@/components/ConfirmDialog";
+
+const GOOGLE_PENDING = {
+  api_not_approved: "Google login done ✓ — Google still has to switch on review access for the Miracurl app (an HQ step, nothing for you to do). Mira re-checks daily.",
+  no_business_profile: "This Google account doesn't manage a Business Profile — disconnect and connect with the account that owns your listing.",
+  no_location: "No business location on this Google account yet — add your business on Google Maps, then tap Check again.",
+  error: "Google didn't respond just now — tap Check again in a minute.",
+};
 
 export const SocialConnectionsCard = () => {
   const [conn, setConn] = useState(null);
@@ -44,6 +51,18 @@ export const SocialConnectionsCard = () => {
     await api.delete(`/social/${provider}`);
     toast.success("Disconnected");
     load();
+  };
+
+  const recheckGoogle = async () => {
+    setBusy("recheck");
+    try {
+      const { data } = await api.post("/social/google/recheck");
+      if (data.api_ready) toast.success(`Google Business Profile is live — ${data.location_title || "review replies enabled"} ✦`);
+      else toast.info("Still waiting on Google — Mira re-checks daily and will tell you the moment it's live.");
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't reach Google just now");
+    } finally { setBusy(""); }
   };
 
   const pickPage = async (pageId) => {
@@ -117,7 +136,7 @@ export const SocialConnectionsCard = () => {
           {conn.google_business ? (
             conn.google_business.api_ready
               ? <p className="text-xs text-emerald-600">✓ {conn.google_business.location_title || "Connected"} — review replies enabled</p>
-              : <p className="text-xs text-amber-600">Connected — waiting for Google&apos;s Business Profile API approval</p>
+              : <p className="text-xs text-amber-600" data-testid="google-pending-line">{GOOGLE_PENDING[conn.google_business.api_error] || GOOGLE_PENDING.api_not_approved}</p>
           ) : !conn.google_configured ? (
             <p className="text-xs text-amber-600 flex items-center gap-1"><KeyRound className="w-3 h-3" /> Setup required — Google OAuth Client ID & Secret not added yet</p>
           ) : (
@@ -125,7 +144,15 @@ export const SocialConnectionsCard = () => {
           )}
         </div>
         {conn.google_business ? (
-          <button data-testid="google-disconnect-btn" onClick={() => disconnect("google")} className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-200 inline-flex items-center gap-1"><Unlink className="w-3 h-3" /> Disconnect</button>
+          <div className="flex items-center gap-2">
+            {!conn.google_business.api_ready && (
+              <button data-testid="google-recheck-btn" onClick={recheckGoogle} disabled={busy === "recheck"}
+                className="text-xs px-3 py-1.5 rounded-lg bg-slate-900 text-white font-semibold disabled:opacity-50 inline-flex items-center gap-1">
+                {busy === "recheck" ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />} Check again
+              </button>
+            )}
+            <button data-testid="google-disconnect-btn" onClick={() => disconnect("google")} className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-200 inline-flex items-center gap-1"><Unlink className="w-3 h-3" /> Disconnect</button>
+          </div>
         ) : (
           <button data-testid="google-connect-btn" onClick={() => connect("google")} disabled={!conn.google_configured || busy === "google"}
             className="text-xs px-4 py-2 rounded-lg bg-slate-900 text-white font-semibold disabled:opacity-50 inline-flex items-center gap-1.5">

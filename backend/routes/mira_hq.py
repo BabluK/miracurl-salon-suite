@@ -278,7 +278,8 @@ def _mira_system_prompt() -> str:
                        "'set_limit:<n>' — Boss asks to change the daily email limit. "
                        "STRICT RULE: set an action ONLY when the Boss gives an explicit command in THIS message "
                        "(e.g. 'start outreach', 'send the emails now', 'turn autopilot on', 'hunt Dubai'). Questions, status "
-                       "reports and your own suggestions MUST have action ''. Never ask permission and act in the same reply. "
+                       "reports and your own suggestions MUST have action ''. Actions are never executed directly — the Boss "
+                       "sees a Confirm button first — so phrase your answer as a proposal ('I can …'), never as already done. "
                        "BE PROACTIVE: if outreach is disabled, suggest switching it on. If emails_drafted_awaiting_your_approval > 0 "
                        "mention the autopilot will send them. Suggest hunting a new city when ready_to_send is low. You do NOT make "
                        "phone calls — outreach happens over WhatsApp and email. "
@@ -349,6 +350,40 @@ async def _mira_llm_decision(user_id: str, question: str, last_mira: str, snap: 
 
 
 
+_ACTION_RE = re.compile(r"^(outreach_now|outreach_on|outreach_off|set_limit:\d{1,4}|hunt:[A-Za-z .'\-]{2,40}(, [A-Z]{2})?:(salon|restaurant))$")
+
+
+def _describe_action(action: str) -> str:
+    if action == "outreach_now":
+        return "send the next batch of outreach emails to hot leads right now"
+    if action == "outreach_on":
+        return "switch the Outreach Autopilot ON (Mira emails hot leads daily within the cap)"
+    if action == "outreach_off":
+        return "pause the Outreach Autopilot"
+    if action.startswith("set_limit:"):
+        return f"set the daily email limit to {action.split(':')[1]}"
+    if action.startswith("hunt:"):
+        p = action.split(":")
+        return f"start a lead hunt for {p[2] if len(p) > 2 else 'salon'}s in {p[1]} (uses Places + AI credits)"
+    return action
+
+
+class MiraConfirmIn(BaseModel):
+    action: str = Field(..., max_length=80)
+
+
+@router.post("/super-admin/mira/confirm-action")
+async def mira_confirm_action(body: MiraConfirmIn, user=Depends(require_super_admin)):
+    """SEC-001: state-changing Mira actions run only after the Boss explicitly confirms — never on LLM output alone."""
+    action = body.action.strip()
+    if not _ACTION_RE.match(action):
+        raise HTTPException(400, "Unknown action")
+    from routes.lead_common import log_mira_event
+    await log_mira_event("ask", f"Boss confirmed: {_describe_action(action)}")
+    result = (await _run_mira_action(action, user)).strip()
+    return {"ok": True, "action": action, "answer": result or "Done, Boss."}
+
+
 @router.post("/super-admin/mira/ask")
 async def mira_ask(body: MiraAskIn, user=Depends(require_super_admin)):
     from routes.lead_common import log_mira_event
@@ -362,13 +397,12 @@ async def mira_ask(body: MiraAskIn, user=Depends(require_super_admin)):
     d = await _mira_llm_decision(user["id"], body.question, body.last_mira, snap)
     answer = str(d.get("answer") or "")[:500]
     tab = d.get("tab") if d.get("tab") in MIRA_TABS else ""
-    action = str(d.get("action") or "")[:80]
-    if action:
-        try:
-            answer = (answer + await _run_mira_action(action, user))[:700]
-        except Exception as e:  # noqa: BLE001
-            log.error(f"mira action {action} failed: {e}")
-    return {"answer": answer, "tab": tab, "action": action}
+    action = str(d.get("action") or "").strip()[:80]
+    pending = None
+    if action and _ACTION_RE.match(action):
+        pending = {"action": action, "label": _describe_action(action)}
+        answer = (answer + " ✦ Tap Confirm below and I'll do it.")[:700]
+    return {"answer": answer, "tab": tab, "action": "", "pending_action": pending}
 
 
 class MiraSpeakIn(BaseModel):

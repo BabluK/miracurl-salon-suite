@@ -119,9 +119,11 @@ export default function StaffPortal() {
   async function checkIn(scannedToken) {
     setBusy(true);
     try {
-      const qrToken = scannedToken || new URLSearchParams(window.location.search).get("qr") || "";
+      const qs = new URLSearchParams(window.location.search);
+      const qrToken = scannedToken || qs.get("qr") || "";
+      const qrBranch = qs.get("b") || "";
       const pos = qrToken ? null : await getPosition();
-      await api.post("/staff/me/check-in", { ...(pos || {}), ...(qrToken ? { qr_token: qrToken } : {}) });
+      await api.post("/staff/me/check-in", { ...(pos || {}), ...(qrToken ? { qr_token: qrToken, qr_branch: qrBranch } : {}) });
       toast.success(qrToken ? "✅ Checked in via desk QR — instant, no GPS needed ✦" : "Checked in ✦ Have a great shift");
       playCheckinGreeting(profile?.name);
       load();

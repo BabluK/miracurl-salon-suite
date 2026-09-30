@@ -33,6 +33,7 @@ import { SecurityPinCard } from "@/components/settings/SecurityPinCard";
 import { UpdatedBillsCard } from "@/components/settings/UpdatedBillsCard";
 import { RateMiracurlCard } from "@/components/settings/RateMiracurlCard";
 import { SocialConnectionsCard } from "@/components/settings/SocialConnectionsCard";
+import { ConnectionsHubCard } from "@/components/settings/ConnectionsHubCard";
 import { WhatsAppLinkCard } from "@/components/settings/WhatsAppLinkCard";
 import { OwnWhatsAppCard } from "@/components/settings/OwnWhatsAppCard";
 import { PaymentsInvoicesCard } from "@/components/settings/PaymentsInvoicesCard";
@@ -95,6 +96,7 @@ export default function Settings() {
             <Lazy eager={eager}><GiftCardsCard /></Lazy>
           </div>
           <div className="min-w-0" data-testid="settings-col-right">
+            <ConnectionsHubCard />
             <ChangePasswordSection />
             <Lazy eager={eager}><ContactHQSection /></Lazy>
             <Lazy eager={eager}><AttendanceFinesCard /></Lazy>

@@ -393,7 +393,7 @@ export function MiraHome({ onGoTab, user }) {
     try {
       const { data } = await api.post("/super-admin/mira/ask", { question, last_mira: lastMira.current });
       lastMira.current = data.answer || "";
-      setChat(c => [...c.slice(-6), { role: "mira", text: data.answer || "…" }]);
+      setChat(c => [...c.slice(-6), { role: "mira", text: data.answer || "…", pending: data.pending_action || null }]);
       if (voiceOn && data.answer) sayReply(data.answer);
       if (data.tab) {
         toast.info("Opening " + data.tab + " for you, Boss ✦");
@@ -402,6 +402,21 @@ export function MiraHome({ onGoTab, user }) {
       load();
     } catch (e) {
       toast.error(e.response?.data?.detail || "Mira couldn't answer just now");
+    } finally { setThinking(false); }
+  }
+
+  async function confirmAction(idx, pending, yes) {
+    setChat(c => c.map((m, i) => (i === idx ? { ...m, pending: null } : m)));
+    if (!yes) { setChat(c => [...c.slice(-6), { role: "mira", text: "Okay, Boss — not doing that." }]); return; }
+    setThinking(true);
+    try {
+      const { data } = await api.post("/super-admin/mira/confirm-action", { action: pending.action });
+      lastMira.current = data.answer || "";
+      setChat(c => [...c.slice(-6), { role: "mira", text: data.answer || "Done, Boss." }]);
+      if (voiceOn && data.answer) sayReply(data.answer);
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Mira couldn't do that just now");
     } finally { setThinking(false); }
   }
 
@@ -517,10 +532,19 @@ export function MiraHome({ onGoTab, user }) {
           {/* Chat strip */}
           {chat.length > 0 && (
             <div className="w-full max-w-2xl mt-4 space-y-2 text-left" data-testid="mira-chat-strip">
-              {chat.slice(-4).map((m, i) => (
+              {chat.slice(-4).map((m, i, arr) => (
                 <div key={i} className={`text-xs px-3.5 py-2.5 rounded-2xl leading-relaxed ${m.role === "boss"
                   ? "bg-white/10 border border-white/10 ml-10" : "bg-fuchsia-500/15 border border-fuchsia-400/20 mr-10"}`}>
                   <b className={m.role === "boss" ? "text-sky-300" : "text-fuchsia-300"}>{m.role === "boss" ? "You" : "Mira"}:</b> {m.text}
+                  {m.pending && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2" data-testid="mira-confirm-bar">
+                      <span className="text-[10px] uppercase tracking-wider text-white/50">Confirm: {m.pending.label}</span>
+                      <button onClick={() => confirmAction(chat.length - arr.length + i, m.pending, true)} data-testid="mira-confirm-yes"
+                        className="text-[11px] font-bold px-3 py-1 rounded-full bg-[#e8c37f] text-[#1c1c22] hover:bg-[#f3dfae]">Confirm ✦</button>
+                      <button onClick={() => confirmAction(chat.length - arr.length + i, m.pending, false)} data-testid="mira-confirm-no"
+                        className="text-[11px] font-semibold px-3 py-1 rounded-full bg-white/10 text-white/70 hover:bg-white/20">Not now</button>
+                    </div>
+                  )}
                 </div>
               ))}
               {thinking && <MiraThinkingBeam className="mr-6" />}

@@ -130,7 +130,8 @@ async def connections_status(request: Request, admin=Depends(require_tenant_admi
         "instagram": {"ig_user_id": ig["ig_user_id"], "username": ig.get("username")} if ig else None,
         "google_business": {
             "location_title": gb.get("location_title"), "location_name": gb.get("location_name"),
-            "api_ready": gb.get("api_ready", False),
+            "api_ready": gb.get("api_ready", False), "api_error": gb.get("api_error", ""),
+            "last_check_at": gb.get("last_check_at"),
         } if gb else None,
         "meta_pages": [
             {"id": p["id"], "name": p["name"], "ig_username": p.get("ig_username")}
@@ -256,6 +257,35 @@ async def google_oauth_start(request: Request, admin=Depends(require_tenant_admi
     return {"auth_url": f"{GOOGLE_AUTH}?{urlencode(params)}"}
 
 
+async def _discover_gbp(access_token: str) -> tuple[dict, str]:
+    """Find the tenant's Business Profile account + first location. Returns (fields, error_code)."""
+    out: dict = {}
+    try:
+        async with httpx.AsyncClient(timeout=30) as http:
+            hdr = {"Authorization": f"Bearer {access_token}"}
+            acc = await http.get(f"{GBP_ACCOUNTS}/accounts", headers=hdr)
+            if acc.status_code in (403, 429):
+                return out, "api_not_approved"
+            acc.raise_for_status()
+            accounts = acc.json().get("accounts", [])
+            if not accounts:
+                return out, "no_business_profile"
+            account_name = accounts[0]["name"]
+            loc = await http.get(f"{GBP_INFO}/{account_name}/locations",
+                                 params={"readMask": "name,title", "pageSize": 10}, headers=hdr)
+            if loc.status_code in (403, 429):
+                return out, "api_not_approved"
+            loc.raise_for_status()
+            locations = loc.json().get("locations", [])
+            if not locations:
+                return out, "no_location"
+            out = {"location_name": f"{account_name}/{locations[0]['name']}", "location_title": locations[0].get("title"), "api_ready": True}
+            return out, ""
+    except Exception as e:  # noqa: BLE001
+        log.warning("google business discovery failed (API access may be pending approval): %s", e)
+        return out, "error"
+
+
 @router.get("/social/google/oauth/callback")
 async def google_oauth_callback(request: Request, code: str = "", state: str = "", error: str = ""):
     if error or not code or not state:
@@ -284,31 +314,48 @@ async def google_oauth_callback(request: Request, code: str = "", state: str = "
         "expires_at": datetime.now(timezone.utc).timestamp() + td.get("expires_in", 3600),
         "api_ready": False,
     }
-    # Best-effort: discover account + location (fails if GBP API quota not yet approved)
-    try:
-        async with httpx.AsyncClient(timeout=30) as http:
-            hdr = {"Authorization": f"Bearer {gb['access_token']}"}
-            acc = await http.get(f"{GBP_ACCOUNTS}/accounts", headers=hdr)
-            acc.raise_for_status()
-            accounts = acc.json().get("accounts", [])
-            if accounts:
-                account_name = accounts[0]["name"]
-                loc = await http.get(f"{GBP_INFO}/{account_name}/locations",
-                                     params={"readMask": "name,title", "pageSize": 10}, headers=hdr)
-                loc.raise_for_status()
-                locations = loc.json().get("locations", [])
-                if locations:
-                    gb["location_name"] = f"{account_name}/{locations[0]['name']}"
-                    gb["location_title"] = locations[0].get("title")
-                    gb["api_ready"] = True
-    except Exception as e:
-        log.warning("google business discovery failed (API access may be pending approval): %s", e)
+    found, err = await _discover_gbp(gb["access_token"])
+    gb.update(found)
+    gb["api_error"] = err
+    gb["last_check_at"] = datetime.now(timezone.utc).isoformat()
 
     await _raw_db.social_connections.update_one(
         {"tenant_id": tid},
-        {"$set": {"google_business": gb, "google_connected_at": datetime.now(timezone.utc).isoformat()}},
+        {"$set": {"google_business": _enc_gb(gb), "google_connected_at": datetime.now(timezone.utc).isoformat()}},
         upsert=True)
     return RedirectResponse("/settings?social=google_ok" if gb["api_ready"] else "/settings?social=google_pending")
+
+
+async def recheck_google(tid: str) -> dict:
+    """Re-run Business Profile discovery with the stored refresh token (one tap from the card, or the daily sweep)."""
+    token, gb = await _google_token(tid)
+    found, err = await _discover_gbp(token)
+    gb.update(found)
+    gb["api_error"] = err
+    gb["last_check_at"] = datetime.now(timezone.utc).isoformat()
+    await _raw_db.social_connections.update_one({"tenant_id": tid}, {"$set": {"google_business": _enc_gb(gb)}})
+    return {"api_ready": bool(gb.get("api_ready")), "api_error": err, "location_title": gb.get("location_title")}
+
+
+@router.post("/social/google/recheck")
+async def google_recheck(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    return await recheck_google(t["id"])
+
+
+async def recheck_pending_google_connections() -> int:
+    """Daily sweep: tenants whose Google login is done but review access was still pending get re-checked automatically."""
+    n = 0
+    async for doc in _raw_db.social_connections.find({"google_business": {"$exists": True}, "google_business.api_ready": {"$ne": True}}, {"_id": 0, "tenant_id": 1}):
+        try:
+            res = await recheck_google(doc["tenant_id"])
+            if res["api_ready"]:
+                n += 1
+                from services.tenant_notices import notify_tenant
+                await notify_tenant(doc["tenant_id"], "system", "⭐ Google Business Profile is live",
+                                    "Mira can now reply to your Google reviews automatically.", "/settings")
+        except Exception as e:  # noqa: BLE001
+            log.warning("google recheck failed for %s: %s", doc["tenant_id"], e)
+    return n
 
 
 @router.delete("/social/google")

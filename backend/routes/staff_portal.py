@@ -6,6 +6,7 @@ import math
 import uuid
 import asyncio
 import secrets
+from urllib.parse import quote
 import logging
 import html as html_lib
 from datetime import date, datetime, timezone, timedelta
@@ -325,6 +326,7 @@ class GeoIn(BaseModel):
     lng: Optional[float] = None
     accuracy: Optional[float] = None
     qr_token: Optional[str] = None
+    qr_branch: Optional[str] = None  # branch printed on the desk QR poster that was scanned
     week_off_confirmed: Optional[bool] = False
 
 
@@ -748,6 +750,7 @@ async def staff_check_in(body: Optional[GeoIn] = None, s=Depends(_current_staff)
         "half_day": half_day,
         "half_day_deduction": _half_day_amount(s) if half_day else 0.0,
         "check_in_method": "qr" if qr_ok else "gps",
+        "check_in_branch": (geo.qr_branch or "").strip()[:60] if qr_ok else "",
         "check_in_lat": geo.lat, "check_in_lng": geo.lng, "check_in_distance_m": distance_m,
     }
     if is_week_off_today:
@@ -893,8 +896,9 @@ async def attendance_desk_qr(request: Request, style: str = "poster", branch: st
         token = secrets.token_urlsafe(12)
         await db.tenants.update_one({"id": t["id"]}, {"$set": {"attendance_qr_token": token}})
     from security import public_base_url
+    branch_name = (branch or "").strip()[:40] or (t.get("location") or "").strip()[:40] or "Main branch"
     qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_H, border=1)
-    qr.add_data(f"{public_base_url(request)}/staff-portal?qr={token}")
+    qr.add_data(f"{public_base_url(request)}/staff-portal?qr={token}&b={quote(branch_name)}")
     qr.make(fit=True)
     qr_img = qr.make_image(fill_color="#111111", back_color="white").convert("RGB")
     bg_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "qr_poster_bg.jpg")
@@ -911,7 +915,7 @@ async def attendance_desk_qr(request: Request, style: str = "poster", branch: st
     poster.paste(qr_img, (px, py))
     d = ImageDraw.Draw(poster)
     name = (t.get("name") or "").upper()
-    branch_name = (branch or "").strip().upper()[:40]
+    branch_name = branch_name.upper()
     if name:
         try:
             fnt = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf", 34)
@@ -1014,6 +1018,7 @@ def _roster_row(s: dict, rec: Optional[dict], now: datetime) -> dict:
         "half_day_deduction": r.get("half_day_deduction") or 0,
         "no_show": bool(r.get("no_show")),
         "check_in_method": r.get("check_in_method") or "",
+        "check_in_branch": r.get("check_in_branch") or "",
         "check_out_method": r.get("check_out_method") or "",
         "marked_by": r.get("marked_by") or "",
         "week_off_override": bool(r.get("week_off_override")),

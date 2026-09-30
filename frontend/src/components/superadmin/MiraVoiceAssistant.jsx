@@ -177,12 +177,25 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
     try {
       const lastMira = [...msgs].reverse().find((m) => m.role === "mira")?.text || "";
       const { data } = await api.post("/super-admin/mira/ask", { question: text, last_mira: lastMira });
-      setMsgs((m) => [...m, { role: "mira", text: data.answer }]);
+      setMsgs((m) => [...m, { role: "mira", text: data.answer, pending: data.pending_action || null }]);
       speak(data.answer, true);
       if (data.tab && onGoTab) onGoTab(data.tab);
     } catch {
       setMsgs((m) => [...m, { role: "mira", text: "Sorry, I couldn't process that — try again." }]);
       if (convoRef.current) startListening();
+    } finally { setBusy(false); }
+  };
+
+  const confirmAction = async (idx, pending, yes) => {
+    setMsgs((m) => m.map((x, i) => (i === idx ? { ...x, pending: null } : x)));
+    if (!yes) { setMsgs((m) => [...m, { role: "mira", text: "Okay, Boss — not doing that." }]); return; }
+    setBusy(true);
+    try {
+      const { data } = await api.post("/super-admin/mira/confirm-action", { action: pending.action });
+      setMsgs((m) => [...m, { role: "mira", text: data.answer || "Done, Boss." }]);
+      speak(data.answer || "Done, Boss.", true);
+    } catch (e) {
+      setMsgs((m) => [...m, { role: "mira", text: e.response?.data?.detail || "Sorry, I couldn't do that just now." }]);
     } finally { setBusy(false); }
   };
 
@@ -266,6 +279,15 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
         {msgs.map((m, i) => (
           <div key={i} className={`text-xs leading-relaxed rounded-xl px-3 py-2 ${m.role === "mira" ? "bg-violet-50 text-slate-700" : "bg-slate-100 text-slate-600 ml-8"}`}>
             {m.role === "mira" && <b className="text-violet-600">Mira · </b>}{m.text}
+            {m.pending && (
+              <div className="mt-2 flex flex-wrap items-center gap-2" data-testid="mira-confirm-bar">
+                <span className="text-[10px] uppercase tracking-wider text-slate-500">Confirm: {m.pending.label}</span>
+                <button onClick={() => confirmAction(i, m.pending, true)} data-testid="mira-confirm-yes"
+                  className="text-[11px] font-bold px-3 py-1 rounded-full bg-violet-600 text-white hover:bg-violet-700">Confirm ✦</button>
+                <button onClick={() => confirmAction(i, m.pending, false)} data-testid="mira-confirm-no"
+                  className="text-[11px] font-semibold px-3 py-1 rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300">Not now</button>
+              </div>
+            )}
           </div>
         ))}
         {busy && (

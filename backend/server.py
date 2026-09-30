@@ -71,6 +71,7 @@ from routes.premium_membership import router as premium_membership_router  # noq
 from routes.mira_hq import router as mira_hq_router  # noqa: E402
 from routes.lead_wa_auto import router as lead_wa_auto_router  # noqa: E402
 from routes.mira_outreach import router as mira_outreach_router  # noqa: E402
+from routes.connections_hub import router as connections_hub_router  # noqa: E402
 from routes.registry import router as registry_router  # noqa: E402
 from routes.appointments_pos import router as appointments_pos_router  # noqa: E402
 from routes.invoice_edits import router as invoice_edits_router  # noqa: E402
@@ -147,7 +148,7 @@ for _r in (
     inventory_router, tenant_settings_router, crm_router, briefings_router,
     reviews_router, reports_router, public_site_router, super_admin_router,
     data_cleanup_router, super_admin_ops_router, assistant_router, offers_router,
-    public_chat_router, sales_router, registry_router, appointments_pos_router, invoice_edits_router, gift_cards_router, mira_hq_router, lead_wa_auto_router, mira_outreach_router,
+    public_chat_router, sales_router, registry_router, appointments_pos_router, invoice_edits_router, gift_cards_router, mira_hq_router, lead_wa_auto_router, mira_outreach_router, connections_hub_router,
     premium_membership_router,
     mira_studio_router, social_connect_router, mira_calendar_router, mira_autopilot_router,
     promo_video_router, platform_tools_router, promo_image_router, offer_flyer_router, hair_colors_router,
@@ -226,6 +227,20 @@ async def on_startup():
     asyncio.get_event_loop().create_task(_banner_schedule_scheduler())  # data-only (no outbound) → runs everywhere
     asyncio.get_event_loop().create_task(_city_watch_scheduler())
     asyncio.get_event_loop().create_task(_earnings_anomaly_scheduler())
+
+    async def _google_recheck_loop():
+        # Tenants whose Google review access was still "pending approval" get re-checked once a day.
+        from routes.social_connect import recheck_pending_google_connections
+        await asyncio.sleep(600)
+        while True:
+            try:
+                n = await recheck_pending_google_connections()
+                if n:
+                    logging.info("google business recheck: %d tenant(s) now api_ready", n)
+            except Exception as e:  # noqa: BLE001
+                logging.warning(f"google recheck loop error: {e}")
+            await asyncio.sleep(24 * 3600)
+    asyncio.get_event_loop().create_task(_google_recheck_loop())
 
     async def _weekly_blog_loop():
         # Mira drafts one SEO article every Monday (>=9 AM IST) for super-admin approval.
