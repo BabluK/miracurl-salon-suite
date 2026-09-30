@@ -76,6 +76,7 @@ const GAMES = [
 /** "Waiting for your delicious food?" panel — shown after the diner has waited ~10 minutes. */
 export function WaitGames({ salon }) {
   const [open, setOpen] = useState(null);
+  const isSalon = salon?.business_type && salon.business_type !== "restaurant";
   const G = useMemo(() => GAMES.find(g => g.key === open), [open]);
   return (
     <div className="relative rounded-3xl border border-gold/30 overflow-hidden mt-6 animate-fade-up" data-testid="wait-games-panel">
@@ -92,9 +93,9 @@ export function WaitGames({ salon }) {
           </>
         ) : (
           <>
-            <div className="flex justify-end"><p className="font-caveat text-gold text-lg leading-tight text-right">Good Food<br />Brings People Together ♡</p></div>
-            <h3 className="font-playfair text-[32px] leading-[1.05] -mt-2">Waiting for your<br /><span className="text-gold">Delicious Food?</span></h3>
-            <p className="text-white/85 text-base mt-3">While we are preparing your order, how about a quick game? 😊</p>
+            <div className="flex justify-end"><p className="font-caveat text-gold text-lg leading-tight text-right">{isSalon ? <>Good Hair<br />Brighter Mood ♡</> : <>Good Food<br />Brings People Together ♡</>}</p></div>
+            <h3 className="font-playfair text-[32px] leading-[1.05] -mt-2">Waiting for your<br /><span className="text-gold">{isSalon ? "Turn?" : "Delicious Food?"}</span></h3>
+            <p className="text-white/85 text-base mt-3">{isSalon ? "While we get your chair ready, how about a quick game? 😊" : "While we are preparing your order, how about a quick game? 😊"}</p>
             <div className="flex items-center gap-3 mt-4 text-[12px] text-white/80">
               {[[Gamepad2, "Play\nGames"], [Clock, "Pass\nTime"], [Smile, "Stay\nHappy"]].map(([I, l], i) => (
                 <div key={l} className={`flex flex-col items-center gap-1 px-3 ${i ? "border-l border-white/15" : ""}`}><I className="w-6 h-6 text-gold" /><span className="whitespace-pre text-center leading-tight">{l}</span></div>
@@ -117,7 +118,7 @@ export function WaitGames({ salon }) {
             </div>
             <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 flex items-center gap-3 text-sm">
               <ConciergeBell className="w-7 h-7 text-gold shrink-0" />
-              <p className="text-white/85">Our chefs are working hard to serve you the best food. <span className="text-gold">♡</span></p>
+              <p className="text-white/85">{isSalon ? "Our team is getting everything ready to pamper you." : "Our chefs are working hard to serve you the best food."} <span className="text-gold">♡</span></p>
             </div>
             <p className="text-center text-[10px] tracking-[0.3em] uppercase text-white/60 mt-5">{salon?.name}</p>
             <p className="text-center text-[9px] tracking-[0.25em] uppercase text-white/40 mt-1">Good food • Great company • Always a reason to smile</p>

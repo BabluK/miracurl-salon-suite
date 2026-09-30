@@ -95,6 +95,7 @@ export default function Dashboard() {
   // Perf: paint the last snapshot instantly (stale-while-revalidate), then refresh from the server.
   const [data, setData] = useState(() => readDashCache(dashCacheKey(tenant?.id, getSelectedBranch())));
   const [loadMs, setLoadMs] = useState(0);
+  const [serverMs, setServerMs] = useState(0);
   const [settled, setSettled] = useState(false);
   const [showMonth, setShowMonth] = useState(false);
   const [blastOpen, setBlastOpen] = useState(false);
@@ -111,6 +112,8 @@ export default function Dashboard() {
         .then(r => {
           setData(r.data);
           setLoadMs(Math.max(50, Math.round(performance.now() - t0)));
+          const st = /dur=([\d.]+)/.exec(r.headers?.["server-timing"] || "");
+          setServerMs(st ? Math.round(Number(st[1])) : 0);
           try { sessionStorage.setItem(key, JSON.stringify(r.data)); } catch { /* quota */ }
         })
         .catch(e => {
@@ -195,7 +198,7 @@ export default function Dashboard() {
   return (
     <div className="gold-night-canvas relative isolate overflow-hidden -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-vertical={tenant?.business_type === "restaurant" ? "restaurant" : "salon"} data-testid="dashboard-page">
       <DashboardAurora />
-      <DashboardHero user={user} tenant={tenant} slug={slug} data={data} bookingUrl={bookingUrl} onCopy={copyLink} inr={inr} loadMs={isOwner ? loadMs : 0} />
+      <DashboardHero user={user} tenant={tenant} slug={slug} data={data} bookingUrl={bookingUrl} onCopy={copyLink} inr={inr} loadMs={isOwner ? loadMs : 0} serverMs={serverMs} />
       {isOwner && <WaCreditsBanner />}
 
       {/* KPIs */}

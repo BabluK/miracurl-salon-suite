@@ -171,6 +171,8 @@ async def public_salon(slug: str):
         "referral_reward": REFERRAL_REWARD_REFERRER,
         "google_review_url": t.get("google_review_url") or "",
         "instagram_url": t.get("instagram_url") or "",
+        "wifi_ssid": t.get("wifi_ssid") or "",
+        "wifi_password": t.get("wifi_password") or "",
         "whatsapp_number": t.get("whatsapp_number") or "",
         "logo_url": t.get("logo_url") or "",
         "maps_url": t.get("maps_url") or "",

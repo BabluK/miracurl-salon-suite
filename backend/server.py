@@ -5,6 +5,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 import os
 import asyncio
+import time
 import logging
 from datetime import datetime, timezone, timedelta
 
@@ -542,6 +543,7 @@ app.add_middleware(
     allow_origin_regex=_cors_regex,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Server-Timing"],
 )
 
 # Gzip large JSON responses — 8-10x smaller payloads = much faster on mobile networks
@@ -555,7 +557,10 @@ app.add_middleware(GZipMiddleware, minimum_size=1500)
 # to the API side only — the frontend is a separate build.
 @app.middleware("http")
 async def _security_headers(request: Request, call_next):
+    _t0 = time.perf_counter()
     resp = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        resp.headers["Server-Timing"] = f"app;dur={(time.perf_counter() - _t0) * 1000:.1f}"
     resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     # Mira Studio generated sites must be embeddable in the studio's own preview iframe

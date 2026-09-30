@@ -3799,3 +3799,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Conversion alerts moved to leaf `services/hq_conversion.py` (no router imports) — hooks in auth/lead_gen/hq_documents/lead_wa_auto import from it; `routes/mira_outreach.py` re-exports. Import cycle risk removed (verified importing all modules).
 - `connections_hub()` split into per-channel helpers; `_run_mira_action` now an action registry (`_ACTIONS`).
 - Reviewer's "undefined variables" (105) and `utils.py` `is None` flags checked: pyflakes/ruff F821 clean; `is None` is the correct idiom — no change. Import-count refactor of appointments_pos/auth/hair_colors deferred (P3).
+
+## 2026-09-30 — Rewards QR hub · WA handoff QR host fix · Server-Timing
+- `/loyalty/:slug` is now a dark-marble/gold **Rewards Hub** (like the user's reference): Start Earning Rewards (join form panel), Google Review (google_review_url or /rate), Services & Prices / View Menu, Connect to Wi-Fi (new tenant fields `wifi_ssid`/`wifi_password` in Branding), Anonymous Feedback (/rate), Play a Game (WaitGames, salon copy variant), Instagram, Offers & Packages (/membership or /gift), Book. Join form extracted to `components/loyalty/LoyaltyJoinForm.jsx`. Loyalty poster QR already points here.
+- WA handoff QR: URL now uses `public_base_url(request)` (preview QR → preview host). Previously hard-coded APP_PUBLIC_URL made preview QRs land on prod → "invalid".
+- Dashboard speed pill: backend emits `Server-Timing: app;dur=…` on /api (CORS expose); pill shows "Loaded in 434ms · server 16ms" with tooltip — server time ~15–20ms, remainder is network distance.

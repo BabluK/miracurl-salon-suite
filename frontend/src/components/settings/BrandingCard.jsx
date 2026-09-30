@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Store, Star, Instagram, MessageCircle, Save } from "lucide-react";
 import { BookingPreview } from "./BookingPreview";
 
-const EMPTY = { google_review_url: "", maps_url: "", hours: "", open_time: "10:00", close_time: "21:00", phone: "", location: "", hero_image: "", instagram_url: "", whatsapp_number: "", reception_phone: "", manager_phone: "", salon_email: "", book_bg: "", logo_shape: "", header_bg: "", timezone: "Asia/Kolkata", country_code: "IN" };
+const EMPTY = { google_review_url: "", maps_url: "", hours: "", open_time: "10:00", close_time: "21:00", phone: "", location: "", hero_image: "", instagram_url: "", wifi_ssid: "", wifi_password: "", whatsapp_number: "", reception_phone: "", manager_phone: "", salon_email: "", book_bg: "", logo_shape: "", header_bg: "", timezone: "Asia/Kolkata", country_code: "IN" };
 
 // Common markets — value is the IANA timezone, cc drives currency/formats later
 const TIMEZONES = [
@@ -215,6 +215,14 @@ export function BrandingCard() {
           </label>
           <input data-testid="settings-instagram-url" placeholder="https://www.instagram.com/your_handle/" {...field("instagram_url")} />
           <p className="text-[11px] text-slate-400 mt-1">Shown as an icon on your public booking page.</p>
+        </div>
+        <div>
+          <label className="text-xs text-slate-500 font-medium">Guest Wi-Fi (shown on your Rewards QR page)</label>
+          <div className="grid grid-cols-2 gap-2">
+            <input data-testid="settings-wifi-ssid" placeholder="Network name" {...field("wifi_ssid")} />
+            <input data-testid="settings-wifi-password" placeholder="Password" {...field("wifi_password")} />
+          </div>
+          <p className="text-[11px] text-slate-400 mt-1">Guests tap "Connect to Wi-Fi" on the Rewards page to copy it. Leave blank to hide.</p>
         </div>
         <div>
           <label className="text-xs text-slate-500 font-medium flex items-center gap-1.5">

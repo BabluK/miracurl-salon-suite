@@ -654,6 +654,8 @@ class BrandingIn(BaseModel):
     location: Optional[str] = Field(None, max_length=500)
     hero_image: Optional[str] = Field(None, max_length=2000)
     instagram_url: Optional[str] = Field(None, max_length=500)
+    wifi_ssid: Optional[str] = Field(None, max_length=32)
+    wifi_password: Optional[str] = Field(None, max_length=63)
     whatsapp_number: Optional[str] = Field(None, max_length=20)
     reception_phone: Optional[str] = Field(None, max_length=40)
     manager_phone: Optional[str] = Field(None, max_length=40)
@@ -730,6 +732,8 @@ async def get_branding(user=Depends(require_admin), t=Depends(current_tenant)):
         "location": t.get("location") or "",
         "hero_image": t.get("hero_image") or "",
         "instagram_url": t.get("instagram_url") or "",
+        "wifi_ssid": t.get("wifi_ssid") or "",
+        "wifi_password": t.get("wifi_password") or "",
         "whatsapp_number": t.get("whatsapp_number") or "",
         "reception_phone": t.get("reception_phone") or "",
         "manager_phone": t.get("manager_phone") or "",

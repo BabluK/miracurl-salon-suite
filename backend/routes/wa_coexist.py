@@ -2,7 +2,6 @@
 import base64
 import io
 import logging
-import os
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -10,7 +9,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from database import _raw_db
-from security import current_tenant, durable_rate_limit, require_super_admin, require_tenant_admin
+from security import current_tenant, durable_rate_limit, require_super_admin, require_tenant_admin, public_base_url
 from services import wa_coexist as cx
 
 router = APIRouter(prefix="/whatsapp-own")
@@ -93,8 +92,8 @@ async def own_handoff(request: Request, user=Depends(require_tenant_admin), t=De
     token = secrets.token_urlsafe(24)
     exp = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
     await _raw_db.tenants.update_one({"id": t["id"]}, {"$set": {"wa_own_handoff": {"token": token, "exp": exp}}})
-    base = os.environ.get("APP_PUBLIC_URL") or str(request.base_url).rstrip("/")
-    url = f"{base}/connect-whatsapp/{token}"
+    # Same host the owner is looking at (preview QR → preview page, prod → prod) — a fixed APP_PUBLIC_URL made preview QRs "invalid".
+    url = f"{public_base_url(request)}/connect-whatsapp/{token}"
     qr = qrcode.QRCode(box_size=8, border=2)
     qr.add_data(url)
     qr.make(fit=True)
