@@ -2,11 +2,12 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-27.372"
-BUILD_TIME = "27 Sep 2026, 04:35 PM IST"
+BUILD = "2026-09-30.373"
+BUILD_TIME = "30 Sep 2026, 07:40 AM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
+    {"build": "2026-09-30.373", "note": "Retired the temporary demo Owner Dashboard (security audit accepted-risk item): deleted routes/owner_demo_dashboard.py (hardcoded DEMO_PIN), pages/OwnerDashboard.jsx, components/dashboard/OwnerDashboardBits.jsx, components/settings/OwnerDashboardCard.jsx, tests/test_iter187_owner_dashboard.py; removed router/route/Settings card wiring. /api/owner-dashboard/* → 404."},
     {"build": "2026-09-27.372", "note": "Prod receipt SMS 'not_configured': production secrets had MSG91_SENDER_ID/MSG91_FLOW_ID empty (RCA by deployer). sms_service: sender falls back to the public DLT header MIRACU (msg91_sender()), _msg91_ready needs only MSG91_AUTHKEY + template IDs (FLOW_ID optional). POS Send-bill shows a friendly message for not_configured / invalid_phone."},
     {"build": "2026-09-27.371", "note": "Security audit #2 fixes (SEC-001): table orders get a per-order guest_token (only returned to the ordering phone) and 16-char ids; /public/table-order-paid-claim requires the token (403 otherwise) and is explicitly UNVERIFIED in Kitchen wording; re-scanned sessions see 'show payment to waiter' instead of the claim button. Global daily caps on /public/product-orders (500) and /public/table-order (1500/restaurant)."},
     {"build": "2026-09-27.370", "note": "Auto mark paid: settle_table_orders_for_invoice (staff_admin.py) called from POST /invoices/{id}/complete → table orders with that invoice_no become paid; mark-billed paid=True and settle both auto-resolve open 'paid'/'bill' table pings (_resolve_paid_pings, auto_resolved=bill_paid). Pay-at-table amount prefers bill_total (one bill per table)."},

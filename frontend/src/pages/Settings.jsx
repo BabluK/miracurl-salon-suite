@@ -30,7 +30,6 @@ import { PreviousStaffCard } from "@/components/settings/PreviousStaffCard";
 import { InternationalCard } from "@/components/settings/InternationalCard";
 import { SmsPacksCard } from "@/components/settings/SmsPacksCard";
 import { SecurityPinCard } from "@/components/settings/SecurityPinCard";
-import { OwnerDashboardCard } from "@/components/settings/OwnerDashboardCard";
 import { UpdatedBillsCard } from "@/components/settings/UpdatedBillsCard";
 import { RateMiracurlCard } from "@/components/settings/RateMiracurlCard";
 import { SocialConnectionsCard } from "@/components/settings/SocialConnectionsCard";
@@ -82,7 +81,6 @@ export default function Settings() {
             <Lazy eager={eager}><TaxCard /></Lazy>
             <Lazy eager={eager}><InternationalCard /></Lazy>
             <Lazy eager={eager}><SecurityPinCard /></Lazy>
-            <Lazy eager={eager}><OwnerDashboardCard /></Lazy>
             <Lazy eager={eager}><AuditLogCard /></Lazy>
             <Lazy eager={eager}><UpdatedBillsCard /></Lazy>
             <Lazy eager={eager}><LoyaltyStampsCard /></Lazy>
