@@ -352,7 +352,7 @@ async def _convert_lead_to_customer(email: str, tenant: dict) -> None:
         {"$set": {"status": "customer", "converted_at": now,
                   "converted_tenant_id": tenant["id"], "converted_tenant_slug": tenant["slug"]}})
     try:
-        from routes.mira_outreach import notify_hq_conversion_by_email
+        from services.hq_conversion import notify_hq_conversion_by_email
         await notify_hq_conversion_by_email(email, "signup", f"Signed up as {tenant.get('name')} ({tenant.get('slug')})")
     except Exception:  # noqa: BLE001
         logging.getLogger("auth").exception("conversion alert failed")

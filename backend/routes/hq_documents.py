@@ -1799,7 +1799,7 @@ async def demo_slot_book(iid: str, body: DemoSlotIn, request: Request):
                   "opened_at": inv.get("opened_at") or now_iso,
                   "seen_by_hq_req": False, "responded": True}})
     try:
-        from routes.mira_outreach import notify_hq_conversion_by_email
+        from services.hq_conversion import notify_hq_conversion_by_email
         await notify_hq_conversion_by_email(inv.get("email"), "demo", f"Picked demo slot {body.date} {body.time}")
     except Exception:  # noqa: BLE001
         logging.getLogger("hq_docs").exception("conversion alert failed")
@@ -1876,7 +1876,7 @@ async def _mark_lead_demo(email: str, slot: dict, now_iso: str) -> None:
         {"email": email, "status": {"$in": ["sent", "drafted", "no_email", "researched", "replied"]}},
         {"$set": {"status": "demo"}})
     try:
-        from routes.mira_outreach import notify_hq_conversion_by_email
+        from services.hq_conversion import notify_hq_conversion_by_email
         await notify_hq_conversion_by_email(email, "demo", f"Preferred slot: {slot.get('date')} {slot.get('time')}")
     except Exception:  # noqa: BLE001
         logging.getLogger("hq_docs").exception("conversion alert failed")

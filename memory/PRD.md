@@ -3794,3 +3794,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-30 — HQ Google API check
 - `GET /super-admin/google/status`, `POST /super-admin/google/recheck-all` (re-runs discovery for every Google-connected tenant, returns Google's exact error text `api_error_detail`). Mira Home shows a "Google Business Profile — N tenants waiting" banner with **Check Google API now** when `home.google_pending > 0`. Needs PROD deploy to test against the real connected tenant (preview has none).
+
+## 2026-09-30 — Code-review fixes
+- Conversion alerts moved to leaf `services/hq_conversion.py` (no router imports) — hooks in auth/lead_gen/hq_documents/lead_wa_auto import from it; `routes/mira_outreach.py` re-exports. Import cycle risk removed (verified importing all modules).
+- `connections_hub()` split into per-channel helpers; `_run_mira_action` now an action registry (`_ACTIONS`).
+- Reviewer's "undefined variables" (105) and `utils.py` `is None` flags checked: pyflakes/ruff F821 clean; `is None` is the correct idiom — no change. Import-count refactor of appointments_pos/auth/hair_colors deferred (P3).

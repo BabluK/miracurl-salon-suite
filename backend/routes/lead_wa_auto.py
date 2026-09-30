@@ -144,7 +144,7 @@ async def note_lead_reply(wa_id: str, text: str) -> None:
     await log_mira_event("wa_reply", f"{lead.get('name') or 'A lead'} replied on WhatsApp: \"{(text or '')[:80]}\"")
     if not upd.get("wa_opt_out"):
         try:
-            from routes.mira_outreach import notify_hq_conversion
+            from services.hq_conversion import notify_hq_conversion
             await notify_hq_conversion({**lead, **upd}, "wa_replied", text or "")
         except Exception:  # noqa: BLE001
             log.exception("conversion alert failed")

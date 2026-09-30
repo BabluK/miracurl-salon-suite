@@ -293,41 +293,62 @@ def _mira_greeting_reply(outreach: dict | None = None) -> dict:
     return {"answer": answer, "tab": "", "action": ""}
 
 
-async def _run_mira_action(action: str, user: dict) -> str:
-    """Execute the action Mira decided on; returns a short spoken confirmation ('' if nothing ran)."""
+async def _act_outreach_now(_arg: str, _user: dict) -> str:
     from routes import mira_outreach as mo
-    if action == "outreach_now":
-        out = await mo.run_outreach_cycle(force=True, ignore_hours=True)
-        if out.get("skipped"):
-            return f" (Outreach is already running — {out['skipped']}.)"
-        bits = [f"emailed {out['emailed']} hot lead{'s' if out['emailed'] != 1 else ''}"]
-        if out.get("whatsapp"):
-            bits.append(f"{out['whatsapp']} WhatsApp intro(s)")
-        if out.get("hunt"):
-            bits.append(f"started hunting {out['hunt']['vertical']}s in {out['hunt']['city']}")
-        return f" Done — I just {', '.join(bits)}; {out['sent_today']}/{out['limit']} emails used today."
-    if action in ("outreach_on", "outreach_off"):
-        s = await mo.get_settings()
-        s["enabled"] = action == "outreach_on"
-        await _raw_db.platform_settings.update_one({"key": mo.SETTINGS_KEY}, {"$set": {**s, "updated_at": _now(), "updated_by": user.get("email")}}, upsert=True)
-        return " Outreach Autopilot is now ON — I'll email hot leads every few minutes within the daily cap." if s["enabled"] else " Outreach Autopilot paused."
-    if action.startswith("set_limit:"):
-        n = int(re.sub(r"\D", "", action) or 0)
-        if 1 <= n <= 1000:
-            await _raw_db.platform_settings.update_one({"key": mo.SETTINGS_KEY}, {"$set": {"daily_email_limit": n, "updated_at": _now()}}, upsert=True)
-            return f" Daily email limit set to {n}."
-    if action.startswith("hunt:"):
-        from routes.lead_gen import RunIn, start_run
-        parts = action.split(":")
-        city = parts[1].strip() if len(parts) > 1 else ""
-        vertical = parts[2].strip() if len(parts) > 2 and parts[2].strip() in ("salon", "restaurant") else "salon"
-        if city:
-            try:
-                await start_run(RunIn(city=city, target=10, vertical=vertical), user)
-                return f" Lead hunt started — {vertical}s in {city}. I'll email the hot ones automatically."
-            except Exception as e:  # noqa: BLE001
-                return f" Couldn't start the hunt: {getattr(e, 'detail', str(e))[:80]}."
-    return ""
+    out = await mo.run_outreach_cycle(force=True, ignore_hours=True)
+    if out.get("skipped"):
+        return f" (Outreach is already running — {out['skipped']}.)"
+    bits = [f"emailed {out['emailed']} hot lead{'s' if out['emailed'] != 1 else ''}"]
+    if out.get("whatsapp"):
+        bits.append(f"{out['whatsapp']} WhatsApp intro(s)")
+    if out.get("hunt"):
+        bits.append(f"started hunting {out['hunt']['vertical']}s in {out['hunt']['city']}")
+    return f" Done — I just {', '.join(bits)}; {out['sent_today']}/{out['limit']} emails used today."
+
+
+async def _act_outreach_toggle(enabled: bool, user: dict) -> str:
+    from routes import mira_outreach as mo
+    await _raw_db.platform_settings.update_one({"key": mo.SETTINGS_KEY}, {"$set": {"enabled": enabled, "updated_at": _now(), "updated_by": user.get("email")}}, upsert=True)
+    return " Outreach Autopilot is now ON — I'll email hot leads every few minutes within the daily cap." if enabled else " Outreach Autopilot paused."
+
+
+async def _act_set_limit(arg: str, _user: dict) -> str:
+    from routes import mira_outreach as mo
+    n = int(re.sub(r"\D", "", arg) or 0)
+    if not 1 <= n <= 1000:
+        return ""
+    await _raw_db.platform_settings.update_one({"key": mo.SETTINGS_KEY}, {"$set": {"daily_email_limit": n, "updated_at": _now()}}, upsert=True)
+    return f" Daily email limit set to {n}."
+
+
+async def _act_hunt(arg: str, user: dict) -> str:
+    from routes.lead_gen import RunIn, start_run
+    city, _, vertical = arg.partition(":")
+    vertical = vertical.strip() if vertical.strip() in ("salon", "restaurant") else "salon"
+    if not city.strip():
+        return ""
+    try:
+        await start_run(RunIn(city=city.strip(), target=10, vertical=vertical), user)
+        return f" Lead hunt started — {vertical}s in {city.strip()}. I'll email the hot ones automatically."
+    except Exception as e:  # noqa: BLE001
+        return f" Couldn't start the hunt: {getattr(e, 'detail', str(e))[:80]}."
+
+
+# action registry: "<verb>[:<arg>]" → handler(arg, user)
+_ACTIONS = {
+    "outreach_now": _act_outreach_now,
+    "outreach_on": lambda _a, u: _act_outreach_toggle(True, u),
+    "outreach_off": lambda _a, u: _act_outreach_toggle(False, u),
+    "set_limit": _act_set_limit,
+    "hunt": _act_hunt,
+}
+
+
+async def _run_mira_action(action: str, user: dict) -> str:
+    """Execute a confirmed Mira action; returns a short spoken confirmation ('' if nothing ran)."""
+    verb, _, arg = action.partition(":")
+    handler = _ACTIONS.get(verb)
+    return await handler(arg, user) if handler else ""
 
 
 async def _mira_llm_decision(user_id: str, question: str, last_mira: str, snap: dict) -> dict:

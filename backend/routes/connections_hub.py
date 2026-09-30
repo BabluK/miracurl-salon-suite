@@ -27,6 +27,52 @@ def _google_status(gb: dict | None, configured: bool) -> dict:
     return {"state": "pending", "title": "Google Business Profile", "line": lines.get(err, lines["error"]), "action": "recheck_google", "error": err}
 
 
+def _whatsapp_status(feats: dict, own: dict | None, pts: int, auto_on: bool) -> dict:
+    if not feats.get("whatsapp", True):
+        return {"state": "unavailable", "line": "WhatsApp isn't part of your plan yet — ask HQ to enable it.", "action": "contact_hq"}
+    if own:
+        return {"state": "ok", "line": f"✓ Sending from your own number {own.get('display_phone_number') or ''} · {pts} credits for Mira's official templates.", "action": None}
+    if pts > 0:
+        return _ready_line(f"✓ Ready via Miracurl's official WhatsApp · {pts} credits left", auto_on)
+    return {"state": "off", "line": "No WhatsApp credits — buy a pack (or connect your own WhatsApp Business number) to send receipts & reminders.", "action": "buy_whatsapp"}
+
+
+def _sms_status(feats: dict, configured: bool, pts: int, auto_on: bool) -> dict:
+    if not configured:
+        return {"state": "unavailable", "line": "SMS gateway is being configured by HQ — WhatsApp & email work meanwhile.", "action": None}
+    if not feats.get("sms", True):
+        return {"state": "unavailable", "line": "SMS isn't part of your plan yet — ask HQ to enable it.", "action": "contact_hq"}
+    if pts > 0:
+        return _ready_line(f"✓ Ready · {pts} SMS credits left", auto_on)
+    return {"state": "off", "line": "No SMS credits — buy a pack to send bill receipts & OTPs by SMS.", "action": "buy_sms"}
+
+
+def _email_status(configured: bool, auto_on: bool) -> dict:
+    if not configured:
+        return {"state": "unavailable", "line": "Email is being configured by HQ.", "action": None}
+    return _ready_line("✓ Invoices, reminders & reports go out from Miracurl automatically", auto_on)
+
+
+def _meta_status(social: dict, configured: bool) -> dict:
+    fb = social.get("facebook")
+    if fb:
+        ig = social.get("instagram") or {}
+        tail = f" · @{ig.get('username')}" if ig.get("username") else " · no Instagram linked to this Page"
+        return {"state": "ok", "line": f"✓ {fb.get('page_name')}{tail}", "action": None}
+    if not configured:
+        return {"state": "unavailable", "line": "Coming soon — HQ is finishing Meta setup.", "action": None}
+    if social.get("meta_pages"):
+        return {"state": "pending", "line": "Almost there — pick your Facebook Page below the Connected Accounts card.", "action": "social"}
+    return {"state": "off", "line": "Not connected — connect so Mira Studio can auto-post promos.", "action": "connect_meta"}
+
+
+def _ready_line(line: str, auto_on: bool) -> dict:
+    """A working channel whose auto-receipts toggle is still off gets a gentle one-tap nudge."""
+    if auto_on:
+        return {"state": "ok", "line": line, "action": None}
+    return {"state": "ok", "line": f"{line} · auto-receipts are OFF", "action": "receipts"}
+
+
 @router.get("/settings/connections-hub")
 async def connections_hub(user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     from services import wa_coexist as cx
@@ -38,49 +84,12 @@ async def connections_hub(user=Depends(require_tenant_admin), t=Depends(current_
     feats = features_of(tdoc)
     auto = {"email": False, "sms": False, "whatsapp": False, **(tdoc.get("receipt_auto") or {})}
     social = await _conn(t["id"])
-    meta_id, meta_secret = _meta_creds()
-    g_id, g_secret = _google_creds()
-    own = cx.own_channel(tdoc)
-    wa_pts, sms_pts = int(tdoc.get("wa_points") or 0), int(tdoc.get("sms_points") or 0)
-
-    if not feats.get("whatsapp", True):
-        wa = {"state": "unavailable", "line": "WhatsApp isn't part of your plan yet — ask HQ to enable it.", "action": "contact_hq"}
-    elif own:
-        wa = {"state": "ok", "line": f"✓ Sending from your own number {own.get('display_phone_number') or ''} · {wa_pts} credits for Mira's official templates.", "action": None}
-    elif wa_pts > 0:
-        wa = {"state": "ok", "line": f"✓ Ready via Miracurl's official WhatsApp · {wa_pts} credits left" + ("" if auto["whatsapp"] else " · auto-receipts are OFF"), "action": None if auto["whatsapp"] else "receipts"}
-    else:
-        wa = {"state": "off", "line": "No WhatsApp credits — buy a pack (or connect your own WhatsApp Business number) to send receipts & reminders.", "action": "buy_whatsapp"}
-
-    if not sms_configured():
-        sms = {"state": "unavailable", "line": "SMS gateway is being configured by HQ — WhatsApp & email work meanwhile.", "action": None}
-    elif not feats.get("sms", True):
-        sms = {"state": "unavailable", "line": "SMS isn't part of your plan yet — ask HQ to enable it.", "action": "contact_hq"}
-    elif sms_pts > 0:
-        sms = {"state": "ok", "line": f"✓ Ready · {sms_pts} SMS credits left" + ("" if auto["sms"] else " · auto-receipts are OFF"), "action": None if auto["sms"] else "receipts"}
-    else:
-        sms = {"state": "off", "line": "No SMS credits — buy a pack to send bill receipts & OTPs by SMS.", "action": "buy_sms"}
-
-    email = ({"state": "ok", "line": "✓ Invoices, reminders & reports go out from Miracurl automatically" + ("" if auto["email"] else " · auto-receipts are OFF"), "action": None if auto["email"] else "receipts"}
-             if os.environ.get("RESEND_API_KEY") else {"state": "unavailable", "line": "Email is being configured by HQ.", "action": None})
-
-    fb = social.get("facebook")
-    if fb:
-        ig = social.get("instagram") or {}
-        meta = {"state": "ok", "line": f"✓ {fb.get('page_name')}" + (f" · @{ig.get('username')}" if ig.get("username") else " · no Instagram linked to this Page"), "action": None}
-    elif not (meta_id and meta_secret):
-        meta = {"state": "unavailable", "line": "Coming soon — HQ is finishing Meta setup.", "action": None}
-    elif social.get("meta_pages"):
-        meta = {"state": "pending", "line": "Almost there — pick your Facebook Page below the Connected Accounts card.", "action": "social"}
-    else:
-        meta = {"state": "off", "line": "Not connected — connect so Mira Studio can auto-post promos.", "action": "connect_meta"}
-
     channels = [
-        {"key": "whatsapp", "title": "WhatsApp", **wa},
-        {"key": "sms", "title": "SMS", **sms},
-        {"key": "email", "title": "Email", **email},
-        {"key": "meta", "title": "Instagram + Facebook", **meta},
-        {"key": "google", **_google_status(social.get("google_business"), bool(g_id and g_secret))},
+        {"key": "whatsapp", "title": "WhatsApp", **_whatsapp_status(feats, cx.own_channel(tdoc), int(tdoc.get("wa_points") or 0), auto["whatsapp"])},
+        {"key": "sms", "title": "SMS", **_sms_status(feats, sms_configured(), int(tdoc.get("sms_points") or 0), auto["sms"])},
+        {"key": "email", "title": "Email", **_email_status(bool(os.environ.get("RESEND_API_KEY")), auto["email"])},
+        {"key": "meta", "title": "Instagram + Facebook", **_meta_status(social, all(_meta_creds()))},
+        {"key": "google", **_google_status(social.get("google_business"), all(_google_creds()))},
     ]
     ready = sum(1 for c in channels if c["state"] == "ok")
     return {"channels": channels, "ready": ready, "total": len(channels), "receipt_auto": auto}
