@@ -8,6 +8,7 @@ import os
 import re
 import uuid
 from datetime import datetime, timezone, timedelta
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -337,26 +338,29 @@ async def get_history(days: int = 30, user=Depends(require_super_admin)):
 
 
 class OutreachSettingsIn(BaseModel):
-    enabled: bool
-    daily_email_limit: int = Field(100, ge=1, le=1000)
-    per_cycle: int = Field(10, ge=1, le=50)
-    min_score: int = Field(50, ge=0, le=100)
-    verticals: list[str] = Field(default_factory=lambda: ["salon", "restaurant"])
-    wa_countries: list[str] = Field(default_factory=lambda: ["91"])
-    auto_hunt: bool = True
-    hunts_per_day: int = Field(2, ge=0, le=10)
-    hunt_countries: list[str] = Field(default_factory=lambda: ["IN", "AE", "UK", "US", "SG", "AU", "CA"])
+    """Partial update — any field omitted keeps its current value."""
+    enabled: Optional[bool] = None
+    daily_email_limit: Optional[int] = Field(None, ge=1, le=1000)
+    per_cycle: Optional[int] = Field(None, ge=1, le=50)
+    min_score: Optional[int] = Field(None, ge=0, le=100)
+    verticals: Optional[list[str]] = None
+    wa_countries: Optional[list[str]] = None
+    auto_hunt: Optional[bool] = None
+    hunts_per_day: Optional[int] = Field(None, ge=0, le=10)
+    hunt_countries: Optional[list[str]] = None
 
 
 @router.put("/super-admin/mira/outreach/settings")
 async def put_settings(body: OutreachSettingsIn, user=Depends(require_super_admin)):
-    verts = [v for v in body.verticals if v in ("salon", "restaurant")] or ["salon", "restaurant"]
-    wa = [re.sub(r"\D", "", c) for c in body.wa_countries if re.sub(r"\D", "", c)]
-    hunt = [c.upper() for c in body.hunt_countries if c.upper() in _COUNTRIES] or _DEFAULTS["hunt_countries"]
-    doc = {**body.model_dump(), "verticals": verts, "wa_countries": wa, "hunt_countries": hunt, "updated_at": _now(),
+    cur = await get_settings()
+    merged = {**cur, **{k: v for k, v in body.model_dump().items() if v is not None}}
+    verts = [v for v in merged["verticals"] if v in ("salon", "restaurant")] or ["salon", "restaurant"]
+    wa = [re.sub(r"\D", "", c) for c in merged["wa_countries"] if re.sub(r"\D", "", c)]
+    hunt = [c.upper() for c in merged["hunt_countries"] if c.upper() in _COUNTRIES] or _DEFAULTS["hunt_countries"]
+    doc = {**merged, "verticals": verts, "wa_countries": wa, "hunt_countries": hunt, "updated_at": _now(),
            "updated_by": user.get("email")}
     await _raw_db.platform_settings.update_one({"key": SETTINGS_KEY}, {"$set": doc}, upsert=True)
-    await log_mira_event("settings", f"Boss {'switched ON' if body.enabled else 'paused'} Outreach Autopilot — {body.daily_email_limit} emails/day, "
+    await log_mira_event("settings", f"Boss {'switched ON' if doc['enabled'] else 'paused'} Outreach Autopilot — {doc['daily_email_limit']} emails/day, "
                                      f"{' + '.join(verts)}, WhatsApp for +{', +'.join(wa) or '—'}.")
     return {"ok": True, **await get_settings()}
 

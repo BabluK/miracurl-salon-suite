@@ -1,0 +1,36 @@
+{
+  "summary": "Iter 203 — SEC-001 Mira confirm-action, Connections Hub, Google recheck, Desk QR branch: 14/14 backend tests passed and full frontend flow passed. BACKEND (super admin): POST /api/super-admin/mira/ask {question:'set the daily email limit to 130'} returns action='' and pending_action={action:'set_limit:130',label:'set the daily email limit to 130'}; outreach summary still shows daily_email_limit=100 pre-confirm. POST /confirm-action {action:'set_limit:130'} → 200 ok=true, summary now 130. Restored to 100 with confirm-action. drop_db → 400 'Unknown action'. hunt:<script>:salon → 400. Anonymous → 401; tenant admin → 403. BACKEND (tenant admin): GET /settings/connections-hub returns 5 channels (whatsapp,sms,email,meta,google in order), total=5, ready pill computed, states in {ok,pending,off,unavailable}, each channel has key/title/state/line/action; anonymous → 401. POST /social/google/recheck (no google connection) → 400 'Google Business account not connected'; GET /social/connections shows google_business=null. GET /attendance/desk-qr with & without branch param → 200 image/png. FRONTEND (super admin): /super-admin → mira-ask-input → typed 'set the daily email limit to 120' + Enter → mira-confirm-bar visible → 'Not now' → Mira 'Okay, Boss — not doing that.', limit stayed at 100. Asked again + Confirm → 'Daily email limit set to 120.', summary=120. Restored to 100 via API confirm-action (frontend PUT /mira/outreach/settings 422 — likely endpoint mismatch, not the SEC-001 flow). FRONTEND (tenant admin /settings#top): connections-hub-card visible, ready pill '2/5 ready', all 5 rows (hub-whatsapp/sms/email/meta/google) rendered. Clicking hub-whatsapp-action → settings-guest-receipts-card visible; clicking hub-sms-action → sms-packs-card visible. FRONTEND (/attendance → desk-qr-btn): modal opened with desk-qr-branch-tag '📍 Marathahalli' (never empty), desk-qr-branch-select visible with 2 branches (Marathahalli, Miracurl Unisex Family Salon- AECS); switching updated tag to '📍 Miracurl Unisex Family Salon- AECS' and desk-qr-img src (?branch=... changed), naturalWidth=848 so image loaded.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Super Admin console", "issues": ["React hydration warning persists: <button> descendant of <button> (carried over from iter 201/202)."]},
+      {"screen": "Attendance desk QR modal", "issues": ["React hydration warning: <span> cannot be a child of <option> (branch selector renders an emoji span inside <option>)."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter203_sec_hub_gbp_deskqr.py",
+    "/app/test_reports/pytest/iter203.xml"
+  ],
+  "action_items": [
+    "(informational) The tenant PUT /api/super-admin/mira/outreach/settings body {daily_email_limit:100} returned 422 during restore attempt from the browser. It is a super-admin endpoint and the mira_outreach router likely expects a different schema (e.g. wrapping in settings object). Confirm-action set_limit:N works and is the sanctioned path; if PUT is intended for direct use, verify its Pydantic body shape. Not blocking SEC-001.",
+    "(low, cosmetic) Fix hydration warnings: nested <button> in super-admin layout; <span> inside <option> in desk-qr branch <select> — use a plain option label or replace <select> with a shadcn/radix Select.",
+    "(low) Post-login PIN screen still stacks What's New + Passkey modals (carried from iter 202)."
+  ],
+  "critical_code_review_comments": [
+    "SEC-001 implementation in routes/mira_hq.py is correctly enforced: mira_ask always sets action='' and returns pending_action; mira_confirm_action validates against _ACTION_RE and only then calls _run_mira_action. Regex correctly rejects '<script>' and 'drop_db'. Good.",
+    "_ACTION_RE allows hunt:<City, CC>:<vertical> and confirm-action will start a paid lead hunt via start_run — as flagged in the request, do NOT test-trigger this. The regex constraints on the city segment ([A-Za-z .'\\-]{2,40}) are reasonable, but note that a well-formed 'hunt:Dubai, AE:restaurant' would succeed if confirmed. Consider adding a per-day cap or an extra 'are-you-sure' banner for hunt actions since each run costs Places+AI credits.",
+    "connections_hub._google_status returns state 'pending' when api_error is set but gb exists — consistent with Google Business friendly-copy requirement. api_ready gate is correct.",
+    "routes/staff_portal.py check-in stores check_in_method='qr' and check_in_branch=geo.qr_branch[:60] only when qr_ok; make sure the QR URL signature validation is what sets qr_ok (didn't drill into that). GeoIn.qr_branch is optional — good.",
+    "connections_hub.py file is small and focused (87 lines) — clean."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter203_sec_hub_gbp_deskqr.py"],
+  "success_rate": {"backend": "100% (14/14)", "frontend": "100%"},
+  "test_credentials": "Super admin admin@miracurl-suite.com / og9T@41Es#OQb6; tenant admin@miracurl.com / q6QY@tn3p#9DtL @ miracurl-marathahalli, Owner PIN 4321",
+  "seed_data_creation": "None — daily_email_limit was mutated during Mira confirm-action tests (100→130→100 via backend test; 100→120→100 via frontend test) and restored to 100. Verified final value = 100.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_iter203_sec_hub_gbp_deskqr.py is idempotent and safe to re-run — it always restores daily_email_limit to 100. Never call confirm-action with 'outreach_now' or 'hunt:...:...' unless you truly want to spend credits. Confirm-bar data-testids: mira-ask-input, mira-confirm-bar, mira-confirm-yes, mira-confirm-no. Connections Hub: connections-hub-card, connections-hub-ready, hub-{whatsapp,sms,email,meta,google}, hub-{key}-action; scroll targets settings-guest-receipts-card and sms-packs-card. Desk QR: desk-qr-btn, desk-qr-branch-tag, desk-qr-branch-select, desk-qr-img. Miracurl-marathahalli currently has 2 branches (Marathahalli + AECS Layout Brookefield).",
+  "rca of the issue": "N/A — no issues found for the requested features."
+}

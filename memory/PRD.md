@@ -3784,3 +3784,10 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-30 — Logo plays once per login · Nudge snooze
 - `MasterBrand.jsx`: sidebar reveal video no longer loops; plays once after login (`sessionStorage.ms_logo_played`, cleared in `afterAuth`), then shows the still poster on subsequent pages.
 - `UpgradeNudge`: × button snoozes for 7 days per tenant (`localStorage.upgrade_nudge_snooze_<tenantId>`), toast confirms. Verified via screenshot flow.
+
+## 2026-09-30 — Security audit fix · Connections Hub · Google recheck · Desk-QR branch
+- **SEC-001 (audit)**: Mira HQ chat no longer executes LLM-chosen actions. `/super-admin/mira/ask` returns `pending_action {action,label}`; Boss taps Confirm → `POST /super-admin/mira/confirm-action` (regex allowlist `_ACTION_RE`). Confirm bar in MiraHome + MiraVoiceAssistant. Outreach settings PUT is now a partial merge.
+- **Connections Hub** (`routes/connections_hub.py`, `ConnectionsHubCard.jsx` top-right of Settings): WhatsApp/SMS/Email/Meta/Google state + plain-English line + one-tap action (connect, recheck, scroll to receipts/packs).
+- **Google Business Profile**: discovery errors stored (`api_error`: api_not_approved | no_business_profile | no_location | error); `POST /social/google/recheck` + "Check again" button; daily `_google_recheck_loop` re-checks pending tenants and notifies when live. ROOT CAUSE of "waiting for approval" (deployer-confirmed): Google Cloud project needs My Business Account Management API + Business Information API enabled and Google's Business Profile API access approval — HQ action, not tenant.
+- **Desk QR**: poster always prints a branch (selector in Attendance modal, main = tenant.location), QR URL carries `&b=`, check-in stores `check_in_branch`, rows show "via desk QR · <branch>".
+- Tested: iteration_203 (14/14 backend + frontend pass).
