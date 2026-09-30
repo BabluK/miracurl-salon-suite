@@ -3772,3 +3772,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - **Mid-term upgrade** (`_upgrade_quote`, `GET /billing/upgrade-quote?plan=`, `RzpOrderIn.upgrade`): unused value of active plan (price × remaining/duration) credited against a higher-priced plan; new term starts today (`extend_existing=False`); old sub cancelled with "upgraded to …" reason. Razorpay card shows quote panel + "Upgrade — pay ₹…". Paid activation path verified by code path only (needs real Razorpay payment).
 - `/demo` hero: duplicate brand logo removed (navbar logo kept).
 - Tested: iteration_202 (15/15 backend + frontend pass).
+
+## 2026-09-30 — Upgrade Nudge + prod SMS check
+- `subscription-status` now returns `upgrade_nudge` (short-term plan, ≤10 days left, annual saves >0): monthly/quarter → annual saves ₹1,460. `UpgradeNudge` one-liner rendered under RenewalBanner on Dashboard (links /settings#subscription, uses mid-term upgrade). Verified via unit check + mocked-UI screenshot.
+- Prod SMS: `sms_configured()` only needs MSG91_AUTHKEY (sender/flow optional). Deployer debug requested to report which MSG91_* keys are missing in production — user must add them in Deployment Panel secrets and redeploy.

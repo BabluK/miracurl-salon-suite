@@ -3,7 +3,7 @@ import { BrandSplash } from "@/components/BrandSplash";
 import api from "@/lib/api";
 import pinApi, { getWithFreshPin } from "@/lib/ownerPin";
 import { useAuth } from "@/context/AuthContext";
-import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare, Send, Bell, Check, Clock, ArrowRight, Lock, Unlock, Eye, EyeOff } from "lucide-react";
+import { TrendingUp, Users, IndianRupee, Calendar, Package, Star, AlertTriangle, Link as LinkIcon, Copy, ExternalLink, MessageSquare, Send, Bell, Check, Clock, ArrowRight, Lock, Unlock, Eye, EyeOff, Sparkles } from "lucide-react";
 import { ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, AreaChart, Area, ReferenceDot } from "recharts";
 import { toast } from "sonner";
 import ReviewBlastModal from "./ReviewBlastModal";
@@ -247,6 +247,7 @@ export default function Dashboard() {
       {settled && <>
       {isOwner && <WelcomeCongratsModal />}
       <RenewalBanner sub={subStatus} />
+      <UpgradeNudge nudge={subStatus?.upgrade_nudge} />
       {isOwner && <TrialNudgeBanner />}
       {isOwner && <TrialCountdownRing />}
       <ReferralNudgeBanner />
@@ -529,6 +530,21 @@ function ReferralNudgeBanner() {
       <button onClick={dismiss} data-testid="referral-nudge-dismiss" title="Hide for today"
         className="shrink-0 w-7 h-7 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center">✕</button>
     </div>
+  );
+}
+
+function UpgradeNudge({ nudge }) {
+  if (!nudge) return null;
+  const sym = nudge.currency === "USD" ? "$" : "₹";
+  return (
+    <a href="/settings#subscription" data-testid="upgrade-nudge"
+      className="group flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-900 hover:bg-emerald-100 transition">
+      <Sparkles className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+      <span className="flex-1 min-w-0 truncate">
+        Renewal in {nudge.days_remaining} day{nudge.days_remaining === 1 ? "" : "s"} — <b>switch to {nudge.to_label.replace(/ \(1 branch\).*$/, "")}, save {sym}{Number(nudge.save).toLocaleString("en-IN")}</b> a year. Pay only the difference today.
+      </span>
+      <span className="text-xs font-semibold text-emerald-700 group-hover:underline whitespace-nowrap">Upgrade →</span>
+    </a>
   );
 }
 

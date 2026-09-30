@@ -1042,7 +1042,30 @@ async def subscription_status(user=Depends(require_tenant_admin), t=Depends(curr
         "needs_renewal_prompt": needs_prompt,
         "grace_until": t.get("grace_until"),
         "grace_request_pending": bool(pending),
+        "upgrade_nudge": await _upgrade_nudge(t, source, days),
     }
+
+
+_NUDGE_UPGRADES = {"monthly": "annual", "quarter": "annual", "resto_monthly": "resto_annual", "resto_quarter": "resto_annual",
+                   "resto_intl_monthly": "resto_intl_annual", "resto_intl_quarter": "resto_intl_annual", "intl_pro_monthly": "intl_pro_annual"}
+
+
+async def _upgrade_nudge(t: dict, source: str, days) -> Optional[dict]:
+    """Short-term plan close to renewal (≤10 days) → 'switch to annual, save ₹X' one-liner."""
+    if source != "subscription" or days is None or days > 10:
+        return None
+    cur_key = t.get("plan") or ""
+    to_key = _NUDGE_UPGRADES.get(cur_key)
+    await load_plan_overrides()
+    cur, to = PLAN_CATALOG.get(cur_key), PLAN_CATALOG.get(to_key or "")
+    if not cur or not to or to.get("hidden"):
+        return None
+    per_year = float(cur["price"]) * round(365 / max(int(cur.get("duration_days") or 1), 1))
+    save = round(per_year - float(to["price"]))
+    if save <= 0:
+        return None
+    return {"from_plan": cur_key, "to_plan": to_key, "to_label": to["label"], "save": save,
+            "currency": to.get("currency") or "INR", "days_remaining": days}
 
 
 @router.post("/billing/grace-request")
