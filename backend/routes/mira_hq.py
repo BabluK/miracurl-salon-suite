@@ -190,9 +190,12 @@ async def _briefing_heat_note() -> str:
 @router.get("/super-admin/mira/briefing")
 async def mira_briefing(user=Depends(require_super_admin)):
     from routes.hq_credit_wallet import _wallet as _hq_wallet, low_stock_line
+    from routes.mira_outreach import outreach_summary
     snap = await _hq_snapshot()
+    outreach = await outreach_summary()
     stock_note = low_stock_line(await _hq_wallet())
     text = (f"Hey Miracurl! {_tod_greeting()}! {_briefing_summary(snap)}."
+            f" Outreach report: {outreach['greeting']}"
             f"{_briefing_wa_report(snap)}{await _briefing_heat_note()}{_briefing_suggestion(snap)} "
             + (f"{stock_note} " if stock_note else "")
             + "How may I help you today — what details do you want me to show?")
@@ -200,7 +203,7 @@ async def mira_briefing(user=Depends(require_super_admin)):
     if alerts:
         text += " One more thing, Boss — we have some system health items that need your attention: " + "; ".join(alerts[:2]) + "."
         await _raw_db.system_flags.update_one({"key": "db_health"}, {"$set": {"announced": True}})
-    return {"text": text, "data": snap, "health_alerts": alerts}
+    return {"text": text, "data": snap, "health_alerts": alerts, "outreach": outreach}
 
 
 async def _map_counts(today: str) -> dict:
@@ -253,28 +256,77 @@ _MIRA_GREETING_RE = r"(hey|hi|hello|hay|ok|okay|namaste)?\s*(mira|meera|myra|mai
 
 
 def _mira_system_prompt() -> str:
-    return ("You are Mira, the voice assistant of the Miracurl Suite super-admin console, and an EXPERT "
-                       "lead-generation consultant. Answer the admin's question in ONE or TWO short spoken-style "
-                       "sentences using the live platform snapshot provided. If a dashboard tab is clearly relevant, include it. "
+    return ("You are Mira, the AI Chief-of-Staff of the Miracurl Suite super-admin console (a SaaS for salons AND "
+                       "restaurants), and an EXPERT lead-generation & growth consultant who acts on the Boss's behalf. "
+                       "Think step by step about what the Boss really wants, then answer in ONE to THREE short spoken-style "
+                       "sentences using the live platform snapshot. If a dashboard tab is clearly relevant, include it. "
                        f"Valid tabs: {', '.join(MIRA_TABS)}. "
                        "The 'Current time' line in the message tells you the exact local time — ALWAYS use the matching "
                        "greeting (Good morning before 12 PM, Good afternoon 12–5 PM, Good evening after 5 PM); NEVER guess. "
                        "LANGUAGE: reply in the SAME language the admin used — English or Hindi (Devanagari script). "
                        "Hinglish (Hindi words in Latin script) counts as Hindi: reply in Devanagari Hindi. "
-                       "BE PROACTIVE: if emails_drafted_awaiting_your_approval > 0, suggest approving them. If "
-                       "hot_leads_with_phone is large, suggest a WhatsApp or email outreach session (you auto-send WhatsApp intros to "
-                       "fresh hot leads when the owner enables it in the Lead Agent — wa_intros_sent_today shows today's count). You may also "
-                       "suggest hunting leads in a new city when the pipeline looks thin. You do NOT make phone calls — "
-                       "if asked to call someone, say outreach happens over WhatsApp and email and offer that instead. "
-                       'Respond ONLY with JSON: {"answer": "<spoken answer>", "tab": "<tab id or empty>"}')
+                       "YOUR AUTONOMOUS POWERS (the 'outreach' block in the snapshot is your own work log): you run the Outreach "
+                       "Autopilot — you find salon & restaurant leads worldwide by yourself, email hot leads a vertical-specific "
+                       "pitch with a demo link (daily cap = outreach.settings.daily_email_limit), WhatsApp them in allowed countries, "
+                       "and email HQ (admin@miracurl-suite.com) the moment a lead replies, books a demo or signs up. "
+                       "When asked what you did / how outreach is going, report today's numbers from outreach.today and outreach.totals. "
+                       "ACTIONS you may trigger (set the 'action' field, else empty string): "
+                       "'outreach_now' — Boss asks to send emails / start outreach / reach hot leads now; "
+                       "'outreach_on' / 'outreach_off' — Boss asks to enable, start autopilot permanently, pause or stop it; "
+                       "'hunt:<City, CC>:<salon|restaurant>' — Boss asks to find/hunt leads in a specific city (use ISO country "
+                       "suffix like 'Dubai, AE'; Indian cities have no suffix; default vertical salon); "
+                       "'set_limit:<n>' — Boss asks to change the daily email limit. "
+                       "STRICT RULE: set an action ONLY when the Boss gives an explicit command in THIS message "
+                       "(e.g. 'start outreach', 'send the emails now', 'turn autopilot on', 'hunt Dubai'). Questions, status "
+                       "reports and your own suggestions MUST have action ''. Never ask permission and act in the same reply. "
+                       "BE PROACTIVE: if outreach is disabled, suggest switching it on. If emails_drafted_awaiting_your_approval > 0 "
+                       "mention the autopilot will send them. Suggest hunting a new city when ready_to_send is low. You do NOT make "
+                       "phone calls — outreach happens over WhatsApp and email. "
+                       'Respond ONLY with JSON: {"answer": "<spoken answer>", "tab": "<tab id or empty>", "action": "<action or empty>"}')
 
 
-def _mira_greeting_reply() -> dict:
+def _mira_greeting_reply(outreach: dict | None = None) -> dict:
     answer = (f"{_tod_greeting()}, Boss! 🙏 It's wonderful to have you here. "
-              "What do you want me to find today? Just give me your command — or ask me anything "
-              "and I'll share it with you. And Boss, one advice from my side: we should target more "
-              "salons to onboard — let's push our revenue beyond ₹10–20 lakh!")
+              + (f"Outreach report: {outreach['greeting']} " if outreach else "")
+              + "What do you want me to do today? Just give me your command — or ask me anything.")
     return {"answer": answer, "tab": "", "action": ""}
+
+
+async def _run_mira_action(action: str, user: dict) -> str:
+    """Execute the action Mira decided on; returns a short spoken confirmation ('' if nothing ran)."""
+    from routes import mira_outreach as mo
+    if action == "outreach_now":
+        out = await mo.run_outreach_cycle(force=True, ignore_hours=True)
+        if out.get("skipped"):
+            return f" (Outreach is already running — {out['skipped']}.)"
+        bits = [f"emailed {out['emailed']} hot lead{'s' if out['emailed'] != 1 else ''}"]
+        if out.get("whatsapp"):
+            bits.append(f"{out['whatsapp']} WhatsApp intro(s)")
+        if out.get("hunt"):
+            bits.append(f"started hunting {out['hunt']['vertical']}s in {out['hunt']['city']}")
+        return f" Done — I just {', '.join(bits)}; {out['sent_today']}/{out['limit']} emails used today."
+    if action in ("outreach_on", "outreach_off"):
+        s = await mo.get_settings()
+        s["enabled"] = action == "outreach_on"
+        await _raw_db.platform_settings.update_one({"key": mo.SETTINGS_KEY}, {"$set": {**s, "updated_at": _now(), "updated_by": user.get("email")}}, upsert=True)
+        return " Outreach Autopilot is now ON — I'll email hot leads every few minutes within the daily cap." if s["enabled"] else " Outreach Autopilot paused."
+    if action.startswith("set_limit:"):
+        n = int(re.sub(r"\D", "", action) or 0)
+        if 1 <= n <= 1000:
+            await _raw_db.platform_settings.update_one({"key": mo.SETTINGS_KEY}, {"$set": {"daily_email_limit": n, "updated_at": _now()}}, upsert=True)
+            return f" Daily email limit set to {n}."
+    if action.startswith("hunt:"):
+        from routes.lead_gen import RunIn, start_run
+        parts = action.split(":")
+        city = parts[1].strip() if len(parts) > 1 else ""
+        vertical = parts[2].strip() if len(parts) > 2 and parts[2].strip() in ("salon", "restaurant") else "salon"
+        if city:
+            try:
+                await start_run(RunIn(city=city, target=10, vertical=vertical), user)
+                return f" Lead hunt started — {vertical}s in {city}. I'll email the hot ones automatically."
+            except Exception as e:  # noqa: BLE001
+                return f" Couldn't start the hunt: {getattr(e, 'detail', str(e))[:80]}."
+    return ""
 
 
 async def _mira_llm_decision(user_id: str, question: str, last_mira: str, snap: dict) -> dict:
@@ -300,15 +352,23 @@ async def _mira_llm_decision(user_id: str, question: str, last_mira: str, snap: 
 @router.post("/super-admin/mira/ask")
 async def mira_ask(body: MiraAskIn, user=Depends(require_super_admin)):
     from routes.lead_common import log_mira_event
+    from routes.mira_outreach import outreach_summary
     await log_mira_event("ask", f"Boss asked: \"{body.question[:120]}\"")
     q_clean = re.sub(r"[^a-z ]", "", body.question.lower()).strip()
+    outreach = await outreach_summary()
     if re.fullmatch(_MIRA_GREETING_RE, q_clean):
-        return _mira_greeting_reply()
-    snap = await _hq_snapshot()
+        return _mira_greeting_reply(outreach)
+    snap = {**await _hq_snapshot(), "outreach": {k: outreach[k] for k in ("settings", "today", "yesterday", "totals", "ready_to_send")}}
     d = await _mira_llm_decision(user["id"], body.question, body.last_mira, snap)
     answer = str(d.get("answer") or "")[:500]
     tab = d.get("tab") if d.get("tab") in MIRA_TABS else ""
-    return {"answer": answer, "tab": tab, "action": ""}
+    action = str(d.get("action") or "")[:80]
+    if action:
+        try:
+            answer = (answer + await _run_mira_action(action, user))[:700]
+        except Exception as e:  # noqa: BLE001
+            log.error(f"mira action {action} failed: {e}")
+    return {"answer": answer, "tab": tab, "action": action}
 
 
 class MiraSpeakIn(BaseModel):
@@ -515,11 +575,14 @@ async def mira_home(user=Depends(require_super_admin)):
     blog_drafts = await _raw_db.blog_posts.find(
         {"published": False}, {"_id": 0, "title": 1, "auto_draft": 1, "created_at": 1}
     ).sort("created_at", -1).to_list(5)
+    from routes.mira_outreach import outreach_summary
+    outreach = await outreach_summary()
     return {"snapshot": snap, "new_prospects_48h": new_prospects, "followups_due": followups,
             "emails_sent": emails_sent, "active_run": active_run,
             "trials_expiring": trials_expiring, "timeline": timeline,
             "health": health, "orphan_records": orphans, "health_alerts": alerts,
-            "revenue_goal": revenue_goal, "weekly_sweep": sweep or {}, "blog_drafts": blog_drafts}
+            "revenue_goal": revenue_goal, "weekly_sweep": sweep or {}, "blog_drafts": blog_drafts,
+            "outreach": outreach}
 
 
 class RevenueGoalIn(BaseModel):

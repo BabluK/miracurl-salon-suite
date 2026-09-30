@@ -20,7 +20,7 @@ export const OwnWhatsAppCard = () => {
   };
   useEffect(() => {
     if (!qr) return;
-    const iv = setInterval(() => api.get("/whatsapp-own/status").then(r => { if (r.data.connected) { setSt(r.data); setQr(null); toast.success("Your WhatsApp Business number is connected ✦"); } }).catch(() => {}), 5000);
+    const iv = setInterval(() => api.get("/whatsapp-own/status").then(r => { if (r.data.connected) { setSt(r.data); setQr(null); toast.success("Connected ✦ — your WhatsApp Business number is now linked to Mira"); } }).catch(() => {}), 5000);
     return () => clearInterval(iv);
   }, [qr]);
   const session = useRef({});

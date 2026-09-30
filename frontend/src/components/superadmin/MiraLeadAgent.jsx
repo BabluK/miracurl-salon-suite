@@ -5,6 +5,7 @@ import { Bot, Search, Loader2, Send, X, ChevronDown, ChevronUp, Star, Globe, Tra
 import { confirmAsync } from "@/components/ConfirmDialog";
 import { WaQuickInvite } from "@/components/superadmin/WaQuickInvite";
 import { CityWatchCard } from "@/components/superadmin/CityWatchCard";
+import { MiraOutreachCard } from "@/components/superadmin/MiraOutreachCard";
 import { WaBlastModal } from "@/components/superadmin/WaBlastModal";
 import { LeadEmailFix } from "@/components/superadmin/LeadEmailFix";
 import { AutoWaToggle } from "@/components/superadmin/AutoWaToggle";
@@ -524,6 +525,7 @@ export function MiraLeadAgent() {
       <ReplyInbox />
 
       <WaQuickInvite onLead={refresh} />
+      <MiraOutreachCard />
       <CityWatchCard />
 
       <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-wrap items-end gap-3">

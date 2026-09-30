@@ -142,6 +142,12 @@ async def note_lead_reply(wa_id: str, text: str) -> None:
     await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": upd})
     from routes.lead_common import log_mira_event
     await log_mira_event("wa_reply", f"{lead.get('name') or 'A lead'} replied on WhatsApp: \"{(text or '')[:80]}\"")
+    if not upd.get("wa_opt_out"):
+        try:
+            from routes.mira_outreach import notify_hq_conversion
+            await notify_hq_conversion({**lead, **upd}, "wa_replied", text or "")
+        except Exception:  # noqa: BLE001
+            log.exception("conversion alert failed")
 
 
 class AutoWaSettingsIn(BaseModel):

@@ -427,6 +427,19 @@ async def _mira_auto_wa_scheduler() -> None:
         await asyncio.sleep(600)
 
 
+async def _mira_outreach_scheduler() -> None:
+    """Every 10 min: Mira Outreach Autopilot — emails hot leads (per vertical, daily cap), WhatsApps allowed
+    countries and tops up the pipeline with a self-picked world city."""
+    from routes.mira_outreach import run_outreach_cycle
+    await asyncio.sleep(180)
+    while True:
+        try:
+            await run_outreach_cycle()
+        except Exception as e:
+            logging.error(f"mira outreach scheduler error: {e}")
+        await asyncio.sleep(600)
+
+
 async def _mira_digest_scheduler() -> None:
     """Every 15 min: send Mira's evening digest once daily after 7 PM IST."""
     from routes.mira_hq import send_daily_digest

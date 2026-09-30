@@ -1798,6 +1798,11 @@ async def demo_slot_book(iid: str, body: DemoSlotIn, request: Request):
         {"$set": {"preferred_slot": slot, "demo_requested_at": inv.get("demo_requested_at") or now_iso,
                   "opened_at": inv.get("opened_at") or now_iso,
                   "seen_by_hq_req": False, "responded": True}})
+    try:
+        from routes.mira_outreach import notify_hq_conversion_by_email
+        await notify_hq_conversion_by_email(inv.get("email"), "demo", f"Picked demo slot {body.date} {body.time}")
+    except Exception:  # noqa: BLE001
+        logging.getLogger("hq_docs").exception("conversion alert failed")
     gcal = await _send_slot_confirmations(SlotBooking(email=inv["email"], name=inv.get("name", ""), salon_name=inv.get("salon_name", ""),
                                                       date=body.date, time=body.time, phone=body.phone.strip(),
                                                       tz=slot.get("tz", ""), local_time=slot.get("local_time", "")))
@@ -1870,6 +1875,11 @@ async def _mark_lead_demo(email: str, slot: dict, now_iso: str) -> None:
     await _raw_db.mira_leads.update_many(
         {"email": email, "status": {"$in": ["sent", "drafted", "no_email", "researched", "replied"]}},
         {"$set": {"status": "demo"}})
+    try:
+        from routes.mira_outreach import notify_hq_conversion_by_email
+        await notify_hq_conversion_by_email(email, "demo", f"Preferred slot: {slot.get('date')} {slot.get('time')}")
+    except Exception:  # noqa: BLE001
+        logging.getLogger("hq_docs").exception("conversion alert failed")
 
 
 async def _book_open_demo(d: dict) -> dict:

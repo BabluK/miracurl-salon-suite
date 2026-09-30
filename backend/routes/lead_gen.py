@@ -1553,6 +1553,12 @@ async def _mark_lead_replied(lead: dict, data: dict) -> None:
     if lead.get("status") not in ("demo", "customer"):
         sets["status"] = "replied"
     await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": sets})
+    try:
+        from routes.mira_outreach import notify_hq_conversion
+        full = await _raw_db.mira_leads.find_one({"id": lead["id"]}, {"_id": 0})
+        await notify_hq_conversion(full, "replied", str(data.get("text") or "")[:400])
+    except Exception:
+        log.exception("conversion alert failed")
 
 
 @router.post("/webhooks/resend-inbound")

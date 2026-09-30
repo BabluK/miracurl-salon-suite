@@ -255,6 +255,7 @@ export function MiraHome({ onGoTab, user }) {
     toast.success(v ? "Mira will greet you at every login 🔔" : "Login greeting turned off 🔕");
   };
   const lastMira = useRef("");
+  const outreachRef = useRef(null);
   const viaFace = useRef(false);
   const deployRef = useRef(null);
   const welcomedRef = useRef(false);
@@ -299,8 +300,9 @@ export function MiraHome({ onGoTab, user }) {
     const n = lh?.deploy_pending ? (lh.pending?.length || 0) : 0;
     const nudge = n ? ` ${name}, ${n} build${n === 1 ? " is" : "s are"} waiting — shall we deploy?` : "";
     if (nudge) setChat(c => [...c.slice(-6), { role: "mira", text: `🚀 ${name}, ${n} build${n === 1 ? " is" : "s are"} waiting to ship (production is on ${lh.live_build}). Shall we deploy?` }]);
+    const report = outreachRef.current?.greeting ? ` Outreach report: ${outreachRef.current.greeting}` : "";
     if (localStorage.getItem("mira_greet_login") !== "0") {
-      speak(`${viaFace.current ? "Face verified. " : ""}Welcome back, ${name}! Good ${part}. Mira is online and ready for you.${nudge}`);
+      speak(`${viaFace.current ? "Face verified. " : ""}Welcome back, ${name}! Good ${part}. Mira is online and ready for you.${report}${nudge}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -341,6 +343,7 @@ export function MiraHome({ onGoTab, user }) {
   const load = useCallback(async () => {
     const h = await api.get("/super-admin/mira/home").catch(() => ({ data: null }));
     setHome(h.data);
+    outreachRef.current = h.data?.outreach || null;
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -407,11 +410,11 @@ export function MiraHome({ onGoTab, user }) {
     { key: "hot", label: "Hot Leads", value: snap.hot_leads ?? "—", icon: Flame, tone: "from-orange-500/20 to-rose-500/10 text-orange-300", tab: "mira-leads" },
     { key: "followups", label: "Follow-ups", value: home?.followups_due ?? "—", icon: CalendarClock, tone: "from-sky-500/20 to-blue-500/10 text-sky-300", tab: "demo-calendar" },
     { key: "opps", label: "New Prospects (48h)", value: home?.new_prospects_48h ?? "—", icon: Target, tone: "from-emerald-500/20 to-teal-500/10 text-emerald-300", tab: "mira-leads" },
-    { key: "campaigns", label: "Outreach Sent", value: home?.emails_sent ?? "—", icon: Megaphone, tone: "from-fuchsia-500/20 to-purple-500/10 text-fuchsia-300", tab: "lead-email" },
+    { key: "campaigns", label: "Outreach Emails", value: home?.outreach?.totals?.emails ?? home?.emails_sent ?? "—", icon: Megaphone, tone: "from-fuchsia-500/20 to-purple-500/10 text-fuchsia-300", tab: "mira-leads" },
     { key: "insights", label: "Trials Expiring Soon", value: home?.trials_expiring ?? "—", icon: Lightbulb, tone: "from-amber-500/20 to-yellow-500/10 text-amber-300", tab: "billing" },
   ];
 
-  const suggestions = ["Hey Mira 👋", "Find salon leads in Bangalore", "Call the hot leads", "How did we do yesterday?"];
+  const suggestions = ["Hey Mira 👋", "What did you send today?", "Start outreach now", "Find restaurant leads in Dubai, AE", "How did we do yesterday?"];
   const avatarSize = typeof window !== "undefined" && window.innerWidth >= 1024 ? 250 : 160;
 
   return (
@@ -451,6 +454,25 @@ export function MiraHome({ onGoTab, user }) {
               <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse shrink-0" />
               <span className="font-semibold whitespace-nowrap">{liveTask.label}</span>
               {liveTask.detail && <span className="text-sky-200/60 truncate hidden sm:inline">· {liveTask.detail}</span>}
+            </div>
+          )}
+
+          {home?.outreach && (
+            <div className="mt-3 max-w-2xl w-full flex items-start gap-2.5 bg-[#e8c37f]/10 border border-[#e8c37f]/30 rounded-2xl px-4 py-3" data-testid="mira-outreach-report">
+              <span className="text-base leading-none mt-0.5">📨</span>
+              <div className="text-xs text-[#f3dfae] leading-relaxed text-left flex-1">
+                <b>Outreach report, Boss:</b> {home.outreach.greeting}
+                <div className="flex flex-wrap gap-2 mt-2 items-center">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${home.outreach.settings?.enabled ? "bg-emerald-400 text-[#06251a]" : "bg-white/10 text-white/60"}`} data-testid="mira-outreach-status">
+                    {home.outreach.settings?.enabled ? `Autopilot ON · ${home.outreach.today.emails}/${home.outreach.settings.daily_email_limit} today` : "Autopilot OFF"}
+                  </span>
+                  <span className="text-[10px] text-white/50">💇 {home.outreach.today.salon} · 🍽️ {home.outreach.today.restaurant} · 💬 {home.outreach.today.whatsapp} · 🔥 {home.outreach.today.replies} replies</span>
+                  <button onClick={() => onGoTab?.("mira-leads")} data-testid="mira-outreach-open"
+                    className="text-[10px] font-bold px-3 py-1.5 rounded-full bg-[#e8c37f] text-[#1c1c22] hover:bg-[#f3dfae]">
+                    History & rules →
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
