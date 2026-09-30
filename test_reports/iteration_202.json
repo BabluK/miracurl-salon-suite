@@ -1,0 +1,32 @@
+{
+  "summary": "Iter 202 — PLANS v2 (hide 6-month), mid-term upgrade quote/order, and Mira Reply Inbox: 15/15 backend tests passed and full frontend flow passed. /api/public/plans exposes monthly(₹1,455/31d), quarter(₹4,365/92d), annual(₹16,000, highlight true, label 'Annual Plan (1 branch) — 1 month free'), resto_monthly(₹1,000), resto_intl_monthly($99) and hides half_year/two_branch_half/three_branch_half/multi_branch_half/resto_half/resto_intl_half. /api/super-admin/plans still lists all six hidden legacy keys with hidden=true. /billing/upgrade-quote for tenant admin@miracurl.com (current half_year, ~147 remaining) → annual eligible with credit ₹9,639.34, amount_due ₹6,360.66, new_end_date today+365; monthly ineligible (reason present); intl_pro_annual ineligible (currency mismatch); unknown plan → 400. /billing/razorpay/order {plan:annual,upgrade:true} returned 200 with upgrade.eligible=true and payable ≈ round((16000-credit)*1.18,2) = ₹7,505.58; {plan:monthly,upgrade:true} → 400 not eligible; {plan:half_year} (hidden) → 400 'no longer offered'. /super-admin/mira/replies returns {count, awaiting, replies[]} with channel/reply_text/replied_at fields. draft-demo-reply for qa-reply-test1 returned {subject, body} with body containing https://miracurl-suite.com/demo. Both reply endpoints correctly 401/403 for anonymous and tenant admin. Frontend landing /#pricing on India · ₹ toggle renders exactly Free Trial + Monthly ₹1,455 + 3-Month ₹4,365 + BEST VALUE Annual ₹16,000 (1 month free) + Multi-Branch; no '6-Month' text anywhere. Super-Admin → /super-admin?tab=mira-leads → Reply Inbox toggle expands and reply-row-qa-reply-test1 shows the 'demo invite sent' badge; reply-toggle expands the reply text. Tenant settings /settings#subscription (after PIN 4321 + dismissing What's New + passkey 'Not now') renders monthly/quarter/annual/2-Branch Annual cards (no plan-half_year). Selecting [data-testid=plan-annual] reveals [data-testid=upgrade-quote] with amount-due '= ₹6,360.66 + GST' and pay button 'Upgrade — pay ₹7,506'; selecting plan-monthly hides the upgrade panel and button reads 'Pay ₹1,717'. Pay button never clicked. send-demo-reply never called.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Post-login flow (tenant admin)", "issues": ["Multiple modals stack on top of the Owner PIN gate: What's New (auto-open) + Create-a-passkey. Testing needs 3 dismiss loops to reach /settings — real users on shared devices will hit the same friction. Consider suppressing the passkey nudge on the shared-device PIN screen and deferring What's New until after Owner PIN unlock."]},
+      {"screen": "Super Admin console", "issues": ["Recurring React hydration warning: <button> descendant of <button> (same as iter 201, still present)."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter202_plans_v2_upgrade_replies.py",
+    "/app/test_reports/pytest/iter202.xml"
+  ],
+  "action_items": [
+    "(low) Fix nested <button> hydration warning in super-admin layout (carried from iter 201).",
+    "(low) Reduce modal stacking on tenant settings: What's New + Create-a-passkey both fire before the Owner PIN gate is unlocked."
+  ],
+  "critical_code_review_comments": [
+    "_upgrade_quote clamps credit to new_price - 1 so amount_due is always ≥ ₹1 — this is correct and matches Razorpay INR min. Good.",
+    "_upgrade_quote does not check whether current plan is INR when new is USD — but the currency guard higher up (cur.currency != new.currency) already returns ineligible, so it's safe. Verified.",
+    "server.py _plans_v2_monthly() hides 6-month plans via a startup migration; if a HQ admin ever restores one via /super-admin/plans/{key}/restore, the migration only fires once per day (based on plans-v2-monthly key) — restored plan stays visible until next monthly run. If that isn't intended, add a stronger constant-time filter in visible_plans() to permanently exclude those 6 keys."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter202_plans_v2_upgrade_replies.py"],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100%"},
+  "test_credentials": "Super admin admin@miracurl-suite.com / og9T@41Es#OQb6; tenant admin@miracurl.com / q6QY@tn3p#9DtL @ miracurl-marathahalli, Owner PIN 4321",
+  "seed_data_creation": "None — no state was mutated. The unpaid Razorpay order for the annual upgrade remains in `subscription_payments` with status='created' (Razorpay side is unpaid, will expire naturally). draft-demo-reply is read-only (LLM call, no state change). send-demo-reply and razorpay/verify were never called.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_iter202_plans_v2_upgrade_replies.py is idempotent and safe to re-run. Frontend flow: after tenant login, must dismiss What's New (Got it) THEN passkey (Not now), then Owner PIN 4321 on /settings#subscription — 3 dismiss loops are usually enough. Data-testids: plan-annual, plan-monthly, plan-quarter, upgrade-quote, upgrade-amount-due, razorpay-pay-btn, lead-reply-inbox, reply-inbox-toggle, reply-row-qa-reply-test1, reply-sent-qa-reply-test1, reply-toggle-qa-reply-test1, reply-text-qa-reply-test1."
+}

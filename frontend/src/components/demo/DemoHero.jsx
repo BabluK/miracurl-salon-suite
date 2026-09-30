@@ -18,13 +18,6 @@ export function DemoHero({ purpose, setPurpose }) {
   return (
     <div className="grid lg:grid-cols-[1.25fr_1fr] gap-8 lg:gap-12 items-center" data-testid="demo-hero">
       <div className="text-left">
-        <div className="flex items-center gap-3 mb-1">
-          <img src="/assets/ms-logo-gold.png" alt="Miracurl Suite" className="h-14 sm:h-16 w-auto object-contain" data-testid="demo-brand-logo" />
-          <div>
-            <p className="font-serif text-xl sm:text-2xl tracking-[0.12em] text-[#b8932e] leading-none">MIRACURL SUITE</p>
-            <p className="text-[9px] sm:text-[10px] tracking-[0.22em] text-slate-500 mt-1">SMART SALON MANAGEMENT SOFTWARE</p>
-          </div>
-        </div>
         <p className="text-[11px] uppercase tracking-[0.25em] font-semibold mb-6" data-testid="demo-ai-tagline">
           <span className="brand-ai-tag">✦ AI Powered Salon Suite ✦</span>
         </p>

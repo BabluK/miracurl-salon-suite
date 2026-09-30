@@ -3765,3 +3765,10 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Handoff toast now reads "Connected ✦ — your WhatsApp Business number is now linked to Mira".
 - Tested: iteration_201 (15/15 backend, frontend flow pass).
 - Backlog: P1 prod MSG91 secrets (user action in Deployment Panel), P2 mid-term membership upgrade, P3 server.py imports.
+
+## 2026-09-30 — Plans v2 · Reply Inbox · Mid-term Upgrade · /demo logo
+- **Plans v2** (`services/plans.py` + startup migration `plans_v2_monthly`): all 6-month plans hidden from public sale (legacy subscribers unaffected); salon INR Monthly ₹1,455 (31d) · 3-Month ₹4,365 (92d) · Annual ₹16,000 "1 month free" (16,000 ÷ 11 = monthly); restaurant INR Monthly ₹1,000; restaurant USD Monthly $99. Landing/Signup/Razorpay/PayLink defaults updated; HQ can still edit prices in Plan Catalog.
+- **Reply Inbox** (`ReplyInbox.jsx`, `GET /super-admin/mira/replies`, `POST /mira-leads/{lid}/draft-demo-reply`, `POST .../send-demo-reply`): email + WhatsApp replies with full text; Mira drafts the demo-invite reply (LLM), Boss edits & sends in one tap → lead status demo, logged in outreach history.
+- **Mid-term upgrade** (`_upgrade_quote`, `GET /billing/upgrade-quote?plan=`, `RzpOrderIn.upgrade`): unused value of active plan (price × remaining/duration) credited against a higher-priced plan; new term starts today (`extend_existing=False`); old sub cancelled with "upgraded to …" reason. Razorpay card shows quote panel + "Upgrade — pay ₹…". Paid activation path verified by code path only (needs real Razorpay payment).
+- `/demo` hero: duplicate brand logo removed (navbar logo kept).
+- Tested: iteration_202 (15/15 backend + frontend pass).
