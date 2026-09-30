@@ -166,7 +166,16 @@ async def _places_search(client: httpx.AsyncClient, city: str, n: int, areas: li
         first_err = await _places_citywide_phase(run, n, first_err)
     if not out:
         return [], first_err or "no results"
-    out.sort(key=lambda p: (p.get("reviews") or 0, p.get("rating") or 0), reverse=True)
+    # Autopilot targeting: growing businesses first (5 ≤ reviews < cap — recently opened, no system yet),
+    # then luxury/premium names, then the big established ones.
+    from routes.mira_outreach import get_settings as _outreach_settings, is_luxury
+    cap = int((await _outreach_settings()).get("max_reviews") or 300)
+
+    def _rank(p):
+        rv = p.get("reviews") or 0
+        tier = 0 if 5 <= rv < cap else (1 if is_luxury(p) else 2)
+        return (tier, -(p.get("rating") or 0), -rv)
+    out.sort(key=_rank)
     return out[:max(n, 1)], ""
 
 
@@ -1727,8 +1736,12 @@ def _followup_email(lead: dict, plans: dict) -> tuple:
 
 
 async def run_lead_followups() -> dict:
-    """One-time gentle follow-up to leads still in 'sent' after FOLLOWUP_AFTER_DAYS days."""
+    """One-time gentle follow-up to leads still in 'sent' after FOLLOWUP_AFTER_DAYS days.
+    Skipped while the Outreach Autopilot is ON — its day 7/14/30/90 reminder cadence takes over."""
     from email_service import _send_email
+    from routes.mira_outreach import get_settings as _outreach_settings
+    if (await _outreach_settings()).get("enabled"):
+        return {"due": 0, "sent": 0, "failed": 0, "skipped": "autopilot cadence active"}
     cutoff = (datetime.now(timezone.utc) - timedelta(days=FOLLOWUP_AFTER_DAYS)).isoformat()
     due = await _raw_db.mira_leads.find(
         {"status": "sent", "sent_at": {"$lte": cutoff}, "follow_up_sent_at": {"$exists": False}},

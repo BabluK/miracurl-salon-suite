@@ -36,26 +36,48 @@ export default function LoyaltyClubJoin() {
 
   if (!salon) return <div className="min-h-screen bg-[#0d0b09]" />;
 
+  const quotes = resto
+    ? [["Good Food", "Brings People", "Together"], ["Taste", "The", "Moment"], ["Eat Well", "Live Well", "Love Well"]]
+    : [["Good Hair", "Brighter", "Mood"], ["Look", "Good", "Feel", "Amazing"], ["Self", "Care", "Looks", "Good", "On You"]];
   return (
-    <div className="min-h-screen bg-[#0d0b09] text-white relative" style={{ fontFamily: "'Inter', sans-serif" }} data-testid="loyalty-join-page">
-      <img src={salon.hero_image || "/assets/login/bg-salon.jpg"} alt="" aria-hidden className="fixed inset-0 w-full h-full object-cover opacity-30 pointer-events-none" />
-      <div className="fixed inset-0 bg-gradient-to-b from-[#0d0b09]/70 via-[#0d0b09]/60 to-[#0d0b09] pointer-events-none" />
-      <div className="relative max-w-md mx-auto px-5 pt-10 pb-12">
-        <header className="text-center">
-          {salon.logo_url && <img src={salon.logo_url} alt="" className="w-16 h-16 rounded-full object-cover mx-auto mb-3 ring-2 ring-amber-300/40 bg-white" />}
-          <h1 className="font-playfair text-4xl sm:text-5xl text-amber-200 leading-none" data-testid="rewards-hub-name">{salon.name}</h1>
+    <div className="min-h-screen bg-[#0a0806] text-white relative overflow-x-hidden" style={{ fontFamily: "'Inter', sans-serif" }} data-testid="loyalty-join-page">
+      <img src={salon.hero_image || "/assets/login/bg-salon.jpg"} alt="" aria-hidden className="fixed inset-0 w-full h-full object-cover opacity-40 pointer-events-none" />
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,rgba(232,195,127,0.18),transparent_55%)] pointer-events-none" />
+      <div className="fixed inset-0 bg-gradient-to-b from-[#0a0806]/55 via-[#0a0806]/55 to-[#0a0806] pointer-events-none" />
+
+      {/* side script quotes — like neon-gold wall lettering */}
+      <SideQuote lines={quotes[0]} className="left-3 top-28" />
+      <SideQuote lines={quotes[1]} className="right-3 top-10" />
+      <SideQuote lines={quotes[2]} className="left-3 bottom-40" />
+
+      <div className="relative max-w-[380px] mx-auto px-4 pt-9 pb-12">
+        <header className="text-center" data-testid="rewards-hub-header">
+          {salon.logo_url
+            ? <img src={salon.logo_url} alt={salon.name} className="h-24 w-auto max-w-[260px] object-contain mx-auto drop-shadow-[0_2px_18px_rgba(232,195,127,0.45)]" data-testid="rewards-hub-logo" />
+            : <h1 className="font-caveat text-[56px] leading-none text-transparent bg-clip-text bg-gradient-to-b from-[#f7e7b5] via-[#e8c37f] to-[#b8932e] drop-shadow-[0_2px_14px_rgba(232,195,127,0.35)]" data-testid="rewards-hub-name">{salon.name}</h1>}
           <div className="flex items-center justify-center gap-3 mt-3">
-            <span className="h-px w-10 bg-amber-300/50" /><span className="text-[11px] tracking-[0.35em] text-amber-100/90">{resto ? "RESTAURANT" : "UNISEX SALON"}</span><span className="h-px w-10 bg-amber-300/50" />
+            <span className="h-px w-12 bg-gradient-to-r from-transparent to-[#e8c37f]" />
+            <span className="font-playfair text-[13px] tracking-[0.35em] text-[#f3dfae]">{resto ? "RESTAURANT" : "UNISEX SALON"}</span>
+            <span className="h-px w-12 bg-gradient-to-l from-transparent to-[#e8c37f]" />
           </div>
-          <p className="text-[10px] tracking-[0.3em] text-white/50 mt-2">{(salon.tagline || "").toUpperCase()}</p>
+          <p className="text-[#e8c37f] text-lg leading-none mt-1">❦</p>
+          <p className="text-[10px] tracking-[0.32em] text-white/70 mt-1">{(salon.tagline || (resto ? "TASTE · WARMTH · FOR EVERYONE" : "BEAUTY · CARE · FOR EVERYONE")).toUpperCase()}</p>
         </header>
 
-        <nav className="mt-8 space-y-3" data-testid="rewards-hub-links">
-          {links.map(l => <HubLink key={l.key} l={l} onOpen={() => setPanel(l.panel)} />)}
+        <nav className="mt-7 space-y-3" data-testid="rewards-hub-links">
+          {links.map((l, i) => <HubLink key={l.key} l={l} light={!l.gold && i % 2 === 1} onOpen={() => setPanel(l.panel)} />)}
         </nav>
 
-        <p className="text-center text-[11px] text-amber-200/70 mt-8">✦ Powered by <b className="text-amber-200">Miracurl AI {resto ? "Restaurant" : "Salon"} Suite</b></p>
-        <p className="text-center text-[9px] tracking-[0.3em] text-white/30 mt-3">{resto ? "MORE THAN A MEAL, IT'S HOSPITALITY" : "MORE THAN A SALON, IT'S FAMILY CARE"}</p>
+        <div className="mt-8 flex items-center justify-center gap-2 text-left">
+          <span className="text-[#e8c37f] text-2xl leading-none">✦</span>
+          <span className="text-[11px] leading-tight text-white/80"><span className="block text-white/50">Powered by</span><b className="text-white">Miracurl AI {resto ? "Restaurant" : "Salon"} Suite</b></span>
+        </div>
+        <div className="flex items-center justify-center gap-3 mt-6">
+          <span className="h-px w-14 bg-[#e8c37f]/50" />
+          <p className="text-[9px] tracking-[0.3em] text-[#f3dfae]/80 whitespace-nowrap">{resto ? "MORE THAN A MEAL, IT'S HOSPITALITY" : "MORE THAN A SALON, IT'S FAMILY CARE"}</p>
+          <span className="h-px w-14 bg-[#e8c37f]/50" />
+        </div>
+        <p className="text-center text-[#e8c37f] text-xl mt-3">♡</p>
       </div>
 
       {panel && (
@@ -72,21 +94,34 @@ export default function LoyaltyClubJoin() {
   );
 }
 
-function HubLink({ l, onOpen }) {
+function SideQuote({ lines, className }) {
+  return (
+    <div className={`hidden min-[430px]:block fixed ${className} font-caveat text-[#e8c37f]/80 text-xl leading-[1.05] pointer-events-none select-none drop-shadow-[0_0_10px_rgba(232,195,127,0.35)]`} aria-hidden>
+      {lines.map(l => <div key={l}>{l}</div>)}
+      <div className="mt-1 text-base">♡</div>
+    </div>
+  );
+}
+
+function HubLink({ l, light, onOpen }) {
   const Icon = l.icon;
-  const cls = `group flex items-center gap-4 w-full rounded-full px-3 py-2.5 border transition-transform active:scale-[0.98] hover:translate-x-0.5 ${l.gold
-    ? "bg-gradient-to-r from-amber-300 to-yellow-500 border-amber-200 text-[#1a1206]"
-    : "bg-black/55 border-amber-300/25 text-white backdrop-blur"}`;
+  const cls = `group flex items-center gap-3.5 w-full rounded-full pl-2.5 pr-3 py-2 border shadow-[0_6px_24px_rgba(0,0,0,0.45)] transition-transform active:scale-[0.98] hover:translate-x-0.5 ${l.gold
+    ? "bg-gradient-to-r from-[#f7e7b5] via-[#e8c37f] to-[#c9a24a] border-[#f3dfae] text-[#1a1206]"
+    : light ? "bg-[#f7f4ee] border-[#e8c37f]/50 text-[#1a1206]" : "bg-[#151210]/90 border-[#e8c37f]/45 text-white backdrop-blur"}`;
+  const iconCls = l.gold ? "bg-[#1a1206] text-[#e8c37f]"
+    : l.google ? "bg-white border border-slate-200"
+    : l.insta ? "bg-gradient-to-br from-fuchsia-500 via-rose-500 to-amber-400 text-white"
+    : light ? "bg-[#1a1206] text-[#e8c37f] ring-2 ring-[#e8c37f]/60" : "bg-[#0a0806] text-[#e8c37f] ring-2 ring-[#e8c37f]/60";
   const inner = (
     <>
-      <span className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${l.gold ? "bg-[#1a1206] text-amber-300" : l.google ? "bg-white" : l.insta ? "bg-gradient-to-br from-fuchsia-500 via-rose-500 to-amber-400 text-white" : "bg-black/60 border border-amber-300/40 text-amber-300"}`}>
+      <span className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${iconCls}`}>
         {l.google ? <GoogleG /> : <Icon className="w-5 h-5" />}
       </span>
       <span className="flex-1 text-left min-w-0">
         <span className="block font-semibold text-[15px] leading-tight">{l.title}</span>
-        <span className={`block text-xs mt-0.5 ${l.gold ? "text-[#1a1206]/70" : "text-white/55"}`}>{l.sub}</span>
+        <span className={`block text-xs mt-0.5 ${l.gold || light ? "text-[#1a1206]/65" : "text-white/60"}`}>{l.sub}</span>
       </span>
-      <ChevronRight className={`w-5 h-5 mr-1 ${l.gold ? "text-[#1a1206]/70" : "text-white/60"} group-hover:translate-x-0.5 transition-transform`} />
+      <ChevronRight className={`w-5 h-5 ${l.gold || light ? "text-[#1a1206]/60" : "text-white/70"} group-hover:translate-x-0.5 transition-transform`} />
     </>
   );
   if (l.panel) return <button onClick={onOpen} className={cls} data-testid={`hub-link-${l.key}`}>{inner}</button>;

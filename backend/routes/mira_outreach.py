@@ -14,8 +14,8 @@ from pydantic import BaseModel, Field
 
 from database import _raw_db
 from security import require_super_admin
-from routes.lead_common import (_live_plans, _outreach_email_html, _lead_reply_to, _lead_headers, log_mira_event)
-from routes.lead_wa_auto import HOT_QUERY, _wa_phone, send_intro, template_status
+from routes.lead_common import (_live_plans, _outreach_email_html, _lead_reply_to, _lead_headers, log_mira_event, _unsub_footer)
+from routes.lead_wa_auto import _wa_phone, send_intro, template_status
 
 router = APIRouter()
 log = logging.getLogger("mira_outreach")
@@ -39,9 +39,31 @@ _WORLD_CITIES = [
     "Singapore, SG", "Kuala Lumpur, MY", "Sydney, AU", "Melbourne, AU", "Auckland, NZ",
     "Nairobi, KE", "Johannesburg, ZA", "Colombo, LK", "Kathmandu, NP", "Dhaka, BD",
 ]
-_DEFAULTS = {"enabled": False, "daily_email_limit": 100, "per_cycle": 10, "min_score": 50,
+_DEFAULTS = {"enabled": False, "daily_email_limit": 100, "per_cycle": 10, "min_score": 30,
              "verticals": ["salon", "restaurant"], "wa_countries": ["91"], "auto_hunt": True, "hunts_per_day": 2,
-             "hunt_countries": ["IN", "AE", "UK", "US", "SG", "AU", "CA"], "start_hour": 9, "end_hour": 18}
+             "hunt_countries": ["IN", "AE", "UK", "US", "SG", "AU", "CA"], "start_hour": 9, "end_hour": 18,
+             # targeting: growing businesses (recently opened, < max_reviews Google reviews) + luxury salons
+             "max_reviews": 300, "include_luxury": True,
+             # reminder cadence for leads that never replied: day 7 → day 14 → day 30 → every 90 days
+             "followup_days": [7, 7, 16, 90]}
+
+_LUXURY_RE = re.compile(r"\b(luxury|luxe|premium|royal|elite|signature|prestige|boutique|spa|lounge|couture|imperial|platinum|grand)\b", re.I)
+
+
+def is_luxury(lead: dict) -> bool:
+    text = f"{lead.get('name') or ''} {lead.get('category') or ''} {lead.get('summary') or ''}"
+    return bool(_LUXURY_RE.search(text)) or (float(lead.get("rating") or 0) >= 4.8 and int(lead.get("reviews") or 0) >= 1000)
+
+
+def segment_of(lead: dict, max_reviews: int) -> str:
+    if int(lead.get("reviews") or 0) < max_reviews:
+        return "growing"
+    return "luxury" if is_luxury(lead) else "other"
+
+
+def _esc(v) -> str:
+    import html as _h
+    return _h.escape(str(v or ""))
 
 
 def _now() -> str:
@@ -87,9 +109,10 @@ async def send_pitch(lead: dict, by: str = "mira-autopilot") -> dict:
     return res
 
 
-async def _log_send(lead: dict, channel: str, detail: str = "") -> None:
+async def _log_send(lead: dict, channel: str, detail: str = "", kind: str = "pitch") -> None:
     await _raw_db.mira_outreach_log.insert_one({
-        "id": str(uuid.uuid4()), "day": _today(), "created_at": _now(), "channel": channel,
+        "id": str(uuid.uuid4()), "day": _today(), "created_at": _now(), "channel": channel, "kind": kind,
+        "segment": segment_of(lead, 300),
         "lead_id": lead["id"], "name": lead.get("name") or "", "vertical": lead.get("vertical") or "salon",
         "city": lead.get("city") or "", "country": _country_of(lead.get("city")),
         "email": lead.get("email") or "", "phone": lead.get("phone") or "",
@@ -97,10 +120,15 @@ async def _log_send(lead: dict, channel: str, detail: str = "") -> None:
         "score": lead.get("score") or 0, "detail": detail[:160]})
 
 
-def _candidate_query(vertical: str, min_score: int) -> dict:
-    return {"status": {"$in": ["drafted", "researched"]}, "email": {"$nin": ["", None]},
+def _candidate_query(vertical: str, s: dict) -> dict:
+    """Fresh leads only (never emailed): growing businesses under the review cap, plus luxury names when enabled."""
+    seg = [{"reviews": {"$lt": s.get("max_reviews", 300)}}]
+    if s.get("include_luxury", True):
+        seg += [{"name": {"$regex": _LUXURY_RE.pattern, "$options": "i"}}, {"category": {"$regex": _LUXURY_RE.pattern, "$options": "i"}},
+                {"rating": {"$gte": 4.8}, "reviews": {"$gte": 1000}}]
+    return {"status": {"$in": ["drafted", "researched"]}, "email": {"$nin": ["", None]}, "sent_at": {"$exists": False},
             "unsubscribed": {"$ne": True}, "vertical": vertical if vertical == "restaurant" else {"$in": ["salon", None, ""]},
-            "$or": [{"score": {"$gte": min_score}}, HOT_QUERY]}
+            "score": {"$gte": s.get("min_score", 30)}, "$or": seg}
 
 
 async def _pick_candidates(s: dict, budget: int, ignore_hours: bool) -> list:
@@ -108,11 +136,18 @@ async def _pick_candidates(s: dict, budget: int, ignore_hours: bool) -> list:
     from routes.lead_gen import _has_real_inbox
     pools = []
     for v in s["verticals"]:
-        rows = await _raw_db.mira_leads.find(_candidate_query(v, s["min_score"]), {"_id": 0}).sort(
-            [("reviews", -1), ("score", -1)]).to_list(120)
+        rows = await _raw_db.mira_leads.find(_candidate_query(v, s), {"_id": 0}).sort(
+            [("score", -1), ("created_at", -1)]).to_list(160)
         rows = [r for r in rows if _has_real_inbox(r.get("email"))
                 and (ignore_hours or s["start_hour"] <= _local_hour(r.get("city")) < s["end_hour"])]
-        pools.append(rows)
+        # growing businesses first (the main target), luxury names after — 3 : 1 mix so both get daily coverage
+        growing = [r for r in rows if segment_of(r, s["max_reviews"]) == "growing"]
+        luxury = [r for r in rows if r not in growing]
+        mixed = []
+        while growing or luxury:
+            mixed += growing[:3]; del growing[:3]
+            mixed += luxury[:1]; del luxury[:1]
+        pools.append(mixed)
     out, i = [], 0
     while len(out) < budget and any(pools):
         pool = pools[i % len(pools)]
@@ -140,6 +175,66 @@ async def sent_today(channel: str = "email") -> int:
     return await _raw_db.mira_outreach_log.count_documents({"day": _today(), "channel": channel})
 
 
+# ---------------- reminders (no reply yet): day 7 → day 14 → day 30 → every 90 days ----------------
+
+_REMINDER_COPY = [
+    ("Quick follow-up — did you get a chance to look?",
+     "Hi {first},\n\nLast week I sent a note about how Miracurl Suite helps {vert}s like {name} run bookings, billing and WhatsApp reminders "
+     "from one place. Did you get a chance to look?\n\nIf it's easier, pick a 20-minute demo slot here: {demo}\n\nWarmly,\nMira & the Miracurl team"),
+    ("Still thinking it over? Here's the 2-minute version",
+     "Hi {first},\n\nNo pressure — most owners tell us the hard part is finding 20 minutes. So here's the short version: fewer no-shows, "
+     "faster billing, and repeat visits on autopilot, with a free trial to start.\n\nWhen you have a moment: {demo}\n\nMira & the Miracurl team"),
+    ("A month on — anything changed at {name}?",
+     "Hi {first},\n\nIt's been about a month since I first wrote. If the timing wasn't right then, I understand completely. "
+     "If {name} is growing and the daily admin is piling up, I'd love to show you what Miracurl can take off your plate.\n\n{demo}\n\nMira & the Miracurl team"),
+    ("Checking in from Miracurl — new this season",
+     "Hi {first},\n\nA quick quarterly hello from Mira. We keep adding things owners ask for — QR ordering, loyalty stamps, AI review replies. "
+     "If you'd like a fresh look at what's new for {vert}s, here's the demo link: {demo}\n\nAlways happy to help,\nMira & the Miracurl team"),
+]
+
+
+def _reminder_due(lead: dict, days: list[int]) -> bool:
+    stage = int(lead.get("followup_stage") or 0)
+    last = lead.get("last_followup_at") or lead.get("sent_at")
+    if not last:
+        return False
+    wait = days[min(stage, len(days) - 1)]
+    return datetime.fromisoformat(last.replace("Z", "+00:00")) + timedelta(days=wait) <= datetime.now(timezone.utc)
+
+
+async def send_reminder(lead: dict) -> dict:
+    from email_service import _send_email
+    stage = int(lead.get("followup_stage") or 0)
+    subj_t, body_t = _REMINDER_COPY[min(stage, len(_REMINDER_COPY) - 1)]
+    vert = "restaurant" if (lead.get("vertical") or "salon") == "restaurant" else "salon"
+    ctx = {"first": (lead.get("owner_name") or lead.get("name") or "there").split()[0].title(), "name": lead.get("name") or "your business",
+           "vert": vert, "demo": _demo_url()}
+    subject, body = subj_t.format(**ctx), body_t.format(**ctx)
+    html = "".join(f"<p>{_esc(p)}</p>" for p in body.split("\n") if p.strip()) + _unsub_footer(lead["id"])
+    res = await _send_email([lead["email"]], subject, html, book_url=_demo_url(), book_label="Pick a demo slot ✦",
+                            reply_to=_lead_reply_to(), headers=_lead_headers(lead["id"]), from_name="Mira at Miracurl")
+    if res.get("sent"):
+        await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {"last_followup_at": _now(), "follow_up_sent_at": _now()},
+                                                                 "$inc": {"followup_stage": 1}})
+        await _log_send(lead, "email", detail=subject, kind=f"reminder_{stage + 1}")
+    return res
+
+
+async def _pick_reminders(s: dict, budget: int, ignore_hours: bool) -> list:
+    """Leads emailed earlier that never replied, whose next reminder is due — oldest first, one touch per lead per day."""
+    from routes.lead_gen import _has_real_inbox
+    if budget <= 0:
+        return []
+    rows = await _raw_db.mira_leads.find(
+        {"status": "sent", "sent_via": "email", "email": {"$nin": ["", None]}, "unsubscribed": {"$ne": True},
+         "replied_at": {"$exists": False}, "wa_intro_replied_at": {"$exists": False},
+         "$or": [{"last_followup_at": {"$exists": False}}, {"last_followup_at": {"$lt": _today()}}]},
+        {"_id": 0}).sort("sent_at", 1).to_list(400)
+    days = s.get("followup_days") or _DEFAULTS["followup_days"]
+    return [r for r in rows if _reminder_due(r, days) and _has_real_inbox(r.get("email"))
+            and (ignore_hours or s["start_hour"] <= _local_hour(r.get("city")) < s["end_hour"])][:budget]
+
+
 async def run_outreach_cycle(force: bool = False, dry_run: bool = False, ignore_hours: bool = False) -> dict:
     """One autopilot tick: email up to `per_cycle` eligible leads within today's cap, WhatsApp where allowed,
     then top up the pipeline with a fresh world-city hunt if it is thin."""
@@ -150,11 +245,14 @@ async def run_outreach_cycle(force: bool = False, dry_run: bool = False, ignore_
         return {"skipped": "another cycle is running"}
     async with _CYCLE_LOCK:
         budget = min(s["per_cycle"], s["daily_email_limit"] - await sent_today("email"))
-        emailed = wa = failed = 0
+        emailed = reminded = wa = failed = 0
         picked = await _pick_candidates(s, max(budget, 0), ignore_hours) if budget > 0 else []
+        reminders = await _pick_reminders(s, budget - len(picked), ignore_hours)
         if dry_run:
-            return {"dry_run": True, "would_email": [{"name": p.get("name"), "vertical": p.get("vertical") or "salon",
-                                                      "city": p.get("city"), "email": p.get("email"), "score": p.get("score")} for p in picked],
+            def _row(p): return {"name": p.get("name"), "vertical": p.get("vertical") or "salon", "city": p.get("city"),
+                                 "email": p.get("email"), "score": p.get("score"), "reviews": p.get("reviews"),
+                                 "segment": segment_of(p, s["max_reviews"]), "stage": int(p.get("followup_stage") or 0)}
+            return {"dry_run": True, "would_email": [_row(p) for p in picked], "would_remind": [_row(p) for p in reminders],
                     "budget_left_today": max(s["daily_email_limit"] - await sent_today("email"), 0)}
         for lead in picked:
             res = await send_pitch(lead)
@@ -165,11 +263,18 @@ async def run_outreach_cycle(force: bool = False, dry_run: bool = False, ignore_
             else:
                 failed += 1
             await asyncio.sleep(0.8)
+        for lead in reminders:
+            if (await send_reminder(lead)).get("sent"):
+                reminded += 1
+            else:
+                failed += 1
+            await asyncio.sleep(0.8)
         hunt = await _auto_hunt_if_thin(s) if s["auto_hunt"] else None
-        if emailed or wa:
-            await log_mira_event("outreach", f"📨 Autopilot: emailed {emailed} hot lead{'s' if emailed != 1 else ''}"
-                                             f"{f' · {wa} WhatsApp intro(s)' if wa else ''} — {await sent_today('email')}/{s['daily_email_limit']} today")
-        return {"emailed": emailed, "whatsapp": wa, "failed": failed, "hunt": hunt,
+        if emailed or wa or reminded:
+            await log_mira_event("outreach", f"📨 Autopilot: emailed {emailed} new lead{'s' if emailed != 1 else ''}"
+                                             f"{f' · {reminded} reminder(s)' if reminded else ''}{f' · {wa} WhatsApp intro(s)' if wa else ''}"
+                                             f" — {await sent_today('email')}/{s['daily_email_limit']} today")
+        return {"emailed": emailed, "reminders": reminded, "whatsapp": wa, "failed": failed, "hunt": hunt,
                 "sent_today": await sent_today("email"), "limit": s["daily_email_limit"]}
 
 
@@ -181,7 +286,7 @@ async def _auto_hunt_if_thin(s: dict) -> dict | None:
         return None
     if await _raw_db.mira_lead_runs.count_documents({"auto_outreach": True, "created_at": {"$gte": _today()}}) >= s["hunts_per_day"]:
         return None
-    ready = sum([await _raw_db.mira_leads.count_documents(_candidate_query(v, s["min_score"])) for v in s["verticals"]])
+    ready = sum([await _raw_db.mira_leads.count_documents(_candidate_query(v, s)) for v in s["verticals"]])
     if ready >= s["daily_email_limit"]:
         return None
     since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
@@ -208,12 +313,13 @@ from services.hq_conversion import notify_hq_conversion, notify_hq_conversion_by
 async def _day_counts(day: str) -> dict:
     agg = await _raw_db.mira_outreach_log.aggregate([
         {"$match": {"day": day}},
-        {"$group": {"_id": {"c": "$channel", "v": "$vertical"}, "n": {"$sum": 1}}}]).to_list(20)
-    d = {"emails": 0, "salon": 0, "restaurant": 0, "whatsapp": 0, "conversions": 0}
+        {"$group": {"_id": {"c": "$channel", "v": "$vertical", "k": {"$ifNull": ["$kind", "pitch"]}}, "n": {"$sum": 1}}}]).to_list(40)
+    d = {"emails": 0, "new": 0, "reminders": 0, "salon": 0, "restaurant": 0, "whatsapp": 0, "conversions": 0}
     for r in agg:
         c, v, n = r["_id"]["c"], r["_id"]["v"], r["n"]
         if c == "email":
             d["emails"] += n
+            d["reminders" if str(r["_id"]["k"]).startswith("reminder") else "new"] += n
             d["restaurant" if v == "restaurant" else "salon"] += n
         elif c in d:
             d[c] += n
@@ -232,7 +338,7 @@ async def outreach_summary() -> dict:
     total_wa = await _raw_db.mira_outreach_log.count_documents({"channel": "whatsapp"})
     total_conv = await _raw_db.mira_outreach_log.count_documents({"channel": "conversion"})
     total_replies = await _raw_db.mira_leads.count_documents({"$or": [{"replied_at": {"$exists": True}}, {"wa_intro_replied_at": {"$exists": True}}]})
-    ready = sum([await _raw_db.mira_leads.count_documents(_candidate_query(v, s["min_score"])) for v in s["verticals"]])
+    ready = sum([await _raw_db.mira_leads.count_documents(_candidate_query(v, s)) for v in s["verticals"]])
     hunts_today = await _raw_db.mira_lead_runs.count_documents({"auto_outreach": True, "created_at": {"$gte": today}})
     return {"settings": s, "today": t, "yesterday": y, "ready_to_send": ready, "hunts_today": hunts_today,
             "totals": {"emails": total_emails, "whatsapp": total_wa, "replies": total_replies, "conversions": total_conv},
@@ -242,8 +348,9 @@ async def outreach_summary() -> dict:
 def _greeting(s: dict, t: dict, y: dict, total_emails: int, total_replies: int, total_conv: int, ready: int) -> str:
     parts = []
     if t["emails"]:
-        parts.append(f"Today I've emailed {t['emails']} hot lead{'s' if t['emails'] != 1 else ''} "
-                     f"({t['salon']} salon{'s' if t['salon'] != 1 else ''} · {t['restaurant']} restaurant{'s' if t['restaurant'] != 1 else ''})")
+        parts.append(f"Today I've emailed {t['new']} new lead{'s' if t['new'] != 1 else ''} "
+                     f"({t['salon']} salon{'s' if t['salon'] != 1 else ''} · {t['restaurant']} restaurant{'s' if t['restaurant'] != 1 else ''})"
+                     + (f" and sent {t['reminders']} reminder{'s' if t['reminders'] != 1 else ''} to earlier leads" if t.get("reminders") else ""))
     elif s["enabled"]:
         parts.append(f"No emails out yet today — the next batch goes at 9 AM in each lead's local time ({ready} ready to send)")
     else:
@@ -302,6 +409,9 @@ class OutreachSettingsIn(BaseModel):
     auto_hunt: Optional[bool] = None
     hunts_per_day: Optional[int] = Field(None, ge=0, le=10)
     hunt_countries: Optional[list[str]] = None
+    max_reviews: Optional[int] = Field(None, ge=10, le=5000)
+    include_luxury: Optional[bool] = None
+    followup_days: Optional[list[int]] = None
 
 
 @router.put("/super-admin/mira/outreach/settings")
@@ -311,7 +421,8 @@ async def put_settings(body: OutreachSettingsIn, user=Depends(require_super_admi
     verts = [v for v in merged["verticals"] if v in ("salon", "restaurant")] or ["salon", "restaurant"]
     wa = [re.sub(r"\D", "", c) for c in merged["wa_countries"] if re.sub(r"\D", "", c)]
     hunt = [c.upper() for c in merged["hunt_countries"] if c.upper() in _COUNTRIES] or _DEFAULTS["hunt_countries"]
-    doc = {**merged, "verticals": verts, "wa_countries": wa, "hunt_countries": hunt, "updated_at": _now(),
+    fdays = [max(1, min(int(d), 365)) for d in (merged.get("followup_days") or [])][:6] or _DEFAULTS["followup_days"]
+    doc = {**merged, "verticals": verts, "wa_countries": wa, "hunt_countries": hunt, "followup_days": fdays, "updated_at": _now(),
            "updated_by": user.get("email")}
     await _raw_db.platform_settings.update_one({"key": SETTINGS_KEY}, {"$set": doc}, upsert=True)
     await log_mira_event("settings", f"Boss {'switched ON' if doc['enabled'] else 'paused'} Outreach Autopilot — {doc['daily_email_limit']} emails/day, "

@@ -78,7 +78,7 @@ export function MiraOutreachCard() {
         <p className="text-sm text-slate-700 bg-[#fdf8ec] border border-[#e8c37f]/50 rounded-xl px-4 py-3" data-testid="outreach-greeting">💬 <b>Mira:</b> {sum.greeting}</p>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <Stat testid="outreach-stat-emails" label="Emails today" value={t.emails} sub={`${t.salon} salon · ${t.restaurant} restaurant`} tone="bg-fuchsia-50 border-fuchsia-200 text-fuchsia-800" />
+          <Stat testid="outreach-stat-emails" label="Emails today" value={t.emails} sub={`${t.new ?? t.emails} new · ${t.reminders ?? 0} reminders · ${t.salon} salon / ${t.restaurant} resto`} tone="bg-fuchsia-50 border-fuchsia-200 text-fuchsia-800" />
           <Stat testid="outreach-stat-limit" label="Daily cap" value={`${t.emails}/${s.daily_email_limit}`} tone="bg-slate-50 border-slate-200 text-slate-700" />
           <Stat testid="outreach-stat-wa" label="WhatsApp today" value={t.whatsapp} tone="bg-emerald-50 border-emerald-200 text-emerald-800" />
           <Stat testid="outreach-stat-replies" label="Replies today" value={t.replies} tone="bg-orange-50 border-orange-200 text-orange-800" />
@@ -96,6 +96,17 @@ export function MiraOutreachCard() {
               <label className="flex items-center gap-2">Min score
                 <input type="number" min="0" max="100" value={s.min_score} onChange={e => setS(p => ({ ...p, min_score: Number(e.target.value) }))} data-testid="outreach-min-score" className="w-16 border border-slate-200 rounded-lg px-2 py-1.5 text-sm bg-white text-slate-800" />
               </label>
+            </div>
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600 space-y-2" data-testid="outreach-targeting">
+              <div className="font-semibold text-slate-800 text-sm">Who Mira targets</div>
+              <label className="flex flex-wrap items-center gap-2">Growing businesses — recently opened, under
+                <input type="number" min="10" max="5000" value={s.max_reviews ?? 300} onChange={e => setS(p => ({ ...p, max_reviews: Number(e.target.value) }))} data-testid="outreach-max-reviews" className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-sm bg-white text-slate-800" /> Google reviews
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={s.include_luxury !== false} onChange={e => setS(p => ({ ...p, include_luxury: e.target.checked }))} data-testid="outreach-include-luxury" className="accent-[#b8932e]" />
+                Also target luxury / premium salons (name says luxury · spa · premium · royal…, or 4.8★ with 1,000+ reviews)
+              </label>
+              <div className="text-slate-500">Every day = <b>new</b> leads only. No reply? Reminders on <b>day 7 → day 14 → day 30 → every 3 months</b>, all inside the daily limit.</div>
             </div>
             <div className="flex flex-wrap gap-1.5 items-center text-xs text-slate-500">Send to:
               <Chip testid="outreach-vert-salon" on={s.verticals.includes("salon")} onClick={() => toggleIn("verticals", "salon")}>💇 Salons</Chip>
