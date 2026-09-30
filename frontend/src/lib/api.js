@@ -98,7 +98,7 @@ api.interceptors.request.use((config) => {
 const PUBLIC_PREFIXES = ["/book", "/rewards/", "/color/", "/order/", "/gift", "/membership/", "/member/", "/pay/", "/feedback/",
   "/salon/", "/products", "/employee", "/demo", "/partner", "/success-stories", "/blog", "/mira.ai", "/mira-ai", "/reset-password",
   "/staff-registry", "/terms", "/privacy", "/refund-policy", "/review/", "/loyalty/", "/rate/", "/login", "/signup-salon",
-  "/signup-restaurant", "/restaurant", "/features", "/pricing", "/about-us", "/contact-us", "/who-can-use", "/ceo", "/jobs", "/candidate/"];
+  "/signup-restaurant", "/restaurant", "/features", "/pricing", "/about-us", "/contact-us", "/who-can-use", "/ceo", "/jobs", "/candidate/", "/connect-whatsapp/"];
 export const isPublicPath = (p) => p === "/" || PUBLIC_PREFIXES.some((x) => p.startsWith(x));
 
 // Global 401 handler — expired/invalid session → clear token + redirect to /login.

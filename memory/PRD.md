@@ -3748,3 +3748,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-09-30 — Demo Owner Dashboard retired (build .373)
 - Deleted `backend/routes/owner_demo_dashboard.py` (DEMO_PIN 3642), `frontend/src/pages/OwnerDashboard.jsx`, `components/dashboard/OwnerDashboardBits.jsx`, `components/settings/OwnerDashboardCard.jsx`, `backend/tests/test_iter187_owner_dashboard.py`; unwired from server.py, App.js (route `owner-dashboard`), Settings.jsx. Verified: API 404, route falls back to /dashboard, Settings no longer lists it. Clears the last accepted-risk item from Security Audits #1/#2. The real Collection Review (MySalonsOverview, Owner-PIN) remains the owner's revenue view.
+
+## 2026-09-30 — WhatsApp QR Hand-off & Approve All verified
+- Approve All (dashboard approvals widget) verified end-to-end: confirm dialog → 2 approved → per-guest WhatsApp send chips.
+- Settings → "Connect from my phone (QR)" panel renders QR + copy; `/api/whatsapp-own/handoff` + public info/connect endpoints OK.
+- **Bug fixed:** `/connect-whatsapp/` was absent from `PUBLIC_PREFIXES` (`lib/api.js`) so the phone page redirected to `/login`. Now loads on mobile; expired token shows friendly error.
+- Backlog: P1 prod MSG91 secrets (user action), P2 mid-term membership upgrade, P3 server.py import refactor.

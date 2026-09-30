@@ -1,5 +1,6 @@
 """Shared billing domain: invoice totals, coupons, memberships, loyalty, receipts."""
 import os
+import logging
 import re
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -260,12 +261,36 @@ async def _queue_review_request(inv: dict, cust: dict) -> None:
     msg = (f"Hi {first}! ✦ Thank you for visiting {t.get('name') or 'us'} today. "
            f"Loved your experience? Tap to rate us — Mira even writes your Google review for you: "
            f"{_smart_review_url(t, inv)}")
+    if t.get("review_request_auto_send") and await _auto_send_review(t, cust, first, inv):
+        return  # owner approved once → Mira sends the official template herself, nothing to approve
     await _raw_db.whatsapp_requests.insert_one({
         "id": str(uuid.uuid4()), "tenant_id": inv["tenant_id"],
         "requested_by": "mira", "requested_by_name": "Mira (auto)",
         "client_name": cust.get("name") or "", "client_phone": cust.get("phone") or "",
         "message": msg, "kind": "review_request", "status": "pending",
         "created_at": datetime.now(timezone.utc).isoformat()})
+
+
+async def _auto_send_review(t: dict, cust: dict, first: str, inv: dict) -> bool:
+    """Owner-approved auto review request via the official Meta template (1 wa_point). False → fall back to the approval queue."""
+    from database import _raw_db
+    from services import whatsapp_official as official
+    from services.tenant_features import features_of
+    if not features_of(t).get("whatsapp") or int(t.get("wa_points") or 0) < 1:
+        return False
+    try:
+        if await official.template_status("review") != "APPROVED":
+            return False
+        r = await official.send("review", t, cust["phone"], [t.get("name") or "us", first])
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("billing").warning("auto review request failed for %s: %s", inv.get("invoice_no"), e)
+        return False
+    await _raw_db.whatsapp_requests.insert_one({
+        "id": str(uuid.uuid4()), "tenant_id": inv["tenant_id"], "requested_by": "mira", "requested_by_name": "Mira (auto)",
+        "client_name": cust.get("name") or "", "client_phone": cust.get("phone") or "", "kind": "review_request",
+        "message": "Official review-request template sent automatically", "status": "sent_auto",
+        "message_id": r.get("message_id"), "invoice_no": inv.get("invoice_no"), "created_at": datetime.now(timezone.utc).isoformat()})
+    return True
 
 
 def _receipt_whatsapp_url(t: dict, inv: dict, phone: str, points_earned: int) -> str | None:
@@ -288,7 +313,10 @@ async def _send_billing_receipts(inv: dict, cust: dict, tenant_doc: Optional[dic
     Tenant setting receipt_auto = {"email": bool, "sms": bool, "whatsapp": bool}. Email is free; SMS/WA burn 1 point."""
     out = {"email": None, "sms": None, "whatsapp": None, "whatsapp_url": None}
     t = tenant_doc or {}
-    auto = t.get("receipt_auto") or {}
+    from services.tenant_features import features_of
+    feat = features_of(t)
+    # a channel HQ switched OFF never auto-sends, even if the salon left its toggle ON earlier
+    auto = {k: bool(v) and (k == "email" or feat.get(k, False)) for k, v in (t.get("receipt_auto") or {}).items()}
     try:
         out["whatsapp_url"] = _receipt_whatsapp_url(t, inv, cust.get("phone") or "", points_earned)
     except Exception:  # noqa: BLE001

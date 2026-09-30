@@ -84,6 +84,7 @@ const RewardsCampaign = lazy(() => import("@/pages/RewardsCampaign"));
 import ColorTryOn from "@/pages/ColorTryOn";
 const LoyaltyClubJoin = lazy(() => import("@/pages/LoyaltyClubJoin"));
 const OrderPublic = lazy(() => import("@/pages/OrderPublic"));
+const ConnectWhatsAppHandoff = lazy(() => import("@/pages/ConnectWhatsAppHandoff"));
 const Kitchen = lazy(() => import("@/pages/Kitchen"));
 const PartnerLanding = lazy(() => import("@/pages/PartnerLanding"));
 const SuccessStories = lazy(() => import("@/pages/SuccessStories"));
@@ -262,6 +263,7 @@ export default function App() {
             <Route path="/rewards/:slug" element={<RewardsCampaign />} />
             <Route path="/color/:slug" element={<ColorTryOn />} />
             <Route path="/order/:slug" element={<OrderPublic />} />
+            <Route path="/connect-whatsapp/:token" element={<ConnectWhatsAppHandoff />} />
             <Route path="/gift/:slug" element={<GiftCardPublic />} />
             <Route path="/membership/:slug" element={<MembershipPublic />} />
             <Route path="/member/:memberId" element={<MemberCardPublic />} />

@@ -15,11 +15,13 @@ const ERR = { no_phone: "no mobile on file", no_email: "no email on file", no_sm
   not_configured: "SMS gateway isn't set up on this server yet — Miracurl HQ has been notified", invalid_phone: "mobile number looks invalid — fix it in CRM" };
 
 export function SendBillButtons({ invoice, customer, compact = false, onSent }) {
-  const { user } = useAuth() || {};
+  const { user, tenant } = useAuth() || {};
   const isAdmin = ["admin", "super_admin", "manager"].includes(user?.role);
+  const feat = tenant?.features || {};
   const [busy, setBusy] = useState("");
   const [done, setDone] = useState(() => Object.fromEntries(Object.keys(CH).map(k => [k, !!invoice?.receipts?.[k]?.sent])));
-  const channels = isAdmin ? ["whatsapp", "sms", "email"] : ["sms", "email"];
+  // HQ switches SMS / WhatsApp per salon — never offer a channel that is OFF (email is always available)
+  const channels = (isAdmin ? ["whatsapp", "sms", "email"] : ["sms", "email"]).filter(ch => ch === "email" || feat[ch]);
   if (!invoice || invoice.status === "open") return null;
 
   const send = async (ch) => {

@@ -561,8 +561,21 @@ class ReceiptAutoIn(BaseModel):
 
 @router.get("/settings/receipts")
 async def receipts_settings_get(user=Depends(get_current_user), t=Depends(current_tenant)):
-    tdoc = await db.tenants.find_one({"id": t["id"]}, {"_id": 0, "receipt_auto": 1}) or {}
-    return {"auto": {"email": False, "sms": False, "whatsapp": False, **(tdoc.get("receipt_auto") or {})}}
+    from services.tenant_features import features_of
+    tdoc = await db.tenants.find_one({"id": t["id"]}, {"_id": 0, "receipt_auto": 1, "features": 1, "review_request_auto_send": 1}) or {}
+    return {"auto": {"email": False, "sms": False, "whatsapp": False, **(tdoc.get("receipt_auto") or {})},
+            "channels": {**features_of(tdoc), "email": True}, "review_auto_send": bool(tdoc.get("review_request_auto_send"))}
+
+
+class ReviewAutoIn(BaseModel):
+    enabled: bool
+
+
+@router.put("/settings/review-auto-send")
+async def review_auto_send_put(body: ReviewAutoIn, user=Depends(require_tenant_admin), t=Depends(current_tenant)):
+    """Owner/admin approves ONCE: Mira sends the official review-request WhatsApp herself after every bill (1 credit each)."""
+    await db.tenants.update_one({"id": t["id"]}, {"$set": {"review_request_auto_send": body.enabled}})
+    return {"ok": True, "enabled": body.enabled}
 
 
 @router.put("/settings/receipts")

@@ -147,7 +147,7 @@ export default function Dashboard() {
       const r = await getWithFreshPin("/reports/team-unlock");
       if (!r) return;
       setTeam(r.data); setPeekValue(r.data.month_revenue); setShowMonth(true);
-      toast.success("Unlocked for this session — month revenue, Revenue Trend & Business by Stylist");
+      toast.success(`Unlocked for this session — month revenue, Revenue Trend & Business by ${tenant?.business_type === "restaurant" ? "Team Member" : "Stylist"}`);
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't unlock"); }
   };
   const peekMonth = async () => {
@@ -344,7 +344,7 @@ export default function Dashboard() {
       </div>
 
       {/* Staff performance */}
-      <StaffPerformance inr={inr} locked={teamLocked && !team} pinSet={!!data.owner_pin_set} unlockedData={team?.staff_performance} onUnlock={unlockTeam} />
+      <StaffPerformance inr={inr} locked={teamLocked && !team} pinSet={!!data.owner_pin_set} unlockedData={team?.staff_performance} onUnlock={unlockTeam} resto={tenant?.business_type === "restaurant"} />
 
       {/* Two columns: upcoming + low stock */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -593,7 +593,9 @@ const PERF_MEDALS = [
 ];
 const PERF_AVATAR = ["bg-rose-100 text-rose-600", "bg-sky-100 text-sky-600", "bg-emerald-100 text-emerald-600", "bg-violet-100 text-violet-600", "bg-amber-100 text-amber-700"];
 
-function StaffPerformanceLocked({ pinSet, onUnlock }) {
+function StaffPerformanceLocked({ pinSet, onUnlock, resto = false }) {
+  const who = resto ? "Team member" : "Stylist";
+  const card = resto ? "Business by Team Member" : "Business by Stylist";
   return (
     <div data-testid="perf-locked" className="relative rounded-2xl border border-dashed border-[#e3d5bd] bg-white/60 px-5 py-8 sm:py-10 text-center overflow-hidden">
       <div className="pointer-events-none absolute inset-0 opacity-60" aria-hidden="true">
@@ -608,7 +610,7 @@ function StaffPerformanceLocked({ pinSet, onUnlock }) {
         <div>
           <div className="font-playfair text-xl text-slate-900">Locked by the owner</div>
           <div className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-            {pinSet ? "Stylist revenue is private. One Owner PIN entry unlocks month revenue, Revenue Trend & Business by Stylist for this session." : "Stylist revenue is private and the owner hasn't set a Security PIN yet — ask them to set one in Settings → Security PIN."}
+            {pinSet ? `${who} revenue is private. One Owner PIN entry unlocks month revenue, Revenue Trend & ${card} for this session.` : `${who} revenue is private and the owner hasn't set a Security PIN yet — ask them to set one in Settings → Security PIN.`}
           </div>
         </div>
         <button type="button" onClick={onUnlock} data-testid="perf-unlock-btn"
@@ -621,7 +623,7 @@ function StaffPerformanceLocked({ pinSet, onUnlock }) {
   );
 }
 
-function StaffPerformance({ inr, locked = false, pinSet = true, unlockedData = null, onUnlock }) {
+function StaffPerformance({ inr, locked = false, pinSet = true, unlockedData = null, onUnlock, resto = false }) {
   const [fetched, setFetched] = useState(null);
   const [tab, setTab] = useState("today");
   const showLock = locked;
@@ -643,10 +645,10 @@ function StaffPerformance({ inr, locked = false, pinSet = true, unlockedData = n
       <div className="pointer-events-none absolute -top-10 -right-10 w-40 h-40 rounded-full bg-[#d4af37]/10 blur-2xl" />
       <div className="flex items-start justify-between flex-wrap gap-4 mb-5">
         <div className="flex items-start gap-4">
-          <div className="hidden sm:flex w-12 h-12 rounded-2xl bg-white/70 border border-[#eadfcb] items-center justify-center text-2xl shadow-sm">✂️</div>
+          <div className="hidden sm:flex w-12 h-12 rounded-2xl bg-white/70 border border-[#eadfcb] items-center justify-center text-2xl shadow-sm">{resto ? "🍽️" : "✂️"}</div>
           <div className="sm:border-l sm:border-[#e3d5bd] sm:pl-4">
-            <div className="text-[11px] uppercase tracking-[0.26em] text-[#8a7350] font-semibold">Staff Performance</div>
-            <div className="font-playfair text-2xl sm:text-3xl text-slate-900 leading-tight">Business by Stylist</div>
+            <div className="text-[11px] uppercase tracking-[0.26em] text-[#8a7350] font-semibold">{resto ? "Team Performance" : "Staff Performance"}</div>
+            <div className="font-playfair text-2xl sm:text-3xl text-slate-900 leading-tight" data-testid="staff-performance-title">{resto ? "Business by Team Member" : "Business by Stylist"}</div>
             {rangeLabel && (
               <div className="text-xs text-slate-500 mt-1 flex items-center gap-1.5" data-testid="perf-range-label">
                 <Calendar className="w-3.5 h-3.5 text-[#b08d3f]" /> {rangeLabel}
@@ -669,11 +671,11 @@ function StaffPerformance({ inr, locked = false, pinSet = true, unlockedData = n
         </div>
       </div>
       {showLock ? (
-        <StaffPerformanceLocked pinSet={pinSet} onUnlock={onUnlock} />
+        <StaffPerformanceLocked pinSet={pinSet} onUnlock={onUnlock} resto={resto} />
       ) : !perf ? (
         <div className="text-slate-400 text-sm py-6 text-center">Loading…</div>
       ) : rows.length === 0 ? (
-        <div className="text-slate-500 text-sm py-8 text-center bg-white/60 rounded-2xl border border-dashed border-[#e3d5bd]">No billing recorded for this period yet.</div>
+        <div className="text-slate-500 text-sm py-8 text-center bg-white/60 rounded-2xl border border-dashed border-[#e3d5bd]">No {resto ? "bills" : "billing"} recorded for this period yet.</div>
       ) : (
         <ul className="space-y-3" data-testid="perf-rows">
           {rows.map((r, i) => {
@@ -706,7 +708,7 @@ function StaffPerformance({ inr, locked = false, pinSet = true, unlockedData = n
         </ul>
       )}
       <div className="mt-5 pt-4 border-t border-[#e3d5bd] flex items-center justify-between gap-3 text-[10px] sm:text-[11px] uppercase tracking-[0.22em] text-[#8a7350]">
-        <span>Beauty people. Stronger together.</span>
+        <span>{resto ? "Great food. Greater team." : "Beauty people. Stronger together."}</span>
         <span className="font-playfair normal-case tracking-[0.3em] text-sm text-slate-800">MIRACURL</span>
       </div>
     </div>

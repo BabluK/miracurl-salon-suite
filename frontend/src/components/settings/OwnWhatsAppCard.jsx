@@ -1,29 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import api from "@/lib/api";
+import { loadFbSdk, launchWaSignup, listenWaSignup, SDK_HELP } from "@/lib/fbSdk";
 import { toast } from "sonner";
 import { Smartphone, ShieldCheck, RefreshCw, Unplug, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 
-let _fbInited = false;
-let _fbBlocked = false;
-// Loads Meta's JS SDK once and guarantees FB.init ran (a remount or a pre-loaded SDK must not skip init).
-const loadFbSdk = (appId) => new Promise((resolve, reject) => {
-  const init = () => {
-    if (!_fbInited) { window.FB.init({ appId, cookie: true, xfbml: false, version: "v22.0" }); _fbInited = true; }
-    resolve(window.FB);
-  };
-  if (window.FB) return init();
-  if (_fbBlocked) return reject(new Error("blocked"));
-  window.fbAsyncInit = init;
-  let tag = document.getElementById("fb-sdk");
-  if (!tag) {
-    tag = document.createElement("script"); tag.id = "fb-sdk"; tag.async = true; tag.defer = true; tag.crossOrigin = "anonymous";
-    tag.src = "https://connect.facebook.net/en_US/sdk.js"; document.body.appendChild(tag);
-  }
-  tag.addEventListener("error", () => { _fbBlocked = true; reject(new Error("blocked")); }, { once: true });
-  setTimeout(() => { if (!window.FB) reject(new Error("timeout")); }, 12000);
-});
-
-const SDK_HELP = "Your browser blocked Meta's login script (ad blocker / tracking prevention). Allow connect.facebook.net for this site or open in Chrome, then try again.";
 
 const TPL_LABEL = { miracurl_booking_confirmed: "Booking confirmation", miracurl_reminder_1h: "1-hour reminder", miracurl_review_request: "Review request",
   miracurl_winback: "Win-back", miracurl_birthday_wish: "Birthday wish", miracurl_festival_offer: "Festival offer" };
@@ -31,21 +11,25 @@ const TPL_LABEL = { miracurl_booking_confirmed: "Booking confirmation", miracurl
 export const OwnWhatsAppCard = () => {
   const [st, setSt] = useState(null);
   const [busy, setBusy] = useState("");
+  const [qr, setQr] = useState(null);
+  const phoneQr = async () => {
+    setBusy("qr");
+    try { const r = await api.post("/whatsapp-own/handoff"); setQr(r.data); toast.success("Scan with the phone that has your Facebook Business login"); }
+    catch (e) { toast.error(e.response?.data?.detail || "Couldn't create the QR"); }
+    finally { setBusy(""); }
+  };
+  useEffect(() => {
+    if (!qr) return;
+    const iv = setInterval(() => api.get("/whatsapp-own/status").then(r => { if (r.data.connected) { setSt(r.data); setQr(null); toast.success("Your WhatsApp Business number is connected ✦"); } }).catch(() => {}), 5000);
+    return () => clearInterval(iv);
+  }, [qr]);
   const session = useRef({});
   const load = () => api.get("/whatsapp-own/status").then(r => setSt(r.data)).catch(() => setSt({ available: false }));
   useEffect(() => { load(); }, []);
   useEffect(() => { if (st?.available && st.app_id) loadFbSdk(st.app_id).catch(() => {}); }, [st?.available, st?.app_id]);
 
   useEffect(() => {
-    const onMsg = (ev) => {
-      if (!/https:\/\/(www\.)?facebook\.com$/.test(ev.origin)) return;
-      let d; try { d = typeof ev.data === "string" ? JSON.parse(ev.data) : ev.data; } catch { return; }
-      if (d?.type !== "WA_EMBEDDED_SIGNUP") return;
-      if (["FINISH", "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING"].includes(d.event)) session.current = d.data || {};
-      else if (d.event === "ERROR") toast.error(d.data?.error_message || "Meta signup failed");
-    };
-    window.addEventListener("message", onMsg);
-    return () => window.removeEventListener("message", onMsg);
+    return listenWaSignup(session, (m) => toast.error(m));
   }, []);
 
   const connect = async () => {
@@ -65,8 +49,7 @@ export const OwnWhatsAppCard = () => {
           .catch((e) => toast.error(e.response?.data?.detail || "Couldn't connect"))
           .finally(() => setBusy(""));
       };
-      FB.login(onLogin, { config_id: st.config_id, response_type: "code", override_default_response_type: true,
-           extras: { setup: {}, featureType: "whatsapp_business_app_onboarding", sessionInfoVersion: "3" } });
+      launchWaSignup(FB, st.config_id, onLogin);
     } catch (e) {
       setBusy("");
       console.error("[meta-login]", e);
@@ -127,13 +110,28 @@ export const OwnWhatsAppCard = () => {
       )}
 
       <div className="flex gap-2 flex-wrap">
-        {!st.connected
-          ? <button onClick={connect} disabled={!st.available || !!busy} className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center gap-2" data-testid="own-whatsapp-connect">{busy === "connect" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Smartphone className="w-4 h-4" />} Connect my WhatsApp Business number</button>
-          : <>
+        {!st.connected ? (
+          <>
+            <button onClick={connect} disabled={!st.available || !!busy} className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-semibold inline-flex items-center gap-2" data-testid="own-whatsapp-connect">{busy === "connect" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Smartphone className="w-4 h-4" />} Connect my WhatsApp Business number</button>
+            <button onClick={phoneQr} disabled={!st.available || !!busy} className="px-4 py-2 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 text-emerald-800 text-sm font-semibold inline-flex items-center gap-2" data-testid="own-whatsapp-phone-qr">{busy === "qr" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Smartphone className="w-4 h-4" />} Connect from my phone (QR)</button>
+          </>
+        ) : (
+          <>
             <button onClick={() => act("refresh")} disabled={!!busy} className="px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-sm font-semibold inline-flex items-center gap-1.5" data-testid="own-whatsapp-refresh"><RefreshCw className={`w-4 h-4 ${busy === "refresh" ? "animate-spin" : ""}`} /> Refresh</button>
             <button onClick={() => { if (window.confirm("Disconnect? Mira will go back to Miracurl's shared number and credits.")) act("disconnect"); }} disabled={!!busy} className="px-3 py-2 rounded-lg border border-rose-200 text-rose-700 text-sm font-semibold inline-flex items-center gap-1.5" data-testid="own-whatsapp-disconnect"><Unplug className="w-4 h-4" /> Disconnect</button>
-          </>}
+          </>
+        )}
       </div>
+      {qr && !st.connected && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 flex flex-col sm:flex-row items-center gap-4" data-testid="own-whatsapp-qr-panel">
+          <img src={qr.qr} alt="Scan to connect WhatsApp from your phone" className="w-44 h-44 rounded-xl bg-white p-2 border border-emerald-200" data-testid="own-whatsapp-qr-img" />
+          <div className="text-sm text-slate-700 space-y-1.5">
+            <p className="font-semibold text-slate-800">Scan with the phone that has <u>your</u> Facebook Business login</p>
+            <p className="text-xs text-slate-600">The office computer may be signed in to a different Facebook account (e.g. Miracurl HQ). This QR opens a one-time page on your phone, so Meta uses your own business account. Valid 15 minutes.</p>
+            <p className="text-xs text-slate-500">This card updates automatically once the number is connected.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
+}

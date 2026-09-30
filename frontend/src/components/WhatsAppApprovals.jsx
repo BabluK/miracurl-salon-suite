@@ -2,7 +2,35 @@ import { useEffect, useState, useCallback } from "react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { confirmAsync } from "@/components/ConfirmDialog";
-import { MessageSquare, Check, CheckCheck, Send, X } from "lucide-react";
+import { MessageSquare, Check, CheckCheck, Send, X, Sparkles } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+
+function ReviewAutoSendRow() {
+  const { tenant } = useAuth() || {};
+  const waOn = !!tenant?.features?.whatsapp;
+  const [on, setOn] = useState(null);
+  useEffect(() => { api.get("/settings/receipts").then(r => setOn(!!r.data.review_auto_send)).catch(() => setOn(false)); }, []);
+  const flip = async () => {
+    const next = !on;
+    if (next && !await confirmAsync("Mira will send the official review-request WhatsApp herself after every bill (1 WhatsApp credit each) — no more approvals. You can switch it off anytime.", { title: "Approve once, send automatically", confirmLabel: "Yes, send automatically" })) return;
+    setOn(next);
+    api.put("/settings/review-auto-send", { enabled: next }).then(() => toast.success(next ? "Review requests now go out automatically after billing ✦" : "Back to manual approval"))
+      .catch(e => { setOn(!next); toast.error(e.response?.data?.detail || "Couldn't save"); });
+  };
+  if (on === null) return null;
+  return (
+    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2.5" data-testid="review-auto-send-row">
+      <div className="min-w-0">
+        <div className="text-xs font-semibold text-slate-800 flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-emerald-600" /> Approve once — Mira sends review requests automatically</div>
+        <div className="text-[10px] text-slate-500 mt-0.5">{waOn ? "Official Meta template from the Miracurl number · 1 WhatsApp credit per guest · nothing to approve" : "WhatsApp is switched off for this salon — ask Miracurl HQ to enable it first"}</div>
+      </div>
+      <button type="button" role="switch" aria-checked={on} disabled={!waOn} onClick={flip} data-testid="review-auto-send-switch"
+        className={`relative shrink-0 w-12 h-7 rounded-full transition-colors disabled:opacity-40 ${on ? "bg-emerald-600" : "bg-slate-300"}`}>
+        <span className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all ${on ? "left-6" : "left-1"}`} />
+      </button>
+    </div>
+  );
+}
 
 const KIND_LABEL = { confirmation: "Booking Confirmation", reminder: "Reminder", review: "Review Request" };
 
@@ -82,6 +110,7 @@ export const WhatsAppApprovals = () => {
               <span className="font-semibold text-emerald-600" data-testid="wa-approvals-count">{items.length}</span> message{items.length === 1 ? "" : "s"} from your manager awaiting approval
             </div>
             <div className="text-[10px] text-slate-400 mt-0.5">One per customer per day · already-sent & 2-day-old requests clear automatically</div>
+            <ReviewAutoSendRow />
           </div>
         </div>
         {items.length > 1 && (

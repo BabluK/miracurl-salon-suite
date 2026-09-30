@@ -349,3 +349,7 @@
 ## 2026-09-23 — HD user lockup in sidebar + live signup counter
 - SidebarMiracurlLogo now renders the USER-SUPPLIED HD lockup (/assets/brand/ms-hd-lockup.png, keyed from black webp) with animation masked to the logo pixels: `.ms-hd__sweep` light-sweep + 3 `.ms-hd__glint` pops (mask-image via inline CSS var --ms-mask; NOTE: url() in index.css breaks webpack build — keep mask URL inline) + ✦ twinkles + breathing glow. The CSS text lockup (.ms-lockup) is unused now. Signup page also uses SidebarMiracurlLogo (same HD lockup).
 - Signup: LiveCounter under trust badges ("1,240+ salons & restaurants onboarded", count-up + pulsing dot; STATIC number, data-testid signup-live-counter). Self-tested via screenshots.
+
+## 2026-09-30 — WA QR Hand-off verified + public-route fix
+- Verified end-to-end: Approve All (confirm dialog → approved chips), Settings QR panel, `/connect-whatsapp/:token` handoff page + expired-token error.
+- FIX: `/connect-whatsapp/` was missing from `PUBLIC_PREFIXES` in `lib/api.js`, so the phone was bounced to `/login`. Added.
