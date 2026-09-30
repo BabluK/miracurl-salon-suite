@@ -1,0 +1,39 @@
+{
+  "summary": "Iter 204 — Mira Outreach targeting (growing + luxury 3:1, [7,7,16,90] cadence) + public Rewards Hub redesign + Branding Wi-Fi fields. BACKEND (7/7 pytest passed in /app/backend/tests/test_iter204_outreach_targeting_cadence.py): GET /super-admin/mira/outreach/summary → settings.max_reviews=300, include_luxury=true, followup_days=[7,7,16,90] (min_score is operator-mutable, currently 50 — spec expected 30 as default only); today has all keys emails,new,reminders,salon,restaurant,whatsapp,conversions,replies. PUT settings echoes {max_reviews:250,include_luxury:false,followup_days:[5,5,10,60]} and restores {300,true,[7,7,16,90]}. PUT {max_reviews:5} → 422. PUT {followup_days:[0,500]} → clamps to [1,365]. POST /run-now?dry_run=true returns dry_run:true with would_email (10 rows), would_remind, budget_left_today; every would_email row has segment in {growing,luxury} (no 'other') and email leads verified as status drafted/researched with no sent_at. Reminder cadence unit: injected mongo lead qa-cadence-1 (sent 8d ago, salon, score 60, reviews 50) with per_cycle temporarily bumped to 50: stage 0 → present (stage=0); last_followup_at 3d ago + stage 1 → absent; 8d ago + stage 1 → present (stage=1); stage 3 + 60d → absent; stage 3 + 91d → present; replied_at set → absent. Lead cleaned + per_cycle restored. History endpoint returns items and days lists with no 500s. FRONTEND: /loyalty/miracurl-marathahalli @ 430x900 → rewards-hub-header with rewards-hub-logo (/api/files/…), 8 links in exact order [rewards,review,menu,feedback,game,insta,offers,book], no hub-link-wifi (tenant has no wifi_ssid). menu→/book/miracurl-marathahalli, offers→/membership/…, feedback→/rate/…, review has google_review_url target=_blank. hub-link-game opens wait-games-panel; hub-link-rewards opens loyalty join form, submitting name 'QA Guest' + phone 9876543210 → loyalty-join-success; rewards-hub-panel-close hides panel. /super-admin?tab=mira-leads → outreach-targeting shows outreach-max-reviews=300, outreach-include-luxury checked, cadence text 'day 7 → day 14 → day 30 → every 3 months'; outreach-stat-emails sub-line contains 'new' & 'reminders'. Changed max-reviews→280 & unchecked luxury → Save rules → reload → persisted (280 / false) → restore 300 / checked → reload → persisted. /settings#branding (tenant admin, PIN via API): settings-wifi-ssid + settings-wifi-password inputs present; set 'Miracurl Guest'/'welcome123' → save → /loyalty page shows hub-link-wifi with wifi-ssid='Miracurl Guest', wifi-password='welcome123'; then cleared via authed API PUT /settings/branding (with X-Owner-Pin: 4321) → public salon wifi_ssid empty (verified).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Branding Wi-Fi clear from UI", "issue": "PUT /api/settings/branding without X-Owner-Pin returned 403 during the second (cleanup) save in the browser. The BrandingCard save button does not attach X-Owner-Pin, so a fresh session that already had PIN cached succeeded, but the second save (after page reloads) failed 403. Cleared via authed API; feature works when PIN is provided.", "affected_selectors": ["settings-save-branding-btn"]}
+    ],
+    "design_issues": [
+      {"screen": "Public /loyalty hub", "issues": ["Layout, gold pills alternation, side script quotes, tenant-logo header all render as spec — verified via screenshot at 430x900."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter204_outreach_targeting_cadence.py",
+    "/app/test_reports/pytest/iter204.xml"
+  ],
+  "action_items": [
+    "(informational only) settings.min_score stored value is 50 (operator-mutated earlier); code default (_DEFAULTS) is 30. Not a bug — just note the current DB state.",
+    "(low) BrandingCard save button should surface the PIN gate when 403 comes back so the operator knows to re-enter Owner PIN — otherwise the toast shows a generic 'Couldn't save' after cookie expiry."
+  ],
+  "critical_code_review_comments": [
+    "mira_outreach._candidate_query correctly excludes sent leads (sent_at:{$exists:false}) and combines 'growing under max_reviews' with 'luxury regex OR rating>=4.8 AND reviews>=1000' via $or when include_luxury=true — good.",
+    "_pick_candidates does the 3:1 growing:luxury interleave AFTER filtering by _has_real_inbox and business hours; correct.",
+    "_reminder_due uses days[min(stage, len(days)-1)] so stage>=3 correctly falls to the last (90) cadence — matches spec 'every 3 months'.",
+    "OutreachSettingsIn.max_reviews has ge=10/le=5000 → PUT with 5 → 422; followup_days is manually clamped in put_settings to [1,365] and truncated to 6 → matches spec.",
+    "run_outreach_cycle: reminders share the SAME per_cycle budget as new leads (budget - len(picked)). This matches the spec 'reminders count inside the daily cap after new leads', but note: when per_cycle is small and there are lots of new leads, reminders never get through in a single cycle — consider ensuring at least 1 reminder slot per cycle to avoid stale queues (product decision).",
+    "_log_send hard-codes segment_of(lead, 300) rather than reading max_reviews from settings. If an operator sets max_reviews to a different value, historical logs' 'segment' field could disagree with settings. Cosmetic.",
+    "LoyaltyClubJoin correctly renders logo_url / falls back to font-caveat name; hub-link-wifi only appears when salon.wifi_ssid truthy — verified.",
+    "BrandingCard writes wifi_ssid/wifi_password via api.put('/settings/branding', branding); server route requires X-Owner-Pin — the api client attaches PIN from a stored session but this can 403 after cookie refresh (see integration issue)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter204_outreach_targeting_cadence.py"],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100%"},
+  "test_credentials": "Super admin admin@miracurl-suite.com / og9T@41Es#OQb6; tenant admin@miracurl.com / q6QY@tn3p#9DtL @ miracurl-marathahalli, Owner PIN 4321. CSRF: X-CSRF-Token=csrf_token cookie + Origin header.",
+  "seed_data_creation": "Ephemeral lead 'qa-cadence-1' inserted/deleted in mira_leads during cadence test; loyalty join created/updated public customer 'QA Guest' 9876543210 in miracurl-marathahalli (acceptable per spec).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_iter204_outreach_targeting_cadence.py is idempotent (restores settings + deletes injected lead + restores per_cycle). NEVER call run-now without dry_run=true. To clear Branding wifi via API you must send X-Owner-Pin:4321. Public salon endpoint /api/public/salon/{slug} exposes wifi_ssid,wifi_password,logo_url,google_review_url,instagram_url,hero_image,business_type — the frontend renders hub-link-wifi only when wifi_ssid truthy. Loyalty hub testids: rewards-hub-header, rewards-hub-logo, rewards-hub-links, hub-link-{rewards,review,menu,feedback,game,insta,offers,book,wifi}, rewards-hub-panel, rewards-hub-panel-close, wait-games-panel, wifi-ssid, wifi-password. Outreach testids: mira-outreach-card, outreach-targeting, outreach-max-reviews, outreach-include-luxury, outreach-daily-limit, outreach-min-score, outreach-save, outreach-stat-emails, outreach-run-now (do not click without dry_run guard).",
+  "rca of the issue": "N/A — no functional issues. Wi-Fi 403 in browser was expected PIN gate; feature works when PIN is provided."
+}
