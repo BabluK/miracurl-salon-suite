@@ -18,7 +18,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from database import _raw_db
-from security import require_tenant_admin, current_tenant
+from security import require_tenant_admin, current_tenant, require_super_admin
 
 router = APIRouter()
 log = logging.getLogger("social_connect")
@@ -257,33 +257,41 @@ async def google_oauth_start(request: Request, admin=Depends(require_tenant_admi
     return {"auth_url": f"{GOOGLE_AUTH}?{urlencode(params)}"}
 
 
-async def _discover_gbp(access_token: str) -> tuple[dict, str]:
-    """Find the tenant's Business Profile account + first location. Returns (fields, error_code)."""
+def _gerr(resp) -> str:
+    try:
+        e = resp.json().get("error", {})
+        return f"HTTP {resp.status_code} {e.get('status') or ''}: {str(e.get('message') or '')[:220]}".strip()
+    except Exception:  # noqa: BLE001
+        return f"HTTP {resp.status_code}: {resp.text[:200]}"
+
+
+async def _discover_gbp(access_token: str) -> tuple[dict, str, str]:
+    """Find the tenant's Business Profile account + first location. Returns (fields, error_code, google_detail)."""
     out: dict = {}
     try:
         async with httpx.AsyncClient(timeout=30) as http:
             hdr = {"Authorization": f"Bearer {access_token}"}
             acc = await http.get(f"{GBP_ACCOUNTS}/accounts", headers=hdr)
             if acc.status_code in (403, 429):
-                return out, "api_not_approved"
+                return out, "api_not_approved", _gerr(acc)
             acc.raise_for_status()
             accounts = acc.json().get("accounts", [])
             if not accounts:
-                return out, "no_business_profile"
+                return out, "no_business_profile", "accounts list empty"
             account_name = accounts[0]["name"]
             loc = await http.get(f"{GBP_INFO}/{account_name}/locations",
                                  params={"readMask": "name,title", "pageSize": 10}, headers=hdr)
             if loc.status_code in (403, 429):
-                return out, "api_not_approved"
+                return out, "api_not_approved", _gerr(loc)
             loc.raise_for_status()
             locations = loc.json().get("locations", [])
             if not locations:
-                return out, "no_location"
+                return out, "no_location", f"{account_name} has no locations"
             out = {"location_name": f"{account_name}/{locations[0]['name']}", "location_title": locations[0].get("title"), "api_ready": True}
-            return out, ""
+            return out, "", ""
     except Exception as e:  # noqa: BLE001
         log.warning("google business discovery failed (API access may be pending approval): %s", e)
-        return out, "error"
+        return out, "error", str(e)[:240]
 
 
 @router.get("/social/google/oauth/callback")
@@ -314,9 +322,9 @@ async def google_oauth_callback(request: Request, code: str = "", state: str = "
         "expires_at": datetime.now(timezone.utc).timestamp() + td.get("expires_in", 3600),
         "api_ready": False,
     }
-    found, err = await _discover_gbp(gb["access_token"])
+    found, err, detail = await _discover_gbp(gb["access_token"])
     gb.update(found)
-    gb["api_error"] = err
+    gb["api_error"], gb["api_error_detail"] = err, detail
     gb["last_check_at"] = datetime.now(timezone.utc).isoformat()
 
     await _raw_db.social_connections.update_one(
@@ -329,17 +337,48 @@ async def google_oauth_callback(request: Request, code: str = "", state: str = "
 async def recheck_google(tid: str) -> dict:
     """Re-run Business Profile discovery with the stored refresh token (one tap from the card, or the daily sweep)."""
     token, gb = await _google_token(tid)
-    found, err = await _discover_gbp(token)
+    found, err, detail = await _discover_gbp(token)
     gb.update(found)
-    gb["api_error"] = err
+    gb["api_error"], gb["api_error_detail"] = err, detail
     gb["last_check_at"] = datetime.now(timezone.utc).isoformat()
     await _raw_db.social_connections.update_one({"tenant_id": tid}, {"$set": {"google_business": _enc_gb(gb)}})
-    return {"api_ready": bool(gb.get("api_ready")), "api_error": err, "location_title": gb.get("location_title")}
+    return {"api_ready": bool(gb.get("api_ready")), "api_error": err, "api_error_detail": detail, "location_title": gb.get("location_title")}
 
 
 @router.post("/social/google/recheck")
 async def google_recheck(admin=Depends(require_tenant_admin), t=Depends(current_tenant)):
     return await recheck_google(t["id"])
+
+
+@router.get("/super-admin/google/status")
+async def hq_google_status(user=Depends(require_super_admin)):
+    """HQ view: every tenant that connected Google, whether review access is live, and Google's exact last error."""
+    rows = []
+    async for doc in _raw_db.social_connections.find({"google_business": {"$exists": True}}, {"_id": 0, "tenant_id": 1, "google_business": 1, "google_connected_at": 1}):
+        t = await _raw_db.tenants.find_one({"id": doc["tenant_id"]}, {"_id": 0, "name": 1, "slug": 1}) or {}
+        gb = doc.get("google_business") or {}
+        rows.append({"tenant_id": doc["tenant_id"], "tenant": t.get("name") or doc["tenant_id"], "slug": t.get("slug"),
+                     "api_ready": bool(gb.get("api_ready")), "api_error": gb.get("api_error", ""), "api_error_detail": gb.get("api_error_detail", ""),
+                     "location_title": gb.get("location_title"), "connected_at": doc.get("google_connected_at"), "last_check_at": gb.get("last_check_at")})
+    return {"tenants": rows, "pending": sum(1 for r in rows if not r["api_ready"]), "configured": all(_google_creds())}
+
+
+@router.post("/super-admin/google/recheck-all")
+async def hq_google_recheck_all(user=Depends(require_super_admin)):
+    """HQ presses this right after enabling the Business Profile APIs / getting Google's approval."""
+    results = []
+    async for doc in _raw_db.social_connections.find({"google_business": {"$exists": True}}, {"_id": 0, "tenant_id": 1}):
+        t = await _raw_db.tenants.find_one({"id": doc["tenant_id"]}, {"_id": 0, "name": 1, "slug": 1}) or {}
+        try:
+            res = await recheck_google(doc["tenant_id"])
+        except HTTPException as e:
+            res = {"api_ready": False, "api_error": "token", "api_error_detail": str(e.detail)}
+        results.append({"tenant": t.get("name") or doc["tenant_id"], "slug": t.get("slug"), **res})
+    live = sum(1 for r in results if r["api_ready"])
+    return {"checked": len(results), "live": live, "results": results,
+            "verdict": ("Google Business Profile API is LIVE ✦" if live and live == len(results) else
+                        "Still blocked by Google — see api_error_detail (quota 0 / PERMISSION_DENIED = access request not approved yet)" if results else
+                        "No tenant has connected Google yet")}
 
 
 async def recheck_pending_google_connections() -> int:

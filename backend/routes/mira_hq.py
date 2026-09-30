@@ -611,7 +611,8 @@ async def mira_home(user=Depends(require_super_admin)):
     ).sort("created_at", -1).to_list(5)
     from routes.mira_outreach import outreach_summary
     outreach = await outreach_summary()
-    return {"snapshot": snap, "new_prospects_48h": new_prospects, "followups_due": followups,
+    google_pending = await _raw_db.social_connections.count_documents({"google_business": {"$exists": True}, "google_business.api_ready": {"$ne": True}})
+    return {"snapshot": snap, "new_prospects_48h": new_prospects, "followups_due": followups, "google_pending": google_pending,
             "emails_sent": emails_sent, "active_run": active_run,
             "trials_expiring": trials_expiring, "timeline": timeline,
             "health": health, "orphan_records": orphans, "health_alerts": alerts,

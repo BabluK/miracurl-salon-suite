@@ -405,6 +405,21 @@ export function MiraHome({ onGoTab, user }) {
     } finally { setThinking(false); }
   }
 
+  const [checkingGoogle, setCheckingGoogle] = useState(false);
+  const [googleCheck, setGoogleCheck] = useState(null);
+  async function checkGoogle() {
+    setCheckingGoogle(true);
+    try {
+      const { data } = await api.post("/super-admin/google/recheck-all");
+      setGoogleCheck(data);
+      if (data.live && data.live === data.checked) { toast.success(data.verdict); speak("Great news Boss — Google Business Profile API is live. Review replies are switched on."); }
+      else toast.info(data.verdict);
+      load();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't reach Google just now");
+    } finally { setCheckingGoogle(false); }
+  }
+
   async function confirmAction(idx, pending, yes) {
     setChat(c => c.map((m, i) => (i === idx ? { ...m, pending: null } : m)));
     if (!yes) { setChat(c => [...c.slice(-6), { role: "mira", text: "Okay, Boss — not doing that." }]); return; }
@@ -502,6 +517,23 @@ export function MiraHome({ onGoTab, user }) {
                   <button onClick={() => onGoTab?.("partners")} data-testid="mira-blog-draft-review"
                     className="text-[10px] font-bold px-3 py-1.5 rounded-full bg-violet-400 text-[#0b1020] hover:bg-violet-300">
                     Review & Publish →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {home?.google_pending > 0 && (
+            <div className="mt-3 max-w-2xl w-full flex items-start gap-2.5 bg-amber-500/10 border border-amber-400/30 rounded-2xl px-4 py-3" data-testid="mira-google-pending">
+              <span className="text-base leading-none mt-0.5">⭐</span>
+              <div className="text-xs text-amber-200 leading-relaxed text-left flex-1">
+                <b>Google Business Profile:</b> {home.google_pending} tenant{home.google_pending === 1 ? " is" : "s are"} connected but Google hasn't opened review access to our app yet.
+                Enabled the APIs or got Google's approval email? Tap and I'll re-check every tenant right now.
+                {googleCheck && <div className="mt-1.5 text-[11px] text-amber-100/90" data-testid="mira-google-verdict">{googleCheck.verdict}{googleCheck.results?.[0]?.api_error_detail ? ` — Google says: ${googleCheck.results[0].api_error_detail}` : ""}</div>}
+                <div className="flex gap-2 mt-2">
+                  <button onClick={checkGoogle} disabled={checkingGoogle} data-testid="mira-google-recheck"
+                    className="text-[10px] font-bold px-3 py-1.5 rounded-full bg-amber-400 text-[#0b1020] hover:bg-amber-300 disabled:opacity-50 flex items-center gap-1">
+                    {checkingGoogle ? <Loader2 className="w-3 h-3 animate-spin" /> : "⭐"} {checkingGoogle ? "Asking Google…" : "Check Google API now"}
                   </button>
                 </div>
               </div>

@@ -3791,3 +3791,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - **Google Business Profile**: discovery errors stored (`api_error`: api_not_approved | no_business_profile | no_location | error); `POST /social/google/recheck` + "Check again" button; daily `_google_recheck_loop` re-checks pending tenants and notifies when live. ROOT CAUSE of "waiting for approval" (deployer-confirmed): Google Cloud project needs My Business Account Management API + Business Information API enabled and Google's Business Profile API access approval — HQ action, not tenant.
 - **Desk QR**: poster always prints a branch (selector in Attendance modal, main = tenant.location), QR URL carries `&b=`, check-in stores `check_in_branch`, rows show "via desk QR · <branch>".
 - Tested: iteration_203 (14/14 backend + frontend pass).
+
+## 2026-09-30 — HQ Google API check
+- `GET /super-admin/google/status`, `POST /super-admin/google/recheck-all` (re-runs discovery for every Google-connected tenant, returns Google's exact error text `api_error_detail`). Mira Home shows a "Google Business Profile — N tenants waiting" banner with **Check Google API now** when `home.google_pending > 0`. Needs PROD deploy to test against the real connected tenant (preview has none).
