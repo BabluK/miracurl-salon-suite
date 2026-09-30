@@ -11,7 +11,8 @@ const CH = {
 };
 
 const ERR = { no_phone: "no mobile on file", no_email: "no email on file", no_sms_points: "no SMS credits", no_wa_points: "no WhatsApp credits",
-  whatsapp_disabled: "WhatsApp is off for this salon", template_pending: "WhatsApp receipt template awaiting Meta approval — opened wa.me instead", sms_disabled: "SMS is off for this salon" };
+  whatsapp_disabled: "WhatsApp is off for this salon", template_pending: "WhatsApp receipt template awaiting Meta approval — opened wa.me instead", sms_disabled: "SMS is off for this salon",
+  not_configured: "SMS gateway isn't set up on this server yet — Miracurl HQ has been notified", invalid_phone: "mobile number looks invalid — fix it in CRM" };
 
 export function SendBillButtons({ invoice, customer, compact = false, onSent }) {
   const { user } = useAuth() || {};

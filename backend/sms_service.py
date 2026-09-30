@@ -72,10 +72,16 @@ async def apply_hq_sms_template_ids() -> int:
     return len(ids)
 
 
+DEFAULT_SENDER_ID = "MIRACU"  # DLT-registered Miracurl header — public, not a secret
+
+
+def msg91_sender() -> str:
+    return (os.environ.get("MSG91_SENDER_ID") or "").strip() or DEFAULT_SENDER_ID
+
+
 def _msg91_ready() -> bool:
-    # Either the generic ##message## flow or the per-kind DLT templates make MSG91 usable.
-    return all(os.environ.get(k) for k in ("MSG91_AUTHKEY", "MSG91_SENDER_ID")) and bool(
-        os.environ.get("MSG91_FLOW_ID") or MSG91_TEMPLATES)
+    # Only the auth key is truly required: sender falls back to the DLT header, templates carry their own IDs.
+    return bool(os.environ.get("MSG91_AUTHKEY")) and bool(os.environ.get("MSG91_FLOW_ID") or MSG91_TEMPLATES)
 
 
 def _provider() -> str:
@@ -145,7 +151,7 @@ async def send_sms_template(to: str, kind: str, values: list[str]) -> dict:
             v = _fit_var(v)
         recipient[f"var{i + 1}"] = v or "-"
     res = await _msg91_post({"template_id": tpl, "short_url": "1" if has_url else "0",
-                             "sender": os.environ["MSG91_SENDER_ID"], "recipients": [recipient]})
+                             "sender": msg91_sender(), "recipients": [recipient]})
     res["provider"] = "msg91"
     res["template"] = kind
     return res
@@ -157,7 +163,7 @@ async def _send_msg91(to: str, body: str) -> dict:
     mobile = to.lstrip("+")
     payload = {
         "flow_id": os.environ["MSG91_FLOW_ID"],
-        "sender": os.environ["MSG91_SENDER_ID"],
+        "sender": msg91_sender(),
         "mobiles": mobile,
         "message": body,
     }
