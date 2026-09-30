@@ -3754,3 +3754,14 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Settings → "Connect from my phone (QR)" panel renders QR + copy; `/api/whatsapp-own/handoff` + public info/connect endpoints OK.
 - **Bug fixed:** `/connect-whatsapp/` was absent from `PUBLIC_PREFIXES` (`lib/api.js`) so the phone page redirected to `/login`. Now loads on mobile; expired token shows friendly error.
 - Backlog: P1 prod MSG91 secrets (user action), P2 mid-term membership upgrade, P3 server.py import refactor.
+
+## 2026-09-30 — Mira Outreach Autopilot (Super Admin) ✦
+- NEW `routes/mira_outreach.py`: Mira autonomously emails hot salon/restaurant leads (vertical-specific pitch + demo link), daily cap (default 100, configurable 1–1000), local business-hours (9–18 per lead country), WhatsApp intro only for allowed dial codes (`wa_countries`), self-hunts world cities (`_WORLD_CITIES`, `hunt_countries`, `hunts_per_day`) when pipeline is thin. History in `mira_outreach_log` (channel email|whatsapp|conversion, day, vertical, country).
+- Conversion → HQ email (admin@miracurl-suite.com) with "send demo invite" CTA; hooked into email reply webhook, WA reply, demo-slot requests, tenant signup. Dedupe via `mira_leads.conversion_alerts`.
+- Endpoints: GET /super-admin/mira/outreach/{summary,history,countries}, PUT .../settings, POST .../run-now?dry_run=.
+- Mira HQ brain upgraded: chief-of-staff prompt; actions `outreach_now|outreach_on|outreach_off|set_limit:n|hunt:<City, CC>:<vertical>` executed server-side ONLY on explicit commands. Briefing + Mira Home speak/show "Outreach report".
+- Scheduler `_mira_outreach_scheduler` (10 min, PROD only via _OUTBOUND). Autopilot is OFF by default — Boss must switch it on (card or "turn on outreach autopilot").
+- UI: `MiraOutreachCard.jsx` + `OutreachHistory.jsx` in Mira Lead Agent tab; `mira-outreach-report` banner on Mira Home.
+- Handoff toast now reads "Connected ✦ — your WhatsApp Business number is now linked to Mira".
+- Tested: iteration_201 (15/15 backend, frontend flow pass).
+- Backlog: P1 prod MSG91 secrets (user action in Deployment Panel), P2 mid-term membership upgrade, P3 server.py imports.

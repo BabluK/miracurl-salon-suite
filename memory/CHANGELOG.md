@@ -353,3 +353,6 @@
 ## 2026-09-30 — WA QR Hand-off verified + public-route fix
 - Verified end-to-end: Approve All (confirm dialog → approved chips), Settings QR panel, `/connect-whatsapp/:token` handoff page + expired-token error.
 - FIX: `/connect-whatsapp/` was missing from `PUBLIC_PREFIXES` in `lib/api.js`, so the phone was bounced to `/login`. Added.
+
+## 2026-09-30 — Mira Outreach Autopilot
+- Autonomous lead emailing/WhatsApp with daily cap, per-vertical templates, world-city self-hunting, day-wise history, HQ conversion alerts, Mira chat actions. See PRD.

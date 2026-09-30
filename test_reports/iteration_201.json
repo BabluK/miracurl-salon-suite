@@ -1,0 +1,30 @@
+{
+  "summary": "Iter 201 — Mira Outreach Autopilot: 15/15 backend tests passed and full frontend flow passed. Verified summary/settings/run-now(dry_run)/history/countries endpoints, 401/403 guards for anonymous + tenant admin, briefing/home outreach payload, and mira/ask LLM actions (outreach_on, outreach_off, set_limit:150 → 100 restored). Frontend on /super-admin?tab=mira-leads renders the MiraOutreachCard with all 19 required data-testids; changing limit to 120 + toggling wa-91 off / wa-971 on saved and persisted after reload; restored to defaults; history toggle shows day-wise table + Recent activity. mira-outreach-report banner visible on Mira Home with 'Autopilot OFF' pill, and outreach-open button switches tab. Autopilot left OFF at the end. run-now was called only with dry_run=true — no real emails sent.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Super Admin console (multiple pages)", "issues": ["React hydration warning: <button> cannot be a descendant of <button>. Recurring console error — safe to ship but should be fixed."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter201_mira_outreach.py",
+    "/app/test_reports/pytest/iter201.xml"
+  ],
+  "action_items": [
+    "(low) Fix nested <button> hydration warning in super-admin layout (likely in MiraHome/MiraOutreachCard header — the enabled-toggle <label> wraps a native checkbox but is inside a button-hosting flex header)."
+  ],
+  "critical_code_review_comments": [
+    "OutreachSettingsIn.daily_email_limit is capped at 1000 (le=1000). Requirement wording says 5000 should return 422 — currently 5000 correctly rejects, but the copy 'up to 1000/day' is enforced. Confirm this is the desired ceiling.",
+    "run-now endpoint mutates state when dry_run is omitted (default False). Consider making dry_run default True or requiring an explicit confirmation flag to reduce blast radius for accidental invocations from admin UI or curl.",
+    "_run_mira_action LLM path executes actions purely based on model output — a stray 'outreach_on' hallucination would silently flip autopilot on. System prompt has 'STRICT RULE' but this is soft. Adding a server-side keyword-guardrail check on body.question would make it deterministic."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter201_mira_outreach.py"],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100%"},
+  "test_credentials": "Super admin admin@miracurl-suite.com / og9T@41Es#OQb6; tenant admin@miracurl.com / q6QY@tn3p#9DtL @ miracurl-marathahalli",
+  "seed_data_creation": "None — settings restored to defaults (enabled=false, daily_email_limit=100, wa_countries=['91']) at end of both backend and frontend runs.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_iter201_mira_outreach.py is idempotent and safe to re-run — only touches settings and calls run-now with dry_run=true. Restores enabled=false + limit=100 at teardown. Frontend flow uses only dry-safe UI operations; Autopilot is left OFF."
+}
