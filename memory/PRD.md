@@ -3809,3 +3809,7 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Targeting: fresh leads only (`sent_at` absent); segments `growing` (reviews < `max_reviews`, default 300) first, `luxury` (name/category keywords or 4.8★ & 1,000+ reviews) mixed 3:1, `include_luxury` toggle; min_score default 30. Places hunt ranking now prefers growing (5≤reviews<cap) → luxury → big.
 - Reminder cadence (`followup_days` [7,7,16,90]): no-reply leads get reminder_1 day 7, reminder_2 day 14, reminder_3 day 30, then every 90 days; one touch/lead/day; counted in the daily cap after new leads; log `kind`=reminder_n; summary/greeting split new vs reminders. Legacy 5-day follow-up skipped while autopilot ON.
 - Rewards hub v2: tenant logo header, side Caveat quotes, alternating white/black gold-ring pills, Powered-by + footer tagline (matches reference).
+
+## 2026-09-30 — Poster refresh · Autopilot default ON · deploy
+- Loyalty poster: smaller QR, gold chip strip "REWARDS • WI-FI • MENU • REVIEWS • GAMES & MORE" + "ONE SCAN · EVERYTHING FOR OUR GUESTS", gift copy updated.
+- `_DEFAULTS["enabled"] = True` in mira_outreach → production (no settings doc yet) starts with Autopilot ON after deploy; preview keeps its explicit doc (False). Deploy requested.

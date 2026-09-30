@@ -409,7 +409,7 @@ def _poster_qr(p: _Poster) -> None:
     import qrcode
     from PIL import Image, ImageDraw
     qr = qrcode.make(f"{p.base}/loyalty/{p.t.get('slug') or ''}", box_size=10, border=1).convert("RGB")
-    qs, pad = 330, 18
+    qs, pad = 300, 16
     qr = qr.resize((qs, qs))
     box = Image.new("RGB", (qs + pad * 2, qs + pad * 2), (255, 255, 255))
     box.paste(qr, (pad, pad))
@@ -419,7 +419,20 @@ def _poster_qr(p: _Poster) -> None:
     if p.light:
         bx, by = (p.W - box.width) // 2, p.y
         p.d.rounded_rectangle([bx, by, bx + box.width - 1, by + box.height - 1], radius=26, outline=p.gold, width=3)
-    p.y += box.height + 16
+    p.y += box.height + 12
+
+
+def _poster_hub_chips(p: _Poster) -> None:
+    """One QR does everything — gold pill listing what guests unlock on the Rewards Hub page."""
+    f = p.font("FreeSansBold.ttf", 17)
+    txt = "REWARDS   •   WI-FI   •   MENU   •   REVIEWS   •   GAMES & MORE"
+    tw = p.d.textlength(txt, font=f)
+    x0, y0, h = (p.W - tw) / 2 - 22, p.y, 38
+    p.d.rounded_rectangle([x0, y0, x0 + tw + 44, y0 + h], radius=19, outline=p.gold, width=2)
+    p.d.text(((p.W - tw) / 2, y0 + 9), txt, font=f, fill=p.gold)
+    p.y += h + 8
+    p.center("ONE SCAN  ·  EVERYTHING FOR OUR GUESTS", p.y, p.font("FreeSansBold.ttf", 15), p.soft)
+    p.y += 26
 
 
 def _poster_gift_block(p: _Poster, n: int) -> None:
@@ -430,8 +443,8 @@ def _poster_gift_block(p: _Poster, n: int) -> None:
     tx = 292
     p.d.text((tx, p.y + 28), "A SURPRISE GIFT", font=p.font("FreeSansBold.ttf", 32), fill=p.gold)
     p.d.text((tx, p.y + 70), f"awaits at your {_ordinal(n)} visit", font=p.font("FreeSansBold.ttf", 22), fill=p.soft)
-    p.d.text((tx, p.y + 104), "Scan · Join in 10 seconds", font=p.font("FreeSansBold.ttf", 20), fill=p.ink)
-    p.d.text((tx, p.y + 132), "Earn a gold stamp every visit", font=p.font("FreeSansBold.ttf", 20), fill=p.ink)
+    p.d.text((tx, p.y + 104), "Scan once · join in 10 seconds", font=p.font("FreeSansBold.ttf", 20), fill=p.ink)
+    p.d.text((tx, p.y + 132), "Stamps, Wi-Fi, menu, reviews & games", font=p.font("FreeSansBold.ttf", 20), fill=p.ink)
     p.center(f"{p.base.replace('https://', '')}/loyalty/{p.t.get('slug') or ''}", p.H - 56, p.font("FreeSansBold.ttf", 17), p.foot)
 
 
@@ -441,6 +454,7 @@ def _render_poster(p: _Poster) -> bytes:
     _poster_header(p)
     _poster_stamp_journey(p, n)
     _poster_qr(p)
+    _poster_hub_chips(p)
     _poster_gift_block(p, n)
     out = io.BytesIO()
     p.bg.save(out, format="JPEG", quality=85)

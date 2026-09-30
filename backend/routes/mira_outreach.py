@@ -39,7 +39,7 @@ _WORLD_CITIES = [
     "Singapore, SG", "Kuala Lumpur, MY", "Sydney, AU", "Melbourne, AU", "Auckland, NZ",
     "Nairobi, KE", "Johannesburg, ZA", "Colombo, LK", "Kathmandu, NP", "Dhaka, BD",
 ]
-_DEFAULTS = {"enabled": False, "daily_email_limit": 100, "per_cycle": 10, "min_score": 30,
+_DEFAULTS = {"enabled": True, "daily_email_limit": 100, "per_cycle": 10, "min_score": 30,
              "verticals": ["salon", "restaurant"], "wa_countries": ["91"], "auto_hunt": True, "hunts_per_day": 2,
              "hunt_countries": ["IN", "AE", "UK", "US", "SG", "AU", "CA"], "start_hour": 9, "end_hour": 18,
              # targeting: growing businesses (recently opened, < max_reviews Google reviews) + luxury salons
