@@ -44,7 +44,8 @@ export function MiraOutreachCard() {
     try {
       const { data } = await api.put("/super-admin/mira/outreach/settings", { ...s, ...patch });
       setS(data); load();
-      toast.success(data.enabled ? `🤖 Autopilot ON — up to ${data.daily_email_limit} emails/day` : "Autopilot paused");
+      if ("ab_test" in patch) toast.success(patch.ab_test ? "🧪 A/B subject test ON — two subject lines per pitch" : "A/B subject test off");
+      else toast.success(data.enabled ? `🤖 Autopilot ON — up to ${data.daily_email_limit} emails/day` : "Autopilot paused");
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't save"); }
     finally { setSaving(false); }
   };

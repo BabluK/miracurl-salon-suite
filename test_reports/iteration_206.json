@@ -1,0 +1,30 @@
+{
+  "summary": "Iteration 206 — A/B subject-line tests on Mira Outreach Autopilot. All 6 backend pytest cases pass (pick_subject unit, ab-stats aggregation with 12 fake qa-ab- leads inserted/cleaned, settings ab_test toggle off/on with summary + ab-stats enabled flag reflection, restaurant pitch-preview is_sample=false returning Snuzzles Cafe Jayanagar with distinct A/B subjects, salon pitch-preview with subject_b, and restaurant lead count >=10 with valid email_source/phone_source). Frontend AbSubjectPanel verified end-to-end: outreach-ab-panel scrolls into view, outreach-ab-toggle checked by default, chips outreach-ab-vert-salon / outreach-ab-vert-restaurant switch, outreach-ab-a and outreach-ab-b bars render, outreach-ab-total shows '0 A/B sends so far', toggle-off shows 'Autopilot paused' toast and label 'On — two subject lines per pitch' flips; toggle back on restores. Pitch preview dialog for restaurant shows pitch-preview-subject (A badge) + pitch-preview-subject-b (B badge, contains 'A/B test — half the leads get A, half get B'), and pitch-preview-lead reads 'next real lead in queue' (not sample) with 'Snuzzles Cafe Jayanagar · Bangalore · ★4.7 (283)'. Fake Mongo rows (qa-ab-*) cleaned up.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Super Admin page", "issues": ["Hydration warning in console: '<button> cannot be a descendant of <button>' — nested buttons somewhere in Super Admin tree (pre-existing, non-blocking)"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter206_ab_subjects.py",
+    "/app/test_reports/pytest/iter206.xml"
+  ],
+  "action_items": [
+    "Optional: fix nested <button> inside <button> hydration warning in Super Admin layout (non-blocking)."
+  ],
+  "critical_code_review_comments": [
+    "pick_subject() uses hex parse on last id char — if id ends with a non-hex char (e.g. '-' from uuid dash) it falls back to even/A gracefully via ValueError catch. OK, but a plain hash(id) % 2 would be more robust.",
+    "ab_stats endpoint does not index on subject_variant — scales to 5000 docs via to_list(5000). Add compound index {subject_variant:1, sent_at:-1} if volume grows.",
+    "ensure_subject_b performs an LLM call lazily on read-path (approve_and_send). Consider pre-generating on draft to avoid send-time latency / failure window."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter206_ab_subjects.py"],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (all AbSubjectPanel + PitchPreviewDialog checks)"},
+  "test_credentials": "Super admin: admin@miracurl-suite.com / og9T@41Es#OQb6 (cookie auth with X-CSRF-Token).",
+  "seed_data_creation": "Inserted 12 temporary mira_leads rows (ids prefixed qa-ab-, vertical=salon, 6×A with 3 replied_at, 6×B) and deleted them in the same test teardown.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 206 covered A/B subject-line vertical: pick_subject logic, ab-stats aggregation + winner rule (>=5 sends each, higher reply_rate wins), ab_test settings toggle, pitch-preview returning subject_b, and real restaurant leads in Bangalore (Snuzzles Cafe Jayanagar now serves as the first drafted restaurant preview). All six backend tests + full AbSubjectPanel + PitchPreviewDialog flows green. Regression (Follow-up Pipeline / source badges / outreach summary) already covered by iter205; a 200 on summary endpoint was indirectly verified via settings toggle test. No code changes needed."
+}
