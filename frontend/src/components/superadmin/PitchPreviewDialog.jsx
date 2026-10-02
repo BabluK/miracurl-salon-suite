@@ -69,7 +69,8 @@ export function PitchPreviewDialog({ open, onClose, vertical, initialNotes, onSa
                   {["text", "email"].map(t => <button key={t} onClick={() => setTab(t)} data-testid={`pitch-tab-${t}`} className={`px-2.5 py-1 font-semibold ${tab === t ? "bg-[#1c1c22] text-[#e8c37f]" : "bg-white text-slate-500"}`}>{t === "text" ? "Plain text" : "As the lead sees it"}</button>)}
                 </span>
               </div>
-              <div className="text-sm font-semibold text-slate-900" data-testid="pitch-preview-subject">Subject: {preview.subject}</div>
+              <div className="text-sm font-semibold text-slate-900" data-testid="pitch-preview-subject"><span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 mr-1.5 align-middle">A</span>Subject: {preview.subject}</div>
+              {preview.subject_b && <div className="text-sm font-semibold text-slate-700" data-testid="pitch-preview-subject-b"><span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 mr-1.5 align-middle">B</span>Subject: {preview.subject_b} <span className="text-[10px] font-normal text-slate-400">· A/B test — half the leads get A, half get B</span></div>}
               {tab === "text"
                 ? <div className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed bg-white rounded-xl border border-slate-100 p-3" data-testid="pitch-preview-body">{preview.body}</div>
                 : <iframe title="pitch email preview" srcDoc={preview.html} sandbox="" className="w-full h-[520px] bg-white rounded-xl border border-slate-100" data-testid="pitch-preview-html" />}

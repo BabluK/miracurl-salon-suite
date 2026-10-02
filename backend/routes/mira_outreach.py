@@ -47,7 +47,9 @@ _DEFAULTS = {"enabled": True, "daily_email_limit": 100, "per_cycle": 10, "min_sc
              # reminder cadence for leads that never replied: day 7 → day 14 → day 30 → every 90 days
              "followup_days": [7, 7, 16, 90],
              # Boss's wording instructions per vertical — appended to Mira's pitch prompt
-             "pitch_notes": {"salon": "", "restaurant": ""}}
+             "pitch_notes": {"salon": "", "restaurant": ""},
+             # A/B subject-line test: each drafted pitch carries two subjects; sends split 50/50 by lead id
+             "ab_test": True}
 
 _LUXURY_RE = re.compile(r"\b(luxury|luxe|premium|royal|elite|signature|prestige|boutique|spa|lounge|couture|imperial|platinum|grand)\b", re.I)
 
@@ -95,10 +97,15 @@ async def get_settings() -> dict:
 async def send_pitch(lead: dict, by: str = "mira-autopilot") -> dict:
     """Email the researched pitch (vertical-specific template + demo link). Records the lead + history row."""
     from email_service import _send_email
+    from routes.lead_gen import pick_subject, ensure_subject_b
     if not lead.get("email") or lead.get("unsubscribed") or lead.get("status") == "sent":
         return {"sent": False, "error": "not eligible"}
+    ab_on = (await get_settings()).get("ab_test", True)
+    if ab_on:
+        lead = await ensure_subject_b(lead)
+    subject, variant = pick_subject(lead, ab_on)
     html = _outreach_email_html(lead, await _live_plans())
-    res = await _send_email([lead["email"]], lead.get("email_subject") or "Miracurl Suite — free demo", html,
+    res = await _send_email([lead["email"]], subject, html,
                             book_url="https://miracurl-suite.com/demo", reply_to=_lead_reply_to(),
                             headers=_lead_headers(lead["id"]), from_name="Mira at Miracurl")
     if not res.get("sent"):
@@ -106,8 +113,9 @@ async def send_pitch(lead: dict, by: str = "mira-autopilot") -> dict:
                                                                           "auto_send_attempted_at": _now()}})
         return res
     await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {
-        "status": "sent", "sent_via": "email", "sent_at": _now(), "approved_by": by, "auto_sent": by == "mira-autopilot"}})
-    await _log_send(lead, "email", detail=lead.get("email_subject") or "")
+        "status": "sent", "sent_via": "email", "sent_at": _now(), "approved_by": by, "auto_sent": by == "mira-autopilot",
+        "subject_sent": subject, "subject_variant": variant}})
+    await _log_send(lead, "email", detail=f"[{variant}] {subject}" if variant else subject)
     return res
 
 
@@ -419,6 +427,7 @@ class OutreachSettingsIn(BaseModel):
     include_luxury: Optional[bool] = None
     followup_days: Optional[list[int]] = None
     pitch_notes: Optional[dict] = None
+    ab_test: Optional[bool] = None
 
 
 def _clean_notes(raw) -> dict:
@@ -490,7 +499,41 @@ async def pitch_preview(body: PitchPreviewIn, user=Depends(require_super_admin))
     html = _outreach_email_html({**lead, "email_body": draft["body"], "email_subject": draft["subject"]}, await _live_plans())
     return {"vertical": body.vertical, "is_sample": is_sample, "notes": notes or "",
             "lead": {k: lead.get(k) for k in ("id", "name", "city", "rating", "reviews", "email", "category", "score")},
-            "subject": draft["subject"], "body": draft["body"], "html": html}
+            "subject": draft["subject"], "subject_b": draft.get("subject_b") or "", "body": draft["body"], "html": html}
+
+
+# ---------------- A/B subject-line results ----------------
+
+def _ab_bucket() -> dict:
+    return {"sent": 0, "opened": 0, "replied": 0}
+
+
+@router.get("/super-admin/mira/outreach/ab-stats")
+async def ab_stats(user=Depends(require_super_admin)):
+    """Per vertical: how many pitches went out with subject A vs B, how many were opened / got a reply, and the winner so far."""
+    rows = await _raw_db.mira_leads.find({"subject_variant": {"$in": ["A", "B"]}},
+                                         {"_id": 0, "vertical": 1, "subject_variant": 1, "subject_sent": 1, "opened_at": 1,
+                                          "replied_at": 1, "wa_intro_replied_at": 1, "name": 1, "sent_at": 1}).to_list(5000)
+    out = {v: {"A": _ab_bucket(), "B": _ab_bucket(), "winner": "", "recent": []} for v in ("salon", "restaurant")}
+    for r in sorted(rows, key=lambda x: x.get("sent_at") or "", reverse=True):
+        v = "restaurant" if r.get("vertical") == "restaurant" else "salon"
+        b = out[v][r["subject_variant"]]
+        b["sent"] += 1
+        b["opened"] += 1 if r.get("opened_at") else 0
+        b["replied"] += 1 if (r.get("replied_at") or r.get("wa_intro_replied_at")) else 0
+        if len(out[v]["recent"]) < 8:
+            out[v]["recent"].append({"name": r.get("name"), "variant": r["subject_variant"], "subject": r.get("subject_sent"),
+                                     "replied": bool(r.get("replied_at") or r.get("wa_intro_replied_at")), "opened": bool(r.get("opened_at"))})
+    for v, d in out.items():
+        for k in ("A", "B"):
+            s = d[k]["sent"]
+            d[k]["reply_rate"] = round(d[k]["replied"] * 100 / s, 1) if s else 0.0
+            d[k]["open_rate"] = round(d[k]["opened"] * 100 / s, 1) if s else 0.0
+        if d["A"]["sent"] >= 5 and d["B"]["sent"] >= 5 and d["A"]["reply_rate"] != d["B"]["reply_rate"]:
+            d["winner"] = "A" if d["A"]["reply_rate"] > d["B"]["reply_rate"] else "B"
+        d["total_sent"] = d["A"]["sent"] + d["B"]["sent"]
+    return {"enabled": (await get_settings()).get("ab_test", True), "verticals": out,
+            "note": "A = Mira's primary hook · B = alternate angle. Winner is called once both variants have 5+ sends."}
 
 
 # ---------------- Reply Inbox: Mira drafts the demo invite, Boss sends in one tap ----------------

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { confirmAsync } from "@/components/ConfirmDialog";
 import { OutreachHistory } from "./OutreachHistory";
 import { PitchPreviewDialog } from "./PitchPreviewDialog";
+import { AbSubjectPanel } from "./AbSubjectPanel";
 
 const WA_OPTS = [["91", "🇮🇳 India"], ["971", "🇦🇪 UAE"], ["44", "🇬🇧 UK"], ["1", "🇺🇸 US/CA"], ["65", "🇸🇬 Singapore"], ["61", "🇦🇺 Australia"], ["966", "🇸🇦 Saudi"], ["974", "🇶🇦 Qatar"]];
 const HUNT_OPTS = [["IN", "India"], ["AE", "UAE"], ["UK", "UK"], ["US", "USA"], ["CA", "Canada"], ["SG", "Singapore"], ["AU", "Australia"], ["QA", "Qatar"], ["SA", "Saudi"], ["NZ", "NZ"], ["MY", "Malaysia"], ["IE", "Ireland"]];
@@ -138,6 +139,7 @@ export function MiraOutreachCard() {
             </label>
             <div className="flex flex-wrap gap-1.5">{HUNT_OPTS.map(([iso, l]) => <Chip key={iso} testid={`outreach-hunt-${iso}`} on={s.hunt_countries.includes(iso)} onClick={() => toggleIn("hunt_countries", iso)}>{l}</Chip>)}</div>
             <p className="text-[11px] text-slate-400 flex items-start gap-1"><Flame className="w-3 h-3 mt-0.5 text-orange-400" /> Hot leads (500+ reviews, no website) go first · sent 9 AM–6 PM in each lead's local time · replies, demo requests and signups are emailed to admin@miracurl-suite.com so you can send the demo invite.</p>
+            <AbSubjectPanel enabled={s.ab_test} onToggle={v => save({ ab_test: v })} />
           </div>
         </div>
 

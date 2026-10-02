@@ -389,11 +389,55 @@ async def _draft_email(lead: dict, notes: str | None = None) -> dict:
                 if k not in ("email_body", "email_subject", "id", "_id", "run_id", "score_breakdown", "status")}
     notes = (notes if notes is not None else await _pitch_notes(vertical)).strip()[:1500]
     user_prompt = prompts["user"].format(research=research)
+    user_prompt += ('\n\nA/B TEST: besides "subject", also return "subject_b" — a second subject line for the SAME email with a '
+                    'DIFFERENT angle (if A compliments their rating/name, B uses a money/time/FOMO angle, or vice versa). '
+                    'Same rules: personalized, ONE emoji, max 60 chars. Final JSON keys: subject, subject_b, body.')
     if notes:
         user_prompt += f"\n\nBOSS'S WORDING INSTRUCTIONS (follow these strictly, they override the style rules above): {notes}"
     out = await _ask_json(prompts["system"].format(pricing=pricing), user_prompt)
-    return {"subject": (out.get("subject") or prompts["fallback_subject"])[:120],
+    subject = (out.get("subject") or prompts["fallback_subject"])[:120]
+    subject_b = (out.get("subject_b") or "")[:120]
+    return {"subject": subject, "subject_b": subject_b if subject_b and subject_b != subject else "",
             "body": _PRICE_RE.sub("at the plans priced below", out.get("body") or "")}
+
+
+def _draft_fields(draft: dict) -> dict:
+    """DB fields for a fresh pitch draft (both subject variants)."""
+    return {"email_subject": draft["subject"], "email_subject_b": draft.get("subject_b") or "", "email_body": draft["body"], "status": "drafted"}
+
+
+async def ensure_subject_b(lead: dict) -> dict:
+    """Older drafts have only one subject — ask Mira for the alternate-angle variant once and store it."""
+    if lead.get("email_subject_b") or not lead.get("email_subject") or not lead.get("id"):
+        return lead
+    from routes.mira_common import _ask_json
+    noun = "restaurant" if (lead.get("vertical") or "salon") == "restaurant" else "salon"
+    try:
+        out = await _ask_json(
+            "You write scroll-stopping B2B email subject lines.",
+            f"{noun.capitalize()}: {lead.get('name')} ({lead.get('city')}), rating {lead.get('rating')}, {lead.get('reviews')} reviews. "
+            f"Current subject (variant A): {lead['email_subject']}\nWrite variant B with a DIFFERENT angle (money/time/FOMO if A is a "
+            'compliment, or vice versa), personalized, exactly ONE emoji, max 60 chars. Return JSON: {"subject_b": "..."}')
+        b = str(out.get("subject_b") or "").strip()[:120]
+    except Exception:  # noqa: BLE001 — A/B is a nice-to-have, never block a send
+        b = ""
+    if b and b != lead["email_subject"]:
+        lead["email_subject_b"] = b
+        await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {"email_subject_b": b}})
+    return lead
+
+
+def pick_subject(lead: dict, ab_enabled: bool = True) -> tuple[str, str]:
+    """(subject, variant). Deterministic 50/50 split on the lead id so retries keep the same variant."""
+    a = lead.get("email_subject") or "Miracurl Suite — free demo"
+    b = lead.get("email_subject_b") or ""
+    if not ab_enabled or not b:
+        return a, "A" if b else ""
+    try:
+        odd = int(str(lead.get("id") or "0")[-1], 16) % 2 == 1
+    except ValueError:
+        odd = False
+    return (b, "B") if odd else (a, "A")
 
 
 _CONTACT_PATHS = ("/contact", "/contact-us", "/contactus", "/contact.html", "/pages/contact",
@@ -754,8 +798,7 @@ async def _build_candidate_lead(client: httpx.AsyncClient, cand: dict, city: str
         lead["source"] = "google_maps"
         lead["score"], lead["score_breakdown"] = _score(lead)
     if lead["email"]:
-        draft = await _draft_email(lead)
-        lead.update({"email_subject": draft["subject"], "email_body": draft["body"], "status": "drafted"})
+        lead.update(_draft_fields(await _draft_email(lead)))
     else:
         lead["status"] = "no_email"
     return lead
@@ -869,10 +912,8 @@ async def _hunt_all_pipeline(run_id: str, leads: list):
                 continue
             if email:
                 lead.update({"email": email, "email_source": source, "all_emails": all_emails})
-                draft = await _draft_email(lead)
                 await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {
-                    "email": email, "email_source": source, "all_emails": all_emails,
-                    "email_subject": draft["subject"], "email_body": draft["body"], "status": "drafted"}})
+                    "email": email, "email_source": source, "all_emails": all_emails, **_draft_fields(await _draft_email(lead))}})
                 found += 1
                 await _log(f"🎯 {lead.get('name', '?')}: found {email} via {source} — pitch drafted", found=found)
             else:
@@ -1033,9 +1074,7 @@ async def find_email_retry(lid: str, user=Depends(require_super_admin)):
     if not email:
         return {"found": False}
     lead.update({"email": email, "email_source": source, "all_emails": all_emails})
-    draft = await _draft_email(lead)
-    updates = {"email": email, "email_source": source, "all_emails": all_emails,
-               "email_subject": draft["subject"], "email_body": draft["body"], "status": "drafted"}
+    updates = {"email": email, "email_source": source, "all_emails": all_emails, **_draft_fields(await _draft_email(lead))}
     await _raw_db.mira_leads.update_one({"id": lid}, {"$set": updates})
     return {"found": True, **updates}
 
@@ -1183,16 +1222,22 @@ async def approve_and_send(lid: str, user=Depends(require_super_admin)):
     if lead.get("unsubscribed"):
         raise HTTPException(400, "This lead unsubscribed — no further emails allowed.")
     from email_service import _send_email
+    from routes.mira_outreach import get_settings as _outreach_settings
+    ab_on = (await _outreach_settings()).get("ab_test", True)
+    if ab_on:
+        lead = await ensure_subject_b(lead)
+    subject, variant = pick_subject(lead, ab_on)
     html = _outreach_email_html(lead, await _live_plans())
     # No attachments on cold outreach — attachments to unknown recipients are a top spam trigger.
-    result = await _send_email([lead["email"]], lead.get("email_subject") or "Miracurl Suite — free demo",
+    result = await _send_email([lead["email"]], subject,
                                html, book_url="https://miracurl-suite.com/demo",
                                reply_to=_lead_reply_to(), headers=_lead_headers(lid),
                                from_name="Mira at Miracurl")
     if not result.get("sent"):
         raise HTTPException(502, f"Send failed: {result.get('error')}")
     await _raw_db.mira_leads.update_one(
-        {"id": lid}, {"$set": {"status": "sent", "sent_at": _now(), "approved_by": user.get("email")}})
+        {"id": lid}, {"$set": {"status": "sent", "sent_at": _now(), "approved_by": user.get("email"),
+                               "subject_sent": subject, "subject_variant": variant}})
     return {"ok": True, "sent_to": lead["email"]}
 
 
