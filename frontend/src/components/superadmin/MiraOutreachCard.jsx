@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Bot, Loader2, Mail, MessageCircle, Globe2, Flame, History, Play, Save } from "lucide-react";
+import { Bot, Loader2, Mail, MessageCircle, Globe2, Flame, History, Play, Save, Eye } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { confirmAsync } from "@/components/ConfirmDialog";
 import { OutreachHistory } from "./OutreachHistory";
+import { PitchPreviewDialog } from "./PitchPreviewDialog";
 
 const WA_OPTS = [["91", "🇮🇳 India"], ["971", "🇦🇪 UAE"], ["44", "🇬🇧 UK"], ["1", "🇺🇸 US/CA"], ["65", "🇸🇬 Singapore"], ["61", "🇦🇺 Australia"], ["966", "🇸🇦 Saudi"], ["974", "🇶🇦 Qatar"]];
 const HUNT_OPTS = [["IN", "India"], ["AE", "UAE"], ["UK", "UK"], ["US", "USA"], ["CA", "Canada"], ["SG", "Singapore"], ["AU", "Australia"], ["QA", "Qatar"], ["SA", "Saudi"], ["NZ", "NZ"], ["MY", "Malaysia"], ["IE", "Ireland"]];
@@ -30,6 +31,7 @@ export function MiraOutreachCard() {
   const [saving, setSaving] = useState(false);
   const [running, setRunning] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [previewVert, setPreviewVert] = useState("");
 
   const load = useCallback(() => api.get("/super-admin/mira/outreach/summary").then(r => { setSum(r.data); setS(r.data.settings); }).catch(() => {}), []);
   useEffect(() => { load(); }, [load]);
@@ -113,6 +115,15 @@ export function MiraOutreachCard() {
               <Chip testid="outreach-vert-restaurant" on={s.verticals.includes("restaurant")} onClick={() => toggleIn("verticals", "restaurant")}>🍽️ Restaurants</Chip>
               <span className="text-[10px] text-slate-400">separate pitch & pricing per type</span>
             </div>
+            <div className="flex flex-wrap gap-1.5 items-center text-xs text-slate-500" data-testid="outreach-pitch-check">
+              <Eye className="w-3.5 h-3.5 text-[#b8932e]" /> Pitch check:
+              <button type="button" onClick={() => setPreviewVert("restaurant")} data-testid="outreach-preview-restaurant" className="px-2.5 py-1 rounded-full border border-[#e8c37f] bg-[#fdf8ec] text-[#7a5c12] text-[11px] font-semibold hover:bg-[#f7ecd0]">
+                🍽️ Preview restaurant pitch{s.pitch_notes?.restaurant ? " · tuned ✦" : ""}
+              </button>
+              <button type="button" onClick={() => setPreviewVert("salon")} data-testid="outreach-preview-salon" className="px-2.5 py-1 rounded-full border border-slate-200 bg-white text-slate-600 text-[11px] font-semibold hover:border-slate-400">
+                💇 Preview salon pitch{s.pitch_notes?.salon ? " · tuned ✦" : ""}
+              </button>
+            </div>
             <div className="space-y-1.5">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-600 uppercase tracking-wide"><MessageCircle className="w-3.5 h-3.5" /> WhatsApp intro in these countries</div>
               <div className="flex flex-wrap gap-1.5">{WA_OPTS.map(([cc, l]) => <Chip key={cc} testid={`outreach-wa-${cc}`} on={s.wa_countries.includes(cc)} onClick={() => toggleIn("wa_countries", cc)}>{l}</Chip>)}</div>
@@ -140,6 +151,8 @@ export function MiraOutreachCard() {
         </div>
         {showHistory && <OutreachHistory />}
       </div>
+      <PitchPreviewDialog open={!!previewVert} vertical={previewVert || "restaurant"} initialNotes={s.pitch_notes?.[previewVert] || ""}
+        onClose={() => setPreviewVert("")} onSaved={data => setS(data)} />
     </div>
   );
 }

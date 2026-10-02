@@ -10,6 +10,7 @@ import { MiraOutreachCard } from "@/components/superadmin/MiraOutreachCard";
 import { WaBlastModal } from "@/components/superadmin/WaBlastModal";
 import { LeadEmailFix } from "@/components/superadmin/LeadEmailFix";
 import { AutoWaToggle } from "@/components/superadmin/AutoWaToggle";
+import { LeadSourceBadges } from "@/components/superadmin/LeadSourceBadges";
 
 const STATUS_STYLE = {
   drafted: "bg-amber-100 text-amber-700", no_email: "bg-slate-100 text-slate-500",
@@ -216,6 +217,7 @@ function LeadRow({ lead, onRefresh }) {
             {lead.category ? <span data-testid={`lead-category-${lead.id}`} className="text-fuchsia-500 font-semibold">{lead.category} · </span> : null}
             {lead.rating ? <><Star className="w-3 h-3 inline text-amber-400 -mt-0.5" /> {lead.rating}{lead.reviews ? ` (${lead.reviews})` : ""} · </> : null}
             {lead.email_real === false ? <LeadEmailFix lead={lead} onSaved={onRefresh} /> : (lead.email || "no email found")} {lead.phone ? `· ${lead.phone}` : ""} {lead.branches > 1 ? `· ${lead.branches} branches` : ""}
+            <LeadSourceBadges lead={lead} className="ml-1" />
           </p>
         </div>
         <span className={`text-[10px] px-2 py-1 rounded-full font-semibold ${STATUS_STYLE[lead.status] || "bg-slate-100 text-slate-500"}`}>{lead.status}</span>

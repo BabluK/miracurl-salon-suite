@@ -754,32 +754,38 @@ def _pipe_suggestion(col: str, lead: dict) -> str:
         return "Recently contacted — wait for a reply, follow up after 3 days."
     if col == "INTERESTED":
         return "They're warm! Offer a demo slot today — strike while the interest is hot."
-    return "Converted 🎉 — onboard them well and ask for a referral to nearby salons."
+    noun = "restaurants" if (lead.get("vertical") or "salon") == "restaurant" else "salons"
+    return f"Converted 🎉 — onboard them well and ask for a referral to nearby {noun}."
 
 
 @router.get("/super-admin/mira/pipeline")
-async def mira_pipeline(user=Depends(require_super_admin)):
+async def mira_pipeline(vertical: str = "", user=Depends(require_super_admin)):
     import urllib.parse
+    from routes.lead_gen import _wa_message
+    q = {"status": {"$nin": ["rejected", "failed", "unsubscribed"]}}
+    if vertical == "restaurant":
+        q["vertical"] = "restaurant"
+    elif vertical == "salon":
+        q["vertical"] = {"$in": ["salon", None, ""]}
     leads = await _raw_db.mira_leads.find(
-        {"status": {"$nin": ["rejected", "failed", "unsubscribed"]}},
-        {"_id": 0, "id": 1, "name": 1, "city": 1, "email": 1, "phone": 1, "status": 1,
-         "reviews": 1, "rating": 1, "sent_at": 1, "last_followup_at": 1, "created_at": 1, "website": 1}
+        q, {"_id": 0, "id": 1, "name": 1, "city": 1, "email": 1, "phone": 1, "status": 1, "vertical": 1, "owner_name": 1,
+            "reviews": 1, "rating": 1, "sent_at": 1, "last_followup_at": 1, "created_at": 1, "website": 1,
+            "email_source": 1, "phone_source": 1, "sent_via": 1, "replied_at": 1, "followup_stage": 1, "instagram_handle": 1}
     ).sort("created_at", -1).to_list(400)
     cols = {k: [] for k in _PIPE_MAP}
+    totals = {"salon": 0, "restaurant": 0}
     for lead in leads:
         col = next((k for k, v in _PIPE_MAP.items() if (lead.get("status") or "researched") in v), "NEW")
+        totals["restaurant" if lead.get("vertical") == "restaurant" else "salon"] += 1
         wa = ""
         digits = re.sub(r"\D", "", lead.get("phone") or "")
         if digits:
             if len(digits) == 10:
                 digits = "91" + digits
-            msg = (f"Hi {lead.get('name')}! This is Miracurl Salon Suite — an AI-powered salon management "
-                   f"platform (bookings, billing, WhatsApp reminders, staff & inventory). "
-                   f"Can I share a quick demo for your salon?")
-            wa = f"https://wa.me/{digits}?text={urllib.parse.quote(msg)}"
-        cols[col].append({**lead, "suggestion": _pipe_suggestion(col, lead), "wa_link": wa})
+            wa = f"https://wa.me/{digits}?text={urllib.parse.quote(await _wa_message(lead))}"
+        cols[col].append({**lead, "vertical": lead.get("vertical") or "salon", "suggestion": _pipe_suggestion(col, lead), "wa_link": wa})
     return {"columns": [{"key": k, "label": k.title().replace("_", " "), "leads": v[:60]} for k, v in cols.items()],
-            "counts": {k: len(v) for k, v in cols.items()}}
+            "counts": {k: len(v) for k, v in cols.items()}, "totals": totals, "vertical": vertical or "all"}
 
 
 # ---------------- Face-ID ----------------

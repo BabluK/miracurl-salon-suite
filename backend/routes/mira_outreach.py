@@ -45,7 +45,9 @@ _DEFAULTS = {"enabled": True, "daily_email_limit": 100, "per_cycle": 10, "min_sc
              # targeting: growing businesses (recently opened, < max_reviews Google reviews) + luxury salons
              "max_reviews": 300, "include_luxury": True,
              # reminder cadence for leads that never replied: day 7 → day 14 → day 30 → every 90 days
-             "followup_days": [7, 7, 16, 90]}
+             "followup_days": [7, 7, 16, 90],
+             # Boss's wording instructions per vertical — appended to Mira's pitch prompt
+             "pitch_notes": {"salon": "", "restaurant": ""}}
 
 _LUXURY_RE = re.compile(r"\b(luxury|luxe|premium|royal|elite|signature|prestige|boutique|spa|lounge|couture|imperial|platinum|grand)\b", re.I)
 
@@ -416,6 +418,12 @@ class OutreachSettingsIn(BaseModel):
     max_reviews: Optional[int] = Field(None, ge=10, le=5000)
     include_luxury: Optional[bool] = None
     followup_days: Optional[list[int]] = None
+    pitch_notes: Optional[dict] = None
+
+
+def _clean_notes(raw) -> dict:
+    raw = raw if isinstance(raw, dict) else {}
+    return {v: str(raw.get(v) or "").strip()[:1500] for v in ("salon", "restaurant")}
 
 
 @router.put("/super-admin/mira/outreach/settings")
@@ -426,7 +434,8 @@ async def put_settings(body: OutreachSettingsIn, user=Depends(require_super_admi
     wa = [re.sub(r"\D", "", c) for c in merged["wa_countries"] if re.sub(r"\D", "", c)]
     hunt = [c.upper() for c in merged["hunt_countries"] if c.upper() in _COUNTRIES] or _DEFAULTS["hunt_countries"]
     fdays = [max(1, min(int(d), 365)) for d in (merged.get("followup_days") or [])][:6] or _DEFAULTS["followup_days"]
-    doc = {**merged, "verticals": verts, "wa_countries": wa, "hunt_countries": hunt, "followup_days": fdays, "updated_at": _now(),
+    doc = {**merged, "verticals": verts, "wa_countries": wa, "hunt_countries": hunt, "followup_days": fdays,
+           "pitch_notes": _clean_notes(merged.get("pitch_notes")), "updated_at": _now(),
            "updated_by": user.get("email")}
     await _raw_db.platform_settings.update_one({"key": SETTINGS_KEY}, {"$set": doc}, upsert=True)
     await log_mira_event("settings", f"Boss {'switched ON' if doc['enabled'] else 'paused'} Outreach Autopilot — {doc['daily_email_limit']} emails/day, "
@@ -447,9 +456,45 @@ async def list_countries(user=Depends(require_super_admin)):
     return {"countries": [{"iso": k, "dial": v[0]} for k, v in _COUNTRIES.items()], "cities": _WORLD_CITIES}
 
 
+# ---------------- Pitch preview: Boss reads Mira's wording (and tunes it) before the batch goes out ----------------
+
+_SAMPLE_LEADS = {
+    "restaurant": {"id": "sample-restaurant", "name": "Spice Garden Family Restaurant", "city": "Bangalore", "vertical": "restaurant",
+                   "rating": 4.4, "reviews": 212, "category": "Family Restaurant", "services": ["North Indian", "Biryani", "Tandoor"],
+                   "website": "", "has_online_booking": False, "website_quality": "none", "branches": 1, "email": "owner@spicegarden.example",
+                   "score": 70, "signal": "Growing"},
+    "salon": {"id": "sample-salon", "name": "The Glam Lab Unisex Salon", "city": "Pune", "vertical": "salon",
+              "rating": 4.7, "reviews": 148, "category": "Unisex Salon", "services": ["Haircut", "Keratin", "Bridal Makeup"],
+              "website": "", "has_online_booking": False, "website_quality": "none", "branches": 1, "email": "hello@theglamlab.example",
+              "score": 70, "signal": "Growing"},
+}
+
+
+class PitchPreviewIn(BaseModel):
+    vertical: str = Field("restaurant", pattern="^(salon|restaurant)$")
+    notes: Optional[str] = Field(None, max_length=1500)
+
+
+@router.post("/super-admin/mira/outreach/pitch-preview")
+async def pitch_preview(body: PitchPreviewIn, user=Depends(require_super_admin)):
+    """Draft the pitch for a real pending lead of this vertical (else a sample) using the given / saved wording notes."""
+    from routes.lead_gen import _draft_email
+    s = await get_settings()
+    lead = await _raw_db.mira_leads.find_one(_candidate_query(body.vertical, s), {"_id": 0}, sort=[("score", -1), ("created_at", -1)])
+    is_sample = lead is None
+    lead = lead or dict(_SAMPLE_LEADS[body.vertical])
+    notes = body.notes if body.notes is not None else (s.get("pitch_notes") or {}).get(body.vertical, "")
+    draft = await _draft_email(lead, notes=notes or "")
+    html = _outreach_email_html({**lead, "email_body": draft["body"], "email_subject": draft["subject"]}, await _live_plans())
+    return {"vertical": body.vertical, "is_sample": is_sample, "notes": notes or "",
+            "lead": {k: lead.get(k) for k in ("id", "name", "city", "rating", "reviews", "email", "category", "score")},
+            "subject": draft["subject"], "body": draft["body"], "html": html}
+
+
 # ---------------- Reply Inbox: Mira drafts the demo invite, Boss sends in one tap ----------------
 
 _REPLY_FIELDS = {"_id": 0, "id": 1, "name": 1, "owner_name": 1, "email": 1, "phone": 1, "city": 1, "status": 1, "vertical": 1,
+                 "email_source": 1, "phone_source": 1, "instagram_handle": 1,
                  "replied_at": 1, "last_reply_at": 1, "reply_subject": 1, "last_reply_text": 1,
                  "wa_intro_replied_at": 1, "wa_intro_reply": 1, "demo_draft": 1, "demo_invite_sent_at": 1, "meeting": 1}
 

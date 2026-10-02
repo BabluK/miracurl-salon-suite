@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Loader2, Sparkles, Send, CheckCircle2 } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { LeadSourceBadges } from "@/components/superadmin/LeadSourceBadges";
 
 const when = (iso) => (iso ? new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
 
@@ -31,6 +32,7 @@ function ReplyRow({ r, onChanged }) {
           <span className="font-medium text-sm text-slate-800 truncate">
             <span className="mr-1">{r.channel === "whatsapp" ? "💬" : "📧"}</span>{r.vertical === "restaurant" ? "🍽️" : "💇"} {r.name}
             <span className="text-slate-400 font-normal"> · {r.email || r.phone}</span>
+            <LeadSourceBadges lead={r} className="ml-1.5" />
           </span>
           <span className="flex items-center gap-2 shrink-0">
             {sent ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 inline-flex items-center gap-1" data-testid={`reply-sent-${r.id}`}><CheckCircle2 className="w-3 h-3" /> demo invite sent</span>

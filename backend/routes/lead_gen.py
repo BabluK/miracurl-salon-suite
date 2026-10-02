@@ -336,7 +336,7 @@ _OUTREACH_PROMPTS = {
             "2nd para: paint the upgrade — diners scan a table QR, order in seconds, the kitchen gets a live ticket, "
             "and one tap bills the whole table; reservations and WhatsApp marketing included; recommend the plan that "
             "fits them and note the annual plan is the best value; do NOT list prices in the body — a pricing table is "
-            "appended below automatically; mention the attached brochure PDF; CTA: free live demo — reply to this email "
+            "appended below automatically; mention the brochure link included below (never say "attached"); CTA: free live demo — reply to this email "
             "or visit https://miracurl-suite.com/demo. Max 140 words, no fluff, plain paragraphs. "
             "The subject line must be a scroll-stopping HOT hook personalized with the restaurant's name, rating or a "
             "money angle (e.g. 'Table 7 just ordered — before the waiter arrived 🍽️'), exactly ONE tasteful emoji "
@@ -363,7 +363,7 @@ _OUTREACH_PROMPTS = {
             "2nd para: point out what they seem to be missing (online booking / WhatsApp automation / website) and how "
             "Miracurl Suite fixes it; recommend the plan that best fits their branch count and note the annual plan is "
             "the best value; do NOT list prices in the body — a full pricing table is appended below your email "
-            "automatically; mention the attached brochure PDF has full details; CTA: free live demo — reply to this email or visit "
+            "automatically; mention the brochure link below has full details (never say "attached"); CTA: free live demo — reply to this email or visit "
             "https://miracurl-suite.com/demo to pick a demo slot. Max 140 words, no fluff, plain paragraphs. "
             "The subject line must be a scroll-stopping HOT hook: personalized with the salon's name, rating, review "
             "count or a money angle (e.g. 'Kudos on 4.9⭐ Atmos — now automate the rush 🔥'), create curiosity or FOMO, "
@@ -374,14 +374,24 @@ _OUTREACH_PROMPTS = {
 }
 
 
-async def _draft_email(lead: dict) -> dict:
+async def _pitch_notes(vertical: str) -> str:
+    """Boss's saved wording instructions for this vertical (Outreach settings → pitch_notes)."""
+    doc = await _raw_db.platform_settings.find_one({"key": "mira_outreach"}, {"_id": 0, "pitch_notes": 1}) or {}
+    return str((doc.get("pitch_notes") or {}).get(vertical) or "").strip()
+
+
+async def _draft_email(lead: dict, notes: str | None = None) -> dict:
     from routes.mira_common import _ask_json
-    vertical = lead.get("vertical") or "salon"
-    prompts = _OUTREACH_PROMPTS["restaurant" if vertical == "restaurant" else "salon"]
+    vertical = "restaurant" if (lead.get("vertical") or "salon") == "restaurant" else "salon"
+    prompts = _OUTREACH_PROMPTS[vertical]
     pricing = _pricing_lines(_plans_for(await _live_plans(), _lead_intl(lead.get("city")), vertical))
     research = {k: v for k, v in lead.items()
                 if k not in ("email_body", "email_subject", "id", "_id", "run_id", "score_breakdown", "status")}
-    out = await _ask_json(prompts["system"].format(pricing=pricing), prompts["user"].format(research=research))
+    notes = (notes if notes is not None else await _pitch_notes(vertical)).strip()[:1500]
+    user_prompt = prompts["user"].format(research=research)
+    if notes:
+        user_prompt += f"\n\nBOSS'S WORDING INSTRUCTIONS (follow these strictly, they override the style rules above): {notes}"
+    out = await _ask_json(prompts["system"].format(pricing=pricing), user_prompt)
     return {"subject": (out.get("subject") or prompts["fallback_subject"])[:120],
             "body": _PRICE_RE.sub("at the plans priced below", out.get("body") or "")}
 
@@ -453,7 +463,7 @@ async def _scrape_site(client: httpx.AsyncClient, website_hint: str) -> dict:
     """Fetch the salon website and extract emails / instagram / booking signal / competitor software / text."""
     site_html = await _fetch_site(client, website_hint)
     if not site_html:
-        return {"website": "", "emails": [], "instagram": "", "booking": False, "text": "", "competitor": ""}
+        return {"website": "", "emails": [], "email_from": "", "instagram": "", "booking": False, "text": "", "competitor": ""}
     soup = BeautifulSoup(site_html, "html.parser")
     low = site_html.lower()
     competitor = _detect_competitor(site_html)
@@ -461,9 +471,11 @@ async def _scrape_site(client: httpx.AsyncClient, website_hint: str) -> dict:
                                       "bookslot", "calendly", "setmore", "fresha", "zylu", "dingg"))
     ig = soup.select_one('a[href*="instagram.com/"]')
     domain = _site_domain(website_hint)
-    emails = _extract_emails(site_html, domain) or await _emails_from_contact_pages(client, website_hint, soup, domain)
+    emails, email_from = _extract_emails(site_html, domain), "website"
+    if not emails:
+        emails, email_from = await _emails_from_contact_pages(client, website_hint, soup, domain), "contact_page"
     emails = await _pick_deliverable(emails)
-    return {"website": website_hint, "emails": emails,
+    return {"website": website_hint, "emails": emails, "email_from": email_from if emails else "",
             "instagram": ig.get("href", "")[:120] if ig else "",
             "booking": booking, "competitor": competitor,
             "text": soup.get_text(" ", strip=True)[:2500]}
@@ -497,7 +509,7 @@ def _lead_contact_fields(site: dict, info: dict) -> dict:
         "instagram_followers": int(info.get("instagram_followers") or 0),
         "owner_name": info.get("owner_name") or "",
         "email": site["emails"][0] if site["emails"] else "",
-        "email_source": site["website"] if site["emails"] else "",
+        "email_source": (site.get("email_from") or "website") if site["emails"] else "",
         "all_emails": site["emails"],
     }
 
@@ -532,24 +544,77 @@ def _ig_handle(url_or_handle: str) -> str:
     return "" if not h or h.lower() in ("p", "reel", "reels", "explore", "stories", "accounts") else h
 
 
+_IG_FOLLOWERS_RE = re.compile(r"([\d.,]+)\s*([KkMm]?)\s*Followers", re.I)
+
+
+def _ig_followers(text: str) -> int:
+    m = _IG_FOLLOWERS_RE.search(text or "")
+    if not m:
+        return 0
+    try:
+        n = float(m.group(1).replace(",", ""))
+    except ValueError:
+        return 0
+    return int(n * {"k": 1_000, "m": 1_000_000}.get(m.group(2).lower(), 1))
+
+
+def _search_snippet_for(html: str, needle: str) -> str:
+    """Snippet text of the first DDG (.result) or Bing (li.b_algo) hit whose link/text contains `needle`."""
+    soup = BeautifulSoup(html or "", "html.parser")
+    for res in soup.select(".result, li.b_algo"):
+        link = res.select_one("a.result__a, a.result__url, h2 a")
+        blob = ((link.get("href", "") if link else "") + " " + res.get_text(" ", strip=True)).lower()
+        if needle in blob:
+            snip = res.select_one(".result__snippet, .b_caption p, p")
+            return html_lib.unescape((snip or res).get_text(" ", strip=True))[:800]
+    return ""
+
+
+async def _ig_bio_via_search(client: httpx.AsyncClient, handle: str) -> str:
+    """Instagram login-walls server IPs, but search engines index the profile's og:description (the bio).
+    DuckDuckGo first, Bing as fallback (DDG bot-challenges bursts)."""
+    from urllib.parse import quote_plus
+    needle = f"instagram.com/{handle.lower()}"
+    for url in (f"https://html.duckduckgo.com/html/?q={quote_plus('site:instagram.com ' + handle)}",
+                f"https://www.bing.com/search?q={quote_plus(handle + ' instagram')}&setlang=en"):
+        html = await _fetch_page(client, url)
+        if not html or "complete the following challenge" in html:
+            continue
+        snip = _search_snippet_for(html, needle) or _search_snippet_for(html, f"instagram.com › {handle.lower()}")
+        if snip:
+            return snip
+    return ""
+
+
+def _ig_parse_contacts(text: str, handle: str) -> dict:
+    emails = [e for e in dict.fromkeys(_EMAIL_RE.findall(text)) if not e.lower().endswith(("instagram.com", "example.com", ".png", ".jpg"))]
+    phones = [re.sub(r"[^\d+]", "", p) for p in _IG_PHONE_RE.findall(text)]
+    phones = [p for p in phones if 10 <= len(p.lstrip("+")) <= 13]
+    return {"emails": emails[:3], "phone": phones[0] if phones else "", "handle": handle,
+            "followers": _ig_followers(text), "bio": text[:300]}
+
+
 async def _instagram_contacts(client: httpx.AsyncClient, handle: str) -> dict:
-    """Best-effort: public Instagram profile page → bio emails / phone (meta description + embedded JSON)."""
+    """Best-effort: public Instagram profile page → bio emails / phone; falls back to the search-engine
+    snippet of the profile (Instagram redirects server IPs to a login wall)."""
     if not handle:
         return {}
     try:
         html = await _fetch_page(client, f"https://www.instagram.com/{handle}/")
     except Exception:  # noqa: BLE001
-        return {}
-    if not html or "instagram" not in html.lower():
-        return {}
-    bits = re.findall(r'(?:og:description|description)" content="([^"]{0,600})"', html)
-    bits += re.findall(r'"biography":"((?:[^"\\]|\\.){0,600})"', html)
-    bits += re.findall(r'"business_email":"([^"]{3,120})"', html) + re.findall(r'"business_phone_number":"([^"]{6,30})"', html)
-    text = " ".join(bits).encode().decode("unicode_escape", "ignore")
-    emails = [e for e in dict.fromkeys(_EMAIL_RE.findall(text)) if not e.lower().endswith(("instagram.com", "example.com", ".png", ".jpg"))]
-    phones = [re.sub(r"[^\d+]", "", p) for p in _IG_PHONE_RE.findall(text)]
-    phones = [p for p in phones if 10 <= len(p.lstrip("+")) <= 13]
-    return {"emails": emails[:3], "phone": phones[0] if phones else "", "handle": handle}
+        html = ""
+    if html and "instagram" in html.lower():
+        bits = re.findall(r'(?:og:description|description)" content="([^"]{0,600})"', html)
+        bits += re.findall(r'"biography":"((?:[^"\\]|\\.){0,600})"', html)
+        bits += re.findall(r'"business_email":"([^"]{3,120})"', html) + re.findall(r'"business_phone_number":"([^"]{6,30})"', html)
+        text = " ".join(bits).encode().decode("unicode_escape", "ignore")
+        if text.strip():
+            return {**_ig_parse_contacts(text, handle), "via": "profile"}
+    try:
+        text = await _ig_bio_via_search(client, handle)
+    except Exception:  # noqa: BLE001
+        text = ""
+    return {**_ig_parse_contacts(text, handle), "via": "search"} if text else {}
 
 
 async def _research_salon(client: httpx.AsyncClient, name: str, city: str, website_hint: str = "",
@@ -559,7 +624,7 @@ async def _research_salon(client: httpx.AsyncClient, name: str, city: str, websi
     lead = _compose_lead(name, city, site, info, vertical)
     # Instagram fallback (salons AND restaurants): bio email / phone when the website gave us nothing.
     handle = _ig_handle(site.get("instagram") or info.get("instagram") or "")
-    if handle and (not lead.get("email") or not lead.get("phone")):
+    if handle and (not lead.get("email") or not lead.get("phone") or not lead.get("instagram_followers")):
         ig = await _instagram_contacts(client, handle)
         if ig.get("emails") and not lead.get("email"):
             good = await _pick_deliverable(ig["emails"])
@@ -570,6 +635,9 @@ async def _research_salon(client: httpx.AsyncClient, name: str, city: str, websi
             lead["phone"], lead["phone_source"] = ig["phone"], "instagram"
         if ig.get("handle"):
             lead["instagram_handle"] = ig["handle"]
+        if ig.get("followers") and not lead.get("instagram_followers"):
+            lead["instagram_followers"] = ig["followers"]
+            lead["score"], lead["score_breakdown"] = _score(lead)
     return lead
 
 
@@ -678,7 +746,9 @@ async def _build_candidate_lead(client: httpx.AsyncClient, cand: dict, city: str
     if place:
         lead["rating"] = place.get("rating") or lead["rating"]
         lead["reviews"] = place.get("reviews")
-        lead["phone"] = place.get("phone") or ""
+        if place.get("phone"):
+            lead["phone"], lead["phone_source"] = place["phone"], "google"
+        lead.setdefault("phone", "")
         lead["address"] = place.get("address") or ""
         lead["category"] = place.get("category") or ""
         lead["source"] = "google_maps"
@@ -738,7 +808,7 @@ async def _alert_new_salon_discoveries(run_id: str, city: str, noun: str) -> Non
     body = (f"<h2 style='font-family:Georgia,serif;margin:0 0 8px'>🆕 {n} newly opened {noun}{plural} "
             f"discovered in {html_lib.escape(city)}</h2>"
             "<p style='color:#555'>No committed software yet — the hottest prospects. Mira has pre-drafted the "
-            "congratulations pitch with the <b>FREE 90-day setup</b> offer for each of them.</p>"
+            "congratulations pitch with the <b>30 days FREE</b> offer for each of them.</p>"
             f"<table style='border-collapse:collapse;width:100%'>{rows}</table>"
             f"<p style='margin-top:18px'><a href='{base}/super-admin' "
             "style='background:#d4af37;color:#17171f;padding:10px 20px;border-radius:99px;"
@@ -936,15 +1006,13 @@ async def _deep_email_hunt(lead: dict) -> tuple:
         if lead.get("website"):
             site = await _scrape_site(client, lead["website"])
             if site["emails"]:
-                return site["emails"][0], f"website: {lead['website']}", site["emails"]
-        ig = (lead.get("instagram") or "").strip()
-        if ig:
-            handle = ig.rstrip("/").split("/")[-1].lstrip("@").split("?")[0]
-            if handle:
-                html = await _fetch_page(client, f"https://www.instagram.com/{handle}/")
-                emails = await _pick_deliverable(_extract_emails(html, site_domain))
-                if emails:
-                    return emails[0], f"instagram: @{handle}", emails
+                return site["emails"][0], site.get("email_from") or "website", site["emails"]
+        handle = _ig_handle(lead.get("instagram") or lead.get("instagram_handle") or "")
+        if handle:
+            ig = await _instagram_contacts(client, handle)
+            emails = await _pick_deliverable(ig.get("emails") or [])
+            if emails:
+                return emails[0], f"instagram: @{handle}", emails
         from urllib.parse import quote_plus
         q = quote_plus(f'"{lead.get("name", "")}" {lead.get("city", "")} email contact')
         html = await _fetch_page(client, f"https://html.duckduckgo.com/html/?q={q}")
@@ -1048,6 +1116,7 @@ async def edit_lead(lid: str, body: LeadEditIn, user=Depends(require_super_admin
         if not cur or not _has_real_inbox(cur.get("email")) or cur.get("status") in ("drafted", "pending", "approved", "skipped", "failed"):
             sets["status"] = "drafted"
         sets["email_fixed_at"] = _now()
+        sets["email_source"] = "manual"
     await _raw_db.mira_leads.update_one({"id": lid}, {"$set": sets})
     doc = await _raw_db.mira_leads.find_one({"id": lid}, {"_id": 0})
     doc["email_real"] = _has_real_inbox(doc.get("email"))
@@ -1182,29 +1251,32 @@ def _wa_phone(raw: str) -> str:
     return f"91{num}" if len(num) == 10 else num
 
 
+_WA_FEATURES = {
+    "salon": ("salon management platform",
+              "📅 Bookings & Appointments\n💳 POS & Billing\n👥 CRM & Loyalty\n👩‍💼 Staff & Inventory\n📊 Reports\n🤖 Mira AI Receptionist 24/7"),
+    "restaurant": ("restaurant management platform",
+                   "🍽️ QR Table Ordering → straight to the kitchen\n👨‍🍳 Live Kitchen Display (KOT)\n🧾 Table-wise Billing & GST\n📅 Table Reservations\n👥 CRM & Loyalty\n🤖 Mira AI Receptionist 24/7"),
+}
+
+
 async def _wa_message(lead: dict) -> str:
-    resto = (lead.get("vertical") or "salon") == "restaurant"
-    noun = "restaurant" if resto else "salon"
+    """Founder's WhatsApp intro — 30 days FREE, no credit card (same offer for new and established businesses)."""
+    vert = "restaurant" if (lead.get("vertical") or "salon") == "restaurant" else "salon"
+    tagline, features = _WA_FEATURES[vert]
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
-    intro = f"Hi {lead.get('owner_name') or lead['name'] + ' team'}! 👋\n"
-    loc = f" in {lead['city']}" if lead.get("city") else ""
-    if lead.get("rating"):
+    biz = (lead.get("name") or "").strip()
+    greet = f"Hi {lead['owner_name']} 👋" if lead.get("owner_name") and lead["owner_name"] != "there" else "Hi 👋"
+    praise = ""
+    if lead.get("rating") and biz:
         reviews = f" with {lead['reviews']} reviews" if lead.get("reviews") else ""
-        intro += f"Came across your {noun}{loc} — {lead['rating']}⭐{reviews} is truly impressive!\n\n"
-    else:
-        intro += f"Came across your {noun}{loc} and had to reach out!\n\n"
-    pitch = (f"Are you happy with your current {noun} software? *Miracurl Suite* offers AI-powered "
-             "automation, CRM, marketing and complete business management in one platform. "
-             "We can help you migrate and try it *free*.\n\n")
-    if lead.get("new_business"):
-        pitch = (f"Congratulations on your new {noun}! 🎊 Starting fresh is the PERFECT time to get your "
-                 "systems right — *Miracurl Suite* is giving new businesses a *FREE 90-day setup*: bookings, "
-                 "billing, CRM, WhatsApp marketing and AI tools, all configured for you from day one.\n\n")
-    offer_q = "?offer=newbiz" if lead.get("new_business") else ""
-    return (intro + pitch +
-            f"🏪 Register your {noun}: {base}/signup-{'restaurant' if resto else 'salon'}{offer_q}\n"
-            f"🌐 Or explore: {base}\n\n"
-            "Reply here for a *free 15-minute live demo* — I'd love to show you around! ✨")
+        praise = f"Came across *{biz}*{' in ' + lead['city'] if lead.get('city') else ''} — {lead['rating']}⭐{reviews} is impressive!\n\n"
+    return (f"{greet}\nI'm Bablu, Founder of *Miracurl Suite* — an all-in-one {tagline}.\n\n"
+            f"{praise}{features}\n\n"
+            f"🎉 We'd love to give *{biz or 'your ' + vert}* *30 days FREE* — no credit card, no commitment.\n"
+            f"🌐 Start free: {base}/signup-{vert}\n\n"
+            f"🚀 Live demo: {base}/demo\n🌐 Website: {base}\n\n"
+            "I can also give you a quick 20-min personal demo — just reply *\"Demo\"* and I'll coordinate a time 😊\n\n"
+            "— Bablu\nFounder, Miracurl Suite\n@miracurl.ai")
 
 
 @router.get("/super-admin/mira-leads/{lid}/whatsapp")
@@ -2157,8 +2229,8 @@ _WA_BLAST_SYS = (
     "payroll, WhatsApp marketing, multi-branch in one dashboard. Restaurant: QR table ordering straight "
     "to kitchen, live kitchen tickets, table-wise billing, reservations.\n"
     "- VARY the wording and angle between leads so messages never look copy-pasted.\n"
-    "- Leads marked NEWLY OPENED: congratulate them on opening and lead with our strongest offer — "
-    "a FREE 90-day Miracurl setup for new businesses (bookings, billing, CRM, marketing configured from day one).\n"
+    "- Leads marked NEWLY OPENED: congratulate them on opening and lead with our offer — "
+    "30 days FREE, no credit card, no commitment (same offer for every business; never mention 90 days).\n"
     "- WhatsApp style: *bold* for emphasis, 1-2 tasteful emojis, short lines.\n"
     "- Do NOT include any links or prices — the app appends those.\n"
     "Also pick the best quote poster id for each lead from the list given.\n"
