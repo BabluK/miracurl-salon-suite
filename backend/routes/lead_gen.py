@@ -521,11 +521,56 @@ def _compose_lead(name: str, city: str, site: dict, info: dict, vertical: str = 
     return lead
 
 
+_IG_HANDLE_RE = re.compile(r"instagram\.com/([A-Za-z0-9_.]{2,40})/?", re.I)
+_IG_PHONE_RE = re.compile(r"(?:\+?\d[\d\s().-]{8,16}\d)")
+
+
+def _ig_handle(url_or_handle: str) -> str:
+    raw = (url_or_handle or "").strip()
+    m = _IG_HANDLE_RE.search(raw)
+    h = m.group(1) if m else ("" if "instagram.com" in raw.lower() or "/" in raw else raw.lstrip("@"))
+    return "" if not h or h.lower() in ("p", "reel", "reels", "explore", "stories", "accounts") else h
+
+
+async def _instagram_contacts(client: httpx.AsyncClient, handle: str) -> dict:
+    """Best-effort: public Instagram profile page → bio emails / phone (meta description + embedded JSON)."""
+    if not handle:
+        return {}
+    try:
+        html = await _fetch_page(client, f"https://www.instagram.com/{handle}/")
+    except Exception:  # noqa: BLE001
+        return {}
+    if not html or "instagram" not in html.lower():
+        return {}
+    bits = re.findall(r'(?:og:description|description)" content="([^"]{0,600})"', html)
+    bits += re.findall(r'"biography":"((?:[^"\\]|\\.){0,600})"', html)
+    bits += re.findall(r'"business_email":"([^"]{3,120})"', html) + re.findall(r'"business_phone_number":"([^"]{6,30})"', html)
+    text = " ".join(bits).encode().decode("unicode_escape", "ignore")
+    emails = [e for e in dict.fromkeys(_EMAIL_RE.findall(text)) if not e.lower().endswith(("instagram.com", "example.com", ".png", ".jpg"))]
+    phones = [re.sub(r"[^\d+]", "", p) for p in _IG_PHONE_RE.findall(text)]
+    phones = [p for p in phones if 10 <= len(p.lstrip("+")) <= 13]
+    return {"emails": emails[:3], "phone": phones[0] if phones else "", "handle": handle}
+
+
 async def _research_salon(client: httpx.AsyncClient, name: str, city: str, website_hint: str = "",
                           vertical: str = "salon") -> dict:
     site = await _scrape_site(client, website_hint)
     info = await _llm_research(name, city, site, vertical)
-    return _compose_lead(name, city, site, info, vertical)
+    lead = _compose_lead(name, city, site, info, vertical)
+    # Instagram fallback (salons AND restaurants): bio email / phone when the website gave us nothing.
+    handle = _ig_handle(site.get("instagram") or info.get("instagram") or "")
+    if handle and (not lead.get("email") or not lead.get("phone")):
+        ig = await _instagram_contacts(client, handle)
+        if ig.get("emails") and not lead.get("email"):
+            good = await _pick_deliverable(ig["emails"])
+            if good:
+                lead["email"], lead["all_emails"] = good[0], list(dict.fromkeys((lead.get("all_emails") or []) + good))
+                lead["email_source"] = "instagram"
+        if ig.get("phone") and not lead.get("phone"):
+            lead["phone"], lead["phone_source"] = ig["phone"], "instagram"
+        if ig.get("handle"):
+            lead["instagram_handle"] = ig["handle"]
+    return lead
 
 
 async def _next_localities(city: str, k: int = 3) -> list:

@@ -3813,3 +3813,11 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-09-30 — Poster refresh · Autopilot default ON · deploy
 - Loyalty poster: smaller QR, gold chip strip "REWARDS • WI-FI • MENU • REVIEWS • GAMES & MORE" + "ONE SCAN · EVERYTHING FOR OUR GUESTS", gift copy updated.
 - `_DEFAULTS["enabled"] = True` in mira_outreach → production (no settings doc yet) starts with Autopilot ON after deploy; preview keeps its explicit doc (False). Deploy requested.
+
+## 2026-10-02 — Dashboard double-load + MSG91 error 311
+- Dashboard: `prefetchDashboard(true)` fires in `afterAuth` (parallel with tenant fetch) so first paint already has data; on `branch-changed` the view swaps to that branch's cached snapshot / soft loading instead of showing stale numbers (perceived "double load"). Measured: exactly 1 /reports/dashboard call per login, no full reload; prod server time ~99ms (Atlas), remainder network.
+- MSG91 error 311 = identical SMS to same number within 10s. Added DB-backed duplicate guard in `_msg91_post` (`sms_dedupe`, 12s window, sig = sha1(payload)); deduped sends return sent+deduped and the SMS credit is refunded (not double-charged).
+
+## 2026-10-02 — Restaurant hunting balance · Instagram contact fallback
+- Auto-hunt now picks the vertical with the thinner ready pool (restaurants were starving) and also triggers when either vertical's pool < half the daily cap (even if total ready is high).
+- Research: Instagram fallback (`_instagram_contacts`) parses public profile og:description/biography/business_email/phone when website gave no email/phone; stores `instagram_handle`, `email_source`/`phone_source`="instagram". Best-effort — Instagram often serves a login wall to server IPs. Phones already come from Google Places (nationalPhoneNumber) for both verticals.

@@ -99,6 +99,8 @@ export function AuthProvider({ children }) {
     setTenantSlug(null); // drop any stale slug from a previous user on this device
     // Resolve the tenant BEFORE exposing the user: the workspace then mounts once with full context
     // (no tenant-less first render → second repaint that looked like a "double refresh").
+    // The dashboard payload is fetched in the same wave, so the first paint already has its numbers.
+    if (data.user.role !== "staff") prefetchDashboard(true);
     const t = await fetchCurrentTenant();
     if (t) { setTenant(t); persistTenant(t); }
     setUser(data.user);

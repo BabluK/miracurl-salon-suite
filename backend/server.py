@@ -280,6 +280,8 @@ async def on_startup():
 
     async def _ensure_indexes():
         await db.users.create_index("email", unique=True)
+        await _raw_db.sms_dedupe.create_index("sig", unique=True)
+        await _raw_db.sms_dedupe.create_index("at")
         await db.tenants.create_index("slug", unique=True)
         if not await _raw_db.app_migrations.find_one({"key": "retire_color_pick_notices"}):
             try:

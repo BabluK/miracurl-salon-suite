@@ -287,7 +287,8 @@ async def _auto_hunt_if_thin(s: dict) -> dict | None:
     if await _raw_db.mira_lead_runs.count_documents({"auto_outreach": True, "created_at": {"$gte": _today()}}) >= s["hunts_per_day"]:
         return None
     ready = sum([await _raw_db.mira_leads.count_documents(_candidate_query(v, s)) for v in s["verticals"]])
-    if ready >= s["daily_email_limit"]:
+    thin = any(await _raw_db.mira_leads.count_documents(_candidate_query(v, s)) < s["daily_email_limit"] // 2 for v in s["verticals"])
+    if ready >= s["daily_email_limit"] and not thin:
         return None
     since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
     recent = {r.get("city") async for r in _raw_db.mira_lead_runs.find({"created_at": {"$gte": since}}, {"city": 1})}
@@ -296,7 +297,10 @@ async def _auto_hunt_if_thin(s: dict) -> dict | None:
     if not cities:
         return None
     n_prev = await _raw_db.mira_lead_runs.count_documents({"auto_outreach": True})
-    city, vertical = cities[n_prev % len(cities)], s["verticals"][n_prev % len(s["verticals"])]
+    city = cities[n_prev % len(cities)]
+    # Keep BOTH verticals fed: hunt whichever has the thinner ready-to-send pool (restaurants were starving).
+    pools = {v: await _raw_db.mira_leads.count_documents(_candidate_query(v, s)) for v in s["verticals"]}
+    vertical = min(pools, key=pools.get) if pools else "salon"
     run = {"id": str(uuid.uuid4()), "city": city, "target": 10, "vertical": vertical, "status": "running",
            "stage": "starting", "found": 0, "researched": 0, "auto_outreach": True, "log": [], "created_at": _now()}
     await _raw_db.mira_lead_runs.insert_one({**run})

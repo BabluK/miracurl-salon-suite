@@ -7,7 +7,7 @@ MSG91_SENDER_ID and MSG91_FLOW_ID are all set (Flow template must contain a
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 log = logging.getLogger("sms")
 MSG91_FLOW_URL = "https://control.msg91.com/api/v5/flow"
@@ -104,8 +104,33 @@ def _normalize_in(phone: str) -> str:
     return f"+{digits}" if digits else ""
 
 
+_DEDUPE_WINDOW_S = 12  # MSG91 rejects identical content to the same number within 10 s (error 311)
+
+
+async def _recently_sent(payload: dict) -> bool:
+    """Multi-worker duplicate guard: same template+vars (or same text) to the same number inside the window."""
+    import hashlib
+    import json
+    from database import _raw_db
+    sig = hashlib.sha1(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
+    now = datetime.now(timezone.utc)
+    try:
+        hit = await _raw_db.sms_dedupe.find_one({"sig": sig, "at": {"$gte": (now - timedelta(seconds=_DEDUPE_WINDOW_S)).isoformat()}}, {"_id": 1})
+        if hit:
+            return True
+        await _raw_db.sms_dedupe.update_one({"sig": sig}, {"$set": {"sig": sig, "at": now.isoformat()}}, upsert=True)
+        if now.second == 0:  # cheap housekeeping ~once a minute: drop guard rows older than an hour
+            await _raw_db.sms_dedupe.delete_many({"at": {"$lt": (now - timedelta(hours=1)).isoformat()}})
+    except Exception as e:  # noqa: BLE001 — never block a send on the guard itself
+        log.warning("[sms] dedupe guard unavailable: %s", e)
+    return False
+
+
 async def _msg91_post(payload: dict) -> dict:
     import httpx
+    if await _recently_sent(payload):
+        log.info("[sms] duplicate suppressed (same message to same number within %ss)", _DEDUPE_WINDOW_S)
+        return {"sent": True, "sid": "deduped", "deduped": True}
     try:
         async with httpx.AsyncClient(timeout=15) as http:
             resp = await http.post(MSG91_FLOW_URL, json=payload,
@@ -233,7 +258,8 @@ async def send_tenant_sms(tenant_id: str, to_phone: str, body: str, kind: str = 
         res = {"sent": False, "error": f"no DLT template for '{kind}' SMS — add an approved MSG91 template for this kind"}
     else:
         res = await send_sms(to_phone, body)
-    if not res.get("sent"):
+    if not res.get("sent") or res.get("deduped"):
+        # failed → refund; duplicate suppressed → the first send already paid, don't charge twice
         await _raw_db.tenants.update_one({"id": tenant_id}, {"$inc": {"sms_points": 1}})
     fresh = await _raw_db.tenants.find_one({"id": tenant_id}, {"_id": 0, "sms_points": 1})
     res["points_left"] = int((fresh or {}).get("sms_points") or 0)

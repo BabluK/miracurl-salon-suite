@@ -104,9 +104,16 @@ export default function Dashboard() {
   const isOwner = user?.role === "admin" || user?.role === "super_admin";
 
   useEffect(() => {
-    const fetchDash = () => {
+    const fetchDash = (ev) => {
       const b = getSelectedBranch();
       const key = dashCacheKey(tenant?.id, b);
+      // Branch switch: swap to that branch's last snapshot at once (or a soft "updating" state) instead of
+      // showing the previous branch's numbers until the new payload lands — that read as a double load.
+      if (ev?.type === "branch-changed") {
+        const snap = readDashCache(key);
+        setData(snap || null);
+        setSettled(false);
+      }
       const { t0, p } = takeDashboardPrefetch(b) || fetchDashboard(b);
       p
         .then(r => {
