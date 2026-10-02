@@ -430,6 +430,8 @@ def _clean_notes(raw) -> dict:
 async def put_settings(body: OutreachSettingsIn, user=Depends(require_super_admin)):
     cur = await get_settings()
     merged = {**cur, **{k: v for k, v in body.model_dump().items() if v is not None}}
+    if body.pitch_notes is not None:
+        merged["pitch_notes"] = {**(cur.get("pitch_notes") or {}), **body.pitch_notes}
     verts = [v for v in merged["verticals"] if v in ("salon", "restaurant")] or ["salon", "restaurant"]
     wa = [re.sub(r"\D", "", c) for c in merged["wa_countries"] if re.sub(r"\D", "", c)]
     hunt = [c.upper() for c in merged["hunt_countries"] if c.upper() in _COUNTRIES] or _DEFAULTS["hunt_countries"]
