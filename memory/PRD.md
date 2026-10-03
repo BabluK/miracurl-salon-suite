@@ -3894,3 +3894,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - FIXED SEC-001 (HIGH): stored XSS via tenant name in HQ price-alert preview — `services/price_alerts.py` now html.escape()s name/plan_label; `PricingIntelCards.jsx` preview iframe gets `sandbox=""` (all srcDoc iframes now sandboxed).
 - Hardened visit beacon: `global_daily_cap("visit_beacon", 50000)` + TTL index on `site_visits.created_ts` (400 days).
 - Open P3s (not fixed): public guest-lookup by phone enumeration (already rate-limited); loose `public_base_url` suffix match for preview hosts.
+
+## 2026-10-03 — Strict Content-Security-Policy
+- `<meta http-equiv=Content-Security-Policy>` in index.html: script-src has NO unsafe-inline (self + GTM, clarity.ms, assets.emergent.sh, posthog, *.razorpay.com, js.stripe.com, connect.facebook.net, maps.googleapis.com, accounts.google.com, static.cloudflareinsights.com, cdn.tailwindcss.com + one sha256 for the Emergent preview visual-edit overlay snippet); style-src unsafe-inline (React style attrs); img/media https: data: blob:; connect-src self https: wss:; frame-src razorpay/stripe/facebook/youtube/spotify/google; object-src none; base-uri self.
+- All inline scripts moved out: `public/boot.js` (PWA manifest switch, DataCloneError swallow, GA4 from `<meta name=ga4-id>`, Clarity from `<meta name=clarity-project>` — meta tags MUST stay above boot.js) and `public/posthog.js`. `INLINE_RUNTIME_CHUNK=false` in frontend/.env so prod build has no inline runtime (verified: build/index.html has zero inline scripts).
+- Known/accepted: Cloudflare bot-challenge inline snippet injected by the preview edge has a per-request hash → blocked (harmless). If the Clarity/GA IDs change, no hash updates needed. Adding a new third-party <script> host requires adding it to script-src.
+- Tests: iteration_218.json (CSP regression; agent found cdn.razorpay.com blocked → fixed with *.razorpay.com; re-verified Razorpay loads with 0 violations).
