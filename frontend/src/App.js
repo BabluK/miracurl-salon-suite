@@ -296,6 +296,10 @@ export default function App() {
             <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
             <Route path="/signup-salon" element={<PublicOnly><SignupSalon /></PublicOnly>} />
             <Route path="/signup-restaurant" element={<PublicOnly><SignupSalon /></PublicOnly>} />
+            <Route path="/signup-salon-india" element={<PublicOnly><SignupSalon /></PublicOnly>} />
+            <Route path="/signup-salon-us" element={<PublicOnly><SignupSalon /></PublicOnly>} />
+            <Route path="/signup-restaurant-india" element={<PublicOnly><SignupSalon /></PublicOnly>} />
+            <Route path="/signup-restaurant-us" element={<PublicOnly><SignupSalon /></PublicOnly>} />
             <Route path="/restaurant" element={<RestaurantLanding />} />
             <Route path="/super-admin" element={<SuperAdminProtected><SuperAdmin /></SuperAdminProtected>} />
             <Route path="/" element={<RootRoute />} />

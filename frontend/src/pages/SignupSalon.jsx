@@ -5,7 +5,7 @@ import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { Scissors, Sparkles, User, Mail, Lock, MapPin, Phone, Check, ArrowRight, ArrowLeft, Building2, Gift, AlertCircle, Eye, EyeOff, PartyPopper, X } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { SignupHeroPanel, TRUST_BADGES } from "@/components/signup/SignupHeroPanel";
+import { SuiteLogo } from "@/components/SiteHeader";
 import { BookingPreviewCard } from "@/components/signup/BookingPreviewCard";
 import ChatButton from "@/components/ChatButton";
 import { useAuth } from "@/context/AuthContext";
@@ -22,9 +22,19 @@ function slugify(s) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
 }
 
+// /signup-salon · /signup-restaurant (generic) · /signup-{salon|restaurant}-{india|us} (dedicated, region locked)
+function parseSignupPath(pathname) {
+  const m = pathname.match(/signup-(salon|restaurant)(?:-(india|us))?/);
+  return { business_type: m?.[1] || "salon", pathRegion: m?.[2] === "india" ? "in" : m?.[2] === "us" ? "intl" : null };
+}
+const signupPath = (type, region, locked) => locked ? `/signup-${type}-${region === "intl" ? "us" : "india"}` : `/signup-${type}`;
+const SIGNUP_LINKS = [["salon", "in", "Salon · India"], ["salon", "intl", "Salon · US"], ["restaurant", "in", "Restaurant · India"], ["restaurant", "intl", "Restaurant · US"]];
+
 export default function SignupSalon() {
   const nav = useNavigate();
   const auth = useAuth();
+  const [{ business_type: pathType, pathRegion }] = useState(() => parseSignupPath(window.location.pathname));
+  const locked = !!pathRegion;
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -33,6 +43,7 @@ export default function SignupSalon() {
   const trialDays = Number(catalog?.trial_days) || 30;
   const [region, setRegion] = useState(() => {
     try {
+      if (pathRegion) { localStorage.setItem("miracurl_region", pathRegion); return pathRegion; }
       const p = new URLSearchParams(window.location.search).get("region");
       if (p === "in" || p === "intl") { localStorage.setItem("miracurl_region", p); return p; }
       return localStorage.getItem("miracurl_region") || detectRegion();
@@ -45,7 +56,7 @@ export default function SignupSalon() {
   }, []);
   const [form, setForm] = useState({
     salon_name: "",
-    business_type: window.location.pathname.includes("restaurant") ? "restaurant" : "salon",
+    business_type: pathType,
     slug: "",
     slug_touched: false,
     owner_name: "",
@@ -59,11 +70,11 @@ export default function SignupSalon() {
   });
   const [newbiz, setNewbiz] = useState(false);
 
-  // Keep the URL in sync with the picked business type (/signup-salon ↔ /signup-restaurant)
+  // Keep the URL in sync with the picked business type / region (dedicated pages keep their -india/-us suffix)
   useEffect(() => {
-    const want = form.business_type === "restaurant" ? "/signup-restaurant" : "/signup-salon";
+    const want = signupPath(form.business_type, region, locked);
     if (window.location.pathname !== want) window.history.replaceState(null, "", want + window.location.search);
-  }, [form.business_type]);
+  }, [form.business_type, region, locked]);
 
   // Already logged-in users skip the wizard
   useEffect(() => {
@@ -167,55 +178,59 @@ export default function SignupSalon() {
   const soft = isRestoTheme ? "rgba(217,119,6,.12)" : "rgba(212,175,55,.14)";
   const grad = isRestoTheme ? "linear-gradient(135deg,#d97706 0%,#f59e0b 50%,#b45309 100%)" : "linear-gradient(135deg,#d4af37 0%,#f6e27a 50%,#c99a2e 100%)";
   const glow = isRestoTheme ? "0 12px 30px -10px rgba(217,119,6,.5)" : "0 12px 30px -10px rgba(212,175,55,.5)";
-  const trialLabel = (newbiz || form.newly_opened) ? "90-day free setup" : isRestoTheme ? "First month free" : `${trialDays}-day free trial`;
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#faf8f5] su-cream" data-testid="signup-salon-page" data-vertical={isRestoTheme ? "restaurant" : "salon"}>
+    <div className="min-h-screen relative overflow-hidden bg-[#faf8f5] su-cream" data-testid="signup-salon-page" data-vertical={isRestoTheme ? "restaurant" : "salon"} data-region={region} data-locked={locked ? "1" : "0"}>
       <div id="signup-page-container" data-testid="signup-page-container" className="contents" />
       <Toaster theme="light" position="top-center" toastOptions={TOASTER_OPTIONS} />
-      <ChatButton message="Hi Miracurl ✦ I'm signing up my salon and need a little help." label="Need help?" />
+      <ChatButton message={`Hi Miracurl ✦ I'm signing up my ${isRestoTheme ? "restaurant" : "salon"} and need a little help.`} label="Need help?" />
 
-      <header className="gold-night-chrome fixed top-0 inset-x-0 z-40 border-b border-[#d4af37]/25 px-5 py-2.5 sm:px-8 flex items-center justify-between" data-testid="signup-header">
-        <Link to="/" className="inline-flex items-center gap-2 text-sm text-white/70 hover:text-[#e8c56a] transition-colors" data-testid="signup-back-home">
-          <span aria-hidden="true">←</span> Back to home
-        </Link>
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="hidden sm:inline text-sm text-white/60">Already have an account?</span>
-          <Link to="/login" data-testid="signup-have-account"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold text-[#1a1408] whitespace-nowrap transition-[filter,transform] hover:brightness-110 active:scale-95"
-            style={{ background: grad, boxShadow: glow }}>Sign in →</Link>
+      <header className="fixed top-0 inset-x-0 z-40 backdrop-blur-xl bg-[#FBF6EC]/92 border-b border-[#D9B878]/30 shadow-[0_4px_24px_-12px_rgba(184,134,59,0.25)]" data-testid="signup-header">
+        <div className="max-w-5xl mx-auto px-4 sm:px-8 py-2 flex items-center justify-between gap-3">
+          <SuiteLogo variant="light" subtitle="AI-powered business management platform" />
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="hidden sm:inline text-sm text-[#8a7048]">Already have an account?</span>
+            <Link to="/login" data-testid="signup-have-account"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold text-[#1a1408] whitespace-nowrap transition-[filter,transform] hover:brightness-110 active:scale-95"
+              style={{ background: grad, boxShadow: glow }}>Sign in →</Link>
+          </div>
         </div>
       </header>
-      <div className="h-16" aria-hidden="true" />
+      <div className="h-[72px] sm:h-20" aria-hidden="true" />
 
-      <main className="relative z-10 lg:grid lg:grid-cols-[minmax(0,45%)_minmax(0,55%)] xl:grid-cols-[minmax(0,42%)_minmax(0,58%)] items-start">
-        <div className="lg:sticky lg:top-16 px-4 pt-4 lg:p-0"><SignupHeroPanel resto={form.business_type === "restaurant"} trialLabel={trialLabel} /></div>
-        <div className="px-4 sm:px-8 xl:px-14 py-6 lg:py-10 pb-20">
+      <main className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10 pb-20">
+        <div className="mb-4 flex items-center justify-center gap-2 text-xs text-[#8a7048]" data-testid="signup-page-label">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#D9B878]/40 font-semibold">
+            {isRestoTheme ? "🍴 Restaurant" : "💇 Salon / Spa"} · {isIntl ? "🇺🇸 US / International" : "🇮🇳 India"}
+          </span>
+        </div>
         <div className="bg-white rounded-[28px] shadow-[0_20px_40px_-15px_rgba(10,9,7,.08),0_0_20px_rgba(212,175,55,.06)] border border-[#d4af37]/25 p-6 sm:p-9" data-testid="signup-form-card" style={{ "--su-accent": accent, "--su-soft": soft, "--su-grad": grad }}>
           <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
             <span data-testid="signup-trial-badge" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] uppercase tracking-[0.16em] font-bold border"
               style={{ color: accent, borderColor: accent + "55", background: soft }}>
               <Sparkles className="w-3 h-3" /> {(newbiz || form.newly_opened) ? "90-Day Free Setup · New Business Offer" : form.business_type === "restaurant" ? "First Month Free · No credit card · Cancel anytime" : `${trialDays}-Day Free Trial · No credit card · Cancel anytime`}
             </span>
-            <div className="inline-flex items-center gap-1 p-1 rounded-full bg-slate-100 border border-slate-200" data-testid="signup-region-toggle" id="currency-region-toggle">
-              {[["in", "🇮🇳 ₹"], ["intl", "🌍 $"]].map(([k, l]) => (
-                <button key={k} type="button" data-testid={`signup-region-${k}`} onClick={() => pickRegion(k)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${region === k ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"}`}>
-                  {l}
-                </button>
-              ))}
-            </div>
+            {!locked && (
+              <div className="inline-flex items-center gap-1 p-1 rounded-full bg-slate-100 border border-slate-200" data-testid="signup-region-toggle" id="currency-region-toggle">
+                {[["in", "🇮🇳 ₹"], ["intl", "🌍 $"]].map(([k, l]) => (
+                  <button key={k} type="button" data-testid={`signup-region-${k}`} onClick={() => pickRegion(k)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${region === k ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"}`}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <Stepper step={step} resto={form.business_type === "restaurant"} />
 
           {step === 0 && (
-            <SalonStep form={form} update={update} />
+            <SalonStep form={form} update={update} locked={locked} isIntl={isIntl} />
           )}
           {step === 1 && (
             <OwnerStep form={form} update={update} showPw={showPw} setShowPw={setShowPw} />
           )}
           {step === 2 && (
-            <LocationStep form={form} update={update} />
+            <LocationStep form={form} update={update} isIntl={isIntl} />
           )}
           {step === 3 && (
             <ReviewStep form={form} previewUrl={previewUrl} catalog={catalog} isIntl={isIntl} />
@@ -261,12 +276,14 @@ export default function SignupSalon() {
           <p className="mt-3 text-[11px] text-slate-400">By signing up you agree to our <a href="/terms-of-service" className="underline hover:text-slate-600">Terms of Service</a> and <a href="/privacy-policy" className="underline hover:text-slate-600">Privacy Policy</a>.</p>
         </div>
 
-        <div className="mt-6 flex flex-wrap justify-center gap-2 lg:hidden" data-testid="signup-trust-strip">
-          {TRUST_BADGES.map(([Icon, t]) => (
-            <span key={t} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-[#d4af37]/30 text-[#8a6d1f] text-xs font-medium"><Icon className="w-3.5 h-3.5" /> {t}</span>
-          ))}
-        </div>
-        </div>
+        {locked && (
+          <p className="mt-5 text-center text-[11px] text-slate-400" data-testid="signup-switch-links">
+            Wrong page?{" "}
+            {SIGNUP_LINKS.filter(([t, r]) => !(t === form.business_type && r === region)).map(([t, r, l], i) => (
+              <span key={t + r}>{i > 0 && <span className="mx-1.5 text-slate-300">|</span>}<a href={signupPath(t, r, true)} data-testid={`signup-switch-${t}-${r}`} className="underline hover:text-[var(--su-accent)]">{l}</a></span>
+            ))}
+          </p>
+        )}
       </main>
     </div>
   );
@@ -320,7 +337,7 @@ function Field({ label, icon: Icon, testid, type = "text", value, onChange, plac
   );
 }
 
-function SalonStep({ form, update }) {
+function SalonStep({ form, update, locked = false, isIntl = false }) {
   const [showNewbizModal, setShowNewbizModal] = useState(false);
   const [assistEmail, setAssistEmail] = useState("");
   const [assistBusy, setAssistBusy] = useState(false);
@@ -343,6 +360,7 @@ function SalonStep({ form, update }) {
         <h2 className="text-2xl font-semibold text-slate-800">Tell us about your {isResto ? "restaurant" : "salon"}</h2>
         <p className="text-sm text-slate-500 mt-1">This is how customers will see you on the booking page.</p>
       </div>
+      {!locked && (
       <div>
         <p className="text-xs font-semibold text-slate-600 mb-2">What's your business?</p>
         <div className="grid grid-cols-2 gap-3">
@@ -357,6 +375,7 @@ function SalonStep({ form, update }) {
           ))}
         </div>
       </div>
+      )}
       <div>
         <p className="text-xs font-semibold text-slate-600 mb-2">Is your {isResto ? "restaurant" : "salon"} newly opened (or opening soon)? 🎊</p>
         <div className="grid grid-cols-2 gap-3">
@@ -484,7 +503,7 @@ function SalonStep({ form, update }) {
         testid="signup-salon-name"
         value={form.salon_name}
         onChange={v => update({ salon_name: v })}
-        placeholder={isResto ? "e.g. Spice Garden, Indiranagar" : "e.g. Glow Salon, Indiranagar"}
+        placeholder={isResto ? (isIntl ? "e.g. Spice Garden, Austin" : "e.g. Spice Garden, Indiranagar") : (isIntl ? "e.g. Glow Salon, Austin" : "e.g. Glow Salon, Indiranagar")}
       />
       <Field
         label="Your booking URL *"
@@ -531,15 +550,15 @@ function OwnerStep({ form, update, showPw, setShowPw }) {
   );
 }
 
-function LocationStep({ form, update }) {
+function LocationStep({ form, update, isIntl = false }) {
   return (
     <div className="space-y-5 animate-fade-up">
       <div>
         <h2 className="text-2xl font-semibold text-slate-800">Where are you located? <span className="text-sm font-normal text-slate-400">(optional)</span></h2>
         <p className="text-sm text-slate-500 mt-1">Helps customers find you on the booking page. You can edit these later.</p>
       </div>
-      <Field label="Location" icon={MapPin} testid="signup-location" value={form.location} onChange={v => update({ location: v })} placeholder="Indiranagar, Bangalore" />
-      <Field label="Phone" icon={Phone} testid="signup-phone" type="tel" value={form.phone} onChange={v => update({ phone: v })} placeholder="+91 98765 43210" />
+      <Field label="Location" icon={MapPin} testid="signup-location" value={form.location} onChange={v => update({ location: v })} placeholder={isIntl ? "Austin, TX" : "Indiranagar, Bangalore"} />
+      <Field label="Phone" icon={Phone} testid="signup-phone" type="tel" value={form.phone} onChange={v => update({ phone: v })} placeholder={isIntl ? "+1 (512) 555-0147" : "+91 98765 43210"} />
     </div>
   );
 }
