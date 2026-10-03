@@ -20,7 +20,7 @@ export function LeadEmailFix({ lead, onSaved }) {
   };
 
   return (
-    <span className="inline-flex items-center gap-1.5 align-middle" data-testid={`lead-email-fix-${lead.id}`}>
+    <span className="inline-flex items-center gap-1.5 align-middle" onClick={e => e.stopPropagation()} data-testid={`lead-email-fix-${lead.id}`}>
       <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 border border-rose-200 text-rose-700"
         title={lead.email ? `${lead.email} is a login-only / placeholder address — emails to it are skipped` : "No email on file — follow-ups are skipped"}
         data-testid={`lead-no-inbox-${lead.id}`}>

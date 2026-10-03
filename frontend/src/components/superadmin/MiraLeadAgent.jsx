@@ -194,7 +194,7 @@ function LeadRow({ lead, onRefresh }) {
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden" data-testid={`lead-row-${lead.id}`}>
-      <button onClick={() => setOpen(o => !o)} className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-slate-50" data-testid={`lead-toggle-${lead.id}`}>
+      <div role="button" tabIndex={0} onClick={() => setOpen(o => !o)} onKeyDown={e => e.key === "Enter" && setOpen(o => !o)} className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-slate-50 cursor-pointer" data-testid={`lead-toggle-${lead.id}`}>
         <span className={`shrink-0 w-11 h-8 rounded-lg text-xs font-bold inline-flex items-center justify-center ${lead.score >= 50 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{lead.score}</span>
         {(lead.reviews || 0) >= 500 && !lead.website && (
           <span data-testid={`lead-hot-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-orange-100 text-orange-700 font-bold border border-orange-200">🔥 HOT</span>
@@ -229,7 +229,7 @@ function LeadRow({ lead, onRefresh }) {
         {lead.replied_at && <span data-testid={`lead-replied-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-orange-100 text-orange-700 font-bold border border-orange-200" title={`Replied ${(lead.replied_at || "").slice(0, 16).replace("T", " ")}${lead.reply_subject ? ` — "${lead.reply_subject}"` : ""}`}>💬 Replied</span>}
         {lead.opened_at && <span data-testid={`lead-opened-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-sky-100 text-sky-600 font-semibold" title={`Opened ${(lead.opened_at || "").slice(0, 16).replace("T", " ")} — can also be their email scanner`}>👀 Opened</span>}
         {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-      </button>
+      </div>
 
       {open && (
         <div className="px-4 pb-4 space-y-3 border-t border-slate-100 pt-3">
