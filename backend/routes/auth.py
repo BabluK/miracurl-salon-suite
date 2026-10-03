@@ -1,5 +1,5 @@
 """Authentication & onboarding: register, login, logout, refresh, password reset,
-staff attach, public salon self-signup (7-day trial)."""
+staff attach, public salon self-signup (free trial, length set by HQ)."""
 import asyncio
 import html as html_lib
 import logging
@@ -271,7 +271,7 @@ async def list_pending_staff(_admin=Depends(require_tenant_admin), t=Depends(cur
     return {"pending": pending}
 
 
-# ============== Public Salon Self-Signup (7-day trial) ==============
+# ============== Public Salon Self-Signup (free trial) ==============
 TRIAL_DAYS = 7  # legacy — live value comes from routes.subscriptions.get_trial_days()
 _SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$")
 

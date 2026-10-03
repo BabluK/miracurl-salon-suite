@@ -86,7 +86,7 @@ export default function BlogPost() {
         </div>
         <div className="mt-14 rounded-3xl border border-[#DFB78C]/25 bg-gradient-to-r from-[#161410] to-[#101011] p-8 text-center">
           <h3 className="font-playfair text-xl">Automate this with Miracurl Suite</h3>
-          <p className="text-white/50 text-sm mt-2">Bookings, WhatsApp reminders, GST billing, memberships & payroll — one suite, 7-day free trial.</p>
+          <p className="text-white/50 text-sm mt-2">Bookings, WhatsApp reminders, GST billing, memberships & payroll — one suite, free trial, no card needed.</p>
           <Link to="/signup-salon" data-testid="blogpost-cta-signup"
             className="inline-block mt-5 px-8 py-3 rounded-full bg-[#DFB78C] text-black text-sm font-bold hover:bg-[#e8c79f] transition-colors">
             Start free trial ✦

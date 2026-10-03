@@ -96,7 +96,7 @@ export function AffiliateCard() {
         <div className="flex-1">
           <h2 className="text-lg font-semibold text-slate-800">Refer & Earn a Free Month</h2>
           <p className="text-xs text-slate-500 mt-1">
-            Share your unique link below. Every salon that signs up using it gets a 7-day free trial — and when they make their first payment, you get
+            Share your unique link below. Every salon that signs up using it gets a free trial — and when they make their first payment, you get
             <b className="text-rose-600"> 1 FREE MONTH</b> added to your subscription automatically.
           </p>
         </div>

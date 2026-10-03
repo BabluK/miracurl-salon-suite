@@ -414,3 +414,7 @@
 - `POST /api/public/signup-logo` (uploads.py): public, rate-limited (10/15min), image-only ≤3MB, runs `_fit_logo`, stores under `signup-logos/`, uploads record tenant_id `pending-signup`. `SalonSignupIn.logo_url` (pattern `/api/files/<uuid>`) → set on tenant; `_create_signup_tenant` re-tags the upload to the new tenant via `_raw_db.uploads` (NOT the tenant-scoped `db` wrapper — it has no `uploads`).
 - `BookingPreviewCard.jsx`: gold avatar is now `LogoAvatar` uploader (camera badge, spinner, remove X, hint row). SignupSalon sends `logo_url` in the signup payload.
 - Tests: iteration_214.json (6/6 backend, frontend pass), tests/test_iter214_signup_logo.py.
+
+## 2026-10-03 — Stale "7-day free trial" copy removed
+- Real trial is 30 days (HQ-configurable; 90-day newbiz offer). Replaced "7-day" wording with trial-length-neutral copy in ReferEarn.jsx (WA share text + how-it-works), AffiliateCard.jsx, Blog.jsx, BlogPost.jsx, index.html og:description + JSON-LD AggregateOffer (also dropped retired "6-month plan from Rs.12,000" → monthly from Rs.1,455), sales.py Mira pitch (now "30 days"), auth.py comments. OG image rebuilt (build_og_image.py gained FreeSerif/Liberation font fallbacks — DejaVu is absent in the pod).
+- Kept intentionally: HQ Tenants "7-day" trial-kind filter/badge (classifies legacy tenants by actual span), last-7-days analytics labels, 7-day reminder windows.

@@ -52,6 +52,10 @@ def load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
         else "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold
         else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf" if bold
+        else "/usr/share/fonts/truetype/freefont/FreeSerif.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf" if bold
+        else "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf",
     ]
     for p in candidates:
         if os.path.exists(p):
@@ -130,7 +134,7 @@ def draw_brand(img: Image.Image) -> None:
 
     # ─── Trial pill ───
     pill_x2, pill_y2 = 80, 510
-    text = "7-day free trial  ·  ₹0 setup  ·  90 sec go-live"
+    text = "Free trial  ·  ₹0 setup  ·  90 sec go-live"
     pad_x, pad_y = 22, 12
     fp = load_font(20, bold=True)
     tw = d.textlength(text, font=fp)

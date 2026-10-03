@@ -26,7 +26,7 @@ export default function ReferEarn() {
 
   const referralUrl = data ? `${window.location.origin}/?ref=${data.slug}` : "";
   const shareMessage = data
-    ? `Hey! I run my salon on Miracurl — bookings, billing, and rewards all in one place.\n\nStart a free 7-day trial with my invite:\n${referralUrl}\n\nYou'll thank me later ✂️`
+    ? `Hey! I run my salon on Miracurl — bookings, billing, and rewards all in one place.\n\nStart a free trial with my invite:\n${referralUrl}\n\nYou'll thank me later ✂️`
     : "";
 
   async function copyLink() {
@@ -188,7 +188,7 @@ export default function ReferEarn() {
         <ol className="space-y-3 text-sm text-white/70">
           {[
             "Share your invite link with any salon owner via WhatsApp or SMS.",
-            "They sign up for a free 7-day trial and set up their salon.",
+            "They sign up for a free trial and set up their salon.",
             "We add 1 free month to your subscription automatically after their first payment.",
           ].map((step, i) => (
             <li key={step} className="flex gap-3">

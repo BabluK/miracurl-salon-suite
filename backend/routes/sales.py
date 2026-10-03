@@ -40,7 +40,7 @@ _SALES_SYSTEM_PROMPT = (
     "• Inventory with low-stock alerts and one-click vendor restock emails "
     "• AI tools: Mira voice briefings (English + Hindi), AI logo & poster studio, AI review replies, business reports emailed weekly & monthly "
     "• Multi-branch support, PWA mobile apps, Reviews→₹credits, Refer & Earn. "
-    "FREE TRIAL: 7 days, all features, up to 50 customers, no credit card — works for India and international salons. "
+    "FREE TRIAL: 30 days (HQ may run longer offers, e.g. 90-day setup for newly opened businesses), all features, no credit card — works for India and international salons. "
     "CURRENCY RULE (IMPORTANT): understand where their salon is FIRST. Salon in India → quote the INDIA (INR ₹) plans. "
     "Salon outside India (US, UK, UAE, Canada, Australia — anywhere international) → quote the INTERNATIONAL (USD $) plans and NEVER quote INR to them. "
     "If they ask about pricing and the country is unclear, politely ask which country their salon is in. "

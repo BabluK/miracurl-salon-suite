@@ -74,7 +74,7 @@ export default function Blog() {
         )}
         <div className="mt-16 rounded-3xl border border-[#DFB78C]/25 bg-gradient-to-r from-[#161410] to-[#101011] p-8 text-center">
           <h3 className="font-playfair text-2xl">Ready to put this into practice?</h3>
-          <p className="text-white/50 text-sm mt-2">Miracurl Suite automates everything these articles teach — 7-day free trial, no card needed.</p>
+          <p className="text-white/50 text-sm mt-2">Miracurl Suite automates everything these articles teach — free trial, no card needed.</p>
           <Link to="/signup-salon" data-testid="blog-cta-signup"
             className="inline-block mt-5 px-8 py-3 rounded-full bg-[#DFB78C] text-black text-sm font-bold hover:bg-[#e8c79f] transition-colors">
             Start free trial ✦
