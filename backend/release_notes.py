@@ -2,8 +2,8 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-09-30.373"
-BUILD_TIME = "30 Sep 2026, 07:40 AM IST"
+BUILD = "2026-10-03.374"
+BUILD_TIME = "3 Oct 2026, 12:30 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
@@ -175,6 +175,15 @@ BUILD_LOG = [
 ]
 
 RELEASES = [
+    {
+        "date": "2026-10-03 (Smoother dashboard & smarter Mira 🧠)",
+        "changes": [
+            "⚡ Dashboard loads exactly once on sign-in and branch switch — the 'Loaded in' badge now also shows how much was server time vs network time",
+            "🧠 Mira learns your tone: edit her demo-invite draft before sending and she mirrors your style on the next replies (HQ → Reply Inbox shows what she's learned, with a Forget button)",
+            "📱 Phone-only leads: HQ shows whether the WhatsApp template is approved by Meta and a one-tap 'Send WA pitch' for every lead without an email",
+            "✨ HQ console restyled in the unified light-gold theme across every section",
+        ],
+    },
     {
         "date": "2026-09-27 (Faster dashboard, smarter WhatsApp & a golden new look ✨)",
         "changes": [

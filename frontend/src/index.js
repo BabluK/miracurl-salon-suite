@@ -1,4 +1,3 @@
-import React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "@/index.css";
@@ -30,12 +29,11 @@ if (process.env.NODE_ENV === "production") {
   console.info = () => {};
   console.warn = () => {};
 }
+// No StrictMode: its dev-only double-mount re-ran every data effect (dashboard fetched twice on login / branch switch).
 root.render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
-  </React.StrictMode>,
+  <QueryClientProvider client={queryClient}>
+    <App />
+  </QueryClientProvider>,
 );
 
 // Register PWA service worker so browsers can offer "Install app".

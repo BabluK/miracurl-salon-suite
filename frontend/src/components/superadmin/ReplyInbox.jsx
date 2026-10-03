@@ -3,6 +3,7 @@ import { Loader2, Sparkles, Send, CheckCircle2 } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { LeadSourceBadges } from "@/components/superadmin/LeadSourceBadges";
+import { ToneMemoryChip } from "@/components/superadmin/ToneMemoryChip";
 
 const when = (iso) => (iso ? new Date(iso).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
 
@@ -20,8 +21,8 @@ function ReplyRow({ r, onChanged }) {
   const doSend = async () => {
     setBusy("send");
     try {
-      await api.post(`/super-admin/mira-leads/${r.id}/send-demo-reply`, { subject: draft.subject, body: draft.body });
-      toast.success(`📅 Demo invite sent to ${r.email}`); onChanged();
+      const { data } = await api.post(`/super-admin/mira-leads/${r.id}/send-demo-reply`, { subject: draft.subject, body: draft.body });
+      toast.success(data.learned ? `📅 Demo invite sent to ${r.email} · 🧠 Mira noted your edits for next time` : `📅 Demo invite sent to ${r.email}`); onChanged(data.learned);
     } catch (e) { toast.error(e.response?.data?.detail || "Send failed"); }
     finally { setBusy(""); }
   };
@@ -80,16 +81,18 @@ function ReplyRow({ r, onChanged }) {
 export function ReplyInbox() {
   const [data, setData] = useState(null);
   const [open, setOpen] = useState(false);
-  const load = useCallback(() => api.get("/super-admin/mira/replies").then(r => setData(r.data)).catch(() => setData({ count: 0, awaiting: 0, replies: [] })), []);
+  const [toneKey, setToneKey] = useState(0);
+  const load = useCallback((learned) => { if (learned) setToneKey(k => k + 1); return api.get("/super-admin/mira/replies").then(r => setData(r.data)).catch(() => setData({ count: 0, awaiting: 0, replies: [] })); }, []);
   useEffect(() => { load(); }, [load]);
   if (!data) return null;
   return (
     <div className="bg-white rounded-2xl border border-slate-200" data-testid="lead-reply-inbox">
       <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between px-4 py-3.5" data-testid="reply-inbox-toggle">
-        <span className="flex items-center gap-2 font-semibold text-sm text-slate-800">
+        <span className="flex items-center gap-2 font-semibold text-sm text-slate-800 flex-wrap">
           📥 Reply Inbox
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${data.count ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"}`} data-testid="reply-inbox-count">{data.count}</span>
           {data.awaiting > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700" data-testid="reply-inbox-awaiting">{data.awaiting} awaiting demo invite</span>}
+          <ToneMemoryChip refreshKey={toneKey} />
         </span>
         <span className="text-xs text-slate-400">{open ? "Hide ▲" : "Show ▼"}</span>
       </button>

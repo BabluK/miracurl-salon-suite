@@ -12,6 +12,7 @@ import { LeadEmailFix } from "@/components/superadmin/LeadEmailFix";
 import { AutoWaToggle } from "@/components/superadmin/AutoWaToggle";
 import { LeadSourceBadges } from "@/components/superadmin/LeadSourceBadges";
 import { SearchPanel, LastRunCard, CleanupMenu } from "@/components/superadmin/LeadSearchSection";
+import { WaTemplateBadge } from "@/components/superadmin/WaTemplateBadge";
 
 const STATUS_STYLE = {
   drafted: "bg-amber-100 text-amber-700", no_email: "bg-slate-100 text-slate-500",
@@ -122,11 +123,13 @@ function FunnelCards({ stats }) {
   );
 }
 
-function LeadRow({ lead, onRefresh }) {
+function LeadRow({ lead, onRefresh, waStatus }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState("");
   const [meetOpen, setMeetOpen] = useState(false);
   const [draft, setDraft] = useState({ email: lead.email || "", email_subject: lead.email_subject || "", email_body: lead.email_body || "" });
+  const phoneOnly = !!lead.phone && !lead.email;
+  const waApproved = waStatus === "APPROVED";
 
   const act = async (fn, label) => {
     setBusy(label);
@@ -222,6 +225,13 @@ function LeadRow({ lead, onRefresh }) {
           </p>
         </div>
         <span className={`text-[10px] px-2 py-1 rounded-full font-semibold ${STATUS_STYLE[lead.status] || "bg-slate-100 text-slate-500"}`}>{lead.status}</span>
+        {phoneOnly && !lead.wa_intro_sent_at && (
+          <span data-testid={`lead-wa-ready-${lead.id}`} data-ready={waApproved}
+            title={waApproved ? "No email, but Mira can pitch this lead on WhatsApp — the Meta template is approved" : `No email — WhatsApp pitch unlocks once Meta approves the template (${waStatus || "checking"})`}
+            className={`shrink-0 text-[10px] px-2 py-1 rounded-full font-bold border ${waApproved ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
+            {waApproved ? "📱 WA ready" : "📱 WA · template pending"}
+          </span>
+        )}
         {lead.competitor && <span data-testid={`lead-competitor-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-red-100 text-red-700 font-bold border border-red-200" title={`Currently uses ${lead.competitor} — strong migration lead`}>🔥 {lead.competitor}</span>}
         {lead.converted_at && <span data-testid={`lead-converted-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold border border-emerald-200" title={`Signed up for a trial${lead.converted_tenant_slug ? ` as "${lead.converted_tenant_slug}"` : ""} on ${(lead.converted_at || "").slice(0, 10)} — thanks to your outreach!`}>🎉 Converted</span>}
         {lead.demo_slot && <span data-testid={`lead-demo-slot-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-violet-100 text-violet-700 font-bold border border-violet-200" title={`Demo booked${lead.demo_slot.local_time ? ` (${lead.demo_slot.local_time} their time)` : ""}`}>📅 {lead.demo_slot.date} · {lead.demo_slot.time} IST</span>}
@@ -320,10 +330,10 @@ function LeadRow({ lead, onRefresh }) {
               </button>
             )}
             {lead.phone && !lead.do_not_call && !lead.wa_opt_out && !lead.wa_intro_sent_at && (
-              <button onClick={sendWaIntro} disabled={!!busy} data-testid={`lead-wa-intro-${lead.id}`}
-                title="Mira sends her WhatsApp intro from the Miracurl business number (Meta template) — replies land here"
+              <button onClick={sendWaIntro} disabled={!!busy || !waApproved} data-testid={phoneOnly ? `lead-wa-pitch-${lead.id}` : `lead-wa-intro-${lead.id}`}
+                title={waApproved ? "Mira sends her WhatsApp pitch from the Miracurl business number (approved Meta template) — replies land here" : `Waiting for Meta to approve the WhatsApp template (${waStatus || "checking"})`}
                 className="text-xs px-3.5 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold disabled:opacity-50 inline-flex items-center gap-1.5">
-                {busy === "wa-intro" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageCircle className="w-3.5 h-3.5" />} WA Intro
+                {busy === "wa-intro" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageCircle className="w-3.5 h-3.5" />} {phoneOnly ? "Send WA pitch" : "WA Intro"}
               </button>
             )}
             {lead.wa_intro_sent_at && (
@@ -415,14 +425,16 @@ export function MiraLeadAgent() {
   const [filter, setFilter] = useState("all");
   const [section, setSection] = useState("search");
   const [blastOpen, setBlastOpen] = useState(false);
+  const [wa, setWa] = useState(null);
   const pollRef = useRef(null);
 
   const refresh = useCallback(async () => {
-    const [r, l, s, roiRes] = await Promise.all([
+    const [r, l, s, roiRes, waRes] = await Promise.all([
       api.get("/super-admin/mira-leads/runs"), api.get("/super-admin/mira-leads"),
       api.get("/super-admin/mira-leads/stats"), api.get("/super-admin/mira-leads/roi").catch(() => ({ data: null })),
+      api.get("/super-admin/mira-leads/auto-wa").catch(() => ({ data: null })),
     ]);
-    setRuns(r.data); setLeads(l.data); setStats(s.data); setRoi(roiRes.data);
+    setRuns(r.data); setLeads(l.data); setStats(s.data); setRoi(roiRes.data); if (waRes.data) setWa(waRes.data);
     return r.data;
   }, []);
 
@@ -512,6 +524,7 @@ export function MiraLeadAgent() {
         <div>
           <h1 className="font-playfair text-3xl flex items-center gap-3"><Bot className="w-7 h-7 text-fuchsia-500" /> Lead Generation by Mira AI</h1>
           <p className="text-slate-500 text-sm mt-1">Find salons & restaurants → research → score → personalized email → you approve (or Autopilot sends).</p>
+          <div className="mt-2"><WaTemplateBadge wa={wa} onRefresh={setWa} /></div>
         </div>
         <div className="flex gap-1 p-1 rounded-2xl bg-white border border-slate-200" data-testid="lead-section-tabs">
           {SECTIONS.map(sct => (
@@ -549,7 +562,7 @@ export function MiraLeadAgent() {
             <div className="space-y-2 pt-1">
               {leads.length === 0 && <p className="text-sm text-slate-400 text-center py-8">No leads yet — run Mira above to find your first salons or restaurants.</p>}
               {leads.length > 0 && shownLeads.length === 0 && <p className="text-sm text-slate-400 text-center py-8" data-testid="lead-filter-empty">No leads match this view{scope === "recent" ? " — the latest search found no leads yet" : ""}.</p>}
-              {shownLeads.slice(0, 150).map(l => <LeadRow key={l.id} lead={l} onRefresh={() => refresh().catch(() => {})} />)}
+              {shownLeads.slice(0, 150).map(l => <LeadRow key={l.id} lead={l} waStatus={wa?.template_status} onRefresh={() => refresh().catch(() => {})} />)}
               {shownLeads.length > 150 && <p className="text-xs text-slate-400 text-center py-2">Showing the first 150 — narrow the view to see the rest.</p>}
             </div>
           </div>

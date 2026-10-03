@@ -620,18 +620,71 @@ def _demo_url() -> str:
     return f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/demo"
 
 
+TONE_MEMORY_MAX = 25
+TONE_EXAMPLES = 5
+
+
+def _norm_text(s: str) -> str:
+    return re.sub(r"\s+", " ", (s or "")).strip()
+
+
+async def tone_examples(limit: int = TONE_EXAMPLES) -> list[dict]:
+    return await _raw_db.mira_tone_memory.find({}, {"_id": 0}).sort("created_at", -1).to_list(limit)
+
+
+def _tone_prompt(examples: list[dict]) -> str:
+    if not examples:
+        return ""
+    lines = []
+    for i, ex in enumerate(examples, 1):
+        lines.append(f"EXAMPLE {i} — your draft:\nSubject: {ex.get('draft_subject', '')}\n{(ex.get('draft_body') or '')[:700]}\n"
+                     f"→ Boss's final version (PREFERRED):\nSubject: {ex.get('final_subject', '')}\n{(ex.get('final_body') or '')[:700]}")
+    return ("\n\nSTYLE MEMORY — the boss edited your earlier drafts before sending. Mirror the tone, length, greeting, phrasing "
+            "and sign-off of the FINAL versions (not the drafts); keep what the boss kept, drop what the boss removed:\n" + "\n\n".join(lines))
+
+
+async def remember_tone(lead: dict, draft: dict | None, final_subject: str, final_body: str) -> bool:
+    """Store (Mira draft → boss's edit) when the boss changed the reply before sending. Returns True when learned."""
+    if not draft or not draft.get("body"):
+        return False
+    if _norm_text(draft.get("subject")) == _norm_text(final_subject) and _norm_text(draft.get("body")) == _norm_text(final_body):
+        return False
+    await _raw_db.mira_tone_memory.insert_one({
+        "id": str(uuid.uuid4()), "created_at": _now(), "lead_id": lead.get("id"), "lead_name": lead.get("name") or "",
+        "vertical": lead.get("vertical") or "salon", "draft_subject": draft.get("subject") or "", "draft_body": draft.get("body") or "",
+        "final_subject": final_subject, "final_body": final_body})
+    old = await _raw_db.mira_tone_memory.find({}, {"_id": 0, "id": 1}).sort("created_at", -1).skip(TONE_MEMORY_MAX).to_list(200)
+    if old:
+        await _raw_db.mira_tone_memory.delete_many({"id": {"$in": [o["id"] for o in old]}})
+    return True
+
+
+@router.get("/super-admin/mira/tone-memory")
+async def get_tone_memory(user=Depends(require_super_admin)):
+    items = await _raw_db.mira_tone_memory.find({}, {"_id": 0}).sort("created_at", -1).to_list(TONE_MEMORY_MAX)
+    return {"count": len(items), "used_in_prompt": min(len(items), TONE_EXAMPLES), "items": items}
+
+
+@router.delete("/super-admin/mira/tone-memory")
+async def forget_tone_memory(user=Depends(require_super_admin)):
+    res = await _raw_db.mira_tone_memory.delete_many({})
+    await log_mira_event("result", "🧠 Boss cleared Mira's reply-tone memory — she drafts from scratch again.")
+    return {"ok": True, "deleted": res.deleted_count}
+
+
 async def draft_demo_reply(lead: dict) -> dict:
     from routes.mira_common import _ask_json
     vert = "restaurant" if (lead.get("vertical") or "salon") == "restaurant" else "salon"
     reply = (lead.get("last_reply_text") or lead.get("wa_intro_reply") or "").strip()[:1500]
     first = (lead.get("owner_name") or lead.get("name") or "there").split()[0].title()
+    examples = await tone_examples()
     out = await _ask_json(
         f"You are Mira, the warm and sharp sales assistant of Miracurl Suite — SaaS for {vert}s (bookings/QR ordering, POS billing, "
         "staff, WhatsApp marketing, AI receptionist). A prospect replied to our outreach. Write a SHORT personal reply email "
         "(max 120 words, 3 short paragraphs, plain text with \\n between paragraphs) that: 1) thanks them and answers or "
         "acknowledges what they said, 2) invites them to a free 20-minute live demo and asks them to pick a slot at the demo link "
         f"{_demo_url()} (mention the link once), 3) signs off as 'Mira & the Miracurl team'. Match their language (English/Hindi/Hinglish). "
-        'Never invent prices. Return JSON: {"subject": "<Re: subject, max 70 chars>", "body": "<email body>"}',
+        'Never invent prices. Return JSON: {"subject": "<Re: subject, max 70 chars>", "body": "<email body>"}' + _tone_prompt(examples),
         f"Business: {lead.get('name')} ({vert}, {lead.get('city')}). Contact first name: {first}.\n"
         f"Their reply subject: {lead.get('reply_subject') or '—'}\nTheir reply:\n{reply or '(no text captured — they replied on WhatsApp)'}")
     draft = {"subject": (out.get("subject") or f"Re: Miracurl Suite demo for {lead.get('name') or 'you'}")[:120],
@@ -700,6 +753,7 @@ async def send_demo_reply(lid: str, body: DemoReplyIn, user=Depends(require_supe
                             book_url=_demo_url(), book_label="Book a demo ✦")
     if not res.get("sent"):
         raise HTTPException(502, f"Send failed: {res.get('error')}")
+    learned = await remember_tone(lead, lead.get("demo_draft"), body.subject, body.body)
     sets = {"demo_invite_sent_at": _now(), "demo_invite_by": user.get("email"), "demo_draft": None}
     if lead.get("status") not in ("demo", "customer"):
         sets["status"] = "demo"
@@ -708,5 +762,5 @@ async def send_demo_reply(lid: str, body: DemoReplyIn, user=Depends(require_supe
         "id": str(uuid.uuid4()), "day": _today(), "created_at": _now(), "channel": "demo_invite", "lead_id": lid,
         "name": lead.get("name") or "", "vertical": lead.get("vertical") or "salon", "city": lead.get("city") or "",
         "country": _country_of(lead.get("city")), "email": lead["email"], "detail": body.subject[:160]})
-    await log_mira_event("result", f"📅 Demo invite sent to {lead.get('name') or lead['email']} — Boss approved Mira's reply.")
-    return {"ok": True, "sent_to": lead["email"]}
+    await log_mira_event("result", f"📅 Demo invite sent to {lead.get('name') or lead['email']} — Boss approved Mira's reply." + (" Mira noted the edits for next time 🧠" if learned else ""))
+    return {"ok": True, "sent_to": lead["email"], "learned": learned}

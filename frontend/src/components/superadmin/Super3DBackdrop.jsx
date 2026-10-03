@@ -9,10 +9,10 @@ const SPARKS = [
 export function Super3DBackdrop() {
   return (
     <div className="super-3d-scene fixed inset-0 z-0 overflow-hidden" aria-hidden="true" data-testid="super-3d-backdrop">
-      <div className="orb3d w-80 h-80 bg-indigo-300" style={{ top: "-3rem", left: "-2rem" }} />
-      <div className="orb3d w-[26rem] h-[26rem] bg-violet-300" style={{ bottom: "-5rem", right: "-4rem", animationDelay: "-5s" }} />
-      <div className="orb3d w-72 h-72 bg-sky-300" style={{ top: "28%", right: "14%", animationDelay: "-9s" }} />
-      <div className="orb3d w-64 h-64 bg-fuchsia-200" style={{ top: "55%", left: "8%", animationDelay: "-3s" }} />
+      <div className="orb3d w-80 h-80 bg-[#e8c37f]" style={{ top: "-3rem", left: "-2rem" }} />
+      <div className="orb3d w-[26rem] h-[26rem] bg-[#f0d9a5]" style={{ bottom: "-5rem", right: "-4rem", animationDelay: "-5s" }} />
+      <div className="orb3d w-72 h-72 bg-amber-200" style={{ top: "28%", right: "14%", animationDelay: "-9s" }} />
+      <div className="orb3d w-64 h-64 bg-rose-100" style={{ top: "55%", left: "8%", animationDelay: "-3s" }} />
       <div className="ring3d w-[480px] h-[480px]" style={{ top: "-140px", right: "-120px" }} />
       <div className="ring3d w-72 h-72" style={{ bottom: "-60px", left: "10%", animationDelay: "-11s", borderColor: "rgba(217, 70, 239, 0.45)" }} />
       {SPARKS.map((s, i) => (

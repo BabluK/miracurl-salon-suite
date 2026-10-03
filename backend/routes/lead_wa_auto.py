@@ -161,12 +161,18 @@ class AutoWaSettingsIn(BaseModel):
     daily_limit: int = Field(25, ge=1, le=100)
 
 
+PHONE_ONLY_QUERY = {"phone": {"$nin": ["", None]}, "$or": [{"email": ""}, {"email": None}, {"email": {"$exists": False}}],
+                    "status": {"$nin": ["customer", "rejected"]}}
+
+
 @router.get("/super-admin/mira-leads/auto-wa")
-async def get_auto_wa(user=Depends(require_super_admin)):
+async def get_auto_wa(refresh: bool = False, user=Depends(require_super_admin)):
     today = datetime.now(timezone.utc).date().isoformat()
-    return {**await _settings(), "template": TEMPLATE, "template_status": await template_status(),
+    return {**await _settings(), "template": TEMPLATE, "template_status": await template_status(force=refresh),
             "sent_today": await _raw_db.mira_wa_intros.count_documents({"created_at": {"$gte": today}}),
-            "replied_total": await _raw_db.mira_leads.count_documents({"wa_intro_replied_at": {"$exists": True}})}
+            "replied_total": await _raw_db.mira_leads.count_documents({"wa_intro_replied_at": {"$exists": True}}),
+            "phone_only": await _raw_db.mira_leads.count_documents(PHONE_ONLY_QUERY),
+            "phone_only_pitched": await _raw_db.mira_leads.count_documents({**PHONE_ONLY_QUERY, "wa_intro_sent_at": {"$exists": True}})}
 
 
 @router.put("/super-admin/mira-leads/auto-wa")
