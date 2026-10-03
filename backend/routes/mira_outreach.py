@@ -456,15 +456,53 @@ async def put_settings(body: OutreachSettingsIn, user=Depends(require_super_admi
 
 @router.post("/super-admin/mira/outreach/run-now")
 async def run_now(dry_run: bool = False, user=Depends(require_super_admin)):
-    out = await run_outreach_cycle(force=True, dry_run=dry_run, ignore_hours=True)
-    if out.get("skipped"):
-        raise HTTPException(409, out["skipped"])
-    return out
+    """Dry run answers inline; a real batch runs in the background (LLM + email per lead can exceed the HTTP timeout)."""
+    if dry_run:
+        out = await run_outreach_cycle(force=True, dry_run=True, ignore_hours=True)
+        if out.get("skipped"):
+            raise HTTPException(409, out["skipped"])
+        return out
+    if _CYCLE_LOCK.locked():
+        raise HTTPException(409, "Mira is already sending a batch — give her a minute")
+    s = await get_settings()
+    budget = max(0, min(s["per_cycle"], s["daily_email_limit"] - await sent_today("email")))
+    picked = await _pick_candidates(s, budget, True) if budget else []
+    reminders = await _pick_reminders(s, budget - len(picked), True)
+
+    async def _bg():
+        try:
+            res = await run_outreach_cycle(force=True, ignore_hours=True)
+            log.info("run-now batch finished: %s", res)
+        except Exception:  # noqa: BLE001
+            log.exception("run-now batch failed")
+    asyncio.create_task(_bg())
+    return {"started": True, "will_email": len(picked), "will_remind": len(reminders), "budget_left_today": budget,
+            "sent_today": await sent_today("email"), "limit": s["daily_email_limit"]}
 
 
 @router.get("/super-admin/mira/outreach/countries")
 async def list_countries(user=Depends(require_super_admin)):
     return {"countries": [{"iso": k, "dial": v[0]} for k, v in _COUNTRIES.items()], "cities": _WORLD_CITIES}
+
+
+@router.get("/super-admin/mira/outreach/report")
+async def outreach_report(vertical: str = "salon", days: int = 1, user=Depends(require_super_admin)):
+    """Per-vertical report data (sent by location + lead journey) for the UI; `days` widens the window."""
+    from services.outreach_report import build_report, report_html
+    v = "restaurant" if vertical == "restaurant" else "salon"
+    rep = await build_report(v, max(1, min(days, 90)))
+    return {**rep, "html": report_html(rep)}
+
+
+@router.post("/super-admin/mira/outreach/report/send")
+async def outreach_report_send(vertical: str = "", days: int = 1, user=Depends(require_super_admin)):
+    """Email the report(s) to HQ now — one email per vertical (both when `vertical` is empty)."""
+    from services.outreach_report import send_vertical_report
+    verts = ["restaurant" if vertical == "restaurant" else "salon"] if vertical else ["salon", "restaurant"]
+    out = [await send_vertical_report(v, max(1, min(days, 90))) for v in verts]
+    if not any(r["sent"] for r in out):
+        raise HTTPException(502, f"Report email failed: {out[0].get('error') or 'email not configured'}")
+    return {"reports": out}
 
 
 # ---------------- Pitch preview: Boss reads Mira's wording (and tunes it) before the batch goes out ----------------

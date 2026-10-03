@@ -435,6 +435,8 @@ async def _mira_outreach_scheduler() -> None:
     while True:
         try:
             await run_outreach_cycle()
+            from services.outreach_report import send_daily_reports
+            await send_daily_reports()
         except Exception as e:
             logging.error(f"mira outreach scheduler error: {e}")
         await asyncio.sleep(600)

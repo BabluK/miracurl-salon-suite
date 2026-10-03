@@ -3,7 +3,7 @@ import log from "@/lib/log";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users, Pencil, Clapperboard, Stethoscope, Eraser, CreditCard, Menu, PowerOff } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users, Pencil, Stethoscope, Eraser, CreditCard, Menu, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 import { askConfirm } from "@/components/ConfirmDialog";
 import ImportCustomersModal from "./ImportCustomersModal";
@@ -38,7 +38,6 @@ import { InquiriesPanel } from "@/components/superadmin/InquiriesPanel";
 import { BrandKitPanel } from "@/components/superadmin/BrandKitPanel";
 import { PlatformLoadPanel } from "@/components/superadmin/PlatformLoadPanel";
 import { DatabasePanel } from "@/components/superadmin/DatabasePanel";
-import { PromoImageStudio } from "@/components/superadmin/PromoImageStudio";
 import { VerifiedStaffPanel } from "@/components/superadmin/VerifiedStaffPanel";
 import { MiracurlTeamPanel } from "@/components/superadmin/MiracurlTeamPanel";
 import { DeploymentHistoryPanel } from "@/components/superadmin/DeploymentHistoryPanel";
@@ -64,7 +63,7 @@ import { GrowthAdvisoryPanel } from "@/components/superadmin/GrowthAdvisoryPanel
 import { SuperAdminProfileCard } from "@/components/superadmin/SuperAdminProfileCard";
 import { WhatsAppLeadsCard } from "@/components/superadmin/WhatsAppLeadsCard";
 import { SiteInfoPanel } from "@/components/superadmin/SiteInfoPanel";
-import { Globe } from "lucide-react";
+
 import { Mail } from "lucide-react";
 import { PlatformEarnings } from "@/components/superadmin/PlatformEarnings";
 import { MiraVoiceAssistant } from "@/components/superadmin/MiraVoiceAssistant";
@@ -72,10 +71,10 @@ import { FileText } from "lucide-react";
 import { BellRing, Orbit, Star } from "lucide-react";
 import { FeedbackPanel } from "@/components/superadmin/FeedbackPanel";
 import { AssistQueueCard } from "@/components/superadmin/AssistQueueCard";
-import { BadgeCheck, Rocket } from "lucide-react";
+import { Rocket } from "lucide-react";
 import { Briefcase } from "lucide-react";
 import { NetSpeedIndicator } from "@/components/NetSpeedIndicator";
-import { Palette, Activity, Database, ImagePlus, FileDown, MailCheck, IdCard } from "lucide-react";
+import { Palette, Activity, Database, FileDown, MailCheck, IdCard } from "lucide-react";
 
 async function downloadBlob(url, filename) {
   const r = await api.get(url, { responseType: "blob" });
@@ -451,16 +450,12 @@ export default function SuperAdmin() {
               { id: "ai", label: "AI Insights", icon: Sparkles },
               { id: "inquiries", label: "Leads & Inquiries", icon: Users, badge: inquiryNew },
               { id: "mira-studio", label: "Mira Studio Users", icon: Sparkles },
-              { id: "hiring", label: "Hiring", icon: Briefcase, badge: hiringNew },
+              { id: "hiring", label: "Hiring & Staff Verification", icon: Briefcase, badge: hiringNew },
               { id: "feedback", label: "Feedback", icon: Star },
               { id: "engineer", label: "AI Engineer", icon: Wrench },
               { id: "onboarding", label: "Onboarding Image", icon: Sparkles },
-              { id: "promo", label: "Promo Video", icon: Clapperboard },
-              { id: "brandkit", label: "Brand Kit", icon: Palette },
-              { id: "posters", label: "AI Posters", icon: ImagePlus },
-              { id: "verify-staff", label: "Staff Verification", icon: BadgeCheck },
-              { id: "team", label: "Miracurl Team", icon: Crown },
-              { id: "website", label: "Website & CEO", icon: Globe },
+              { id: "brandkit", label: "Brand Kit & Promo Video", icon: Palette },
+              { id: "team", label: "HQ, Team, Website & CEO", icon: Crown },
               { id: "deployments", label: "Deployments", icon: Rocket },
               { id: "load", label: "Platform Load", icon: Activity },
               { id: "database", label: "Database", icon: Database },
@@ -548,15 +543,14 @@ export default function SuperAdmin() {
             feedback: <FeedbackPanel />,
             inquiries: <InquiriesPanel onNewCount={setInquiryNew} onConvert={convertLead} />,
             "mira-studio": <MiraStudioPanel />,
-            hiring: <HiringPanel onNewCount={setHiringNew} />,
+            hiring: <div className="space-y-10"><HiringPanel onNewCount={setHiringNew} /><VerifiedStaffPanel /></div>,
+            "verify-staff": <div className="space-y-10"><HiringPanel onNewCount={setHiringNew} /><VerifiedStaffPanel /></div>,
             engineer: <EngineerPanel />,
             onboarding: <OnboardingStudio tenants={tenants} />,
-            promo: <div className="space-y-6"><PromoVideoStudio /></div>,
-            brandkit: <BrandKitPanel />,
-            posters: <PromoImageStudio />,
-            "verify-staff": <VerifiedStaffPanel />,
-            team: <MiracurlTeamPanel />,
-            website: <SiteInfoPanel />,
+            brandkit: <div className="space-y-10"><BrandKitPanel /><PromoVideoStudio /></div>,
+            promo: <div className="space-y-10"><BrandKitPanel /><PromoVideoStudio /></div>,
+            team: <div className="space-y-10"><SuperAdminProfileCard /><MiracurlTeamPanel /><SiteInfoPanel /></div>,
+            website: <div className="space-y-10"><SuperAdminProfileCard /><MiracurlTeamPanel /><SiteInfoPanel /></div>,
             deployments: <DeploymentHistoryPanel />,
             load: <PlatformLoadPanel />,
             database: <DatabasePanel />,

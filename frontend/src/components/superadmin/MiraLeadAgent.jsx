@@ -11,6 +11,7 @@ import { WaBlastModal } from "@/components/superadmin/WaBlastModal";
 import { LeadEmailFix } from "@/components/superadmin/LeadEmailFix";
 import { AutoWaToggle } from "@/components/superadmin/AutoWaToggle";
 import { LeadSourceBadges } from "@/components/superadmin/LeadSourceBadges";
+import { SearchPanel, LastRunCard, CleanupMenu } from "@/components/superadmin/LeadSearchSection";
 
 const STATUS_STYLE = {
   drafted: "bg-amber-100 text-amber-700", no_email: "bg-slate-100 text-slate-500",
@@ -394,6 +395,13 @@ function MeetInviteForm({ lead, onSent }) {
   );
 }
 
+
+const SECTIONS = [
+  { key: "search", label: "🔍 Find & review leads", hint: "search → results → approve" },
+  { key: "autopilot", label: "🤖 Autopilot & outreach", hint: "Mira emails leads herself" },
+  { key: "inbox", label: "📥 Replies, funnel & tools", hint: "replies · ROI · WhatsApp tools" },
+];
+
 export function MiraLeadAgent() {
   const [city, setCity] = useState("Bangalore");
   const [target, setTarget] = useState(10);
@@ -403,7 +411,9 @@ export function MiraLeadAgent() {
   const [stats, setStats] = useState(null);
   const [roi, setRoi] = useState(null);
   const [starting, setStarting] = useState(false);
+  const [scope, setScope] = useState("all");
   const [filter, setFilter] = useState("all");
+  const [section, setSection] = useState("search");
   const [blastOpen, setBlastOpen] = useState(false);
   const pollRef = useRef(null);
 
@@ -434,12 +444,23 @@ export function MiraLeadAgent() {
     try {
       await api.post("/super-admin/mira-leads/run", { city, target: Number(target), vertical });
       toast.success(`Mira is hunting for ${vertical === "restaurant" ? "restaurants" : "salons"} in ${city} ✦ (takes a few minutes)`);
+      setScope("recent"); setFilter("all");
       startPolling();
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't start run"); }
     finally { setStarting(false); }
   };
 
+  const stopRun = async () => {
+    if (!await confirmAsync("Stop the current run? Leads found so far are kept.")) return;
+    try {
+      await api.post("/super-admin/mira-leads/runs/stop");
+      toast.success("Run stopped — you can start a new search");
+      refresh().catch(() => {});
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't stop the run"); }
+  };
+
   const activeRun = runs.find(r => r.status === "running");
+  const lastSearch = runs.find(r => r.vertical) || runs[0];
 
   const isHot = l => (l.reviews || 0) >= 500 && !l.website;
   const isIndian = l => {
@@ -450,138 +471,138 @@ export function MiraLeadAgent() {
     if (m) return ["IN", "IND"].includes(m[1].toUpperCase());
     return true;
   };
-  const FILTERS = [
+  // Scope = WHICH leads (vertical / region / latest search). Filter = WHERE they are in the journey.
+  const SCOPES = [
     { key: "all", label: "All", test: () => true },
+    { key: "recent", label: "🕐 Latest search", test: l => lastSearch && l.run_id === lastSearch.id },
+    { key: "salon", label: "💇 Salons", test: l => (l.vertical || "salon") !== "restaurant" },
+    { key: "resto", label: "🍽️ Restaurants", test: l => l.vertical === "restaurant" },
     { key: "india", label: "🇮🇳 Indian", test: l => isIndian(l) },
     { key: "intl", label: "🌍 Foreign", test: l => !isIndian(l) },
-    { key: "resto", label: "🍽️ Restaurants", test: l => l.vertical === "restaurant" },
-    { key: "recent", label: "🕐 Recent search", test: l => runs[0] && l.run_id === runs[0].id },
-    { key: "hot", label: "🔥 Hot leads", test: l => isHot(l) },
-    { key: "newbiz", label: "🆕 Newly opened", test: l => !!l.new_business },
-    { key: "ready", label: "✉️ Ready to send", test: l => ["drafted", "researched"].includes(l.status) && !!l.email },
-    { key: "opened", label: "👀 Opened", test: l => !!l.opened_at },
-    { key: "nudged", label: "📧 Nudged", test: l => !!l.nudge_sent_at },
-    { key: "replied", label: "🔥 Replied", test: l => !!l.replied_at || l.status === "replied" },
-    { key: "no_email", label: "🚫 No email", test: l => l.status === "no_email" || !l.email },
-    { key: "sent", label: "✅ Already sent", test: l => ["sent", "demo", "customer", "replied"].includes(l.status) },
   ];
-  const counts = Object.fromEntries(FILTERS.map(f => [f.key, leads.filter(f.test).length]));
-  const shownLeads = leads.filter(FILTERS.find(f => f.key === filter)?.test || (() => true));
+  const FILTERS = [
+    { key: "all", label: "Any status", test: () => true },
+    { key: "ready", label: "✉️ Ready to send", test: l => ["drafted", "researched"].includes(l.status) && !!l.email },
+    { key: "hot", label: "🔥 Hot", test: l => isHot(l) },
+    { key: "newbiz", label: "🆕 Newly opened", test: l => !!l.new_business },
+    { key: "sent", label: "✅ Contacted", test: l => ["sent", "demo", "customer", "replied"].includes(l.status) },
+    { key: "opened", label: "👀 Opened", test: l => !!l.opened_at },
+    { key: "replied", label: "💬 Replied", test: l => !!l.replied_at || l.status === "replied" },
+    { key: "nudged", label: "📧 Nudged", test: l => !!l.nudge_sent_at },
+    { key: "no_email", label: "🚫 No email", test: l => l.status === "no_email" || !l.email },
+  ];
+  const scopeTest = SCOPES.find(s => s.key === scope)?.test || (() => true);
+  const scoped = leads.filter(scopeTest);
+  const scopeCounts = Object.fromEntries(SCOPES.map(s => [s.key, leads.filter(s.test).length]));
+  const counts = Object.fromEntries(FILTERS.map(f => [f.key, scoped.filter(f.test).length]));
+  const shownLeads = scoped.filter(FILTERS.find(f => f.key === filter)?.test || (() => true));
+
+  const Chip = ({ on, onClick, children, count, testid, tone = "fuchsia" }) => (
+    <button onClick={onClick} data-testid={testid}
+      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${on
+        ? (tone === "dark" ? "bg-[#1c1c22] text-[#e8c37f] border-[#1c1c22]" : "bg-fuchsia-600 text-white border-fuchsia-600")
+        : "bg-white text-slate-500 border-slate-200 hover:border-fuchsia-300"}`}>
+      {children} <span className={`ml-1 ${on ? "opacity-70" : "text-slate-400"}`}>{count}</span>
+    </button>
+  );
 
   return (
-    <div className="space-y-6" data-testid="mira-lead-agent-panel">
-      <div>
-        <h1 className="font-playfair text-3xl flex items-center gap-3"><Bot className="w-7 h-7 text-fuchsia-500" /> Lead Generation by Mira AI</h1>
-        <p className="text-slate-500 text-sm mt-1">Find salons → research → score → personalized email → you approve → Mira sends.</p>
-      </div>
-
-      <FunnelCards stats={stats} />
-
-      <RoiPanel roi={roi} />
-
-      <ReplyInbox />
-
-      <WaQuickInvite onLead={refresh} />
-      <MiraOutreachCard />
-      <CityWatchCard />
-
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-wrap items-end gap-3">
+    <div className="space-y-5" data-testid="mira-lead-agent-panel">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <label className="text-[11px] uppercase tracking-wide text-slate-400">Business type</label>
-          <div className="flex gap-1 mt-1 p-1 rounded-xl bg-slate-100 border border-slate-200" data-testid="lead-vertical-toggle">
-            {[["salon", "💇 Salons"], ["restaurant", "🍽️ Restaurants"]].map(([k, l]) => (
-              <button key={k} onClick={() => setVertical(k)} data-testid={`lead-vertical-${k}`}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${vertical === k ? "bg-white shadow text-fuchsia-600" : "text-slate-500 hover:text-slate-700"}`}>
-                {l}
-              </button>
-            ))}
-          </div>
+          <h1 className="font-playfair text-3xl flex items-center gap-3"><Bot className="w-7 h-7 text-fuchsia-500" /> Lead Generation by Mira AI</h1>
+          <p className="text-slate-500 text-sm mt-1">Find salons & restaurants → research → score → personalized email → you approve (or Autopilot sends).</p>
         </div>
-        <div>
-          <label className="text-[11px] uppercase tracking-wide text-slate-400">City</label>
-          <input value={city} onChange={e => setCity(e.target.value)} placeholder="Bangalore · London, UK · New York, US" className="block border border-slate-200 rounded-xl px-3 py-2.5 text-sm mt-1 w-56" data-testid="lead-city-input" />
-        </div>
-        <div>
-          <label className="text-[11px] uppercase tracking-wide text-slate-400">How many</label>
-          <input type="number" min="1" max="50" value={target} onChange={e => setTarget(e.target.value)} className="block border border-slate-200 rounded-xl px-3 py-2.5 text-sm mt-1 w-24" data-testid="lead-target-input" />
-        </div>
-        <button onClick={startRun} disabled={starting || !!activeRun} data-testid="lead-run-btn"
-          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white text-sm font-bold inline-flex items-center gap-2 disabled:opacity-50">
-          {starting || activeRun ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-          {activeRun ? "Mira is working…" : `Find ${vertical === "restaurant" ? "restaurants" : "salons"} ✦`}
-        </button>
-        {activeRun && (
-          <button data-testid="lead-stop-run-btn"
-            onClick={async () => {
-              if (!await confirmAsync("Stop the current run? Leads found so far are kept.")) return;
-              try {
-                await api.post("/super-admin/mira-leads/runs/stop");
-                toast.success("Run stopped — you can start a new search");
-                refresh().catch(() => {});
-              } catch (e) { toast.error(e.response?.data?.detail || "Couldn't stop the run"); }
-            }}
-            className="px-4 py-2.5 rounded-xl border border-rose-300 text-rose-600 text-sm font-semibold hover:bg-rose-50"
-            title="Stop the stuck/running search — leads found so far stay saved">
-            ⏹ Stop
-          </button>
-        )}
-        <AutoWaToggle />
-        <button data-testid="wa-blast-open-btn" onClick={() => setBlastOpen(true)}
-          className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold inline-flex items-center gap-2 hover:bg-emerald-700"
-          title="Mira composes a personalized WhatsApp message for every uncontacted lead — you tap through and send">
-          <MessageCircle className="w-4 h-4" /> WhatsApp Blast
-        </button>
-        <button data-testid="lead-hunt-all-btn"
-          disabled={starting || !!activeRun}
-          onClick={async () => {
-            try {
-              const { data } = await api.post("/super-admin/mira-leads/hunt-all");
-              if (!data.started) { toast.info("Every lead already has an email — nothing to hunt 🎉"); return; }
-              toast.success(`Hunting emails for ${data.count} leads — watch the log ✦`);
-              startPolling();
-              refresh().catch(() => {});
-            } catch (e) { toast.error(e.response?.data?.detail || "Couldn't start the hunt"); }
-          }}
-          className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:border-fuchsia-400 disabled:opacity-50"
-          title="Runs Find-email (website → Instagram → web search) across every lead with no inbox">
-          🔍 Hunt all emails
-        </button>
-        <button data-testid="lead-followups-btn"
-          onClick={async () => {
-            try {
-              const { data } = await api.post("/super-admin/mira-leads/followups/run");
-              toast.success(`Follow-ups: ${data.sent} sent, ${data.due - data.sent} not due yet`);
-              refresh().catch(() => {});
-            } catch (e) { toast.error(e.response?.data?.detail || "Follow-up run failed"); }
-          }}
-          className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:border-fuchsia-400"
-          title="Auto-runs daily at 10 AM — sends a gentle nudge to leads with no reply after 5 days">
-          🔁 Send due follow-ups
-        </button>
-      </div>
-
-      {runs[0] && (runs[0].status === "running" || (runs[0].log || []).length > 0) && (
-        <div className="bg-slate-900 rounded-2xl p-4 text-xs text-slate-300 font-mono max-h-44 overflow-y-auto" data-testid="lead-run-log">
-          {(runs[0].log || []).slice(-14).map((l, i) => <p key={i}>{l}</p>)}
-        </div>
-      )}
-
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2" data-testid="lead-filter-tabs">
-          {FILTERS.map(f => (
-            <button key={f.key} onClick={() => setFilter(f.key)} data-testid={`lead-filter-${f.key}`}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${filter === f.key
-                ? "bg-fuchsia-600 text-white border-fuchsia-600"
-                : "bg-white text-slate-500 border-slate-200 hover:border-fuchsia-300"}`}>
-              {f.label} <span className={`ml-1 ${filter === f.key ? "text-fuchsia-200" : "text-slate-400"}`}>{counts[f.key]}</span>
+        <div className="flex gap-1 p-1 rounded-2xl bg-white border border-slate-200" data-testid="lead-section-tabs">
+          {SECTIONS.map(sct => (
+            <button key={sct.key} onClick={() => setSection(sct.key)} data-testid={`lead-section-${sct.key}`} title={sct.hint}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-colors ${section === sct.key ? "bg-[#1c1c22] text-[#e8c37f]" : "text-slate-500 hover:text-slate-800"}`}>
+              {sct.label}
             </button>
           ))}
         </div>
-        {leads.length === 0 && <p className="text-sm text-slate-400 text-center py-8">No leads yet — run Mira above to find your first salons.</p>}
-        {leads.length > 0 && shownLeads.length === 0 && <p className="text-sm text-slate-400 text-center py-8" data-testid="lead-filter-empty">No leads in this bucket.</p>}
-        {shownLeads.map(l => <LeadRow key={l.id} lead={l} onRefresh={() => refresh().catch(() => {})} />)}
       </div>
-      {blastOpen && <WaBlastModal vertical={vertical} runId={runs[0]?.id} onClose={() => setBlastOpen(false)} onRefresh={() => refresh().catch(() => {})} />}
+
+      {section === "search" && (
+        <>
+          <SearchPanel city={city} setCity={setCity} target={target} setTarget={setTarget} vertical={vertical} setVertical={setVertical}
+            onRun={startRun} onStop={stopRun} starting={starting} activeRun={activeRun} />
+          <LastRunCard run={lastSearch} leads={leads} showing={scope === "recent"} onShowLeads={() => { setScope(scope === "recent" ? "all" : "recent"); setFilter("all"); }} />
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3" data-testid="lead-results">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="w-6 h-6 rounded-full bg-slate-800 text-white text-[11px] font-bold inline-flex items-center justify-center">3</span>
+              <h2 className="text-base font-semibold text-slate-800">Review leads <span className="text-slate-400 font-normal text-sm" data-testid="lead-shown-count">· {shownLeads.length} of {leads.length}</span></h2>
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                <AutoWaToggle />
+                <CleanupMenu onDone={() => refresh().catch(() => {})} />
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2" data-testid="lead-scope-tabs">
+              <span className="text-[10px] uppercase tracking-wide text-slate-400 w-14">Which</span>
+              {SCOPES.map(s => <Chip key={s.key} tone="dark" on={scope === s.key} onClick={() => setScope(s.key)} count={scopeCounts[s.key]} testid={`lead-scope-${s.key}`}>{s.label}</Chip>)}
+            </div>
+            <div className="flex flex-wrap items-center gap-2" data-testid="lead-filter-tabs">
+              <span className="text-[10px] uppercase tracking-wide text-slate-400 w-14">Status</span>
+              {FILTERS.map(f => <Chip key={f.key} on={filter === f.key} onClick={() => setFilter(f.key)} count={counts[f.key]} testid={`lead-filter-${f.key}`}>{f.label}</Chip>)}
+            </div>
+            <div className="space-y-2 pt-1">
+              {leads.length === 0 && <p className="text-sm text-slate-400 text-center py-8">No leads yet — run Mira above to find your first salons or restaurants.</p>}
+              {leads.length > 0 && shownLeads.length === 0 && <p className="text-sm text-slate-400 text-center py-8" data-testid="lead-filter-empty">No leads match this view{scope === "recent" ? " — the latest search found no leads yet" : ""}.</p>}
+              {shownLeads.slice(0, 150).map(l => <LeadRow key={l.id} lead={l} onRefresh={() => refresh().catch(() => {})} />)}
+              {shownLeads.length > 150 && <p className="text-xs text-slate-400 text-center py-2">Showing the first 150 — narrow the view to see the rest.</p>}
+            </div>
+          </div>
+        </>
+      )}
+
+      {section === "autopilot" && (
+        <>
+          <MiraOutreachCard />
+          <CityWatchCard />
+        </>
+      )}
+
+      {section === "inbox" && (
+        <>
+          <ReplyInbox />
+          <FunnelCards stats={stats} />
+          <RoiPanel roi={roi} />
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3" data-testid="lead-tools">
+            <h2 className="text-base font-semibold text-slate-800">WhatsApp & follow-up tools</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <button data-testid="wa-blast-open-btn" onClick={() => setBlastOpen(true)}
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold inline-flex items-center gap-2 hover:bg-emerald-700"
+                title="Mira composes a personalized WhatsApp message for every uncontacted lead — you tap through and send">
+                <MessageCircle className="w-4 h-4" /> WhatsApp Blast
+              </button>
+              <button data-testid="lead-hunt-all-btn" disabled={starting || !!activeRun}
+                onClick={async () => {
+                  try {
+                    const { data } = await api.post("/super-admin/mira-leads/hunt-all");
+                    if (!data.started) { toast.info("Every lead already has an email — nothing to hunt 🎉"); return; }
+                    toast.success(`Hunting emails for ${data.count} leads — watch the log in Find & review ✦`);
+                    startPolling(); refresh().catch(() => {});
+                  } catch (e) { toast.error(e.response?.data?.detail || "Couldn't start the hunt"); }
+                }}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:border-fuchsia-400 disabled:opacity-50"
+                title="Runs Find-email (website → Instagram → web search) across every lead with no inbox">🔍 Hunt all emails</button>
+              <button data-testid="lead-followups-btn"
+                onClick={async () => {
+                  try {
+                    const { data } = await api.post("/super-admin/mira-leads/followups/run");
+                    toast.success(`Follow-ups: ${data.sent} sent, ${data.due - data.sent} not due yet`);
+                    refresh().catch(() => {});
+                  } catch (e) { toast.error(e.response?.data?.detail || "Follow-up run failed"); }
+                }}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:border-fuchsia-400"
+                title="Auto-runs daily at 10 AM — sends a gentle nudge to leads with no reply after 5 days">🔁 Send due follow-ups</button>
+            </div>
+          </div>
+          <WaQuickInvite onLead={refresh} />
+        </>
+      )}
+      {blastOpen && <WaBlastModal vertical={vertical} runId={lastSearch?.id} onClose={() => setBlastOpen(false)} onRefresh={() => refresh().catch(() => {})} />}
     </div>
   );
 }

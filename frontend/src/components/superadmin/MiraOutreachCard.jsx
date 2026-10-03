@@ -6,6 +6,7 @@ import { confirmAsync } from "@/components/ConfirmDialog";
 import { OutreachHistory } from "./OutreachHistory";
 import { PitchPreviewDialog } from "./PitchPreviewDialog";
 import { AbSubjectPanel } from "./AbSubjectPanel";
+import { OutreachReportPanel } from "./OutreachReportPanel";
 
 const WA_OPTS = [["91", "🇮🇳 India"], ["971", "🇦🇪 UAE"], ["44", "🇬🇧 UK"], ["1", "🇺🇸 US/CA"], ["65", "🇸🇬 Singapore"], ["61", "🇦🇺 Australia"], ["966", "🇸🇦 Saudi"], ["974", "🇶🇦 Qatar"]];
 const HUNT_OPTS = [["IN", "India"], ["AE", "UAE"], ["UK", "UK"], ["US", "USA"], ["CA", "Canada"], ["SG", "Singapore"], ["AU", "Australia"], ["QA", "Qatar"], ["SA", "Saudi"], ["NZ", "NZ"], ["MY", "Malaysia"], ["IE", "Ireland"]];
@@ -54,9 +55,14 @@ export function MiraOutreachCard() {
     setRunning(true);
     try {
       const { data } = await api.post("/super-admin/mira/outreach/run-now");
-      toast.success(`📨 Emailed ${data.emailed} lead${data.emailed === 1 ? "" : "s"}${data.whatsapp ? ` · ${data.whatsapp} WhatsApp` : ""}${data.hunt ? ` · hunting ${data.hunt.city}` : ""} — ${data.sent_today}/${data.limit} today`);
+      if (!data.will_email && !data.will_remind) {
+        toast.info(data.budget_left_today === 0 ? `Today's cap of ${data.limit} is used up — Mira resumes tomorrow` : "Nothing ready to send right now — Mira will hunt more leads on her next tick");
+      } else {
+        toast.success(`📨 Mira is sending ${data.will_email} pitch${data.will_email === 1 ? "" : "es"}${data.will_remind ? ` + ${data.will_remind} reminder${data.will_remind === 1 ? "" : "s"}` : ""} in the background — the counters update as each email goes out`);
+        [8000, 20000, 45000].forEach(ms => setTimeout(load, ms));
+      }
       load();
-    } catch (e) { toast.error(e.response?.data?.detail || "Run failed"); }
+    } catch (e) { toast.error(e.response?.data?.detail || `Run failed (${e.response?.status || "network"}) — try again in a minute`); }
     finally { setRunning(false); }
   };
   const t = sum.today;
@@ -143,6 +149,8 @@ export function MiraOutreachCard() {
             <AbSubjectPanel enabled={s.ab_test} onToggle={v => save({ ab_test: v })} />
           </div>
         </div>
+
+        <OutreachReportPanel />
 
         <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
           <button onClick={() => save()} disabled={saving} data-testid="outreach-save" className="px-4 py-2 rounded-xl bg-[#1c1c22] text-[#e8c37f] text-sm font-bold inline-flex items-center gap-1.5 disabled:opacity-50">

@@ -1005,12 +1005,42 @@ async def list_runs(user=Depends(require_super_admin)):
 
 
 @router.get("/super-admin/mira-leads")
-async def list_leads(status: str = "", user=Depends(require_super_admin)):
-    q = {"status": status} if status else {}
-    rows = await _raw_db.mira_leads.find(q, {"_id": 0}).sort("score", -1).to_list(300)
+async def list_leads(status: str = "", run_id: str = "", limit: int = 1000, user=Depends(require_super_admin)):
+    q: dict = {"status": status} if status else {}
+    if run_id:
+        q["run_id"] = run_id
+    rows = await _raw_db.mira_leads.find(q, {"_id": 0}).sort([("created_at", -1), ("score", -1)]).to_list(max(50, min(limit, 3000)))
     for r in rows:
         r["email_real"] = _has_real_inbox(r.get("email"))
     return rows
+
+
+class CleanupIn(BaseModel):
+    mode: str = Field("uncontacted", pattern="^(uncontacted|no_email|rejected|keep_recent)$")
+
+
+@router.post("/super-admin/mira-leads/cleanup")
+async def cleanup_leads(body: CleanupIn, user=Depends(require_super_admin)):
+    """One-click housekeeping. Never touches leads that were contacted / replied / demo / customer.
+    uncontacted → every never-emailed lead (no_email, researched, drafted, rejected) · no_email → only inbox-less leads ·
+    rejected → only rejected · keep_recent → uncontacted leads NOT from the latest search run."""
+    safe = {"status": {"$in": ["no_email", "researched", "drafted", "rejected"]}, "sent_at": {"$exists": False},
+            "replied_at": {"$exists": False}, "wa_intro_sent_at": {"$exists": False}}
+    q = dict(safe)
+    if body.mode == "no_email":
+        q["$or"] = [{"email": ""}, {"email": None}, {"email": {"$exists": False}}]
+    elif body.mode == "rejected":
+        q["status"] = "rejected"
+    elif body.mode == "keep_recent":
+        last = await _raw_db.mira_lead_runs.find_one({"vertical": {"$exists": True}}, {"_id": 0, "id": 1}, sort=[("created_at", -1)])
+        if last:
+            q["run_id"] = {"$ne": last["id"]}
+    r = await _raw_db.mira_leads.delete_many(q)
+    runs = await _raw_db.mira_lead_runs.delete_many({"status": {"$in": ["done", "failed"]},
+                                                     "created_at": {"$lt": (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()}})
+    from routes.lead_common import log_mira_event
+    await log_mira_event("settings", f"🧹 Boss cleaned up {r.deleted_count} old lead{'s' if r.deleted_count != 1 else ''} ({body.mode}).")
+    return {"deleted": r.deleted_count, "runs_deleted": runs.deleted_count, "mode": body.mode}
 
 
 def _has_real_inbox(email: str) -> bool:
