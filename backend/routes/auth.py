@@ -484,8 +484,8 @@ async def _create_signup_tenant(body: SalonSignupIn, email: str) -> tuple[dict, 
     _apply_offer_fields(tenant, offer, body)
     await db.tenants.insert_one(tenant)
     if body.logo_url:
-        await db.uploads.update_one({"id": body.logo_url.rsplit("/", 1)[-1], "tenant_id": "pending-signup"},
-                                    {"$set": {"tenant_id": tenant["id"]}})
+        await _raw_db.uploads.update_one({"id": body.logo_url.rsplit("/", 1)[-1], "tenant_id": "pending-signup"},
+                                         {"$set": {"tenant_id": tenant["id"]}})
     if tenant.get("business_type") == "restaurant":
         await _seed_restaurant_defaults(tenant["id"])
     asyncio.create_task(_send_signup_welcome(dict(tenant), body, trial_end))

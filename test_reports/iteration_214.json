@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 214 — Preview Logo Upload tested end-to-end. Found and fixed a HIGH-severity bug in /app/backend/routes/auth.py where `db.uploads.update_one(...)` was called on the tenant-scoped wrapper (which has no `uploads` attribute) causing /api/public/signup-salon to return 500 whenever logo_url was provided. Changed to `_raw_db.uploads` (matches the pattern used in uploads.py). After the fix all 6 backend tests + all frontend logo flows passed.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/public/signup-salon", "issue": "500 Internal Server Error when logo_url is provided — `_create_signup_tenant` used `db.uploads` on tenant-scoped `_DB` wrapper which has no `uploads` attribute (`AttributeError: '_DB' object has no attribute 'uploads'`). FIXED in /app/backend/routes/auth.py line 487 by switching to `_raw_db.uploads`.", "priority": "HIGH"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter214_signup_logo.py",
+    "/app/test_reports/pytest/iter214.xml"
+  ],
+  "action_items": [
+    "Fix (ALREADY APPLIED by testing agent): `_raw_db.uploads` instead of `db.uploads` in _create_signup_tenant — please accept this one-line fix. Without it the whole feature is broken because signup with logo returns 500."
+  ],
+  "critical_code_review_comments": [
+    "The `_DB` wrapper used in routes/auth.py doesn't support `uploads` — any future reference to global/cross-tenant collections must use `_raw_db` (as done in uploads.py). Consider adding a defensive AttributeError test or a type hint to catch this at import time.",
+    "`public_signup_logo` has no size limit guard before `_fit_logo` processing (3MB cap is enforced before, good). PIL MAX_IMAGE_PIXELS is set to 40M which is fine.",
+    "`_fit_logo` silently swallows all exceptions (`except Exception: pass`) which could mask bad uploads. Non-blocking but worth logging.",
+    "No cleanup/TTL on orphaned `pending-signup` uploads if the signup is abandoned — they will accumulate forever in storage + Mongo. Consider a periodic sweep (e.g., delete pending-signup uploads older than 24h)."
+  ],
+  "updated_files": [
+    "/app/backend/routes/auth.py (line 487: db.uploads → _raw_db.uploads)",
+    "/app/backend/tests/test_iter214_signup_logo.py (new)"
+  ],
+  "success_rate": {"backend": "100% (6/6 after fix)", "frontend": "100% on logo feature flows"},
+  "test_credentials": "none required (public endpoints only)",
+  "seed_data_creation": "Created 1 test tenant via signup: slug `logo-test-<ts>` (owner_email `logo-test-<ts>@example.com`). Also 3 orphan pending-signup logo uploads in `uploads` collection from the test runs. Not cleaned up — preview DB.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend fix at /app/backend/routes/auth.py line 487 (db.uploads → _raw_db.uploads) is in place. Signup rate limit is 4/15min per IP; after this iteration 2 real signups were consumed (1 success + 1 that reached validator-only on invalid logo_url pattern — the 422 one did not count toward rate limit since public_rate_limit is called at the top before validation). If re-running, be mindful.",
+  "rca of the issue": "In routes/auth.py, _create_signup_tenant imports both `_raw_db` and `db` from the database module. `db` is a tenant-scoped proxy (`_DB` class) that gates MongoDB collections by injecting `tenant_id` and only exposes a whitelist of per-tenant collections — `uploads` is NOT in that whitelist (it is a cross-tenant collection where documents carry their own tenant_id field, including the sentinel value 'pending-signup'). Calling `db.uploads` therefore raised AttributeError inside the request handler, FastAPI turned that into 500, and the tenant was already inserted — leaving an orphaned tenant without a logo_url retag. Fix: use `_raw_db.uploads` to update the record. Verified post-fix via Mongo direct inspection: tenant 8658e8d8-… has logo_url=/api/files/c5ceed59-…, and that upload's tenant_id was successfully updated from 'pending-signup' to the new tenant id."
+}

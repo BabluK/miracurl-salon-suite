@@ -409,3 +409,8 @@
 - `services/competitor_watch.py`: `record_history_point()` upserts one point per month into `competitor_watch_history` on every run; `competitor_history()` builds recharts rows + series (backfills from latest snapshot). New GET /api/super-admin/competitor-watch/history.
 - `components/superadmin/CompetitorTrendCard.jsx`: month-over-month LineChart (rivals thin colored, Miracurl thick gold), Salons/Restaurants toggle, empty state, refreshes on `competitor-watch-updated` event dispatched by Re-check now. Placed in Billing tab under the PriceAlert/CompetitorWatch grid.
 - Tests: iteration_213.json (3/3 backend, frontend all pass), tests/test_iter213_signup_preview_competitor_history.py.
+
+## 2026-10-03 — Signup logo upload (live preview branding)
+- `POST /api/public/signup-logo` (uploads.py): public, rate-limited (10/15min), image-only ≤3MB, runs `_fit_logo`, stores under `signup-logos/`, uploads record tenant_id `pending-signup`. `SalonSignupIn.logo_url` (pattern `/api/files/<uuid>`) → set on tenant; `_create_signup_tenant` re-tags the upload to the new tenant via `_raw_db.uploads` (NOT the tenant-scoped `db` wrapper — it has no `uploads`).
+- `BookingPreviewCard.jsx`: gold avatar is now `LogoAvatar` uploader (camera badge, spinner, remove X, hint row). SignupSalon sends `logo_url` in the signup payload.
+- Tests: iteration_214.json (6/6 backend, frontend pass), tests/test_iter214_signup_logo.py.
