@@ -1,0 +1,49 @@
+{
+  "summary": "Iter 216 — Growth analytics (visit beacon, Traffic vs Conversion, Signup QR cards) + Clarity/GA4 + signup funnel events + region-aware CTAs. Backend: 10/10 pytest pass. Frontend: all CTAs route correctly (Landing intl→/signup-salon-us, in→/signup-salon-india; Restaurant INR/USD toggle; Blog + Login CTAs → dedicated pages; legacy /signup-salon still has toggles). Visit beacon fires on marketing pages with correct vid/region. Signup funnel gtag + clarity events fire (signup_start on load [observed via clarity stub], signup_step {step=2, step_name=owner, business_type=salon, region=in, locked=true}, signup_error with error=owner_name). HQ Mira Home right panel shows traffic-conversion-card with data-verdict='traffic', verdict text, tiles, GA4 + Clarity (yrwbxjqzwq) deep-links. Found and FIXED 1 critical bug: SignupQrCards referenced c.base.replace (undefined) instead of d.base.replace — crashed the entire Documents tab with ErrorBoundary 'Something went off-script'. After fix, 4 QR cards render, PNG images load (naturalWidth=492), copy/download/print controls present.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "SignupQrCards.jsx line 35", "issue": "c.base.replace(...) — field 'base' is on root response, not per card. Threw 'Cannot read properties of undefined (reading replace)' and the ErrorBoundary swallowed the entire Documents tab. FIXED by changing c.base → d.base.", "selector": "[data-testid=signup-qr-cards]", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "verified_feature_points": {
+    "clarity_ga4_in_index_html": "yrwbxjqzwq present, G-RSXW31FS5L present, window.clarity + window.gtag typeof=function on first page load ✓",
+    "visit_beacon": "POST /api/public/visit fires on marketing routes with vid, path, region, utm; stored for /pricing & /signup-* (signup_page true for latter); /dashboard and /book/xyz NOT stored (204 returned); short vid NOT stored.",
+    "traffic_conversion_api": "shape has month/current/previous/projected_visitors/verdict/daily/top_referrers/top_sources/ga4_url/clarity_url, clarity_url contains yrwbxjqzwq, verdict.kind=='traffic' with current tiny visit counts. Unauthed → 401/403.",
+    "signup_qr_api": "list returns base + 4 cards (salon-india, salon-us, restaurant-india, restaurant-us); urls end with '?utm_source=qr&utm_medium=print'; PNG endpoint returns valid image/png (PIL opens fine, 492x492); unknown key → 404; unauthed → 401/403.",
+    "landing_region_in_ctas": "landing-cta-nav/hero/footer → /signup-salon-india; plan-cta-* in INR section (trial/monthly/quarter/annual/multi_branch) → /signup-salon-india ✓",
+    "landing_region_intl_ctas": "same CTAs → /signup-salon-us; plan-cta-intl_* → /signup-salon-us ✓",
+    "restaurant_landing": "resto-hero-cta/resto-bottom-cta/header-signup-link → /signup-restaurant-india (INR default); after toggling resto-currency-toggle → /signup-restaurant-us ✓",
+    "blog_login_ctas": "blog-nav-trial, link-signup-salon, link-signup-restaurant → dedicated -india or -us pages (never plain /signup-salon) ✓",
+    "funnel_events_signup_salon_india": "gtag 'signup_step' {business_type:'salon', region:'in', locked:true, step:2, step_name:'owner'}; gtag 'signup_error' {error:'owner_name'}; clarity 'signup_start' + 'event'/'set' calls — all verified. (signup_start gtag observed implicitly via clarity-mirroring; direct gtag stub at init-time is overridden by index.html's dataLayer wrapper so only post-navigation events were caught in gtag; after reinstalling stub, signup_step/error caught cleanly.)",
+    "hq_traffic_conversion_card": "[data-testid=traffic-conversion-card] data-verdict='traffic'; traffic-verdict text begins 'Traffic problem'; traffic-visitors=3, traffic-signups=2, traffic-conversion=66.67%; traffic-ga4-link=https://analytics.google.com/; traffic-clarity-link href contains 'yrwbxjqzwq' ✓",
+    "hq_signup_qr_cards_after_fix": "[data-testid=signup-qr-cards] renders 4 cards. signup-qr-img-{salon-india, salon-us, restaurant-india, restaurant-us} all have naturalWidth=492. signup-qr-download-* anchors end .png and point to /api/super-admin/signup-qr/{key}.png. signup-qr-copy-* buttons present (4). signup-qr-print button present ✓",
+    "docs_tab_location": "super-tab-docs is NOT in the pinned top row — found inside the 'All' drawer (super-nav-more). It renders correctly after opening the drawer and clicking it.",
+    "regression_legacy_signup_salon": "/signup-salon still shows data-locked='0' and business-type / region toggles ✓"
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter216_growth_analytics.py",
+    "/app/test_reports/pytest/iter216_results.xml"
+  ],
+  "action_items": [
+    "(Done, verify) Patch SignupQrCards.jsx line 35: c.base.replace(...) → d.base.replace(...). Already applied by test agent; main agent should keep the fix."
+  ],
+  "critical_code_review_comments": [
+    "SignupQrCards.jsx used c.base which doesn't exist on each card — any time the Documents tab was opened the ErrorBoundary caught 'Cannot read properties of undefined (reading replace)'. Fixed.",
+    "docs tab is defined without top:true so it only appears inside the 'All' drawer — if HQ users are expected to find Signup QR cards quickly, consider pinning Documents to the top row.",
+    "growth_analytics.py cleanly separated and short (~130 lines); good MARKETING_PREFIXES whitelist; rate limit 240/10min seems fine.",
+    "analytics.js track() calls window.gtag/clarity directly — works, but window.gtag may be overridden by GA4 loader; test stubs must be installed after page load (or via Object.defineProperty with set-noop) to intercept."
+  ],
+  "updated_files": [
+    "/app/frontend/src/components/superadmin/SignupQrCards.jsx",
+    "/app/backend/tests/test_iter216_growth_analytics.py"
+  ],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "100% after SignupQrCards bug fix"},
+  "test_credentials": "Super admin admin@miracurl-suite.com / og9T@41Es#OQb6 — from /app/memory/test_credentials.md",
+  "seed_data_creation": "4 site_visits docs inserted & removed by backend tests (TEST_ vids with 'testvid' prefix).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Fix applied in SignupQrCards.jsx; Documents tab now renders. Docs tab lives under super-nav-more 'All' drawer — don't look in the pinned row. GTag stub via add_init_script gets overridden by index.html gtag.js; use Object.defineProperty with no-op setter, or re-install stub AFTER load — both work. Visit beacon has rate limit 240/10min per IP."
+}

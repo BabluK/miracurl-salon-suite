@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="4" failures="0" skipped="0" tests="10" time="1.636" timestamp="2026-10-03T11:22:24.692610+00:00" hostname="agent-env-d1dfed1a-214d-43b3-ad1c-27a56ad52812"><testcase classname="tests.test_iter216_growth_analytics.TestSignupQr" name="test_unauthed_denied" time="0.390" /><testcase classname="tests.test_iter216_growth_analytics.TestVisitBeacon" name="test_valid_marketing_visit_stored" time="0.000"><error message="failed on setup with &quot;pymongo.errors.InvalidURI: Invalid URI scheme: URI must begin with 'mongodb://' or 'mongodb+srv://'&quot;">backend/tests/test_iter216_growth_analytics.py:27: in mongo_db
+    client = MongoClient(MONGO_URL)
+             ^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/mongo_client.py:771: in __init__
+    res = uri_parser.parse_uri(
+/root/.venv/lib/python3.11/site-packages/pymongo/uri_parser.py:497: in parse_uri
+    raise InvalidURI(f"Invalid URI scheme: URI must begin with '{SCHEME}' or '{SRV_SCHEME}'")
+E   pymongo.errors.InvalidURI: Invalid URI scheme: URI must begin with 'mongodb://' or 'mongodb+srv://'</error></testcase><testcase classname="tests.test_iter216_growth_analytics.TestVisitBeacon" name="test_non_marketing_path_not_stored" time="0.000"><error message="failed on setup with &quot;pymongo.errors.InvalidURI: Invalid URI scheme: URI must begin with 'mongodb://' or 'mongodb+srv://'&quot;">backend/tests/test_iter216_growth_analytics.py:27: in mongo_db
+    client = MongoClient(MONGO_URL)
+             ^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/mongo_client.py:771: in __init__
+    res = uri_parser.parse_uri(
+/root/.venv/lib/python3.11/site-packages/pymongo/uri_parser.py:497: in parse_uri
+    raise InvalidURI(f"Invalid URI scheme: URI must begin with '{SCHEME}' or '{SRV_SCHEME}'")
+E   pymongo.errors.InvalidURI: Invalid URI scheme: URI must begin with 'mongodb://' or 'mongodb+srv://'</error></testcase><testcase classname="tests.test_iter216_growth_analytics.TestVisitBeacon" name="test_invalid_vid_not_stored" time="0.000"><error message="failed on setup with &quot;pymongo.errors.InvalidURI: Invalid URI scheme: URI must begin with 'mongodb://' or 'mongodb+srv://'&quot;">backend/tests/test_iter216_growth_analytics.py:27: in mongo_db
+    client = MongoClient(MONGO_URL)
+             ^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/mongo_client.py:771: in __init__
+    res = uri_parser.parse_uri(
+/root/.venv/lib/python3.11/site-packages/pymongo/uri_parser.py:497: in parse_uri
+    raise InvalidURI(f"Invalid URI scheme: URI must begin with '{SCHEME}' or '{SRV_SCHEME}'")
+E   pymongo.errors.InvalidURI: Invalid URI scheme: URI must begin with 'mongodb://' or 'mongodb+srv://'</error></testcase><testcase classname="tests.test_iter216_growth_analytics.TestVisitBeacon" name="test_signup_page_flag_true" time="0.000"><error message="failed on setup with &quot;pymongo.errors.InvalidURI: Invalid URI scheme: URI must begin with 'mongodb://' or 'mongodb+srv://'&quot;">backend/tests/test_iter216_growth_analytics.py:27: in mongo_db
+    client = MongoClient(MONGO_URL)
+             ^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/mongo_client.py:771: in __init__
+    res = uri_parser.parse_uri(
+/root/.venv/lib/python3.11/site-packages/pymongo/uri_parser.py:497: in parse_uri
+    raise InvalidURI(f"Invalid URI scheme: URI must begin with '{SCHEME}' or '{SRV_SCHEME}'")
+E   pymongo.errors.InvalidURI: Invalid URI scheme: URI must begin with 'mongodb://' or 'mongodb+srv://'</error></testcase><testcase classname="tests.test_iter216_growth_analytics.TestTrafficConversion" name="test_unauthed_denied" time="0.128" /><testcase classname="tests.test_iter216_growth_analytics.TestTrafficConversion" name="test_shape" time="0.663" /><testcase classname="tests.test_iter216_growth_analytics.TestSignupQr" name="test_list" time="0.525" /><testcase classname="tests.test_iter216_growth_analytics.TestSignupQr" name="test_png_valid" time="0.098" /><testcase classname="tests.test_iter216_growth_analytics.TestSignupQr" name="test_png_unknown_key" time="0.064" /></testsuite></testsuites>

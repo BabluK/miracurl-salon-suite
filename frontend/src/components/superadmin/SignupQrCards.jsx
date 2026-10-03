@@ -32,7 +32,7 @@ export function SignupQrCards() {
             <div className="text-sm font-bold text-slate-800 mt-2">{c.label}</div>
             <div className="text-[10px] text-slate-500">{c.note}</div>
             <img src={`${BACKEND_URL}/api/super-admin/signup-qr/${c.key}.png`} alt={`QR ${c.label}`} data-testid={`signup-qr-img-${c.key}`} className="w-44 h-44 my-3 rounded-lg border border-slate-200 bg-white" />
-            <div className="text-[10px] font-mono text-slate-600 break-all">{c.base.replace(/^https?:\/\//, "")}{c.path}</div>
+            <div className="text-[10px] font-mono text-slate-600 break-all">{d.base.replace(/^https?:\/\//, "")}{c.path}</div>
             <div className="text-[9px] text-slate-400 mt-1">Scan to start your free trial · no credit card</div>
             <div className="no-print flex items-center gap-2 mt-3">
               <button onClick={() => copy(c.url)} data-testid={`signup-qr-copy-${c.key}`} className="btn-slate !h-8 !px-3 text-[11px] inline-flex items-center gap-1"><Copy className="w-3 h-3" /> Copy link</button>
