@@ -66,7 +66,7 @@ export function CompetitorWatchCard() {
   if (!d) return null;
   const run = async () => {
     setBusy(true);
-    try { const { data } = await api.post("/super-admin/competitor-watch/run"); setD(data); toast.success("Competitor prices re-checked"); }
+    try { const { data } = await api.post("/super-admin/competitor-watch/run"); setD(data); window.dispatchEvent(new Event("competitor-watch-updated")); toast.success("Competitor prices re-checked"); }
     catch (e) { toast.error(e.response?.data?.detail || "Check failed"); } finally { setBusy(false); }
   };
   const v = d.verdicts || {};

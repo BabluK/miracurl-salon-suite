@@ -61,8 +61,37 @@ async def run_competitor_watch(trigger: str = "scheduler") -> dict:
                          "gap": round((cheapest_rival["lowest_monthly"] - ours), 2) if cheapest_rival and ours else None}
     doc = {"key": "competitor_watch", "ran_at": datetime.now(timezone.utc).isoformat(), "trigger": trigger, "rows": rows, "verdicts": verdicts}
     await _raw_db.platform_settings.update_one({"key": "competitor_watch"}, {"$set": doc}, upsert=True)
+    await record_history_point(doc)
     await _flag_if_undercut(verdicts)
     return doc
+
+
+async def record_history_point(doc: dict) -> None:
+    """One point per calendar month (re-checks within a month overwrite) — feeds the HQ trend chart."""
+    month = (doc.get("ran_at") or datetime.now(timezone.utc).isoformat())[:7]
+    point = {"month": month, "ran_at": doc.get("ran_at"),
+             "prices": {r["name"]: r.get("lowest_monthly") or r.get("benchmark") for r in doc.get("rows", [])},
+             "ours": {seg: v.get("our_monthly") for seg, v in (doc.get("verdicts") or {}).items()}}
+    await _raw_db.competitor_watch_history.update_one({"month": month}, {"$set": point}, upsert=True)
+
+
+async def competitor_history() -> dict:
+    """Month-over-month series for the trend chart. Backfills from the latest snapshot if history is empty."""
+    if not await _raw_db.competitor_watch_history.count_documents({}):
+        latest = await _raw_db.platform_settings.find_one({"key": "competitor_watch"}, {"_id": 0})
+        if latest and latest.get("rows"):
+            await record_history_point(latest)
+    pts = await _raw_db.competitor_watch_history.find({}, {"_id": 0}).sort("month", 1).to_list(60)
+    rows = []
+    for p in pts:
+        row = {"month": p["month"], **{k: v for k, v in (p.get("prices") or {}).items() if v is not None}}
+        for seg, price in (p.get("ours") or {}).items():
+            if price:
+                row[f"Miracurl ({seg})"] = price
+        rows.append(row)
+    series = [{"key": n, "segment": sg, "ours": False} for n, _u, sg, _b in COMPETITORS]
+    series += [{"key": f"Miracurl ({seg})", "segment": seg, "ours": True} for seg in OUR_KEYS]
+    return {"rows": rows, "series": series, "months": len(rows)}
 
 
 async def _flag_if_undercut(verdicts: dict) -> None:

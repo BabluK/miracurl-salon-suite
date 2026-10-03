@@ -6,6 +6,7 @@ import axios from "axios";
 import { Scissors, Sparkles, User, Mail, Lock, MapPin, Phone, Check, ArrowRight, ArrowLeft, Building2, Gift, AlertCircle, Eye, EyeOff, PartyPopper, X } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { SignupHeroPanel, TRUST_BADGES } from "@/components/signup/SignupHeroPanel";
+import { BookingPreviewCard } from "@/components/signup/BookingPreviewCard";
 import ChatButton from "@/components/ChatButton";
 import { useAuth } from "@/context/AuthContext";
 import { setTenantSlug } from "@/lib/api";
@@ -495,6 +496,7 @@ function SalonStep({ form, update }) {
       <p className="text-xs text-slate-500 -mt-2">
         Customers will visit <span className="font-mono text-[var(--su-accent)]">{`${window.location.origin}/book/${form.slug || "your-slug"}`}</span>
       </p>
+      <BookingPreviewCard name={form.salon_name} slug={form.slug} resto={isResto} location={form.location} />
     </div>
   );
 }

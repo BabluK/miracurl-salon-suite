@@ -47,6 +47,12 @@ async def competitor_watch_latest(user=Depends(require_super_admin)):
                    "verdicts": {}, "our_keys": OUR_KEYS}
 
 
+@router.get("/super-admin/competitor-watch/history")
+async def competitor_watch_history(user=Depends(require_super_admin)):
+    from services.competitor_watch import competitor_history
+    return await competitor_history()
+
+
 @router.post("/super-admin/competitor-watch/run")
 async def competitor_watch_run(user=Depends(require_super_admin)):
     from services.competitor_watch import run_competitor_watch
