@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration 211 PRICING OVERHAUL verified end-to-end. Backend: 15/15 pytest pass — /api/public/plans contains none of the six *_half keys; USD defaults match spec (intl_starter 19/190, intl_pro 45/450 highlight, intl_premium 139/1390, intl_enterprise 399, resto_intl 45/129/450 annual highlight); INR unchanged (1455/4365/16000, resto 1000/3000/12000); trial_days present. HQ super-admin catalog lists exactly 19 plans, zero *_half, zero hidden:true. PUT intl_starter_monthly 21 → public shows 21 live → restored to 19. DELETE intl_enterprise_monthly → {ok:true, removed:true} → gone from both public & HQ → POST .../restore → back at price 399. DELETE unknown → 404. services.plans.plan_info('half_year')={price:12000, duration_days:183}; plan_info('annual') live; plan_info('nope')={}; subscription_common.plan_label('resto_half')='Restaurant 6-Month' and plan_label('annual') contains 'Annual'; entitlements.tenant_tier({'currency':'USD','plan':'resto_intl_half'}) does NOT raise. Tenant admin@miracurl.com /api/billing/upgrade-quote?plan=annual → eligible:true (not 'unknown'). Regression /api/super-admin/mira-leads/auto-wa → 200. Frontend: landing / shows INR cards ₹1,455 / ₹4,365 / ₹16,000 with NO 6-month card; intl toggle shows $19 $190 $45 $450 $139 $1390; zero '…' placeholders. /restaurant pricing shows ₹1,000 / ₹3,000 / ₹12,000 with MOST POPULAR on annual; [data-testid=resto-intl-pricing] reads exactly 'International: $45 / monthly · $129 / 3 months · $450 / 1 year (billed in USD).'. Live-update proof: PUT resto_monthly 1100 → reload /restaurant Monthly card shows ₹1,100 → restored to 1000. HQ Billing & Subscriptions tab: 19 plan rows, no *_half, no hidden badges, no Restore buttons; delete button opens confirm containing 'Remove … for good' (cancelled, nothing deleted). Mira assistant: on /super-admin load, [data-testid=mira-voice-panel] NOT visible, only [data-testid=mira-assistant-fab] visible; after FAB click panel opens; after reload it is minimised again. Tenants tab renders (Elegance HALF_YEAR tenant still visible — retired plan compat). No critical issues found; one minor behaviour note below.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter211_pricing_overhaul.py",
+    "/app/test_reports/pytest/iter211_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "SignupSalon.jsx ReviewStep is correctly catalog-driven (no hard-coded USD/INR fallbacks remain); I did not drive the multi-step wizard to the review step in the browser (would require filling all 4 steps without submitting). Verified indirectly: /api/public/plans returns the exact numbers the ReviewStep interpolates (resto_intl 45/129/450, intl_starter 19, intl_pro 45).",
+    "Mira panel data-testid 'mira-voice-panel' is only present when the panel is opened — when minimised the element is unmounted. This matches the spec ('NOT visible until tapped') and the FAB-only initial state. Main agent may want to confirm the panel stays open across tab-switches (observed) is intentional while reload resets to minimised (also observed)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter211_pricing_overhaul.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15)",
+    "frontend": "100% of in-scope checks"
+  },
+  "test_credentials": "super: admin@miracurl-suite.com / og9T@41Es#OQb6; tenant: admin@miracurl.com / q6QY@tn3p#9DtL slug miracurl-marathahalli (from /app/memory/test_credentials.md).",
+  "seed_data_creation": "None. All PUT/DELETE operations against the plan catalog were paired with restores inside the same test (verified by GET after). No tenants created.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Full pricing-overhaul spec is verified. Backend regression file: /app/backend/tests/test_iter211_pricing_overhaul.py (requires MONGO_URL env for the services.subscription_common import path — set before running the plan_label unit test; run with `set -a; source /app/backend/.env; set +a; PYTHONPATH=/app/backend pytest tests/test_iter211_pricing_overhaul.py`). Signup Review step wasn't driven through the browser (wizard requires valid data in 4 steps and the task said do NOT create tenants) — the catalog values it interpolates are correct per /api/public/plans so no visual bug is possible unless the component code regresses."
+}

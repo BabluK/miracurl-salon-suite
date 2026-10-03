@@ -2,8 +2,8 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-10-03.376"
-BUILD_TIME = "3 Oct 2026, 02:45 PM IST"
+BUILD = "2026-10-03.377"
+BUILD_TIME = "3 Oct 2026, 04:30 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
@@ -178,6 +178,9 @@ RELEASES = [
     {
         "date": "2026-10-03 (Smoother dashboard & smarter Mira 🧠)",
         "changes": [
+            "💲 Pricing overhaul: every 6-month plan is gone for good; all plan prices are set in HQ → Billing & Subscriptions and show live on the website, signup and billing pages (nothing hard-coded)",
+            "🇺🇸 New international pricing priced just under Fresha / GlossGenius / Vagaro / Square / Toast: Starter $19, Professional $45, Premium AI $139 per month · Restaurants $45 per month — pay yearly (10× monthly) and get 2 months free",
+            "🤖 Mira's HQ assistant now starts minimised — tap the bubble when you want her",
             "⚡ Dashboard loads exactly once on sign-in and branch switch — the 'Loaded in' badge now also shows how much was server time vs network time",
             "🧠 Mira learns your tone: edit her demo-invite draft before sending and she mirrors your style on the next replies (HQ → Reply Inbox shows what she's learned, with a Forget button)",
             "📱 WA Autopilot cadence: with Auto WhatsApp on, Mira now also pitches every new phone-only lead (found in the last 7 days) on WhatsApp during its local business hours, sharing the daily cap — toggle 'Also pitch every new phone-only lead' in the Lead Agent",
