@@ -296,6 +296,7 @@ class SalonSignupIn(BaseModel):
     region: str | None = Field(None, pattern="^(in|intl)$")  # pricing region picked at signup
     timezone: str | None = Field(None, max_length=64)  # browser timezone (stored for intl salons)
     business_type: str | None = Field("salon", pattern="^(salon|restaurant)$")
+    logo_url: str | None = Field(None, pattern=r"^/api/files/[0-9a-f-]{36}$")  # from POST /public/signup-logo
 
 
 from constants import AFFILIATE_REWARD_INR
@@ -371,6 +372,8 @@ def _build_signup_tenant(body: SalonSignupIn, candidate: str, referrer: dict | N
     ).model_dump()
     tenant["trial_end_date"] = trial_end
     tenant["business_type"] = body.business_type or "salon"
+    if body.logo_url:
+        tenant["logo_url"] = body.logo_url
     if body.region == "intl":
         tenant["currency"] = "USD"
         if body.timezone:
@@ -480,6 +483,9 @@ async def _create_signup_tenant(body: SalonSignupIn, email: str) -> tuple[dict, 
     tenant["welcome_poster_pending"] = True  # SEC-001: paid AI poster deferred to first login
     _apply_offer_fields(tenant, offer, body)
     await db.tenants.insert_one(tenant)
+    if body.logo_url:
+        await db.uploads.update_one({"id": body.logo_url.rsplit("/", 1)[-1], "tenant_id": "pending-signup"},
+                                    {"$set": {"tenant_id": tenant["id"]}})
     if tenant.get("business_type") == "restaurant":
         await _seed_restaurant_defaults(tenant["id"])
     asyncio.create_task(_send_signup_welcome(dict(tenant), body, trial_end))

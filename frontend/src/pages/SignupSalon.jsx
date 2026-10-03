@@ -55,6 +55,7 @@ export default function SignupSalon() {
     phone: "",
     newly_opened: false,
     opening_date: "",
+    logo_url: "",
   });
   const [newbiz, setNewbiz] = useState(false);
 
@@ -138,6 +139,7 @@ export default function SignupSalon() {
         opening_date: form.newly_opened ? (form.opening_date || undefined) : undefined,
         region,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
+        logo_url: form.logo_url || undefined,
       });
       setTenantSlug(data.tenant.slug);
       trackSignup({ slug: data.tenant.slug, business_type: form.business_type, trial_days: data.trial_days, region, referred: ref });
@@ -496,7 +498,8 @@ function SalonStep({ form, update }) {
       <p className="text-xs text-slate-500 -mt-2">
         Customers will visit <span className="font-mono text-[var(--su-accent)]">{`${window.location.origin}/book/${form.slug || "your-slug"}`}</span>
       </p>
-      <BookingPreviewCard name={form.salon_name} slug={form.slug} resto={isResto} location={form.location} />
+      <BookingPreviewCard name={form.salon_name} slug={form.slug} resto={isResto} location={form.location}
+        logoUrl={form.logo_url} onLogo={(u) => update({ logo_url: u })} />
     </div>
   );
 }

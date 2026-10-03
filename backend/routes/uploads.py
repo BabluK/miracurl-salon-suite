@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 import requests
 from fastapi import (
-    APIRouter, HTTPException, Depends, Response, Query, UploadFile, File,
+    APIRouter, HTTPException, Depends, Response, Query, UploadFile, File, Request,
 )
 
 from database import _raw_db, _current_tenant_id
@@ -77,6 +77,40 @@ async def upload_image(
     # Return a same-origin URL so <img src> renders directly.
     public_url = f"/api/files/{file_id}"
     return {"id": file_id, "url": public_url, "size": len(data), "content_type": _MIME[ext]}
+
+
+@router.post("/public/signup-logo")
+async def public_signup_logo(request: Request, file: UploadFile = File(...)):
+    """Pre-signup logo for the live booking-page preview. Stored under a pending path; the signup
+    handler re-tags the upload to the new tenant once the account is created."""
+    await public_rate_limit(request, key_suffix="signup-logo", limit=10, window_sec=900)
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else "bin"
+    if ext not in _MIME:
+        raise HTTPException(400, "Only JPG, PNG, GIF or WebP images are allowed")
+    data = await file.read()
+    if len(data) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(413, f"Image too large — max {_MAX_UPLOAD_BYTES // (1024*1024)}MB")
+    if not data:
+        raise HTTPException(400, "Empty file")
+    validate_image_bytes(ext, data)
+    try:
+        data = await asyncio.to_thread(_fit_logo, data)
+        ext = "png"
+    except Exception:
+        pass
+    file_id = str(uuid.uuid4())
+    storage_path = f"{APP_NAME}/signup-logos/{file_id}.{ext}"
+    try:
+        result = await asyncio.to_thread(_put_object, storage_path, data, _MIME[ext])
+    except requests.HTTPError as e:
+        raise HTTPException(400, f"Storage upload failed: {e}") from e
+    await _raw_db.uploads.insert_one({
+        "id": file_id, "tenant_id": "pending-signup", "kind": "logo",
+        "storage_path": result.get("path", storage_path), "original_filename": file.filename or f"{file_id}.{ext}",
+        "content_type": _MIME[ext], "size": len(data), "uploaded_by": "public-signup",
+        "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"id": file_id, "url": f"/api/files/{file_id}", "size": len(data)}
 
 
 def _fit_logo(data: bytes) -> bytes:
