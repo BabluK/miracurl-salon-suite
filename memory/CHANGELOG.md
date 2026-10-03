@@ -364,3 +364,8 @@
 - Dashboard double-load: root cause in preview was React.StrictMode double-mounting effects (consumed the prefetch then fetched again). StrictMode removed in index.js → exactly one /reports/dashboard request after login (verified). SpeedPulse now shows "· server Xms · network Yms". Measured: proxy/ingress hop adds ~100ms TTFB even for a 404 (app 4ms) — the remaining gap is network RTT from the user's device, not app code.
 - Fixed duplicate `2026-10` option key in HqGstRegisterCard month select.
 - Tests: iteration_209.json (12/12 backend, 100% frontend), tests/test_iter209_tone_memory_autowa.py.
+
+## 2026-10-03 — WA Autopilot cadence for phone-only leads (build .375)
+- `auto_wa_hot_leads()` (10-min scheduler) now runs two passes under one daily cap: (1) fresh hot leads (48h) as before, (2) if setting `phone_only` (default True) — every phone-only lead created in the last 7 days, newest first, max 10/run, each only inside its local 10–19h window. Skips do_not_call / wa_opt_out / already attempted / replied / demo. Logs "📱 Pitched N phone-only leads".
+- Settings PUT accepts `phone_only`; GET returns `phone_only` (bool), `phone_only_total`, `phone_only_queued`, `phone_only_pitched` (renamed count from `phone_only` → `phone_only_total` to avoid clobbering the setting).
+- UI: `AutoWaToggle.jsx` adds sub-toggle `lead-auto-wa-phone-only` ("Also pitch every new phone-only lead · N queued · M pitched"), disabled until the main Auto WhatsApp toggle is on. Main toggle currently OFF on preview — user must switch it on for real sends.

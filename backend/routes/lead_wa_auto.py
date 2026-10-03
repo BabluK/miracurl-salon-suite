@@ -43,6 +43,7 @@ def _local_hour(phone: str) -> float:
 async def _settings() -> dict:
     doc = await _raw_db.platform_settings.find_one({"key": SETTINGS_KEY}, {"_id": 0}) or {}
     return {"enabled": bool(doc.get("enabled", False)), "daily_limit": int(doc.get("daily_limit", 25)),
+            "phone_only": bool(doc.get("phone_only", True)),
             "start_hour": int(doc.get("start_hour", 10)), "end_hour": int(doc.get("end_hour", 19))}
 
 
@@ -93,8 +94,28 @@ async def send_intro(lead: dict, auto: bool = True) -> dict:
     return {"ok": True, "message_id": mid}
 
 
+_AUTO_SKIP = {"do_not_call": {"$ne": True}, "wa_opt_out": {"$ne": True}, "wa_intro_sent_at": {"$exists": False},
+              "wa_intro_attempted_at": {"$exists": False}, "whatsapp_sent_at": {"$exists": False}}
+PHONE_ONLY_QUERY = {"phone": {"$nin": ["", None]}, "$or": [{"email": ""}, {"email": None}, {"email": {"$exists": False}}],
+                    "status": {"$nin": ["customer", "rejected"]}}
+
+
+def _in_business_hours(s: dict, lead: dict) -> bool:
+    return s["start_hour"] <= _local_hour(_wa_phone(lead.get("phone") or "")) < s["end_hour"]
+
+
+async def _send_batch(leads: list[dict]) -> int:
+    n = 0
+    for ld in leads:
+        res = await send_intro(ld, auto=True)
+        if res.get("ok"):
+            n += 1
+        await asyncio.sleep(1.5)
+    return n
+
+
 async def auto_wa_hot_leads() -> int:
-    """Scheduler: WhatsApp-intro hot leads discovered in the last 48h — in each lead's LOCAL business hours."""
+    """Scheduler: WA-pitch (1) fresh hot leads, then (2) every new phone-only lead — in each lead's LOCAL business hours, within the daily cap."""
     s = await _settings()
     if not s["enabled"] or await template_status() != "APPROVED":
         return 0
@@ -103,25 +124,31 @@ async def auto_wa_hot_leads() -> int:
     budget = s["daily_limit"] - sent_today
     if budget <= 0:
         return 0
+    from routes.lead_common import log_mira_event
     since = (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
-    leads = await _raw_db.mira_leads.find(
-        {**HOT_QUERY, "phone": {"$nin": ["", None]}, "do_not_call": {"$ne": True}, "wa_opt_out": {"$ne": True},
-         "wa_intro_sent_at": {"$exists": False}, "wa_intro_attempted_at": {"$exists": False},
-         "whatsapp_sent_at": {"$exists": False},
-         "status": {"$nin": ["customer", "rejected", "sent", "replied", "demo"]},
-         "created_at": {"$gte": since}},
+    hot = await _raw_db.mira_leads.find(
+        {**HOT_QUERY, "phone": {"$nin": ["", None]}, **_AUTO_SKIP,
+         "status": {"$nin": ["customer", "rejected", "sent", "replied", "demo"]}, "created_at": {"$gte": since}},
         {"_id": 0}).sort("reviews", -1).to_list(40)
-    leads = [ld for ld in leads if s["start_hour"] <= _local_hour(_wa_phone(ld.get("phone") or "")) < s["end_hour"]][:min(budget, 10)]
-    n = 0
-    for ld in leads:
-        res = await send_intro(ld, auto=True)
-        if res.get("ok"):
-            n += 1
-        await asyncio.sleep(1.5)
+    hot = [ld for ld in hot if _in_business_hours(s, ld)][:min(budget, 10)]
+    n_hot = await _send_batch(hot)
+    if n_hot:
+        await log_mira_event("wa_intro", f"Sent {n_hot} WhatsApp intro{'s' if n_hot != 1 else ''} to fresh hot leads")
+    budget -= n_hot
+    n_po = 0
+    if s["phone_only"] and budget > 0:
+        hot_ids = {ld["id"] for ld in hot}
+        since7 = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+        po = await _raw_db.mira_leads.find(
+            {**PHONE_ONLY_QUERY, **_AUTO_SKIP, "status": {"$nin": ["customer", "rejected", "replied", "demo"]},
+             "created_at": {"$gte": since7}}, {"_id": 0}).sort("created_at", -1).to_list(60)
+        po = [ld for ld in po if ld["id"] not in hot_ids and _in_business_hours(s, ld)][:min(budget, 10)]
+        n_po = await _send_batch(po)
+        if n_po:
+            await log_mira_event("wa_intro", f"📱 Pitched {n_po} phone-only lead{'s' if n_po != 1 else ''} on WhatsApp (no email on file)")
+    n = n_hot + n_po
     if n:
-        from routes.lead_common import log_mira_event
-        await log_mira_event("wa_intro", f"Sent {n} WhatsApp intro{'s' if n != 1 else ''} to fresh hot leads")
-        log.info("auto WA intro: %s hot leads greeted", n)
+        log.info("auto WA: %s hot + %s phone-only leads pitched", n_hot, n_po)
     return n
 
 
@@ -159,10 +186,7 @@ async def note_lead_reply(wa_id: str, text: str) -> None:
 class AutoWaSettingsIn(BaseModel):
     enabled: bool
     daily_limit: int = Field(25, ge=1, le=100)
-
-
-PHONE_ONLY_QUERY = {"phone": {"$nin": ["", None]}, "$or": [{"email": ""}, {"email": None}, {"email": {"$exists": False}}],
-                    "status": {"$nin": ["customer", "rejected"]}}
+    phone_only: bool = True
 
 
 @router.get("/super-admin/mira-leads/auto-wa")
@@ -171,14 +195,17 @@ async def get_auto_wa(refresh: bool = False, user=Depends(require_super_admin)):
     return {**await _settings(), "template": TEMPLATE, "template_status": await template_status(force=refresh),
             "sent_today": await _raw_db.mira_wa_intros.count_documents({"created_at": {"$gte": today}}),
             "replied_total": await _raw_db.mira_leads.count_documents({"wa_intro_replied_at": {"$exists": True}}),
-            "phone_only": await _raw_db.mira_leads.count_documents(PHONE_ONLY_QUERY),
-            "phone_only_pitched": await _raw_db.mira_leads.count_documents({**PHONE_ONLY_QUERY, "wa_intro_sent_at": {"$exists": True}})}
+            "phone_only_total": await _raw_db.mira_leads.count_documents(PHONE_ONLY_QUERY),
+            "phone_only_pitched": await _raw_db.mira_leads.count_documents({**PHONE_ONLY_QUERY, "wa_intro_sent_at": {"$exists": True}}),
+            "phone_only_queued": await _raw_db.mira_leads.count_documents(
+                {**PHONE_ONLY_QUERY, **_AUTO_SKIP, "status": {"$nin": ["customer", "rejected", "replied", "demo"]},
+                 "created_at": {"$gte": (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()}})}
 
 
 @router.put("/super-admin/mira-leads/auto-wa")
 async def set_auto_wa(body: AutoWaSettingsIn, user=Depends(require_super_admin)):
     await _raw_db.platform_settings.update_one(
-        {"key": SETTINGS_KEY}, {"$set": {"enabled": body.enabled, "daily_limit": body.daily_limit, "updated_at": _now()}}, upsert=True)
+        {"key": SETTINGS_KEY}, {"$set": {"enabled": body.enabled, "daily_limit": body.daily_limit, "phone_only": body.phone_only, "updated_at": _now()}}, upsert=True)
     return {"ok": True, **await _settings(), "template_status": await template_status(force=True)}
 
 

@@ -26,13 +26,13 @@ export function WaTemplateBadge({ wa, onRefresh }) {
     finally { setChecking(false); }
   };
   return (
-    <div data-testid="wa-template-badge" data-status={wa.template_status} title={`Meta template "${wa.template}" · ${wa.phone_only} phone-only leads (${wa.phone_only_pitched} already pitched on WhatsApp)`}
+    <div data-testid="wa-template-badge" data-status={wa.template_status} title={`Meta template "${wa.template}" · ${wa.phone_only_total} phone-only leads (${wa.phone_only_pitched} already pitched on WhatsApp)`}
       className={`inline-flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-full border text-xs font-semibold ${st.cls}`}>
       <span className={`w-2 h-2 rounded-full ${st.dot}`} />
       <MessageCircle className="w-3.5 h-3.5" />
       <span data-testid="wa-template-status-label">{st.label}</span>
       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/70 border border-current/20" data-testid="wa-template-phone-only">
-        📱 {wa.phone_only} phone-only
+        📱 {wa.phone_only_total} phone-only
       </span>
       <button onClick={check} disabled={checking} data-testid="wa-template-recheck" title="Ask Meta again"
         className="w-6 h-6 rounded-full hover:bg-white/80 inline-flex items-center justify-center disabled:opacity-50">
