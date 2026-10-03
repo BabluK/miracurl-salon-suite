@@ -13,6 +13,7 @@ import { AutoWaToggle } from "@/components/superadmin/AutoWaToggle";
 import { LeadSourceBadges } from "@/components/superadmin/LeadSourceBadges";
 import { SearchPanel, LastRunCard, CleanupMenu } from "@/components/superadmin/LeadSearchSection";
 import { WaTemplateBadge } from "@/components/superadmin/WaTemplateBadge";
+import { LeadHistoryPanel } from "@/components/superadmin/LeadHistoryPanel";
 
 const STATUS_STYLE = {
   drafted: "bg-amber-100 text-amber-700", no_email: "bg-slate-100 text-slate-500",
@@ -410,6 +411,7 @@ const SECTIONS = [
   { key: "search", label: "🔍 Find & review leads", hint: "search → results → approve" },
   { key: "autopilot", label: "🤖 Autopilot & outreach", hint: "Mira emails leads herself" },
   { key: "inbox", label: "📥 Replies, funnel & tools", hint: "replies · ROI · WhatsApp tools" },
+  { key: "history", label: "📜 Lead history by country", hint: "salon vs restaurant · country-wise · stale leads" },
 ];
 
 export function MiraLeadAgent() {
@@ -576,6 +578,7 @@ export function MiraLeadAgent() {
         </>
       )}
 
+      {section === "history" && <LeadHistoryPanel />}
       {section === "inbox" && (
         <>
           <ReplyInbox />

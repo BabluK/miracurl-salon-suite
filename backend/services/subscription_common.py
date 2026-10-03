@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from database import db, _raw_db
 from services.billing import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, _rzp_client
 import copy
-from services.plans import PLAN_CATALOG, RETIRED_PLAN_LABELS, plan_info
+from services.plans import PLAN_CATALOG, RETIRED_PLAN_LABELS, plan_info, apply_derived_prices
 
 __all__ = ["Subscription", "SubscriptionPayment", "PLAN_CATALOG", "plan_label", "plan_info", "RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "_rzp_client",
            "load_plan_overrides", "_plan_or_400", "_fresh_plan_or_400", "_apply_subscription_to_tenants", "_verify_rzp_signature",
@@ -73,6 +73,7 @@ async def load_plan_overrides():
                 fresh[key].pop("currency")
         elif key in fresh:
             fresh[key].update({k: o[k] for k in _OVERRIDE_FIELDS if o.get(k) is not None})
+    apply_derived_prices(fresh)
     PLAN_CATALOG.clear()
     PLAN_CATALOG.update(fresh)
 

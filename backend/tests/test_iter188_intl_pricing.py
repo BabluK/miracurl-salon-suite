@@ -47,7 +47,7 @@ def test_public_plans_intl_new_pricing():
     # 6-month plans are gone for good (Oct 2026); INR annual intact
     for gone in ("half_year", "resto_half", "resto_intl_half"):
         assert gone not in plans, f"{gone} should be removed"
-    assert "annual" in plans and float(plans["annual"]["price"]) == 16000
+    assert "annual" in plans and float(plans["annual"]["price"]) == 14550
     assert "resto_intl_annual" in plans and float(plans["resto_intl_annual"]["price"]) == 450
 
 

@@ -335,9 +335,11 @@ function PlanCatalogEditor({ plans, onSaved }) {
                 <td>
                   <div className="flex items-center gap-1">
                     <span className="text-xs text-slate-500">{p.currency === "USD" ? "$" : "₹"}</span>
-                    <input data-testid={`plan-price-${p.key}`} type="number" min="0" step={p.currency === "USD" ? "1" : "500"} className="input-light w-28 text-sm font-semibold"
+                    <input data-testid={`plan-price-${p.key}`} type="number" min="0" step={p.currency === "USD" ? "1" : "500"} className="input-light w-28 text-sm font-semibold disabled:opacity-60"
+                      disabled={!!p.derived_from} title={p.derived_from ? `Always ${p.multiplier} × the monthly price — edit the monthly plan` : undefined}
                       value={val(p, "price")} onChange={e => setVal(p.key, "price", e.target.value)} />
                   </div>
+                  {p.derived_from && <div className="text-[10px] text-amber-600 font-semibold mt-0.5" data-testid={`plan-derived-${p.key}`}>= {p.multiplier} × monthly{p.multiplier === 10 ? " · 2 months free" : ""}</div>}
                 </td>
                 <td className="text-right">
                   <div className="inline-flex items-center gap-2">

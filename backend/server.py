@@ -45,6 +45,7 @@ async def root():
 
 # ---------------- Routers (registration order preserved from the monolith) ----------------
 from routes.auth import router as auth_router  # noqa: E402
+from routes.pricing_intel import router as pricing_intel_router  # noqa: E402
 from routes.manager_access import router as manager_access_router  # noqa: E402
 from routes.customers import router as customers_router  # noqa: E402
 from routes.uploads import router as uploads_router  # noqa: E402
@@ -71,6 +72,7 @@ from routes.gift_cards import router as gift_cards_router  # noqa: E402
 from routes.premium_membership import router as premium_membership_router  # noqa: E402
 from routes.mira_hq import router as mira_hq_router  # noqa: E402
 from routes.lead_wa_auto import router as lead_wa_auto_router  # noqa: E402
+from routes.lead_history import router as lead_history_router  # noqa: E402
 from routes.mira_outreach import router as mira_outreach_router  # noqa: E402
 from routes.connections_hub import router as connections_hub_router  # noqa: E402
 from routes.registry import router as registry_router  # noqa: E402
@@ -134,7 +136,7 @@ from schedulers import (  # noqa: E402
     _cctv_poll_scheduler, _renewal_reminder_scheduler, _review_request_scheduler, _weekly_register_scheduler,
     _demo_followup_scheduler, _late_alert_scheduler, _weekly_package_scheduler,
     _lead_followup_scheduler, _staff_exit_scheduler, _sms_reminder_scheduler,
-    _gift_card_scheduler, _mira_digest_scheduler, _mira_auto_wa_scheduler, _mira_outreach_scheduler,
+    _gift_card_scheduler, _mira_digest_scheduler, _mira_auto_wa_scheduler, _mira_outreach_scheduler, _competitor_watch_scheduler,
     _lead_heat_scheduler, _phone_backfill_task, _weekly_win_scheduler,
     _feedback_reminder_scheduler, _salon_digest_scheduler, _db_health_scheduler,
     _temp_transfer_scheduler, _open_bill_alert_scheduler, _manager_access_report_scheduler, _cash_report_scheduler,
@@ -149,7 +151,7 @@ for _r in (
     inventory_router, tenant_settings_router, crm_router, briefings_router,
     reviews_router, reports_router, public_site_router, super_admin_router,
     data_cleanup_router, super_admin_ops_router, assistant_router, offers_router,
-    public_chat_router, sales_router, registry_router, appointments_pos_router, invoice_edits_router, gift_cards_router, mira_hq_router, lead_wa_auto_router, mira_outreach_router, connections_hub_router,
+    public_chat_router, sales_router, registry_router, appointments_pos_router, invoice_edits_router, gift_cards_router, mira_hq_router, lead_wa_auto_router, lead_history_router, mira_outreach_router, connections_hub_router,
     premium_membership_router,
     mira_studio_router, social_connect_router, mira_calendar_router, mira_autopilot_router,
     promo_video_router, platform_tools_router, promo_image_router, offer_flyer_router, hair_colors_router,
@@ -162,7 +164,7 @@ for _r in (
     passkeys_router, eod_digests_router, wallet_pass_router, site_info_router,
     blog_router, cash_register_router, rewards_campaign_router, growth_advisory_router,
     subscription_invoices_router, rewards_settlements_router, campaign_agreement_router, tenant_features_router, support_tickets_router,
-    login_emails_router, geo_branch_router,
+    login_emails_router, geo_branch_router, pricing_intel_router,
 ):
     api.include_router(_r)
 
@@ -227,6 +229,7 @@ async def on_startup():
     asyncio.get_event_loop().create_task(_weekly_register_scheduler())
     asyncio.get_event_loop().create_task(_banner_schedule_scheduler())  # data-only (no outbound) → runs everywhere
     asyncio.get_event_loop().create_task(_city_watch_scheduler())
+    asyncio.get_event_loop().create_task(_competitor_watch_scheduler())  # HQ-internal, monthly
     asyncio.get_event_loop().create_task(_earnings_anomaly_scheduler())
 
     async def _google_recheck_loop():

@@ -669,6 +669,20 @@ def renewal_reminder_email_intl_html(salon_name: str, days_left: int, end_date: 
     </div>"""
 
 
+def _resto_plan_rows() -> str:
+    """Live restaurant INR plans from the catalog (never hard-coded)."""
+    from services.plans import PLAN_CATALOG
+    rows = sorted([v for v in PLAN_CATALOG.values() if v.get("vertical") == "restaurant" and not v.get("currency") and not v.get("hidden")],
+                  key=lambda v: v.get("duration_days") or 0)
+    out = []
+    for v in rows:
+        d = int(v.get("duration_days") or 30)
+        name = "Monthly" if d <= 31 else ("Annual" if d >= 365 else f"{round(d / 30.4)}-Month")
+        tag = ' <span style="color:#1f7a4d;font-size:12px">(best value — 2 months free)</span>' if v.get("highlight") else ""
+        out.append(f"· {name} — <b>₹{round(float(v['price'])):,}</b>{tag}")
+    return "<br/>".join(out)
+
+
 def restaurant_trial_reminder_email_html(restaurant_name: str, days_left: int, end_date: str,
                                          source: str, credits: float) -> str:
     """Friendly trial/renewal reminder — restaurant vertical only."""
@@ -691,9 +705,7 @@ def restaurant_trial_reminder_email_html(restaurant_name: str, days_left: int, e
           Renew now so QR ordering, kitchen tickets, POS billing and Mira AI keep serving without a pause.</p>
         <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:16px 20px;margin:18px 0;font-size:14px;font-family:Arial,sans-serif;line-height:2">
           🍽️ <b>Restaurant plans</b><br/>
-          · Monthly — <b>₹1,000</b><br/>
-          · 3-Month — <b>₹3,000</b><br/>
-          · Annual — <b>₹12,000</b> <span style="color:#1f7a4d;font-size:12px">(best value)</span>
+          {_resto_plan_rows()}
         </div>
         {credit_row}
         <p style="text-align:center;margin:24px 0">

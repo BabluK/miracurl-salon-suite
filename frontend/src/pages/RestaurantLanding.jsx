@@ -51,6 +51,7 @@ const VegDot = ({ type }) => (
 
 export default function RestaurantLanding() {
   const [catalog, setCatalog] = useState(null);
+  const [cur, setCur] = useState("INR");
   useEffect(() => { api.get("/public/plans").then(r => setCatalog(r.data)).catch(() => {}); }, []);
   return (
     <div className="min-h-screen bg-[#fdf9f4] text-slate-800 relative overflow-hidden" data-testid="restaurant-landing">
@@ -173,8 +174,14 @@ export default function RestaurantLanding() {
       <section id="pricing" className="max-w-6xl mx-auto px-5 py-16 relative">
         <p className="text-[10px] tracking-[0.3em] uppercase font-bold text-amber-600">Simple pricing</p>
         <h2 className="font-playfair text-lg mt-2 text-slate-700">First month FREE — then pick what suits you</h2>
+        <div className="inline-flex mt-4 rounded-full border border-amber-200 bg-white p-1 text-xs font-bold" data-testid="resto-currency-toggle">
+          {[["INR", "🇮🇳 India · ₹"], ["USD", "🌍 International · $"]].map(([c, l]) => (
+            <button key={c} onClick={() => setCur(c)} data-testid={`resto-currency-${c.toLowerCase()}`}
+              className={`px-4 py-1.5 rounded-full transition-colors ${cur === c ? "bg-amber-500 text-white" : "text-slate-500 hover:text-amber-700"}`}>{l}</button>
+          ))}
+        </div>
         <div className="grid sm:grid-cols-3 gap-4 mt-8 max-w-3xl">
-          {restoPlans(catalog, "INR").map(({ key, label, price, sub, popular }) => (
+          {restoPlans(catalog, cur).map(({ key, label, price, sub, popular }) => (
             <div key={key} data-testid={`resto-plan-${key}`}
               className={`rounded-2xl border p-6 bg-white shadow-sm ${popular ? "border-amber-400 ring-2 ring-amber-200 shadow-lg" : "border-slate-200"}`}>
               {popular && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white">MOST POPULAR</span>}
@@ -189,9 +196,12 @@ export default function RestaurantLanding() {
             </div>
           ))}
         </div>
-        {restoPlans(catalog, "USD").length > 0 && (
-          <p className="text-slate-400 text-xs mt-5" data-testid="resto-intl-pricing">International: {restoPlans(catalog, "USD").map(p => `${p.price} / ${p.label.toLowerCase()}`).join(" · ")} (billed in USD).</p>
-        )}
+        <p className="text-slate-400 text-xs mt-5" data-testid="resto-intl-pricing">
+          {cur === "INR"
+            ? `International: ${restoPlans(catalog, "USD").map(p => `${p.price} / ${p.label.toLowerCase()}`).join(" · ")} (billed in USD).`
+            : `India: ${restoPlans(catalog, "INR").map(p => `${p.price} / ${p.label.toLowerCase()}`).join(" · ")} (billed in INR, GST extra).`}
+          {" "}Annual = 10 × monthly — 2 months free. Prefer to prepay {(catalog?.pay_as_you_go_months || [3, 6]).join(" or ")} months? It's simply the monthly price × months.
+        </p>
       </section>
 
       {/* CTA */}

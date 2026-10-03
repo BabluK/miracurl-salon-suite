@@ -132,7 +132,7 @@ HIRING_SECTIONS = [
 
 TERMS_SECTIONS = [
     ("Subscription & Payments", [
-        "Plans: a free trial period, then a 3-month, 6-month or annual subscription as published on the pricing page.",
+        "Plans: a free trial period, then a monthly or annual subscription (annual = 10 × monthly, 2 months free) as published on the pricing page.",
         "Payments are collected via Razorpay (India) or card (international); prices exclude applicable taxes unless stated.",
         "Renewal reminders are sent before expiry; access is suspended if the subscription lapses beyond the grace period.",
     ]),

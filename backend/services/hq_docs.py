@@ -107,7 +107,7 @@ DOCS = {
         "description": "The terms every tenant accepts when subscribing to the Miracurl Suite.",
         "sections": [
             ("Subscription & Payments", [
-                "Plans: free trial (length as published on the pricing page), then half-yearly or annual subscription as published on the pricing page.",
+                "Plans: free trial (length as published on the pricing page), then monthly or annual subscription (annual = 10 × monthly, 2 months free) as published on the pricing page.",
                 "Payments are collected via Razorpay; prices are exclusive of applicable taxes unless stated.",
                 "Renewal reminders are sent before expiry; access is suspended if the subscription lapses.",
             ]),

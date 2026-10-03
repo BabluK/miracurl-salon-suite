@@ -58,7 +58,7 @@ class TestPublicPlans:
         assert data["quarter"]["price"] == 4365.0
         assert data["quarter"]["duration_days"] == 92
         assert "annual" in data
-        assert data["annual"]["price"] == 16000.0
+        assert data["annual"]["price"] == 14550.0
         assert data["annual"].get("highlight") is True
         assert "1 month free" in data["annual"]["label"].lower(), f"annual label: {data['annual']['label']}"
         assert "resto_monthly" in data and data["resto_monthly"]["price"] == 1000.0
@@ -87,8 +87,8 @@ class TestUpgradeQuote:
         assert q["eligible"] is True, f"quote: {q}"
         assert q["from_plan"] == "half_year"
         assert q["credit"] > 0
-        assert q["new_price"] == 16000.0
-        assert q["amount_due"] == round(16000.0 - q["credit"], 2)
+        assert q["new_price"] == 14550.0
+        assert q["amount_due"] == round(14550.0 - q["credit"], 2)
         assert "new_end_date" in q
 
     def test_quote_downgrade_monthly_ineligible(self, tenant_sess):
@@ -123,7 +123,7 @@ class TestRzpOrderUpgrade:
         assert r.status_code == 200, f"{r.status_code} {r.text[:300]}"
         data = r.json()
         assert data.get("upgrade", {}).get("eligible") is True
-        expected_payable = round((16000.0 - q["credit"]) * 1.18, 2)
+        expected_payable = round((14550.0 - q["credit"]) * 1.18, 2)
         # small tolerance for rounding
         assert abs(float(data["payable"]) - expected_payable) < 1.0, f"payable {data['payable']} vs expected {expected_payable}"
 

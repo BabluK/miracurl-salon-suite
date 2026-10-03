@@ -151,9 +151,9 @@ async def stripe_sub_checkout(body: SubCheckoutIn, request: Request,
                               user=Depends(require_tenant_admin), t=Depends(current_tenant)):
     """One-click USD subscription payment via Stripe Checkout — international salons only."""
     from routes.subscriptions import _fresh_plan_or_400
-    if not body.plan.startswith("intl_"):
-        raise HTTPException(400, "This checkout is for international (USD) plans only")
     plan = await _fresh_plan_or_400(body.plan)
+    if plan.get("currency") != "USD":
+        raise HTTPException(400, "This checkout is for international (USD) plans only")
     from emergentintegrations.payments.stripe.checkout import CheckoutSessionRequest
     sc = _checkout(request)
     session = await sc.create_checkout_session(CheckoutSessionRequest(
@@ -189,18 +189,25 @@ async def stripe_sub_status(session_id: str, request: Request,
             "amount": rec.get("amount"), "currency": rec.get("currency")}
 
 
+def _is_usd_plan(key: str, catalog: dict) -> bool:
+    return bool(key) and key in catalog and catalog[key].get("currency") == "USD"
+
+
 @router.get("/public/renew/{token}")
-async def public_renew_redirect(token: str, request: Request):
-    """One-click renewal from the reminder email — redirects straight to Stripe Checkout."""
+async def public_renew_redirect(token: str, request: Request, plan: str = ""):
+    """One-click renewal from the reminder / price-drop email — redirects straight to Stripe Checkout.
+    `?plan=` lets the e-mail offer a switch (e.g. to the annual plan) as long as it is a USD plan of the tenant's vertical."""
     await public_rate_limit(request, "renew-link", limit=10, window_sec=600)
     t = await _raw_db.tenants.find_one({"renewal_pay_token": token},
-                                       {"_id": 0, "id": 1, "slug": 1, "plan": 1, "currency": 1})
+                                       {"_id": 0, "id": 1, "slug": 1, "plan": 1, "currency": 1, "vertical": 1})
     if not t or (t.get("currency") or "INR") == "INR":
         raise HTTPException(404, "Invalid or expired renewal link")
-    from routes.subscriptions import PLAN_CATALOG, _fresh_plan_or_400
-    plan_key = t.get("plan") or ""
-    if not (plan_key.startswith("intl_") and plan_key in PLAN_CATALOG):
-        plan_key = "intl_pro_annual"
+    from routes.subscriptions import PLAN_CATALOG, _fresh_plan_or_400, load_plan_overrides
+    await load_plan_overrides()
+    vertical = t.get("vertical") or "salon"
+    plan_key = plan if _is_usd_plan(plan, PLAN_CATALOG) and (PLAN_CATALOG[plan].get("vertical") or "salon") == vertical else (t.get("plan") or "")
+    if not _is_usd_plan(plan_key, PLAN_CATALOG):
+        plan_key = "resto_intl_annual" if vertical == "restaurant" else "intl_pro_annual"
     plan = await _fresh_plan_or_400(plan_key)
     app_url = os.environ.get("APP_PUBLIC_URL", str(request.base_url).rstrip("/"))
     from emergentintegrations.payments.stripe.checkout import CheckoutSessionRequest
@@ -209,11 +216,11 @@ async def public_renew_redirect(token: str, request: Request):
         amount=float(plan["price"]), currency="usd",
         success_url=f"{app_url}/settings?stripe_session={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{app_url}/settings",
-        metadata={"kind": "subscription", "tenant_id": t["id"], "plan": plan_key, "via": "renewal_email"}))
+        metadata={"kind": "subscription", "tenant_id": t["id"], "plan": plan_key, "via": "renewal_email" if not request.query_params.get("plan") else "price_drop_email"}))
     now = datetime.now(timezone.utc).isoformat()
     await _raw_db.payment_transactions.insert_one({
         "session_id": session.session_id, "tenant_id": t["id"], "kind": "subscription",
-        "plan": plan_key, "amount": float(plan["price"]), "currency": "usd", "via": "renewal_email",
+        "plan": plan_key, "amount": float(plan["price"]), "currency": "usd", "via": "renewal_email" if not request.query_params.get("plan") else "price_drop_email",
         "status": "initiated", "payment_status": "pending",
         "created_at": now, "updated_at": now})
     from fastapi.responses import RedirectResponse

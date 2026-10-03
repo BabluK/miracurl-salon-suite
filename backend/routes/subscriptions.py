@@ -27,6 +27,7 @@ from services.subscription_common import (  # noqa: F401 — re-exported: other 
     load_plan_overrides, _plan_or_400, _fresh_plan_or_400, _apply_subscription_to_tenants, _verify_rzp_signature,
     visible_plans, amount_inr,
 )
+from services.plans import PAY_AS_YOU_GO_MONTHS
 
 router = APIRouter()
 
@@ -109,8 +110,10 @@ async def public_plans():
     out = {k: {"label": v["label"], "price": v["price"], "duration_days": v["duration_days"],
                "branches": v["branches"], "currency": v.get("currency", "INR"),
                "tier": v.get("tier"), "vertical": v.get("vertical", "salon"),
-               "features": v.get("features") or [], "custom": bool(v.get("custom")), "highlight": bool(v.get("highlight"))}
+               "features": v.get("features") or [], "custom": bool(v.get("custom")), "highlight": bool(v.get("highlight")),
+               "derived_from": v.get("derived_from"), "multiplier": v.get("multiplier")}
            for k, v in visible_plans().items()}
+    out["pay_as_you_go_months"] = list(PAY_AS_YOU_GO_MONTHS)
     out["trial_days"] = await get_trial_days()
     return out
 
@@ -194,6 +197,12 @@ async def update_plan(key: str, body: PlanUpdateIn, user=Depends(require_super_a
     if body.price <= 0:
         raise HTTPException(400, "Price must be positive")
     patch = {"price": float(body.price)}
+    cur = PLAN_CATALOG[key]
+    if cur.get("derived_from") and abs(float(body.price) - float(cur["price"])) > 0.009:
+        base = PLAN_CATALOG.get(cur["derived_from"], {})
+        raise HTTPException(400, f"'{cur['label']}' is always {cur['multiplier']} × the monthly price — change '{base.get('label', cur['derived_from'])}' and this updates automatically")
+    if cur.get("derived_from"):
+        patch.pop("price")
     if body.label:
         patch["label"] = body.label.strip()[:80]
     if body.duration_days:

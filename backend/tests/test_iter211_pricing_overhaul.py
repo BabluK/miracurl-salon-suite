@@ -2,6 +2,9 @@
 import os
 import sys
 import pytest
+from dotenv import load_dotenv
+
+load_dotenv("/app/backend/.env")
 import requests
 from _creds import pw
 
@@ -16,11 +19,11 @@ USD_EXPECTED = {
     "intl_pro_monthly": 45, "intl_pro_annual": 450,
     "intl_premium_monthly": 139, "intl_premium_annual": 1390,
     "intl_enterprise_monthly": 399,
-    "resto_intl_monthly": 45, "resto_intl_quarter": 129, "resto_intl_annual": 450,
+    "resto_intl_monthly": 45, "resto_intl_quarter": 135, "resto_intl_annual": 450,
 }
 INR_EXPECTED = {
-    "monthly": 1455, "quarter": 4365, "annual": 16000,
-    "resto_monthly": 1000, "resto_quarter": 3000, "resto_annual": 12000,
+    "monthly": 1455, "quarter": 4365, "annual": 14550,
+    "resto_monthly": 1000, "resto_quarter": 3000, "resto_annual": 10000,
 }
 
 

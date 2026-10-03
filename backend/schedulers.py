@@ -427,6 +427,19 @@ async def _mira_auto_wa_scheduler() -> None:
         await asyncio.sleep(600)
 
 
+async def _competitor_watch_scheduler() -> None:
+    """Monthly (first run of each calendar month, checked every 6h): Mira re-checks US competitor pricing and flags if we're undercut."""
+    from services.competitor_watch import competitor_watch_due, run_competitor_watch
+    await asyncio.sleep(120)
+    while True:
+        try:
+            if await competitor_watch_due():
+                await run_competitor_watch()
+        except Exception as e:
+            logging.error(f"competitor watch scheduler error: {e}")
+        await asyncio.sleep(6 * 3600)
+
+
 async def _mira_outreach_scheduler() -> None:
     """Every 10 min: Mira Outreach Autopilot — emails hot leads (per vertical, daily cap), WhatsApps allowed
     countries and tops up the pipeline with a self-picked world city."""

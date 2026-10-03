@@ -10,10 +10,10 @@ Annual = 10 × monthly (2 months free) so the one-time yearly payment is the che
 """
 
 PLAN_CATALOG = {
-    # Salon India (INR) — Annual ₹16,000 = 11 months paid + 1 month free → monthly ₹1,455 (16,000 ÷ 11), 3-Month ₹4,365
+    # Salon India (INR) — HQ edits the MONTHLY price only; 3-Month = 3 × monthly, Annual = 10 × monthly (2 months free)
     "monthly":   {"label": "Monthly Plan (1 branch)", "price": 1455.0,  "duration_days": 31,  "branches": 1},
     "quarter":   {"label": "3-Month Plan (1 branch)", "price": 4365.0,  "duration_days": 92,  "branches": 1},
-    "annual":    {"label": "Annual Plan (1 branch) — 1 month free",  "price": 16000.0, "duration_days": 365, "branches": 1, "highlight": True},
+    "annual":    {"label": "Annual Plan (1 branch) — 2 months free",  "price": 14550.0, "duration_days": 365, "branches": 1, "highlight": True},
     "two_branch_annual":   {"label": "2-Branch Annual",  "price": 40000.0, "duration_days": 365, "branches": 2},
     "three_branch_annual": {"label": "3-Branch Annual",  "price": 60000.0, "duration_days": 365, "branches": 3},
     "multi_branch_annual": {"label": "Multi-Branch Annual (5+ branches)",  "price": 70000.0, "duration_days": 365, "branches": 5},
@@ -28,12 +28,31 @@ PLAN_CATALOG = {
     # Restaurant vertical (INR) — first month free via the 30-day restaurant trial at signup
     "resto_monthly": {"label": "Restaurant Monthly", "price": 1000.0,  "duration_days": 31,  "branches": 1, "vertical": "restaurant"},
     "resto_quarter": {"label": "Restaurant 3-Month", "price": 3000.0,  "duration_days": 92,  "branches": 1, "vertical": "restaurant"},
-    "resto_annual":  {"label": "Restaurant Annual",  "price": 12000.0, "duration_days": 365, "branches": 1, "vertical": "restaurant", "highlight": True},
+    "resto_annual":  {"label": "Restaurant Annual — 2 months free",  "price": 10000.0, "duration_days": 365, "branches": 1, "vertical": "restaurant", "highlight": True},
     # Restaurant vertical (USD) — just below Square for Restaurants Plus ($49) and Toast POS ($69)
     "resto_intl_monthly": {"label": "Restaurant Monthly (USD)", "price": 45.0,  "duration_days": 31,  "branches": 1, "currency": "USD", "vertical": "restaurant"},
-    "resto_intl_quarter": {"label": "Restaurant 3-Month (USD)", "price": 129.0, "duration_days": 92,  "branches": 1, "currency": "USD", "vertical": "restaurant"},
+    "resto_intl_quarter": {"label": "Restaurant 3-Month (USD)", "price": 135.0, "duration_days": 92,  "branches": 1, "currency": "USD", "vertical": "restaurant"},
     "resto_intl_annual":  {"label": "Restaurant Annual (USD)",  "price": 450.0, "duration_days": 365, "branches": 1, "currency": "USD", "vertical": "restaurant", "highlight": True},
 }
+
+# Derived pricing — every non-monthly plan in a family is computed from its monthly price (HQ edits monthly only):
+#   3-Month = 3 × monthly · Annual = 10 × monthly (2 months free, for every tenant). Multi-branch annuals have no monthly → editable.
+DERIVED_PLANS = {
+    "quarter": ("monthly", 3), "annual": ("monthly", 10),
+    "resto_quarter": ("resto_monthly", 3), "resto_annual": ("resto_monthly", 10),
+    "intl_starter_annual": ("intl_starter_monthly", 10), "intl_pro_annual": ("intl_pro_monthly", 10), "intl_premium_annual": ("intl_premium_monthly", 10),
+    "resto_intl_quarter": ("resto_intl_monthly", 3), "resto_intl_annual": ("resto_intl_monthly", 10),
+}
+PAY_AS_YOU_GO_MONTHS = (3, 6)  # a tenant may prepay N months at N × monthly — never a separate "6-month plan"
+
+
+def apply_derived_prices(catalog: dict) -> None:
+    for key, (base, mult) in DERIVED_PLANS.items():
+        if key in catalog and base in catalog:
+            catalog[key]["price"] = round(float(catalog[base]["price"]) * mult, 2)
+            catalog[key]["derived_from"] = base
+            catalog[key]["multiplier"] = mult
+
 
 # Plans that existed before and may still be attached to live subscriptions — never sold again, but their
 # price/duration are kept so renewals, invoices and mid-term upgrade maths for those tenants keep working.

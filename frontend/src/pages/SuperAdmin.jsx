@@ -74,6 +74,7 @@ import { AssistQueueCard } from "@/components/superadmin/AssistQueueCard";
 import { Briefcase } from "lucide-react";
 import { NetSpeedIndicator } from "@/components/NetSpeedIndicator";
 import "@/styles/hq-gold.css";
+import { PriceAlertCard, CompetitorWatchCard } from "@/components/superadmin/PricingIntelCards";
 import { Palette, FileDown, MailCheck, IdCard } from "lucide-react";
 
 async function downloadBlob(url, filename) {
@@ -513,7 +514,7 @@ export default function SuperAdmin() {
             notifications: <NotificationsPanel feed={notifFeed} onGoTab={setTab} onRefresh={() => api.get("/super-admin/notifications").then(r => setNotifFeed(r.data)).catch(() => {})} />,
             "platform-map": <div className="space-y-6"><PlatformOverview onGoTab={setTab} /><PlatformOrbitMap onGoTab={setTab} /></div>,
             credits: <div className="space-y-6" data-testid="sa-credits-tab"><CreditWalletCard /><PackPricingCard /><MessageCreditsCard tenants={tenants} /></div>,
-            billing: <div className="space-y-6"><HqTaxCard /><PackPricingCard /><HqGstRegisterCard /><StripePaymentsPanel /><BillingPanel tenants={tenants} /></div>,
+            billing: <div className="space-y-6"><BillingPanel tenants={tenants} /><div className="grid lg:grid-cols-2 gap-6"><PriceAlertCard /><CompetitorWatchCard /></div><HqTaxCard /><PackPricingCard /><HqGstRegisterCard /><StripePaymentsPanel /></div>,
             partners: <div className="space-y-10"><PartnersPanel /><LeaderboardPanel /></div>,
             leaderboard: <div className="space-y-10"><PartnersPanel /><LeaderboardPanel /></div>,
             "growth-advisory": <div className="space-y-10"><GrowthAdvisoryPanel /><RewardsCampaignCard /><RewardsCampaignCard campaign="restaurant" /></div>,
