@@ -2,6 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="utf-8" />
+        <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self' 'sha256-bv3BJQ9HDRPWREafa7OTAYZEHepHMGBDm7yX52R8CKE=' https://static.cloudflareinsights.com https://cdn.tailwindcss.com https://www.googletagmanager.com https://www.clarity.ms https://*.clarity.ms https://assets.emergent.sh https://us.i.posthog.com https://us-assets.i.posthog.com https://checkout.razorpay.com https://js.stripe.com https://connect.facebook.net https://maps.googleapis.com https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https: wss:; frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://www.facebook.com https://*.facebook.com https://www.youtube.com https://www.youtube-nocookie.com https://open.spotify.com https://accounts.google.com https://www.google.com https://maps.google.com; worker-src 'self' blob:; manifest-src 'self'; form-action 'self' https://checkout.razorpay.com https://api.razorpay.com https://checkout.stripe.com; upgrade-insecure-requests" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5" />
         <meta name="theme-color" content="#B8863B" />
         <meta name="description" content="All-in-one salon management software — online booking, billing, customer rewards, per-stylist commissions and Google review boost. Built for Indian salons. ₹0 setup, 90-second go-live." />
@@ -16,20 +17,10 @@
         <!-- PWA metadata is written synchronously at parse time so iOS Safari
              (which snapshots the manifest on page load and ignores later JS swaps)
              gets the CORRECT app: /book/* → "Miracurl Book", else "Miracurl Partner". -->
-        <script>
-          (function () {
-            var p = window.location.pathname;
-            var pub = ["/book", "/salon", "/demo-slot", "/review", "/order", "/rate", "/feedback", "/gift", "/membership", "/member", "/pay", "/loyalty", "/rewards"];
-            var b = pub.some(function (r) { return p === r || p.indexOf(r + "/") === 0; });
-            document.write(
-              '<link rel="manifest" href="' + (b ? "/manifest.json" : "/manifest-admin.json") + '">' +
-              '<link rel="apple-touch-icon" href="' + (b ? "/icon-192.png?v=8" : "/icon-admin-192.png?v=8") + '">' +
-              '<link rel="apple-touch-icon" sizes="192x192" href="' + (b ? "/icon-192.png?v=8" : "/icon-admin-192.png?v=8") + '">' +
-              '<meta name="apple-mobile-web-app-title" content="' + (b ? "Miracurl Book" : "Miracurl Partner") + '">' +
-              '<meta name="application-name" content="' + (b ? "Miracurl Book" : "Miracurl Partner") + '">'
-            );
-          })();
-        </script>
+        <!-- GA4 + Microsoft Clarity + PWA manifest switch are bootstrapped from /boot.js (no inline scripts — strict CSP) -->
+        <meta name="ga4-id" content="G-RSXW31FS5L" />
+        <meta name="clarity-project" content="%REACT_APP_CLARITY_ID%" />
+        <script src="%PUBLIC_URL%/boot.js"></script>
 
         <!-- PWA / Standalone mobile-app metadata (iOS + Android install-to-home-screen) -->
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -105,25 +96,7 @@
           }
         }
         </script>
-        <script>window.addEventListener("error",function(e){if(e.error instanceof DOMException&&e.error.name==="DataCloneError"&&e.message&&e.message.includes("PerformanceServerTiming")){e.stopImmediatePropagation();e.preventDefault()}},true);</script>
         <script src="https://assets.emergent.sh/scripts/emergent-main.js"></script>
-        <!-- Google Analytics 4 -->
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-RSXW31FS5L"></script>
-        <script>
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-RSXW31FS5L', { send_page_view: false });
-        </script>
-        <!-- Microsoft Clarity -->
-        <script>
-          (function(c,l,a,r,i,t,y){
-            if(!i){return;}
-            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-          })(window, document, "clarity", "script", "%REACT_APP_CLARITY_ID%");
-        </script>
     </head>
     <body>
         <noscript>You need to enable JavaScript to run this app.</noscript>
@@ -138,76 +111,6 @@
       To begin the development, run `npm start` or `yarn start`.
       To create a production bundle, use `npm run build` or `yarn build`.
     -->
-                <script>
-            !(function (t, e) {
-                var o, n, p, r;
-                e.__SV ||
-                    ((window.posthog = e),
-                    (e._i = []),
-                    (e.init = function (i, s, a) {
-                        function g(t, e) {
-                            var o = e.split(".");
-                            2 == o.length && ((t = t[o[0]]), (e = o[1])),
-                                (t[e] = function () {
-                                    t.push(
-                                        [e].concat(
-                                            Array.prototype.slice.call(
-                                                arguments,
-                                                0,
-                                            ),
-                                        ),
-                                    );
-                                });
-                        }
-                        ((p = t.createElement("script")).type =
-                            "text/javascript"),
-                            (p.crossOrigin = "anonymous"),
-                            (p.async = !0),
-                            (p.src =
-                                s.api_host.replace(
-                                    ".i.posthog.com",
-                                    "-assets.i.posthog.com",
-                                ) + "/static/array.js"),
-                            (r =
-                                t.getElementsByTagName(
-                                    "script",
-                                )[0]).parentNode.insertBefore(p, r);
-                        var u = e;
-                        for (
-                            void 0 !== a ? (u = e[a] = []) : (a = "posthog"),
-                                u.people = u.people || [],
-                                u.toString = function (t) {
-                                    var e = "posthog";
-                                    return (
-                                        "posthog" !== a && (e += "." + a),
-                                        t || (e += " (stub)"),
-                                        e
-                                    );
-                                },
-                                u.people.toString = function () {
-                                    return u.toString(1) + ".people (stub)";
-                                },
-                                o =
-                                    "init me ws ys ps bs capture je Di ks register register_once register_for_session unregister unregister_for_session Ps getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey canRenderSurveyAsync identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty Es $s createPersonProfile Is opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing Ss debug xs getPageViewId captureTraceFeedback captureTraceMetric".split(
-                                        " ",
-                                    ),
-                                n = 0;
-                            n < o.length;
-                            n++
-                        )
-                            g(u, o[n]);
-                        e._i.push([i, s, a]);
-                    }),
-                    (e.__SV = 1));
-            })(document, window.posthog || []);
-            posthog.init("phc_xAvL2Iq4tFmANRE7kzbKwaSqp1HJjN7x48s3vr0CMjs", {
-                api_host: "https://us.i.posthog.com",
-                person_profiles: "identified_only", // or 'always' to create profiles for anonymous users as well,
-                session_recording: {
-                    recordCrossOriginIframes: true,
-                    capturePerformance: false,
-                },
-            });
-        </script>
+        <script src="%PUBLIC_URL%/posthog.js"></script>
     </body>
 </html>
