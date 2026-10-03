@@ -1,0 +1,37 @@
+{
+  "summary": "Iter 209 testing complete. BACKEND (12/12 pytest, test_iter209_tone_memory_autowa.py): (a) GET /api/super-admin/mira-leads/auto-wa returns 200 with template_status=APPROVED and all required keys (template, template_status, sent_today, replied_total, phone_only=10, phone_only_pitched); ?refresh=1 also returns 200 same shape; 401/403 without super-admin cookie. (b) GET /api/super-admin/mira/tone-memory returns {count, used_in_prompt, items[]} with correct types; DELETE returns {ok:true, deleted:int} with X-CSRF-Token; both 401/403 anonymous. (c) UNIT (routes.mira_outreach): remember_tone(lead, draft, final_subject, final_body) returns False when final==draft (whitespace-normalised) and False when draft is None or body empty; returns True when changed and inserts a doc in mira_tone_memory with draft_subject/draft_body/final_subject/final_body/lead_id/created_at — verified via pymongo. tone_examples() returns most recent first (F3,F2,F1). _tone_prompt([])=='' and _tone_prompt([{..}]) contains 'STYLE MEMORY'. All TEST_ prefixed docs cleaned up. (d) send_demo_reply source inspected: calls remember_tone(...) and returns 'learned' key — spec satisfied (no real email sent). Used motor client bound to shared pytest loop (monkey-patched routes.mira_outreach._raw_db) to avoid motor's cross-loop RuntimeError; pymongo used for DB inspection/cleanup. FRONTEND (Playwright, super admin → /super-admin): root [data-testid=super-admin-page] has class 'hq-gold min-h-screen overflow-x-hidden text-slate-800'; page bg=rgb(251,246,234) warm cream; active nav tabs (tenants, revenue, billing, mira-leads) all show bg=rgb(28,28,34) ink + color=rgb(232,195,127) gold — matches spec exactly. Growth Advisory tab renders without white-on-white/black-on-black issues. Mira Lead Agent tab: wa-template-badge data-status=APPROVED, wa-template-status-label='WhatsApp template approved', wa-template-phone-only chip='📱 10 phone-only', wa-template-recheck click → toast 'Meta says: WhatsApp template approved'. 10 lead-wa-ready-* chips with data-ready=true and text '📱 WA ready'. Expanding first phone-only lead (lead-toggle-424c381a…) shows lead-wa-pitch-* button labelled 'Send WA pitch' (enabled, NOT clicked). lead-auto-wa-toggle present (regression OK). Reply Inbox: lead-reply-inbox contains tone-memory-chip data-count=0, tone-memory-label='Mira learns your tone from edits', tone-memory-forget NOT present (correct for count=0). DASHBOARD (salon admin via /login?tenant=miracurl-marathahalli): exactly ONE request to /api/reports/dashboard fired after login; dashboard-speed-pulse='Loaded in 171ms· server 17ms · network 154ms'; dashboard-speed-server contains both 'server' and 'network'. Branch switcher [data-testid=branch-switcher] present.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "pre-existing", "issues": ["React hydration warning '<span> cannot be a child of <option>' still logged (LabelGenerator) — pre-existing from iter 208, unchanged.", "React warning 'Encountered two children with the same key' on super-admin page — pre-existing, unrelated to iter 209."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter209_tone_memory_autowa.py",
+    "/app/test_reports/pytest/iter209.xml"
+  ],
+  "action_items": [
+    "(Pre-existing, minor, carryover) Fix <span>-inside-<option> hydration warning in LabelGenerator.jsx.",
+    "(Pre-existing, minor) Fix duplicate-key React warning on SuperAdmin page (likely in a .map() rendering list items)."
+  ],
+  "critical_code_review_comments": [
+    "routes/lead_wa_auto.py:get_auto_wa correctly composes {**_settings(), template, template_status(force=refresh), sent_today, replied_total, phone_only, phone_only_pitched}; PHONE_ONLY_QUERY = {phone:{$nin:['',None]}, $or:[{email:''},{email:None},{email:{$exists:False}}]} is correct — matches the UI's phoneOnly chip count.",
+    "routes/mira_outreach.py:remember_tone — gracefully returns False when draft None or body empty; whitespace-normalised equality check prevents false positives when boss only tweaks whitespace. Capped at TONE_MEMORY_MAX=25 (oldest trimmed). TONE_EXAMPLES=5 used in prompt. Clean.",
+    "routes/mira_outreach.py:_tone_prompt caps subject at 700 chars which is reasonable; label 'STYLE MEMORY' is the stable marker the test anchors on.",
+    "send_demo_reply correctly reads lead.get('demo_draft') (set by prior draft call), awaits remember_tone, logs 'Mira noted the edits for next time 🧠' when learned, and returns {'ok':True,'sent_to':..., 'learned':bool}. No regression on existing flow.",
+    "SuperAdmin.jsx wraps the HQ page in a <div data-testid=super-admin-page className=\"hq-gold min-h-screen overflow-x-hidden text-slate-800\"> — the hq-gold.css override cleanly repaints bg (warm cream) and active nav tab (ink + gold) across all tabs without touching per-panel styles.",
+    "SpeedPulse.jsx now renders 'Loaded in Nms · server Xms · network Yms' in dashboard-speed-server; server timing uses the Server-Timing header while network subtracts server from total — accurate split verified on preview (17ms server / 154ms network / 171ms total).",
+    "index.js removal of React.StrictMode is the correct fix for double /api/reports/dashboard fetches — only 1 request fired on dashboard mount, confirmed via page.on('request')."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter209_tone_memory_autowa.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@miracurl-suite.com / og9T@41Es#OQb6 (super-admin cookie + X-CSRF-Token); admin@miracurl.com / q6QY@tn3p#9DtL (tenant miracurl-marathahalli)",
+  "seed_data_creation": "Transient: ~2 mira_tone_memory docs inserted during remember_tone unit tests, all deleted via lead_id='TEST_tone_<uuid>' cleanup. DELETE /mira/tone-memory called once; tone memory is now empty (count=0, consistent with the GET assertion that forget button is hidden). No real emails/WhatsApp sent.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Regression file: /app/backend/tests/test_iter209_tone_memory_autowa.py. Run from /app/backend: `PYTHONPATH=/app/backend REACT_APP_BACKEND_URL=<preview> python -m pytest tests/test_iter209_tone_memory_autowa.py -o 'addopts=' -v`. The test monkey-patches routes.mira_outreach._raw_db to an AsyncIOMotorClient bound to the shared _LOOP (motor's default client is bound to FastAPI's uvicorn loop and raises 'future belongs to different loop' when driven from pytest). Pymongo is used for DB inspection/cleanup to sidestep the same issue. All assertions on phone_only=10 depend on the current preview seed (10 phone-only leads under PHONE_ONLY_QUERY); if seed changes, the UI chip label will change but the shape test still holds."
+}

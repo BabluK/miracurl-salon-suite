@@ -356,3 +356,11 @@
 
 ## 2026-09-30 — Mira Outreach Autopilot
 - Autonomous lead emailing/WhatsApp with daily cap, per-vertical templates, world-city self-hunting, day-wise history, HQ conversion alerts, Mira chat actions. See PRD.
+
+## 2026-10-03 — WA template check · Reply Tone Memory · HQ light-gold theme · dashboard single-load (build 2026-10-03.374)
+- WA template check (lead_wa_auto.py): GET /super-admin/mira-leads/auto-wa now also returns `phone_only`, `phone_only_pitched` and accepts `?refresh=1` (forces Meta re-check). New `WaTemplateBadge.jsx` in Mira Lead Agent header (Approved / Pending / Not submitted + recheck). Phone-only lead rows show `lead-wa-ready-<id>` chip; their WA button is now "Send WA pitch" (`lead-wa-pitch-<id>`), disabled until template APPROVED.
+- Reply Tone Memory (mira_outreach.py): `remember_tone()` stores (Mira draft → boss's edited final) on send-demo-reply when they differ (collection `mira_tone_memory`, capped 25); `draft_demo_reply` injects last 5 as STYLE MEMORY into the LLM prompt (also used by auto-reply). GET/DELETE /super-admin/mira/tone-memory. `ToneMemoryChip.jsx` in Reply Inbox header ("Mira has learned from N of your edits" + Forget). send-demo-reply returns `learned`.
+- Unified light-gold HQ theme: `frontend/src/styles/hq-gold.css` scoped under `.hq-gold` on the super-admin root — remaps fuchsia/sky/violet/indigo utilities to gold (#fdf8ec/#e8c37f/#b8932e/#9a7a1f/#1c1c22), navy statement panels → ink, light inputs inside HQ (index.css paints inputs dark globally). Header + nav active state recoloured in SuperAdmin.jsx; Super3DBackdrop orbs gold.
+- Dashboard double-load: root cause in preview was React.StrictMode double-mounting effects (consumed the prefetch then fetched again). StrictMode removed in index.js → exactly one /reports/dashboard request after login (verified). SpeedPulse now shows "· server Xms · network Yms". Measured: proxy/ingress hop adds ~100ms TTFB even for a 404 (app 4ms) — the remaining gap is network RTT from the user's device, not app code.
+- Fixed duplicate `2026-10` option key in HqGstRegisterCard month select.
+- Tests: iteration_209.json (12/12 backend, 100% frontend), tests/test_iter209_tone_memory_autowa.py.

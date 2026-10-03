@@ -24,7 +24,7 @@ export const HqGstRegisterCard = () => {
         <div className="flex items-center gap-2"><FileSpreadsheet className="w-5 h-5 text-emerald-700" /><h3 className="font-semibold text-slate-900">GST sales register</h3></div>
         <div className="flex items-center gap-2">
           <select value={month} onChange={e => setMonth(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm" data-testid="gst-month">
-            {(data?.summary?.length ? data.summary.map(s => s.month) : [month]).concat(data?.summary?.some(s => s.month === month) ? [] : [month]).sort().reverse().map(m => <option key={m} value={m}>{m}{(data?.summary || []).find(s => s.month === m) ? ` · ${(data.summary.find(s => s.month === m)).invoices} inv` : ""}</option>)}
+            {[...new Set((data?.summary || []).map(s => s.month).concat([month]))].sort().reverse().map(m => <option key={m} value={m}>{m}{(data?.summary || []).find(s => s.month === m) ? ` · ${(data.summary.find(s => s.month === m)).invoices} inv` : ""}</option>)}
           </select>
           <button onClick={download} disabled={busy || !data} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-700 text-white text-xs font-semibold disabled:opacity-60" data-testid="gst-export"><Download className="w-3.5 h-3.5" /> {busy ? "Preparing…" : "Export Excel for CA"}</button>
         </div>

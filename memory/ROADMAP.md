@@ -1,6 +1,9 @@
 # Miracurl — Roadmap / Backlog
 
 ## P0
+- DONE Oct 3 (iter209): WA template check for phone-only leads, Reply Tone Memory, HQ unified light-gold theme, dashboard single-load (StrictMode removed) + SpeedPulse server/network split. Production needs redeploy (build .374).
+- NEXT: Google Business API approval — once Google approves, verify Connections Hub syncs reviews/posts without 403.
+- Backlog: auto-include phone-only leads in the Autopilot cadence via WA (template is APPROVED; `auto_wa_hot_leads` only covers hot leads ≥500 reviews today).
 - DONE Jun (part 68): Twilio creds live in preview .env, trial number +14246557277 provisioned, SMS e2e delivered. Pending user action: add same 3 env vars to PRODUCTION deployment env; verify more recipient numbers in Twilio console (trial limit).
 - MSG91 swap (user will provide keys post-DLT): replace sms_service.py internals only.
 - Mira Studio OAuth: infra COMPLETE (Jul 8, iter57) — waiting on USER to supply META_APP_ID/META_APP_SECRET (developers.facebook.com app) and GOOGLE_OAUTH_CLIENT_ID/SECRET (+ GBP API approval). Once pasted in backend/.env, Connect buttons go live. Then test real end-to-end posting + /social/meta/select-page happy path.
