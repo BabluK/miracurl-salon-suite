@@ -1,0 +1,24 @@
+{
+  "summary": "Frontend-only testing of the Signup Exit Nudge on /signup-salon-india. All 7 scenarios pass: (1) nudge does NOT appear when form is not dirty; (2) desktop exit-intent (document mouseout, clientY<=0, relatedTarget null) opens the modal with heading 'Stuck somewhere?', WhatsApp href starts with https://wa.me/919180379552?text= and decoded text contains the typed name 'Nudge Test' and 'step 1 of 4'; gtag 'signup_exit_nudge' fired with error='mouse_exit', step=1, step_name='business'; clicking 'I'll continue myself' closes modal, fires 'signup_exit_nudge_dismiss', preserves form value, sets sessionStorage flag, and modal does NOT reappear on second mouseout (once-per-session); (3) tab-return path (visibilitychange hidden->visible after >3s) fires nudge with error='tab_return'; (4) idle 45s path (Playwright clock.fast_forward 46s) fires nudge with error='idle'; (5) backdrop click, close (X) button and WhatsApp link (target _blank) all work; WhatsApp click fires 'signup_exit_nudge_whatsapp'; (6) mobile 390x844 renders with items-end bottom-sheet class, no horizontal overflow, WhatsApp CTA 308x44 px (tappable); (7) regression: newbiz-offer-modal still opens/closes and Continue to Owner step still works. Analytics stub note: gtag is defined inline in public/index.html, so page.add_init_script stubs are overwritten; events were read from window.dataLayer (which gtag pushes into) and verified.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "SignupExitNudge useEffect dependency list omits `armed`'s underlying `dirty`/`submitting` and `businessName` — only `armed, step, stepName, resto, region, locked` are listed. This is correct because `armed` is recomputed each render and the effect re-registers when it toggles; still, after dismiss the effect keeps running (not torn down) — fine because fire() is guarded by sessionStorage. No functional issue observed.",
+    "The nudge mounts listeners on `document` and `window` globally while on /signup-salon pages — benign, but note that `mouseout` fires frequently; the guard `!e.relatedTarget && e.clientY<=0` keeps it cheap.",
+    "WhatsApp link uses rel=\"noreferrer\" but not noopener; target=_blank should ideally use rel=\"noopener noreferrer\" for security (noreferrer implies noopener in practice, so acceptable)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "None — public page",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "To validate gtag analytics on this app, read events from window.dataLayer (gtag inline shim in public/index.html pushes arguments). add_init_script stubs for window.gtag are overwritten by the inline script. For visibilitychange tests, override document.visibilityState via Object.defineProperty before dispatching the event. For idle tests, use await page.clock.install() BEFORE page.goto, then page.clock.fast_forward(46000).",
+  "rca of the issue": "N/A — no issues found."
+}

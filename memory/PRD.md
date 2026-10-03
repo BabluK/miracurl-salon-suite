@@ -3885,3 +3885,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - `lib/region.js`: `currentRegion()`, `signupHref(vertical, region)` → `/signup-{salon|restaurant}-{india|us}`. Applied to Landing (uses its region state; plan CTAs fixed per currency), RestaurantLanding (INR/USD toggle), SiteHeader default, Blog, BlogPost, WhoCanUse, AboutCeo, LegalLayout, LandingBits, Login, RewardsCampaign.
 - HQ UI: `TrafficConversionCard.jsx` at top of Mira Home right panel; `SignupQrCards.jsx` in Documents tab (4 printable cards w/ gold logo, QR, link, copy/PNG, print stylesheet).
 - Tests: iteration_216.json (10/10 backend, frontend pass; agent fixed `c.base`→`d.base` crash in SignupQrCards), tests/test_iter216_growth_analytics.py.
+
+## 2026-10-03 — Signup exit nudge
+- `components/signup/SignupExitNudge.jsx`: once-per-session (sessionStorage `miracurl_signup_nudge`) modal when the form is dirty & not submitting — triggers: desktop mouseout toward browser bar, tab return after >3s hidden, 45s idle. WhatsApp CTA to MIRACURL_SUPPORT_WHATSAPP pre-filled with business name + step; "I'll continue myself" keeps progress. Events signup_exit_nudge (error=reason) / _whatsapp / _dismiss. Mounted in SignupSalon. Tests: iteration_217.json (frontend 7/7).
