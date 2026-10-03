@@ -391,3 +391,15 @@
 - Frontend: Landing.jsx / RestaurantLanding.jsx / SignupSalon.jsx render only from /api/public/plans ('…' until loaded; no fallback numbers); RestaurantLanding fetches catalog; PlanCatalogTools remove-for-good; RewardsCampaignCard half_year entries dropped; PlanTierPanel "$39" copy removed; hq_documents USD resto rows catalog-driven.
 - MiraVoiceAssistant: `open` starts false; greeting still fetched but waits behind the FAB.
 - Tests: iteration_211.json (15/15 backend, frontend all pass), tests/test_iter211_pricing_overhaul.py; iter188/iter202 updated to new prices.
+
+## 2026-10-03 — Derived pricing · price-drop alerts · competitor watch · lead history (build .378)
+- `services/plans.py`: `DERIVED_PLANS` (quarter = 3× monthly, annual = 10× monthly for salon INR, resto INR, intl tiers, resto intl) applied by `apply_derived_prices()` inside `load_plan_overrides`; `PAY_AS_YOU_GO_MONTHS=(3,6)` exposed in /public/plans. New INR defaults annual 14550, resto_annual 10000, resto_intl_quarter 135. `update_plan` rejects price edits on derived plans (400). BillingPanel disables derived price inputs with "= N × monthly" badge.
+- `email_service._resto_plan_rows()` — restaurant renewal email lists live catalog plans (removed hard-coded ₹1,000/3,000/12,000). brochure/hq_docs copy updated (monthly or annual, 2 months free).
+- RestaurantLanding: ₹/$ toggle (`resto-currency-toggle`), USD cards from catalog, footnote with prepay note.
+- `services/price_alerts.py` + `routes/pricing_intel.py`: audience = USD tenants; preview/sample/send; one-click annual via `/api/public/renew/{token}?plan=<annual key>` (payments_intl accepts `?plan` for USD plans of the tenant's vertical; settings checkout now accepts resto_intl_*). Log collection `price_alert_log` (campaign usd-price-drop-2026-10).
+- `services/competitor_watch.py`: 6 competitors (Fresha, Vagaro, GlossGenius, Square Appts, Square Restaurants, Toast) scraped with regex (ignores "+$X" add-ons and prices < 0.5× benchmark), benchmark fallback; verdicts per segment vs intl_starter_monthly / resto_intl_monthly; monthly `_competitor_watch_scheduler` (runs everywhere, HQ-internal); undercut → Mira alert + HQ email. UI `PricingIntelCards.jsx` (PriceAlertCard, CompetitorWatchCard) in Billing tab.
+- `routes/lead_history.py`: GET /super-admin/mira-leads/history (vertical × country with found/pitched/replied/demo/customers/stale + top cities; stale = pitched ≥15 days ago, no reply) and /{id}/timeline. UI `LeadHistoryPanel.jsx` as 4th section of Mira Lead Agent (Re-send via existing /resend, Delete via existing DELETE).
+- Tests: iteration_212.json (16/16 backend, frontend pass; only cosmetic iframe bg fixed after).
+
+## 2026-10-03 — Lint fix (SignupSalon.jsx)
+- Removed duplicate `data-testid` on business-type button (kept `business-type-{v}-button`), dropped unused `kFmt`, `effNewbiz`, and unused `formatApiError` import. `oxlint` now 0 warnings / 0 errors on the file. Signup page smoke-tested via screenshot.

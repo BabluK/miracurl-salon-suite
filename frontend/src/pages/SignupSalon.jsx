@@ -8,14 +8,13 @@ import { toast, Toaster } from "sonner";
 import { SignupHeroPanel, TRUST_BADGES } from "@/components/signup/SignupHeroPanel";
 import ChatButton from "@/components/ChatButton";
 import { useAuth } from "@/context/AuthContext";
-import { setTenantSlug, formatApiError } from "@/lib/api";
+import { setTenantSlug } from "@/lib/api";
 import { detectRegion } from "@/lib/region";
 import { trackSignup } from "@/lib/analytics";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const TOASTER_OPTIONS = { style: { background: "#fff", color: "#0f172a", border: "1px solid rgba(14,165,233,0.2)" } };
 const STEP_LABELS = ["Salon", "Owner", "Location", "Confirm"];
-const kFmt = (n) => (n >= 1000 && n % 1000 === 0 ? `₹${n / 1000}K` : `₹${Number(n).toLocaleString("en-IN")}`);
 const fmtUSD = (n) => (n == null ? "…" : "$" + Number(n).toLocaleString("en-US"));
 
 function slugify(s) {
@@ -31,7 +30,6 @@ export default function SignupSalon() {
   const [showPw, setShowPw] = useState(false);
   const [catalog, setCatalog] = useState(null);
   const trialDays = Number(catalog?.trial_days) || 30;
-  const effNewbiz = () => newbiz || form.newly_opened;
   const [region, setRegion] = useState(() => {
     try {
       const p = new URLSearchParams(window.location.search).get("region");
@@ -346,7 +344,7 @@ function SalonStep({ form, update }) {
         <p className="text-xs font-semibold text-slate-600 mb-2">What's your business?</p>
         <div className="grid grid-cols-2 gap-3">
           {[["salon", "💇 Salon / Spa", "Bookings, stylists & billing"], ["restaurant", "🍴 Restaurant", "Menu, table reservations & orders"]].map(([v, title, sub]) => (
-            <button key={v} type="button" data-testid={`signup-type-${v}`}
+            <button key={v} type="button"
               onClick={() => update({ business_type: v })}
               data-testid={`business-type-${v}-button`}
               className={`text-left rounded-xl border-2 px-4 py-3 transition-[transform,border-color,background-color] duration-200 hover:scale-[1.02] active:scale-[0.98] ${form.business_type === v ? "border-[var(--su-accent)] bg-[var(--su-soft)] shadow-sm" : "border-slate-200 bg-white hover:border-[#d4af37]/50"}`}>

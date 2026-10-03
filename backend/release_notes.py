@@ -2,8 +2,8 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-10-03.377"
-BUILD_TIME = "3 Oct 2026, 04:30 PM IST"
+BUILD = "2026-10-03.378"
+BUILD_TIME = "3 Oct 2026, 06:15 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
@@ -178,6 +178,10 @@ RELEASES = [
     {
         "date": "2026-10-03 (Smoother dashboard & smarter Mira 🧠)",
         "changes": [
+            "🧮 One price to set: HQ edits only the MONTHLY price — 3-month = 3 × monthly and Annual = 10 × monthly (2 months free) update automatically everywhere, including renewal e-mails and the restaurant page (now with a ₹ / $ toggle)",
+            "💌 Price-drop alert: one tap e-mails every international subscriber their new lower price with a one-click Stripe switch to annual (HQ → Billing)",
+            "🕵️ Competitor price watch: Mira re-checks Fresha, Vagaro, GlossGenius, Square and Toast on the 1st of each month and flags if we're no longer the cheapest",
+            "📜 Lead history by country: HQ → Mira Lead Agent → 'Lead history' shows salons vs restaurants country-wise (found · pitched · replied · demo · customers), every lead's timeline, and leads silent 15+ days with Re-send / Delete",
             "💲 Pricing overhaul: every 6-month plan is gone for good; all plan prices are set in HQ → Billing & Subscriptions and show live on the website, signup and billing pages (nothing hard-coded)",
             "🇺🇸 New international pricing priced just under Fresha / GlossGenius / Vagaro / Square / Toast: Starter $19, Professional $45, Premium AI $139 per month · Restaurants $45 per month — pay yearly (10× monthly) and get 2 months free",
             "🤖 Mira's HQ assistant now starts minimised — tap the bubble when you want her",
