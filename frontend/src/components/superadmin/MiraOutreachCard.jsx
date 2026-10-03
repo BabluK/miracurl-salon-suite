@@ -46,6 +46,7 @@ export function MiraOutreachCard() {
       const { data } = await api.put("/super-admin/mira/outreach/settings", { ...s, ...patch });
       setS(data); load();
       if ("ab_test" in patch) toast.success(patch.ab_test ? "🧪 A/B subject test ON — two subject lines per pitch" : "A/B subject test off");
+      else if ("auto_reply" in patch) toast.success(patch.auto_reply ? "🤖 Mira now answers lead replies herself" : "Mira will wait for you to send demo invites");
       else toast.success(data.enabled ? `🤖 Autopilot ON — up to ${data.daily_email_limit} emails/day` : "Autopilot paused");
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't save"); }
     finally { setSaving(false); }
@@ -147,6 +148,10 @@ export function MiraOutreachCard() {
             <div className="flex flex-wrap gap-1.5">{HUNT_OPTS.map(([iso, l]) => <Chip key={iso} testid={`outreach-hunt-${iso}`} on={s.hunt_countries.includes(iso)} onClick={() => toggleIn("hunt_countries", iso)}>{l}</Chip>)}</div>
             <p className="text-[11px] text-slate-400 flex items-start gap-1"><Flame className="w-3 h-3 mt-0.5 text-orange-400" /> Hot leads (500+ reviews, no website) go first · sent 9 AM–6 PM in each lead's local time · replies, demo requests and signups are emailed to admin@miracurl-suite.com so you can send the demo invite.</p>
             <AbSubjectPanel enabled={s.ab_test} onToggle={v => save({ ab_test: v })} />
+            <label className={`flex items-start gap-2 rounded-xl border p-3 text-xs cursor-pointer ${s.auto_reply !== false ? "border-emerald-200 bg-emerald-50/60" : "border-slate-200 bg-slate-50"}`} data-testid="outreach-auto-reply-toggle">
+              <input type="checkbox" checked={s.auto_reply !== false} onChange={e => save({ auto_reply: e.target.checked })} className="accent-emerald-600 mt-0.5" />
+              <span><b className="text-slate-800">Mira replies herself</b> — when a lead writes back (email or WhatsApp), Mira answers with the demo invite immediately, marks the lead as Demo and tells you in the report. Opt-outs ("not interested", "stop") are never answered — they're flagged for you instead.</span>
+            </label>
           </div>
         </div>
 

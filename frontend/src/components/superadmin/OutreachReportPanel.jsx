@@ -55,6 +55,11 @@ export function OutreachReportPanel() {
         <div className="grid lg:grid-cols-2 gap-3">
           <div className="bg-white rounded-xl border border-slate-200 p-3" data-testid="outreach-report-locations">
             <div className="text-xs font-bold text-slate-700 flex items-center gap-1.5 mb-2"><MapPin className="w-3.5 h-3.5 text-sky-500" /> Sent to {noun} by location <span className="text-slate-400 font-normal">· {rep.sent_today} email{rep.sent_today === 1 ? "" : "s"} ({rep.new_sends} new · {rep.reminders} reminders)</span></div>
+            <div className="text-[11px] text-slate-600 mb-2 flex flex-wrap gap-x-3" data-testid="outreach-report-summary">
+              <span>⏳ Waiting on <b>{rep.waiting_for_reply}</b> {noun}</span>
+              <span>🤖 Mira answered <b>{rep.auto_replied}</b> replies herself</span>
+              <span>🔎 Found <b>{rep.found_stats?.found ?? 0}</b> new ({rep.found_stats?.with_email ?? 0} with email · {rep.found_stats?.newly_opened ?? 0} newly opened)</span>
+            </div>
             {rep.by_country.length === 0 && <p className="text-xs text-slate-400">No {noun} emailed in this period.</p>}
             {rep.by_country.map(([c, n]) => (
               <div key={c} className="flex items-start justify-between py-1.5 border-b border-slate-100 last:border-0" data-testid={`outreach-report-country-${c}`}>

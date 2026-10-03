@@ -442,9 +442,8 @@ export default function SuperAdmin() {
               { id: "lead-email", label: "Lead Gen Email", icon: Mail, badge: demoHot, hot: demoHot > 0, top: true },
               { id: "mira-leads", label: "Mira Lead Agent", icon: Sparkles, top: true },
               { id: "inbox", label: "HQ Inbox", icon: Inbox, badge: hqUnread, top: true },
-              { id: "partners", label: "Partners", icon: Handshake },
-              { id: "leaderboard", label: "Top Referrers", icon: Trophy },
-              { id: "growth-advisory", label: "Growth Advisory", icon: TrendingUp },
+              { id: "partners", label: "Partners & Top Referrers", icon: Handshake },
+              { id: "growth-advisory", label: "Growth Advisory & Customer Rewards", icon: TrendingUp },
               { id: "docs", label: "Documents", icon: FileText },
               { id: "demo-calendar", label: "Demo Calendar", icon: Bell },
               { id: "ai", label: "AI Insights", icon: Sparkles },
@@ -521,9 +520,9 @@ export default function SuperAdmin() {
             "platform-map": <div className="space-y-6"><PlatformOverview onGoTab={setTab} /><PlatformOrbitMap onGoTab={setTab} /></div>,
             credits: <div className="space-y-6" data-testid="sa-credits-tab"><CreditWalletCard /><PackPricingCard /><MessageCreditsCard tenants={tenants} /></div>,
             billing: <div className="space-y-6"><HqTaxCard /><PackPricingCard /><HqGstRegisterCard /><StripePaymentsPanel /><BillingPanel tenants={tenants} /></div>,
-            partners: <PartnersPanel />,
-            leaderboard: <LeaderboardPanel />,
-            "growth-advisory": <GrowthAdvisoryPanel />,
+            partners: <div className="space-y-10"><PartnersPanel /><LeaderboardPanel /></div>,
+            leaderboard: <div className="space-y-10"><PartnersPanel /><LeaderboardPanel /></div>,
+            "growth-advisory": <div className="space-y-10"><GrowthAdvisoryPanel /><RewardsCampaignCard /><RewardsCampaignCard campaign="restaurant" /></div>,
             revenue: <div className="space-y-6"><PlatformEarnings /><HiringEarningsReview /><RevenuePanel /></div>,
             docs: <DocsPanel />,
             "mira-leads": <MiraLeadAgent />,
@@ -800,8 +799,6 @@ export default function SuperAdmin() {
           )}
         </div>
 
-        <RewardsCampaignCard />
-              <RewardsCampaignCard campaign="restaurant" />
         <SmsCreditLog />
           </>
         )}

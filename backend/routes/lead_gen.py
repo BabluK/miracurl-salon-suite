@@ -250,8 +250,8 @@ def _extract_emails(html: str, site_domain: str = "") -> list:
     for m in _EMAIL_RE.findall(text):
         low = m.lower().strip(".")
         domain = low.rsplit("@", 1)[-1]
-        if any(s in low for s in _SKIP_EMAIL) or domain in _SKIP_DOMAINS or low in found:
-            continue
+        if "%" in low or any(s in low for s in _SKIP_EMAIL) or domain in _SKIP_DOMAINS or low in found:
+            continue  # '%' = URL-encoded junk from a search-results page, never a real inbox
         found.append(low)
     found.sort(key=lambda e: _email_rank(e, site_domain))
     return found[:5]
@@ -507,13 +507,14 @@ async def _scrape_site(client: httpx.AsyncClient, website_hint: str) -> dict:
     """Fetch the salon website and extract emails / instagram / booking signal / competitor software / text."""
     site_html = await _fetch_site(client, website_hint)
     if not site_html:
-        return {"website": "", "emails": [], "email_from": "", "instagram": "", "booking": False, "text": "", "competitor": ""}
+        return {"website": "", "emails": [], "email_from": "", "instagram": "", "facebook": "", "booking": False, "text": "", "competitor": ""}
     soup = BeautifulSoup(site_html, "html.parser")
     low = site_html.lower()
     competitor = _detect_competitor(site_html)
     booking = bool(competitor) or any(k in low for k in ("book now", "book appointment", "book online",
                                       "bookslot", "calendly", "setmore", "fresha", "zylu", "dingg"))
     ig = soup.select_one('a[href*="instagram.com/"]')
+    fb = soup.select_one('a[href*="facebook.com/"]')
     domain = _site_domain(website_hint)
     emails, email_from = _extract_emails(site_html, domain), "website"
     if not emails:
@@ -521,6 +522,7 @@ async def _scrape_site(client: httpx.AsyncClient, website_hint: str) -> dict:
     emails = await _pick_deliverable(emails)
     return {"website": website_hint, "emails": emails, "email_from": email_from if emails else "",
             "instagram": ig.get("href", "")[:120] if ig else "",
+            "facebook": fb.get("href", "")[:120] if fb else "",
             "booking": booking, "competitor": competitor,
             "text": soup.get_text(" ", strip=True)[:2500]}
 
@@ -550,6 +552,7 @@ def _lead_contact_fields(site: dict, info: dict) -> dict:
     return {
         "website": site["website"],
         "instagram": site["instagram"] or (info.get("instagram") or ""),
+        "facebook": site.get("facebook") or "",
         "instagram_followers": int(info.get("instagram_followers") or 0),
         "owner_name": info.get("owner_name") or "",
         "email": site["emails"][0] if site["emails"] else "",
@@ -882,10 +885,9 @@ async def _run_pipeline(run_id: str, city: str, target: int, vertical: str = "sa
             await _log(f"🎉 Run complete — {done} leads ready for your review.", status="done", stage="done")
             from routes.lead_common import log_mira_event
             await log_mira_event("result", f"{done} prospects researched and qualified — ready for Boss's review.")
-            try:
-                await _alert_new_salon_discoveries(run_id, city, noun)
-            except Exception:
-                log.exception("new-salon alert email failed")
+            # Discovery emails retired — the daily per-vertical Outreach Report carries "found today" instead.
+            await _raw_db.platform_settings.update_one({"key": "mira_outreach_report"},
+                                                       {"$inc": {f"found.{_now()[:10]}.{vertical}": done}}, upsert=True)
     except Exception as e:
         log.exception("lead run failed")
         await _log(f"❌ Run failed: {str(e)[:120]}", status="failed", stage="failed")
@@ -926,19 +928,23 @@ async def _hunt_all_pipeline(run_id: str, leads: list):
 
 
 @router.post("/super-admin/mira-leads/hunt-all")
-async def hunt_all_emails(user=Depends(require_super_admin)):
-    """One click: run the second-pass email hunt across every lead that has no inbox yet."""
+async def hunt_all_emails(vertical: str = "", city: str = "", user=Depends(require_super_admin)):
+    """One click: run the second-pass email hunt across every lead that has no inbox yet (optionally one vertical / city)."""
     await fail_stale_runs()
     active = await _raw_db.mira_lead_runs.find_one({"status": "running"})
     if active:
         raise HTTPException(409, "A run is already in progress — wait for it to finish.")
-    leads = await _raw_db.mira_leads.find(
-        {"status": {"$in": ["no_email", "drafted", "researched"]},
-         "$or": [{"email": ""}, {"email": None}, {"email": {"$exists": False}}]},
-        {"_id": 0}).sort("score", -1).to_list(200)
+    q = {"status": {"$in": ["no_email", "drafted", "researched"]},
+         "$or": [{"email": ""}, {"email": None}, {"email": {"$exists": False}}]}
+    if vertical in ("salon", "restaurant"):
+        q["vertical"] = "restaurant" if vertical == "restaurant" else {"$in": ["salon", None, ""]}
+    if city.strip():
+        q["city"] = {"$regex": f"^{re.escape(city.strip())}", "$options": "i"}
+    leads = await _raw_db.mira_leads.find(q, {"_id": 0}).sort("score", -1).to_list(200)
     if not leads:
         return {"started": False, "count": 0}
-    run = {"id": str(uuid.uuid4()), "city": "Email hunt — all no-email leads", "target": len(leads),
+    label = " ".join(x for x in (city.strip(), f"{vertical}s" if vertical else "", "no-email leads") if x)
+    run = {"id": str(uuid.uuid4()), "city": f"Email hunt — {label}", "target": len(leads),
            "status": "running", "stage": "hunting", "found": 0, "researched": 0,
            "log": [], "created_at": _now()}
     await _raw_db.mira_lead_runs.insert_one({**run})
@@ -1070,27 +1076,53 @@ def _related_emails(emails: list, lead: dict) -> list:
     return out
 
 
+_FB_HANDLE_RE = re.compile(r"facebook\.com/(?!sharer|share|login|plugins|dialog)([A-Za-z0-9_.\-]{3,60})/?", re.I)
+
+
+def _fb_handle(url: str) -> str:
+    m = _FB_HANDLE_RE.search(url or "")
+    return m.group(1) if m and m.group(1).lower() not in ("pages", "profile.php", "people", "groups") else ""
+
+
+async def _search_emails(client: httpx.AsyncClient, query: str, lead: dict, site_domain: str) -> list:
+    """Emails that search engines surface for a query (DDG first, Bing fallback), kept only if plausibly this business's."""
+    from urllib.parse import quote_plus
+    for url in (f"https://html.duckduckgo.com/html/?q={quote_plus(query)}", f"https://www.bing.com/search?q={quote_plus(query)}&setlang=en"):
+        html = await _fetch_page(client, url)
+        if not html or "complete the following challenge" in html:
+            continue
+        emails = _related_emails(_extract_emails(html, site_domain), lead)
+        if emails:
+            return emails
+    return []
+
+
 async def _deep_email_hunt(lead: dict) -> tuple:
-    """Second-pass hunt: website deep-crawl → Instagram bio → web search snippets."""
+    """Second-pass hunt: website deep-crawl → Instagram bio → Facebook page → Google/Bing results (name + city + email)."""
     site_domain = _site_domain(lead.get("website") or "")
+    name, city = lead.get("name", ""), lead.get("city", "")
     async with httpx.AsyncClient(timeout=15) as client:
+        fb = ""
         if lead.get("website"):
             site = await _scrape_site(client, lead["website"])
             if site["emails"]:
                 return site["emails"][0], site.get("email_from") or "website", site["emails"]
+            fb = _fb_handle(site.get("facebook") or "")
         handle = _ig_handle(lead.get("instagram") or lead.get("instagram_handle") or "")
         if handle:
             ig = await _instagram_contacts(client, handle)
             emails = await _pick_deliverable(ig.get("emails") or [])
             if emails:
                 return emails[0], f"instagram: @{handle}", emails
-        from urllib.parse import quote_plus
-        q = quote_plus(f'"{lead.get("name", "")}" {lead.get("city", "")} email contact')
-        html = await _fetch_page(client, f"https://html.duckduckgo.com/html/?q={q}")
-        emails = _related_emails(_extract_emails(html, site_domain), lead)
-        emails = await _pick_deliverable(emails)
+        fb = fb or _fb_handle(lead.get("facebook") or "")
+        fb_query = f"site:facebook.com {fb}" if fb else f'site:facebook.com "{name}" {city} email'
+        emails = await _pick_deliverable(await _search_emails(client, fb_query, lead, site_domain))
         if emails:
-            return emails[0], "web search", emails
+            return emails[0], f"facebook{': ' + fb if fb else ''}", emails
+        for q in (f'"{name}" {city} email contact', f'"{name}" {city} gmail'):
+            emails = await _pick_deliverable(await _search_emails(client, q, lead, site_domain))
+            if emails:
+                return emails[0], "google", emails
     return "", "", []
 
 
@@ -1754,12 +1786,17 @@ async def _mark_lead_replied(lead: dict, data: dict) -> None:
     if lead.get("status") not in ("demo", "customer"):
         sets["status"] = "replied"
     await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": sets})
+    full = await _raw_db.mira_leads.find_one({"id": lead["id"]}, {"_id": 0})
     try:
         from services.hq_conversion import notify_hq_conversion
-        full = await _raw_db.mira_leads.find_one({"id": lead["id"]}, {"_id": 0})
         await notify_hq_conversion(full, "replied", str(data.get("text") or "")[:400])
     except Exception:
         log.exception("conversion alert failed")
+    try:
+        from routes.mira_outreach import auto_reply_to_lead
+        await auto_reply_to_lead(full)
+    except Exception:
+        log.exception("mira auto-reply failed")
 
 
 @router.post("/webhooks/resend-inbound")

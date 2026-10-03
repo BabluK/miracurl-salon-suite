@@ -579,14 +579,14 @@ export function MiraLeadAgent() {
               <button data-testid="lead-hunt-all-btn" disabled={starting || !!activeRun}
                 onClick={async () => {
                   try {
-                    const { data } = await api.post("/super-admin/mira-leads/hunt-all");
-                    if (!data.started) { toast.info("Every lead already has an email — nothing to hunt 🎉"); return; }
-                    toast.success(`Hunting emails for ${data.count} leads — watch the log in Find & review ✦`);
+                    const { data } = await api.post("/super-admin/mira-leads/hunt-all", null, { params: { vertical, city } });
+                    if (!data.started) { toast.info(`Every ${vertical} lead in ${city} already has an email — nothing to hunt 🎉`); return; }
+                    toast.success(`Hunting emails for ${data.count} ${vertical} lead${data.count === 1 ? "" : "s"} in ${city} — watch the log in Find & review ✦`);
                     startPolling(); refresh().catch(() => {});
                   } catch (e) { toast.error(e.response?.data?.detail || "Couldn't start the hunt"); }
                 }}
                 className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:border-fuchsia-400 disabled:opacity-50"
-                title="Runs Find-email (website → Instagram → web search) across every lead with no inbox">🔍 Hunt all emails</button>
+                title="Runs Find-email (website → Instagram → web search) across every lead of the selected business type & city with no inbox">🔍 Hunt emails · {vertical === "restaurant" ? "restaurants" : "salons"} in {city || "…"}</button>
               <button data-testid="lead-followups-btn"
                 onClick={async () => {
                   try {

@@ -47,8 +47,12 @@ async def build_report(vertical: str, days: int = 1) -> dict:
         {**vq, "$or": [{"sent_at": {"$exists": True}}, {"wa_intro_sent_at": {"$exists": True}}]},
         {"_id": 0, "name": 1, "city": 1, "email": 1, "sent_at": 1, "sent_via": 1, "opened_at": 1, "replied_at": 1, "wa_intro_replied_at": 1,
          "slot_picker_sent_at": 1, "demo_invite_sent_at": 1, "demo_slot": 1, "status": 1, "converted_at": 1, "followup_stage": 1,
-         "subject_variant": 1}).sort("sent_at", -1).to_list(400)
+         "subject_variant": 1, "auto_replied": 1}).sort("sent_at", -1).to_list(400)
     today_leads = [l for l in leads if (l.get("sent_at") or "") >= since]
+    found = await _raw_db.mira_leads.find({**vq, "created_at": {"$gte": since}}, {"_id": 0, "email": 1, "new_business": 1}).to_list(2000)
+    found_stats = {"found": len(found), "with_email": sum(1 for f in found if f.get("email")), "newly_opened": sum(1 for f in found if f.get("new_business"))}
+    waiting = sum(1 for l in leads if not (l.get("replied_at") or l.get("wa_intro_replied_at")) and l.get("status") == "sent")
+    auto_replied = sum(1 for l in leads if l.get("auto_replied"))
     journey = Counter()
     for l in leads:
         journey["sent"] += 1
@@ -59,7 +63,8 @@ async def build_report(vertical: str, days: int = 1) -> dict:
         journey["customer"] += bool(l.get("status") == "customer" or l.get("converted_at"))
     return {"vertical": vertical, "since": since, "days": days, "sent_today": len(sent_rows), "new_sends": new_sends, "reminders": reminders,
             "by_country": by_country.most_common(), "by_city": {c: cc.most_common(8) for c, cc in by_city.items()},
-            "journey": dict(journey), "leads_today": today_leads, "recent_leads": leads[:60]}
+            "journey": dict(journey), "leads_today": today_leads, "recent_leads": leads[:60],
+            "found_stats": found_stats, "waiting_for_reply": waiting, "auto_replied": auto_replied}
 
 
 def _period(rep: dict) -> str:
@@ -103,7 +108,9 @@ def report_html(rep: dict) -> str:
       <div style="font-size:13px;letter-spacing:2px;color:#b08d3f">MIRACURL ✦ HQ</div>
       <h2 style="margin:6px 0 2px">{icon} Outreach report — {noun}</h2>
       <p style="color:#666;margin:0 0 16px;font-size:14px">{rep['sent_today']} email{'s' if rep['sent_today'] != 1 else ''} {_period(rep)}
-        ({rep['new_sends']} new pitch{'es' if rep['new_sends'] != 1 else ''} · {rep['reminders']} reminder{'s' if rep['reminders'] != 1 else ''}). Salons get their own report.</p>
+        ({rep['new_sends']} new pitch{'es' if rep['new_sends'] != 1 else ''} · {rep['reminders']} reminder{'s' if rep['reminders'] != 1 else ''}).
+        <b>{rep['waiting_for_reply']}</b> lead{'s' if rep['waiting_for_reply'] != 1 else ''} Mira is waiting to hear back from · {rep['auto_replied']} answered by Mira herself.</p>
+      <p style="color:#666;margin:-8px 0 16px;font-size:13px">🔎 Found {_period(rep)}: <b>{rep['found_stats']['found']}</b> new {noun.lower()} ({rep['found_stats']['with_email']} with email · {rep['found_stats']['newly_opened']} newly opened).</p>
       <h3 style="margin:18px 0 6px;font-size:15px">📍 Sent {_period(rep)} by location</h3>
       <table style="border-collapse:collapse;width:100%;background:#fdfbf7;border:1px solid #eee;border-radius:10px">{loc_rows}</table>
       <h3 style="margin:22px 0 6px;font-size:15px">🧭 Journey so far (all {noun.lower()} ever emailed)</h3>
@@ -125,7 +132,8 @@ async def send_vertical_report(vertical: str, days: int = 1, to: list | None = N
     rep = await build_report(vertical, days)
     noun = "Restaurants" if vertical == "restaurant" else "Salons"
     icon = "🍽️" if vertical == "restaurant" else "💇"
-    subject = f"{icon} Mira outreach — {noun}: {rep['sent_today']} email{'s' if rep['sent_today'] != 1 else ''} {_period(rep)} · {rep['journey'].get('replied', 0)} replies"
+    subject = (f"{icon} Mira sent {rep['sent_today']} {noun.lower()} email{'s' if rep['sent_today'] != 1 else ''} {_period(rep)} · "
+               f"waiting on {rep['waiting_for_reply']} · found {rep['found_stats']['found']} new")
     res = await _send_email(to or hq_notify_emails("sales"), subject, report_html(rep), from_name="Mira at Miracurl")
     await _raw_db.platform_settings.update_one({"key": "mira_outreach_report"},
                                                {"$set": {f"last_sent.{vertical}": datetime.now(timezone.utc).isoformat()}}, upsert=True)

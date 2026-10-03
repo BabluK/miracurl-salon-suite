@@ -49,7 +49,9 @@ _DEFAULTS = {"enabled": True, "daily_email_limit": 100, "per_cycle": 10, "min_sc
              # Boss's wording instructions per vertical — appended to Mira's pitch prompt
              "pitch_notes": {"salon": "", "restaurant": ""},
              # A/B subject-line test: each drafted pitch carries two subjects; sends split 50/50 by lead id
-             "ab_test": True}
+             "ab_test": True,
+             # Mira answers lead replies herself (demo invite) instead of waiting for the Boss to tap Send
+             "auto_reply": True}
 
 _LUXURY_RE = re.compile(r"\b(luxury|luxe|premium|royal|elite|signature|prestige|boutique|spa|lounge|couture|imperial|platinum|grand)\b", re.I)
 
@@ -167,6 +169,18 @@ async def _pick_candidates(s: dict, budget: int, ignore_hours: bool) -> list:
     return out
 
 
+async def _pick_phone_only(s: dict, budget: int) -> list:
+    """Fresh leads with a WhatsApp-able phone but no inbox anywhere — WhatsApp becomes their first touch."""
+    if budget <= 0 or await template_status() != "APPROVED":
+        return []
+    rows = await _raw_db.mira_leads.find(
+        {"status": {"$in": ["no_email", "researched", "drafted"]}, "$or": [{"email": ""}, {"email": None}, {"email": {"$exists": False}}],
+         "phone": {"$nin": ["", None]}, "wa_intro_sent_at": {"$exists": False}, "wa_opt_out": {"$ne": True}, "unsubscribed": {"$ne": True},
+         "vertical": {"$in": s["verticals"] + ([None, ""] if "salon" in s["verticals"] else [])}},
+        {"_id": 0}).sort([("score", -1), ("created_at", -1)]).to_list(100)
+    return [r for r in rows if any(_wa_phone(r.get("phone") or "").startswith(cc) for cc in s["wa_countries"])][:budget]
+
+
 async def _maybe_whatsapp(lead: dict, s: dict) -> bool:
     phone = _wa_phone(lead.get("phone") or "")
     if len(phone) < 10 or not any(phone.startswith(cc) for cc in s["wa_countries"]):
@@ -278,6 +292,12 @@ async def run_outreach_cycle(force: bool = False, dry_run: bool = False, ignore_
                 reminded += 1
             else:
                 failed += 1
+            await asyncio.sleep(0.8)
+        # Phone-only leads (no inbox anywhere): WhatsApp intro is their first touch
+        for lead in await _pick_phone_only(s, s["per_cycle"]):
+            if await _maybe_whatsapp(lead, s):
+                wa += 1
+                await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {"status": "sent", "sent_via": "whatsapp", "sent_at": _now(), "approved_by": "mira-autopilot"}})
             await asyncio.sleep(0.8)
         hunt = await _auto_hunt_if_thin(s) if s["auto_hunt"] else None
         if emailed or wa or reminded:
@@ -428,6 +448,7 @@ class OutreachSettingsIn(BaseModel):
     followup_days: Optional[list[int]] = None
     pitch_notes: Optional[dict] = None
     ab_test: Optional[bool] = None
+    auto_reply: Optional[bool] = None
 
 
 def _clean_notes(raw) -> dict:
@@ -625,6 +646,40 @@ async def draft_demo_reply_ep(lid: str, user=Depends(require_super_admin)):
     if not lead:
         raise HTTPException(404, "Lead not found")
     return await draft_demo_reply(lead)
+
+
+_OPT_OUT_RE = re.compile(r"\b(unsubscribe|not interested|no thanks|stop|remove me|don't contact|do not contact|spam)\b", re.I)
+
+
+async def auto_reply_to_lead(lead: dict) -> dict:
+    """Mira answers an email reply herself: drafts the demo invite and sends it (once per lead) when auto_reply is ON.
+    Skips opt-outs, already-invited / demo / customer leads, and leads without an email."""
+    s = await get_settings()
+    if not s.get("auto_reply", True) or not lead or not lead.get("email"):
+        return {"sent": False, "reason": "off"}
+    if lead.get("demo_invite_sent_at") or lead.get("status") in ("demo", "customer") or lead.get("unsubscribed"):
+        return {"sent": False, "reason": "already handled"}
+    text = (lead.get("last_reply_text") or "")[:1500]
+    if _OPT_OUT_RE.search(text):
+        await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {"auto_reply_skipped": "opt_out"}})
+        await log_mira_event("result", f"✋ {lead.get('name')} replied with a no — Mira did not auto-reply (flagged for you).")
+        return {"sent": False, "reason": "opt_out"}
+    from email_service import _send_email, marketing_email_html
+    draft = await draft_demo_reply(lead)
+    html = marketing_email_html("Miracurl Suite", draft["body"], _demo_url(), "Pick my demo slot ✦")
+    res = await _send_email([lead["email"]], draft["subject"], html, reply_to=_lead_reply_to(), from_name="Mira at Miracurl",
+                            headers=_lead_headers(lead["id"]), book_url=_demo_url(), book_label="Book a demo ✦")
+    if not res.get("sent"):
+        return {"sent": False, "reason": str(res.get("error"))[:120]}
+    await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {
+        "demo_invite_sent_at": _now(), "demo_invite_by": "mira-autopilot", "demo_draft": None, "auto_replied": True,
+        **({"status": "demo"} if lead.get("status") not in ("demo", "customer") else {})}})
+    await _raw_db.mira_outreach_log.insert_one({
+        "id": str(uuid.uuid4()), "day": _today(), "created_at": _now(), "channel": "demo_invite", "kind": "auto_reply", "lead_id": lead["id"],
+        "name": lead.get("name") or "", "vertical": lead.get("vertical") or "salon", "city": lead.get("city") or "",
+        "country": _country_of(lead.get("city")), "email": lead["email"], "detail": draft["subject"][:160]})
+    await log_mira_event("result", f"🤖 {lead.get('name')} replied — Mira answered herself with the demo invite ({draft['subject'][:60]}).")
+    return {"sent": True, "subject": draft["subject"]}
 
 
 class DemoReplyIn(BaseModel):

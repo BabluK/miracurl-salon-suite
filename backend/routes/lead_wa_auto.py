@@ -148,6 +148,12 @@ async def note_lead_reply(wa_id: str, text: str) -> None:
             await notify_hq_conversion({**lead, **upd}, "wa_replied", text or "")
         except Exception:  # noqa: BLE001
             log.exception("conversion alert failed")
+        if lead.get("email"):
+            try:
+                from routes.mira_outreach import auto_reply_to_lead
+                await auto_reply_to_lead({**lead, **upd, "last_reply_text": text or ""})
+            except Exception:  # noqa: BLE001
+                log.exception("mira auto-reply (wa) failed")
 
 
 class AutoWaSettingsIn(BaseModel):
