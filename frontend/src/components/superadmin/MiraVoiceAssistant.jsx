@@ -8,7 +8,7 @@ let _greetPromise = null;
 const STOP_RE = /^(stop|bye|bye bye|goodbye|cancel|done|exit|quiet|chup|ruko|band karo|that'?s all|thank you.*|thanks.*)$/i;
 
 export const MiraVoiceAssistant = ({ onGoTab }) => {
-  const [open, setOpen] = useState(() => sessionStorage.getItem("mira_open") === "1");
+  const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState([]);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
@@ -145,10 +145,8 @@ export const MiraVoiceAssistant = ({ onGoTab }) => {
     _greetPromise.then((data) => {
       if (!alive || !data || sessionStorage.getItem("mira_greeted")) return;
       sessionStorage.setItem("mira_greeted", "1");
-      sessionStorage.setItem("mira_open", "1");
       setMsgs([{ role: "mira", text: data.text }]);
-      setOpen(true);
-      // No autoplay on login — show the greeting; user taps 🔊 to hear it (avoids mobile tab crash).
+      // Stays minimised on page load (Boss's request) — the greeting waits inside until the bubble is tapped.
     });
     return () => { alive = false; };
   }, [speak]);

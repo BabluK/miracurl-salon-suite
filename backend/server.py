@@ -431,16 +431,18 @@ async def on_startup():
         if n:
             logging.info("rejected %s pipeline leads that are our own salons", n)
 
-    async def _plans_v2_monthly():
-        # One-time (2026-09-30): retire every 6-month plan from public sale, annual → ₹16,000 (1 month free), monthly/3-month added.
-        if await _raw_db.system_flags.find_one({"key": "plans_v2_monthly"}):
+    async def _plans_v3_no_half():
+        # One-time (2026-10-03): 6-month plans are gone for good — drop their override docs so nothing references them.
+        if await _raw_db.system_flags.find_one({"key": "plans_v3_no_half"}):
             return
-        now = datetime.now(timezone.utc).isoformat()
-        for k in ("half_year", "two_branch_half", "three_branch_half", "multi_branch_half", "resto_half", "resto_intl_half"):
-            await _raw_db.plan_overrides.update_one({"key": k}, {"$set": {"key": k, "hidden": True, "updated_at": now, "updated_by": "migration:plans_v2"}}, upsert=True)
-        await _raw_db.plan_overrides.update_one({"key": "annual"}, {"$set": {"key": "annual", "price": 16000.0, "label": "Annual Plan (1 branch) — 1 month free",
-                                                                             "highlight": True, "hidden": False, "updated_at": now, "updated_by": "migration:plans_v2"}}, upsert=True)
-        await _raw_db.system_flags.insert_one({"key": "plans_v2_monthly", "ran_at": now})
+        half = ["half_year", "two_branch_half", "three_branch_half", "multi_branch_half", "resto_half", "resto_intl_half"]
+        await _raw_db.plan_overrides.delete_many({"key": {"$in": half}})
+        # US benchmark repricing (Oct 2026): built-in USD plans take the new catalog defaults; HQ can re-edit afterwards.
+        from services.plans import PLAN_CATALOG as _builtin_plans
+        usd_keys = [k for k, v in _builtin_plans.items() if v.get("currency") == "USD"]
+        await _raw_db.plan_overrides.update_many({"key": {"$in": usd_keys}, "custom": {"$ne": True}}, {"$unset": {"price": "", "label": ""}})
+        await _raw_db.plan_overrides.update_many({"hidden": True, "custom": {"$ne": True}}, {"$set": {"removed": True}, "$unset": {"hidden": ""}})
+        await _raw_db.system_flags.insert_one({"key": "plans_v3_no_half", "ran_at": datetime.now(timezone.utc).isoformat()})
         from services.subscription_common import load_plan_overrides
         await load_plan_overrides()
 
@@ -454,7 +456,7 @@ async def on_startup():
                            ("lead-newbiz-backfill", _backfill_lead_newbiz),
                            ("auto-closed-ot-fix", _fix_auto_closed_ot),
                            ("own-salon-lead-purge", _purge_own_leads),
-                           ("plans-v2-monthly", _plans_v2_monthly)):
+                           ("plans-v3-no-half", _plans_v3_no_half)):
             try:
                 await step()
                 logging.info("startup db-prep step '%s' done", name)

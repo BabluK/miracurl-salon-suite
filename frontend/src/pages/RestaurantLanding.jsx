@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import api from "@/lib/api";
 import { SiteHeader } from "@/components/SiteHeader";
 import { RestoDemoCarousel } from "@/components/RestoDemoCarousel";
 import { UtensilsCrossed, QrCode, ChefHat, Receipt, CalendarCheck, Sparkles, Bell, TrendingUp, Printer, MessageCircle, ArrowRight, Check } from "lucide-react";
@@ -29,11 +31,16 @@ const FEATURES = [
   [MessageCircle, "WhatsApp Marketing", "Review requests, offers and win-back campaigns straight to your diners' WhatsApp."],
 ];
 
-const PLANS = [
-  ["3 Months", "₹3,000", "Perfect to try everything", false],
-  ["6 Months", "₹6,000", "Most popular with owners", true],
-  ["1 Year", "₹12,000", "Best value — save the most", false],
-];
+const durLabel = (d) => (d <= 31 ? "Monthly" : d >= 365 ? "1 Year" : `${Math.round(d / 30.4)} Months`);
+const money = (v) => ((v.currency || "INR") === "USD" ? `$${Number(v.price).toLocaleString("en-US")}` : `₹${Number(v.price).toLocaleString("en-IN")}`);
+// Live catalog only — every price here is whatever HQ set (no hard-coded numbers).
+function restoPlans(catalog, currency) {
+  return Object.entries(catalog || {})
+    .filter(([k, v]) => v && typeof v === "object" && v.vertical === "restaurant" && (v.currency || "INR") === currency)
+    .sort((a, b) => (a[1].duration_days || 0) - (b[1].duration_days || 0))
+    .map(([k, v]) => ({ key: k, label: v.custom ? v.label : durLabel(v.duration_days || 30), price: money(v), popular: !!v.highlight,
+      sub: v.duration_days <= 31 ? "Flexible — cancel anytime" : v.duration_days >= 365 ? "Best value — one payment a year" : "Perfect to try everything" }));
+}
 
 const VegDot = ({ type }) => (
   <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${type === "veg" ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-rose-300 bg-rose-50 text-rose-700"}`}>
@@ -43,6 +50,8 @@ const VegDot = ({ type }) => (
 );
 
 export default function RestaurantLanding() {
+  const [catalog, setCatalog] = useState(null);
+  useEffect(() => { api.get("/public/plans").then(r => setCatalog(r.data)).catch(() => {}); }, []);
   return (
     <div className="min-h-screen bg-[#fdf9f4] text-slate-800 relative overflow-hidden" data-testid="restaurant-landing">
       {/* soft gradient blobs like the staff verification page */}
@@ -165,8 +174,8 @@ export default function RestaurantLanding() {
         <p className="text-[10px] tracking-[0.3em] uppercase font-bold text-amber-600">Simple pricing</p>
         <h2 className="font-playfair text-lg mt-2 text-slate-700">First month FREE — then pick what suits you</h2>
         <div className="grid sm:grid-cols-3 gap-4 mt-8 max-w-3xl">
-          {PLANS.map(([label, price, sub, popular]) => (
-            <div key={label} data-testid={`resto-plan-${label.replace(/\s/g, "-").toLowerCase()}`}
+          {restoPlans(catalog, "INR").map(({ key, label, price, sub, popular }) => (
+            <div key={key} data-testid={`resto-plan-${key}`}
               className={`rounded-2xl border p-6 bg-white shadow-sm ${popular ? "border-amber-400 ring-2 ring-amber-200 shadow-lg" : "border-slate-200"}`}>
               {popular && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white">MOST POPULAR</span>}
               <p className={`text-sm font-bold text-slate-500 ${popular ? "mt-3" : ""}`}>{label}</p>
@@ -180,7 +189,9 @@ export default function RestaurantLanding() {
             </div>
           ))}
         </div>
-        <p className="text-slate-400 text-xs mt-5">International: $299 / 3 months · $549 / 6 months · $999 / year (billed in USD).</p>
+        {restoPlans(catalog, "USD").length > 0 && (
+          <p className="text-slate-400 text-xs mt-5" data-testid="resto-intl-pricing">International: {restoPlans(catalog, "USD").map(p => `${p.price} / ${p.label.toLowerCase()}`).join(" · ")} (billed in USD).</p>
+        )}
       </section>
 
       {/* CTA */}

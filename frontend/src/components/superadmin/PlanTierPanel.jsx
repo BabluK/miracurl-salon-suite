@@ -95,7 +95,7 @@ export function PlanTierPanel({ ent, busy, onPick, onLocks }) {
             </div>
           ))}
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:col-span-2 text-[11px] text-emerald-800">
-            <b>Miracurl edge at every tier:</b> Starter $39 already includes memberships & gift cards, Google review automation, WhatsApp reminders and a customer chat inbox — features competitors sell as add-ons or reserve for $49–$168 plans. Premium AI $149 adds the Mira AI receptionist & marketing studio, which none of the US competitors offer at any price. No per-staff fees, no marketplace commission, 30-day trial.
+            <b>Miracurl edge at every tier:</b> Starter already includes memberships & gift cards, Google review automation, WhatsApp reminders and a customer chat inbox — features competitors sell as add-ons or reserve for $49–$168 plans. Premium AI $149 adds the Mira AI receptionist & marketing studio, which none of the US competitors offer at any price. No per-staff fees, no marketplace commission, 30-day trial.
           </div>
         </div>
       )}

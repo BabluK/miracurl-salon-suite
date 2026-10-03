@@ -28,12 +28,12 @@ def test_public_plans_intl_new_pricing():
         plans = {p.get("key") or p.get("plan"): p for p in data}
     # Required new intl keys with prices
     expected = {
-        "intl_starter_monthly": 39,
-        "intl_starter_annual": 390,
-        "intl_pro_monthly": 79,
-        "intl_pro_annual": 790,
-        "intl_premium_monthly": 149,
-        "intl_premium_annual": 1490,
+        "intl_starter_monthly": 19,
+        "intl_starter_annual": 190,
+        "intl_pro_monthly": 45,
+        "intl_pro_annual": 450,
+        "intl_premium_monthly": 139,
+        "intl_premium_annual": 1390,
         "intl_enterprise_monthly": 399,
     }
     for k, price in expected.items():
@@ -44,10 +44,11 @@ def test_public_plans_intl_new_pricing():
     for removed in ("intl_starter_half", "intl_pro_half", "intl_premium_half"):
         assert removed not in plans, f"{removed} should be removed"
 
-    # INR & resto keys intact
-    assert "half_year" in plans and float(plans["half_year"]["price"]) == 12000
-    assert "annual" in plans and float(plans["annual"]["price"]) == 20000
-    assert "resto_intl_half" in plans and float(plans["resto_intl_half"]["price"]) == 549
+    # 6-month plans are gone for good (Oct 2026); INR annual intact
+    for gone in ("half_year", "resto_half", "resto_intl_half"):
+        assert gone not in plans, f"{gone} should be removed"
+    assert "annual" in plans and float(plans["annual"]["price"]) == 16000
+    assert "resto_intl_annual" in plans and float(plans["resto_intl_annual"]["price"]) == 450
 
 
 # --------- Import smoke ---------

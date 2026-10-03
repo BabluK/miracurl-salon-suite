@@ -62,22 +62,20 @@ class TestPublicPlans:
         assert data["annual"].get("highlight") is True
         assert "1 month free" in data["annual"]["label"].lower(), f"annual label: {data['annual']['label']}"
         assert "resto_monthly" in data and data["resto_monthly"]["price"] == 1000.0
-        assert "resto_intl_monthly" in data and data["resto_intl_monthly"]["price"] == 99.0
+        assert "resto_intl_monthly" in data and data["resto_intl_monthly"]["price"] == 45.0
         # 6-month plans MUST be hidden
         for k in HIDDEN_KEYS:
             assert k not in data, f"hidden plan '{k}' leaked into /public/plans"
 
 
-# ============ Super-admin catalog still shows hidden plans ============
-class TestSuperAdminPlans:
-    def test_super_admin_plans_lists_hidden(self, super_sess):
-        r = super_sess.get(f"{API}/super-admin/plans")
-        assert r.status_code == 200
-        plans = r.json()
-        keys = {p["key"]: p for p in plans}
+# ============ Super-admin catalog no longer lists removed 6-month plans ============
+class TestSuperAdminCatalogRemoved:
+    def test_super_admin_plans_exclude_removed(self, super_sess):
+        r = super_sess.get(f"{BASE_URL}/api/super-admin/plans", timeout=30)
+        assert r.status_code == 200, r.text[:300]
+        keys = {p["key"] for p in r.json()}
         for k in HIDDEN_KEYS:
-            assert k in keys, f"legacy '{k}' missing from super-admin catalog"
-            assert keys[k].get("hidden") is True, f"'{k}' should be hidden=True (legacy)"
+            assert k not in keys, f"removed plan '{k}' still listed in HQ catalog"
 
 
 # ============ Upgrade quote ============

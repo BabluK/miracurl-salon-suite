@@ -23,7 +23,7 @@ from services.subscription_invoice import issue_subscription_kit
 from services.billing import RAZORPAY_WEBHOOK_SECRET
 from services.orders import send_order_status_email
 from services.subscription_common import (  # noqa: F401 — re-exported: other routes import these from here
-    Subscription, SubscriptionPayment, PLAN_CATALOG, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, _rzp_client,
+    Subscription, SubscriptionPayment, PLAN_CATALOG, plan_label, plan_info, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, _rzp_client,
     load_plan_overrides, _plan_or_400, _fresh_plan_or_400, _apply_subscription_to_tenants, _verify_rzp_signature,
     visible_plans, amount_inr,
 )
@@ -164,22 +164,23 @@ async def create_plan(body: PlanCreateIn, user=Depends(require_super_admin)):
 
 @router.delete("/super-admin/plans/{key}")
 async def delete_plan(key: str, user=Depends(require_super_admin)):
-    """Custom plans are removed for good; built-in plans are hidden (can be restored). Existing subscribers are unaffected."""
+    """Removes the plan everywhere for good (pricing page, signup, checkout, HQ). Existing subscribers keep their access until renewal."""
     await load_plan_overrides()
     if key not in PLAN_CATALOG:
         raise HTTPException(404, f"Unknown plan '{key}'")
     if PLAN_CATALOG[key].get("custom"):
         await _raw_db.plan_overrides.delete_one({"key": key, "custom": True})
     else:
-        await _raw_db.plan_overrides.update_one({"key": key}, {"$set": {"key": key, "hidden": True, "updated_by": user.get("email", ""),
+        await _raw_db.plan_overrides.update_one({"key": key}, {"$set": {"key": key, "removed": True, "removed_by": user.get("email", ""),
                                                                         "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
     await load_plan_overrides()
-    return {"ok": True, "key": key, "removed": key not in PLAN_CATALOG, "hidden": bool(PLAN_CATALOG.get(key, {}).get("hidden"))}
+    return {"ok": True, "key": key, "removed": key not in PLAN_CATALOG}
 
 
 @router.post("/super-admin/plans/{key}/restore")
 async def restore_plan(key: str, user=Depends(require_super_admin)):
-    await _raw_db.plan_overrides.update_one({"key": key}, {"$set": {"hidden": False}})
+    """Brings a removed built-in plan back (safety hatch — not exposed as a button)."""
+    await _raw_db.plan_overrides.update_one({"key": key}, {"$set": {"removed": False, "hidden": False}})
     await load_plan_overrides()
     if key not in PLAN_CATALOG:
         raise HTTPException(404, f"Unknown plan '{key}'")
@@ -225,7 +226,7 @@ async def list_subscriptions(user=Depends(require_super_admin)):
     out = []
     for s in subs:
         s["tenant"] = tmap.get(s["tenant_id"], {"name": "(deleted tenant)", "slug": "—"})
-        s["plan_label"] = PLAN_CATALOG.get(s.get("plan"), {}).get("label", s.get("plan") or "—")
+        s["plan_label"] = plan_label(s.get("plan"))
         out.append(s)
     return out
 
@@ -340,7 +341,7 @@ async def _upgrade_quote(t: dict, new_key: str) -> dict:
     sub = await db.subscriptions.find_one({"tenant_id": t["id"], "status": "active"}, {"_id": 0})
     if not sub:
         return {"eligible": False, "reason": "No active paid plan — this would be a fresh purchase."}
-    cur = PLAN_CATALOG.get(sub.get("plan")) or {}
+    cur = plan_info(sub.get("plan"))
     if not cur:
         return {"eligible": False, "reason": "Current plan is unknown."}
     if (cur.get("currency") or "INR") != (new.get("currency") or "INR") or (cur.get("vertical") or "salon") != (new.get("vertical") or "salon"):
@@ -737,7 +738,7 @@ async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=De
     paid = await db.subscription_payments.find_one({"tenant_id": t["id"], "txn_ref": body.razorpay_payment_id, "kind": {"$ne": "razorpay_pending"}}, {"_id": 0, "id": 1})
     if paid:
         from services.tax_invoice import email_invoice
-        asyncio.create_task(email_invoice(t, paid["id"], PLAN_CATALOG.get(server_plan, {}).get("label", "")))
+        asyncio.create_task(email_invoice(t, paid["id"], plan_label(server_plan)))
     return {"ok": True, "subscription_id": sub["id"], "end_date": sub["end_date"],
             "plan": server_plan, "branches": len(target_tids), "celebration": _upgrade_celebration(pending_doc, server_plan)}
 
@@ -745,7 +746,7 @@ async def rzp_verify(body: RzpVerifyIn, user=Depends(require_tenant_admin), t=De
 def _upgrade_celebration(pending_doc: dict, new_key: str) -> Optional[dict]:
     """Mid-term upgrade to a longer plan → how much the owner saves per year vs. staying on the short plan."""
     upg = pending_doc.get("upgrade") or {}
-    cur, new = PLAN_CATALOG.get(upg.get("from_plan") or ""), PLAN_CATALOG.get(new_key)
+    cur, new = plan_info(upg.get("from_plan")), PLAN_CATALOG.get(new_key)
     if not upg.get("eligible") or not cur or not new:
         return None
     per_year = float(cur["price"]) * round(365 / max(int(cur.get("duration_days") or 1), 1))
@@ -1058,7 +1059,9 @@ async def subscription_status(user=Depends(require_tenant_admin), t=Depends(curr
     }
 
 
-_NUDGE_UPGRADES = {"monthly": "annual", "quarter": "annual", "resto_monthly": "resto_annual", "resto_quarter": "resto_annual",
+_NUDGE_UPGRADES = {"monthly": "annual", "quarter": "annual", "half_year": "annual", "resto_half": "resto_annual", "resto_intl_half": "resto_intl_annual",
+                   "two_branch_half": "two_branch_annual", "three_branch_half": "three_branch_annual", "multi_branch_half": "multi_branch_annual",
+                   "resto_monthly": "resto_annual", "resto_quarter": "resto_annual",
                    "resto_intl_monthly": "resto_intl_annual", "resto_intl_quarter": "resto_intl_annual", "intl_pro_monthly": "intl_pro_annual"}
 
 
@@ -1069,7 +1072,7 @@ async def _upgrade_nudge(t: dict, source: str, days) -> Optional[dict]:
     cur_key = t.get("plan") or ""
     to_key = _NUDGE_UPGRADES.get(cur_key)
     await load_plan_overrides()
-    cur, to = PLAN_CATALOG.get(cur_key), PLAN_CATALOG.get(to_key or "")
+    cur, to = plan_info(cur_key), PLAN_CATALOG.get(to_key or "")
     if not cur or not to or to.get("hidden"):
         return None
     per_year = float(cur["price"]) * round(365 / max(int(cur.get("duration_days") or 1), 1))
@@ -1319,24 +1322,24 @@ async def _send_renewal_email(t: dict, days: int, end_str: str, source: str) -> 
         plan_key = t.get("plan") or ""
         if not (plan_key.startswith("intl_") and plan_key in PLAN_CATALOG):
             plan_key = "intl_pro_annual"
-        plan_info = PLAN_CATALOG.get(plan_key, {})
+        info = PLAN_CATALOG.get(plan_key, {})
         app_url = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
         return await _send_email(
             [t["owner_email"]],
             f"⏳ Your Miracurl {source} ends in {days} day{'s' if days != 1 else ''} — renew in one click",
             renewal_reminder_email_intl_html(
                 name, days, end_str,
-                plan_info.get("label") or "Professional Annual (USD)",
-                float(plan_info.get("price") or 0),
+                info.get("label") or "Professional Annual (USD)",
+                float(info.get("price") or 0),
                 f"{app_url}/api/public/renew/{token}"))
-    plan_info = PLAN_CATALOG.get(t.get("plan") or "", {})
+    info = plan_info(t.get("plan"))
     return await _send_email(
         [t["owner_email"]],
         f"⏳ Your Miracurl {source} ends in {days} day{'s' if days != 1 else ''} — renew in 2 minutes",
         renewal_reminder_email_html(
             name, days, end_str,
-            plan_info.get("label") or (t.get("plan") or "Trial"),
-            float(plan_info.get("price") or 0),
+            info.get("label") or (t.get("plan") or "Trial"),
+            float(info.get("price") or 0),
             float(t.get("affiliate_credits") or 0)))
 
 
@@ -1491,11 +1494,11 @@ def _mrr_and_plan_distribution(subs: list) -> tuple[float, list]:
         plan_key = s.get("plan") or "custom"
         plan_counts[plan_key] = plan_counts.get(plan_key, 0) + 1
         # Normalise each active plan into a monthly-recurring INR number
-        plan_days = PLAN_CATALOG.get(plan_key, {}).get("duration_days", 30) or 30
-        plan_price = float(s.get("price") or PLAN_CATALOG.get(plan_key, {}).get("price") or 0)
-        plan_price = amount_inr(plan_price, PLAN_CATALOG.get(plan_key, {}).get("currency"))
+        plan_days = plan_info(plan_key).get("duration_days", 30) or 30
+        plan_price = float(s.get("price") or plan_info(plan_key).get("price") or 0)
+        plan_price = amount_inr(plan_price, plan_info(plan_key).get("currency"))
         mrr += plan_price * (30.0 / plan_days)
-    plan_dist = [{"plan": k, "label": PLAN_CATALOG.get(k, {}).get("label", k), "count": v}
+    plan_dist = [{"plan": k, "label": plan_label(k), "count": v}
                  for k, v in plan_counts.items()]
     return mrr, plan_dist
 
@@ -1617,7 +1620,7 @@ async def tenant_billing_history(tid: str, user=Depends(require_super_admin)):
     subs = await db.subscriptions.find({"tenant_id": tid}, {"_id": 0}).sort("created_at", -1).to_list(50)
     pays = await db.subscription_payments.find({"tenant_id": tid}, {"_id": 0}).sort("paid_at", -1).to_list(200)
     for s in subs:
-        s["plan_label"] = PLAN_CATALOG.get(s.get("plan"), {}).get("label", s.get("plan") or "—")
+        s["plan_label"] = plan_label(s.get("plan"))
     return {"subscriptions": subs, "payments": pays}
 
 
@@ -1805,7 +1808,7 @@ async def my_payment_invoice(pay_id: str, user=Depends(require_tenant_admin), t=
     pay, coll, kind = await find_payment(t["id"], pay_id)
     if not pay:
         raise HTTPException(404, "Payment not found")
-    label = PLAN_CATALOG.get(pay.get("plan"), {}).get("label", "") if kind == "plan" else ""
+    label = plan_label(pay.get("plan")) if kind == "plan" else ""
     pdf, inv_no = await build_invoice_pdf(t, pay, coll, kind, label)
     fname = inv_no.replace("/", "-") + ".pdf"
     return Response(pdf, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{fname}"'})

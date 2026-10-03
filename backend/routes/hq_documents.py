@@ -263,7 +263,9 @@ def _usd_pricing_rows(plans: list) -> str:
     usd = {p["key"]: p for p in plans if p.get("currency") == "USD"}
     rows = "".join(_usd_tier_row(tier, key, usd)
                    for tier, key in (("Starter", "intl_starter"), ("Professional", "intl_pro"), ("Premium AI", "intl_premium")))
-    ent = (usd.get("intl_enterprise_monthly") or {}).get("price") or 499
+    ent = (usd.get("intl_enterprise_monthly") or {}).get("price")
+    if not ent:
+        return rows
     rows += f"""
         <tr>
           <td style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:13.5px;color:#33333b"><b>Enterprise</b>
@@ -274,14 +276,14 @@ def _usd_pricing_rows(plans: list) -> str:
 
 
 def _usd_resto_rows(plans: list) -> str:
-    usd = {p["key"]: p for p in plans if p.get("currency") == "USD"}
-    labels = (("3 Months", "resto_intl_quarter", ""), ("6 Months", "resto_intl_half", "Most popular"),
-              ("1 Year", "resto_intl_annual", "First month FREE"))
+    resto = sorted([p for p in plans if p.get("currency") == "USD" and p.get("vertical") == "restaurant" and not p.get("hidden")],
+                   key=lambda p: p.get("duration_days") or 0)
     rows = ""
-    for label, key, note in labels:
-        price = (usd.get(key) or {}).get("price")
-        if not price:
-            continue
+    for p in resto:
+        d = int(p.get("duration_days") or 30)
+        label = "Monthly" if d <= 31 else ("1 Year" if d >= 365 else f"{round(d / 30.4)} Months")
+        note = "First month FREE · best value" if p.get("highlight") else ""
+        price = p["price"]
         rows += f"""
         <tr>
           <td style="padding:10px 16px;border-top:1px solid #eee9dc;font-size:13.5px;color:#33333b"><b>{label}</b>

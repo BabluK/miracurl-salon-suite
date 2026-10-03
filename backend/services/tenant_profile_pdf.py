@@ -18,7 +18,7 @@ def _d(v) -> str:
 async def tenant_profile_data(t: dict) -> dict:
     sub = await _raw_db.subscriptions.find_one({"tenant_id": t["id"], "status": "active"}, {"_id": 0}, sort=[("end_date", -1)])
     owner = await _raw_db.users.find_one({"email": (t.get("owner_email") or "").lower(), "role": "admin"}, {"_id": 0, "name": 1, "phone": 1}) or {}
-    from services.plans import PLAN_CATALOG
+    from services.plans import PLAN_CATALOG, RETIRED_PLAN_LABELS
     plan_key = (sub or {}).get("plan") or t.get("plan") or ""
     trial_start = t.get("created_at")
     trial_end = t.get("trial_end_date") or t.get("trial_ends_at")
@@ -30,7 +30,7 @@ async def tenant_profile_data(t: dict) -> dict:
                   ("Owner email", t.get("owner_email")), ("WhatsApp", t.get("whatsapp_number"))],
         "access": [("Account status", (t.get("status") or "").upper()),
                    ("Free trial", f"{_d(trial_start)}  →  {_d(trial_end)}" + (f"  ({t['trial_months']} months)" if t.get("trial_months") else "")),
-                   ("Active plan", (PLAN_CATALOG.get(plan_key, {}) or {}).get("label") or plan_key or "— (trial)"),
+                   ("Active plan", (PLAN_CATALOG.get(plan_key, {}) or {}).get("label") or RETIRED_PLAN_LABELS.get(plan_key or "") or plan_key or "— (trial)"),
                    ("Subscription period", f"{_d((sub or {}).get('start_date'))}  →  {_d((sub or {}).get('end_date') or t.get('subscription_end_date'))}" if sub or t.get("subscription_end_date") else "— not subscribed yet"),
                    ("Member since", _d(t.get("created_at"))), ("GSTIN", t.get("gst_number"))],
         "sub": sub,

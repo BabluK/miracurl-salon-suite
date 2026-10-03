@@ -1,6 +1,6 @@
 """USD tier entitlements: which app modules a US/international salon can use on each plan.
 Indian (INR) tenants are not gated. Trial tenants get the full Premium AI experience."""
-from services.plans import PLAN_CATALOG
+from services.plans import PLAN_CATALOG, plan_info
 
 TIERS = ["starter", "professional", "premium", "enterprise"]
 
@@ -82,7 +82,7 @@ def tenant_tier(t: dict | None) -> str | None:
         return forced
     if (t.get("currency") or "INR") != "USD" or is_grandfathered(t):
         return None
-    plan = PLAN_CATALOG.get(t.get("plan") or "") or {}
+    plan = plan_info(t.get("plan"))
     return plan.get("tier") or "premium"
 
 

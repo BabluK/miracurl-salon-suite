@@ -40,19 +40,19 @@ const SMALL_FEATURES = [
 const PLANS = [
   { key: "trial", title: "Free Trial", price: "₹0", per: "30 days", cta: "Start trial", primary: false,
     items: ["All features unlocked", "Up to 50 customers", "Email support", "Cancel anytime"] },
-  { key: "monthly", title: "Monthly Plan", price: "₹1,455", per: "per month · cancel anytime", cta: "Get started", primary: false,
+  { key: "monthly", title: "Monthly Plan", price: "…", per: "per month · cancel anytime", cta: "Get started", primary: false,
     items: ["Unlimited customers", "Unlimited bookings", "Per-stylist commission", "WhatsApp support", "All features"] },
-  { key: "quarter", title: "3-Month Plan", price: "₹4,365", per: "for 3 months · flexible", cta: "Pay quarterly", primary: false,
+  { key: "quarter", title: "3-Month Plan", price: "…", per: "for 3 months · flexible", cta: "Pay quarterly", primary: false,
     items: ["Everything in Monthly", "One payment per quarter", "WhatsApp support", "All features"] },
-  { key: "annual", title: "Annual Plan", price: "₹16,000", per: "for 1 year — 1 month FREE", cta: "Best value", primary: true,
+  { key: "annual", title: "Annual Plan", price: "…", per: "for 1 year", cta: "Best value", primary: true,
     items: ["Everything in Monthly", "12 months for the price of 11", "Priority support", "Custom branding next year"] },
-  { key: "multi_branch", title: "Multi-Branch", price: "from ₹40,000", per: "2 branches ₹40k/yr · 3 branches ₹60k/yr · 5+ ₹70k/yr", cta: "For salon chains", primary: false,
+  { key: "multi_branch", title: "Multi-Branch", price: "…", per: "annual plans for 2, 3 and 5+ branches", cta: "For salon chains", primary: false,
     items: ["Everything in Annual", "5+ branches, one account", "Branch-wise reports", "Dedicated onboarding"] },
 ];
 
 const fmtINR = (n) => "₹" + Number(n).toLocaleString("en-IN");
 const kINR = (n) => "₹" + Math.round(n / 1000) + "k";
-const fmtUSD = (n) => "$" + Number(n).toLocaleString("en-US");
+const fmtUSD = (n) => (n == null ? "…" : "$" + Number(n).toLocaleString("en-US"));
 
 const INTL_TIERS = [
   { tier: "starter", title: "Starter", tagline: "For independent & small salons", primary: false,
@@ -64,15 +64,13 @@ const INTL_TIERS = [
 ];
 
 function buildIntlPlans(c) {
-  const price = (key, fallback) => c?.[key]?.price ?? fallback;
-  const defaults = { starter: [39, 390], professional: [79, 790], premium: [149, 1490] };
+  const price = (key) => c?.[key]?.price ?? null;
   const keys = { starter: "intl_starter", professional: "intl_pro", premium: "intl_premium" };
   const anyHl = Object.entries(c || {}).some(([k, v]) => k.startsWith("intl_") && v?.highlight);
   const tiers = INTL_TIERS.filter(t => !c || c[`${keys[t.tier]}_monthly`]).map(t => {
-    const [m, a] = defaults[t.tier];
     const k = keys[t.tier];
     const v = c?.[`${k}_monthly`];
-    return { ...t, key: `${k}_monthly`, monthly: price(`${k}_monthly`, m), annual: price(`${k}_annual`, a),
+    return { ...t, key: `${k}_monthly`, monthly: price(`${k}_monthly`), annual: price(`${k}_annual`),
       items: v?.features?.length ? v.features : t.items, primary: anyHl ? !!v?.highlight : t.primary };
   });
   return [...tiers, ...customPlanCards(c, "USD")];
@@ -692,7 +690,7 @@ export default function Landing({ scrollTo }) {
                 <span className="text-sm text-white/40 mb-1.5">{p.annual ? "/mo" : p.per}</span>
               </div>
               {p.annual && <div className="text-xs text-white/40 mt-2" data-testid={`plan-annual-${p.key}`}>
-                or <b className="text-white/80">{fmtUSD(p.annual)}/yr</b> <span className="text-emerald-400">— 2 months free</span>
+                or <b className="text-white/80">{fmtUSD(p.annual)}/yr</b> {p.monthly && p.monthly * 12 > p.annual && <span className="text-emerald-400">— save {fmtUSD(p.monthly * 12 - p.annual)} a year</span>}
               </div>}
               <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-400/10 border border-emerald-400/25 text-[11px] text-emerald-300 font-medium" data-testid={`plan-trial-badge-${p.key}`}>
                 <Check className="w-3 h-3" /> 30-day free trial · no card needed

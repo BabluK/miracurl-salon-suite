@@ -7,8 +7,8 @@ import { SettlementTracker } from "@/components/superadmin/SettlementTracker";
 
 const inp = "border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs !bg-white !text-slate-800 w-full";
 const lbl = "text-[10px] text-slate-500 uppercase tracking-wide";
-const PLANS = [["annual", "Annual (all branch sizes)"], ["monthly", "Monthly"], ["quarter", "3-Month"], ["half_year", "6-Month (legacy)"], ["two_branch_annual", "2-Branch Annual"], ["three_branch_annual", "3-Branch Annual"], ["multi_branch_annual", "Multi-Branch Annual"], ["trial", "Free trial"]];
-const PLAN_LABEL = { annual: "Annual", monthly: "Monthly", quarter: "3-Month", half_year: "6-Month", two_branch_annual: "2-Branch", three_branch_annual: "3-Branch", multi_branch_annual: "Multi-Branch", trial: "Trial" };
+const PLANS = [["annual", "Annual (all branch sizes)"], ["monthly", "Monthly"], ["quarter", "3-Month"], ["two_branch_annual", "2-Branch Annual"], ["three_branch_annual", "3-Branch Annual"], ["multi_branch_annual", "Multi-Branch Annual"], ["trial", "Free trial"]];
+const PLAN_LABEL = { annual: "Annual", monthly: "Monthly", quarter: "3-Month", two_branch_annual: "2-Branch", three_branch_annual: "3-Branch", multi_branch_annual: "Multi-Branch", trial: "Trial" };
 
 function GoldSwitch({ on, onChange, testId, size = "md" }) {
   const w = size === "lg" ? "w-14 h-8" : "w-11 h-6";

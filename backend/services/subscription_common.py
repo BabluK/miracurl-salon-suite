@@ -11,9 +11,10 @@ from pydantic import BaseModel, Field
 
 from database import db, _raw_db
 from services.billing import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, _rzp_client
-from services.plans import PLAN_CATALOG
+import copy
+from services.plans import PLAN_CATALOG, RETIRED_PLAN_LABELS, plan_info
 
-__all__ = ["Subscription", "SubscriptionPayment", "PLAN_CATALOG", "RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "_rzp_client",
+__all__ = ["Subscription", "SubscriptionPayment", "PLAN_CATALOG", "plan_label", "plan_info", "RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "_rzp_client",
            "load_plan_overrides", "_plan_or_400", "_fresh_plan_or_400", "_apply_subscription_to_tenants", "_verify_rzp_signature",
            "amount_inr", "USD_INR_RATE"]
 
@@ -49,33 +50,36 @@ class SubscriptionPayment(BaseModel):
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
-_CUSTOM_KEYS: set = set()
+_BUILTIN = copy.deepcopy(PLAN_CATALOG)
 _OVERRIDE_FIELDS = ("price", "label", "duration_days", "branches", "features", "tier", "hidden", "highlight")
 
 
 async def load_plan_overrides():
-    """Merge DB overrides into the in-memory catalog: price/label edits, HQ-hidden built-ins and HQ-created custom plans."""
-    seen_custom = set()
-    for k in PLAN_CATALOG:
-        PLAN_CATALOG[k].pop("hidden", None)
+    """Rebuild the live catalog: built-in defaults → HQ edits (price/label…) → HQ-removed built-ins dropped → HQ custom plans added."""
+    fresh = copy.deepcopy(_BUILTIN)
     async for o in _raw_db.plan_overrides.find({}, {"_id": 0}):
         key = o.get("key")
         if not key:
             continue
+        if o.get("removed"):
+            fresh.pop(key, None)
+            continue
         if o.get("custom"):
-            seen_custom.add(key)
-            PLAN_CATALOG[key] = {"label": o.get("label") or key, "price": float(o.get("price") or 0), "duration_days": int(o.get("duration_days") or 30),
-                                 "branches": int(o.get("branches") or 1), "currency": o.get("currency") or "INR", "vertical": o.get("vertical") or "salon",
-                                 "tier": o.get("tier"), "features": o.get("features") or [], "custom": True, "hidden": bool(o.get("hidden")),
-                                 "highlight": bool(o.get("highlight"))}
-            if PLAN_CATALOG[key]["currency"] == "INR":
-                PLAN_CATALOG[key].pop("currency")
-        elif key in PLAN_CATALOG:
-            PLAN_CATALOG[key].update({k: o[k] for k in _OVERRIDE_FIELDS if o.get(k) is not None})
-    for stale in _CUSTOM_KEYS - seen_custom:
-        PLAN_CATALOG.pop(stale, None)
-    _CUSTOM_KEYS.clear()
-    _CUSTOM_KEYS.update(seen_custom)
+            fresh[key] = {"label": o.get("label") or key, "price": float(o.get("price") or 0), "duration_days": int(o.get("duration_days") or 30),
+                          "branches": int(o.get("branches") or 1), "currency": o.get("currency") or "INR", "vertical": o.get("vertical") or "salon",
+                          "tier": o.get("tier"), "features": o.get("features") or [], "custom": True, "hidden": bool(o.get("hidden")),
+                          "highlight": bool(o.get("highlight"))}
+            if fresh[key]["currency"] == "INR":
+                fresh[key].pop("currency")
+        elif key in fresh:
+            fresh[key].update({k: o[k] for k in _OVERRIDE_FIELDS if o.get(k) is not None})
+    PLAN_CATALOG.clear()
+    PLAN_CATALOG.update(fresh)
+
+
+def plan_label(key: str | None) -> str:
+    """Label for any plan key — live catalog first, then retired plans still attached to old subscriptions."""
+    return (PLAN_CATALOG.get(key or "") or {}).get("label") or RETIRED_PLAN_LABELS.get(key or "") or (key or "—")
 
 
 def visible_plans() -> dict:

@@ -385,7 +385,7 @@ async def issue_subscription_kit(pay: dict, sub: dict, *, plan_label: str | None
                                  credits_applied: float = 0.0, branches: int = 1, send: bool = True) -> dict | None:
     """Create the invoice record for a paid subscription and (optionally) email the documents. Never raises."""
     try:
-        from services.plans import PLAN_CATALOG
+        from services.plans import PLAN_CATALOG, RETIRED_PLAN_LABELS
         t = await _raw_db.tenants.find_one({"id": pay["tenant_id"]}, {"_id": 0})
         if not t:
             return None
@@ -393,7 +393,7 @@ async def issue_subscription_kit(pay: dict, sub: dict, *, plan_label: str | None
         if existing:
             return existing
         now = datetime.now(timezone.utc)
-        plan = PLAN_CATALOG.get(sub.get("plan") or "", {})
+        plan = PLAN_CATALOG.get(sub.get("plan") or "", {}) or {"label": RETIRED_PLAN_LABELS.get(sub.get("plan") or "", "")}
         inv = {
             "id": str(uuid.uuid4()), "number": await next_invoice_number(now.year),
             "issued_on": now.strftime("%d %b %Y"), "created_at": now.isoformat(),

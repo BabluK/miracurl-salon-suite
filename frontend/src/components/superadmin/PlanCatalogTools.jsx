@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2, RotateCcw, Sparkles } from "lucide-react";
+import { Plus, Trash2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { confirmAsync } from "@/components/ConfirmDialog";
@@ -93,34 +93,17 @@ export function AddPlanForm({ onSaved }) {
 export function PlanRowActions({ p, onSaved }) {
   const [busy, setBusy] = useState(false);
   const remove = async () => {
-    const msg = p.custom
-      ? `Delete "${p.label}" permanently?\n\nIt disappears from the pricing page, signup and checkout immediately. Salons already on it keep their access.`
-      : `Hide "${p.label}" from the pricing page, signup and checkout?\n\nYou can restore it any time. Salons already on it keep their access.`;
-    if (!await confirmAsync(msg)) return;
+    if (!await confirmAsync(`Remove "${p.label}" for good?\n\nIt disappears from the pricing page, signup, checkout and HQ immediately. Businesses already on it keep their access until renewal.`)) return;
     setBusy(true);
     try {
       await api.delete(`/super-admin/plans/${p.key}`);
-      toast.success(p.custom ? "Plan deleted" : "Plan hidden everywhere");
+      toast.success(`"${p.label}" removed everywhere`);
       await onSaved();
     } catch (e) { toast.error(e.response?.data?.detail || "Couldn't remove plan"); }
     finally { setBusy(false); }
   };
-  const restore = async () => {
-    setBusy(true);
-    try { await api.post(`/super-admin/plans/${p.key}/restore`); toast.success("Plan is live again"); await onSaved(); }
-    catch (e) { toast.error(e.response?.data?.detail || "Couldn't restore"); }
-    finally { setBusy(false); }
-  };
-  if (p.hidden) {
-    return (
-      <button onClick={restore} disabled={busy} data-testid={`plan-restore-${p.key}`} title="Show this plan again"
-        className="text-xs px-2.5 py-1.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 font-semibold inline-flex items-center gap-1 disabled:opacity-40">
-        <RotateCcw className="w-3.5 h-3.5" /> Restore
-      </button>
-    );
-  }
   return (
-    <button onClick={remove} disabled={busy} data-testid={`plan-delete-${p.key}`} title={p.custom ? "Delete plan" : "Hide plan everywhere"}
+    <button onClick={remove} disabled={busy} data-testid={`plan-delete-${p.key}`} title="Remove plan everywhere"
       className="w-8 h-8 rounded-md border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 inline-flex items-center justify-center disabled:opacity-40">
       <Trash2 className="w-4 h-4" />
     </button>
