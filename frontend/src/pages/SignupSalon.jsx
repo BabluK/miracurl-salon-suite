@@ -7,6 +7,7 @@ import { Scissors, Sparkles, User, Mail, Lock, MapPin, Phone, Check, ArrowRight,
 import { toast, Toaster } from "sonner";
 import { SuiteLogo } from "@/components/SiteHeader";
 import { BookingPreviewCard } from "@/components/signup/BookingPreviewCard";
+import { SignupExitNudge } from "@/components/signup/SignupExitNudge";
 import ChatButton from "@/components/ChatButton";
 import { useAuth } from "@/context/AuthContext";
 import { setTenantSlug } from "@/lib/api";
@@ -190,6 +191,8 @@ export default function SignupSalon() {
     <div className="min-h-screen relative overflow-hidden bg-[#faf8f5] su-cream" data-testid="signup-salon-page" data-vertical={isRestoTheme ? "restaurant" : "salon"} data-region={region} data-locked={locked ? "1" : "0"}>
       <div id="signup-page-container" data-testid="signup-page-container" className="contents" />
       <Toaster theme="light" position="top-center" toastOptions={TOASTER_OPTIONS} />
+      <SignupExitNudge dirty={!!(form.salon_name.trim() || form.owner_name.trim() || form.owner_email.trim() || step > 0)} step={step} stepName={STEP_KEYS[step]}
+        businessName={form.salon_name} resto={isRestoTheme} region={region} locked={locked} submitting={busy} />
       <ChatButton message={`Hi Miracurl ✦ I'm signing up my ${isRestoTheme ? "restaurant" : "salon"} and need a little help.`} label="Need help?" />
 
       <header className="fixed top-0 inset-x-0 z-40 backdrop-blur-xl bg-[#FBF6EC]/92 border-b border-[#D9B878]/30 shadow-[0_4px_24px_-12px_rgba(184,134,59,0.25)]" data-testid="signup-header">
