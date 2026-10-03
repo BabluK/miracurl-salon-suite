@@ -50,7 +50,7 @@ export function PriceAlertCard() {
       {sample && (
         <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden" data-testid="price-alert-sample">
           <div className="flex items-center justify-between px-3 py-2 bg-slate-50 text-xs"><span>Preview → {sample.to}</span><button onClick={() => setSample(null)} className="text-slate-400 hover:text-slate-800">close</button></div>
-          <iframe title="price alert preview" srcDoc={`<body style="background:#fff;margin:16px">${sample.html}</body>`} className="w-full h-[520px]" style={{ background: "#fff" }} />
+          <iframe title="price alert preview" sandbox="" srcDoc={`<body style="background:#fff;margin:16px">${sample.html}</body>`} className="w-full h-[520px]" style={{ background: "#fff" }} />
         </div>
       )}
     </div>

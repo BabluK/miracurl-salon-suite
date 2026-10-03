@@ -286,6 +286,7 @@ async def on_startup():
         await db.users.create_index("email", unique=True)
         await _raw_db.sms_dedupe.create_index("sig", unique=True)
         await _raw_db.site_visits.create_index([("created_at", 1)])
+        await _raw_db.site_visits.create_index([("created_ts", 1)], expireAfterSeconds=400 * 24 * 3600)
         await _raw_db.site_visits.create_index([("day", 1), ("vid", 1)])
         await _raw_db.sms_dedupe.create_index("at")
         await db.tenants.create_index("slug", unique=True)

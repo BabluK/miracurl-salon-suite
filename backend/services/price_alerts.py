@@ -1,5 +1,6 @@
 """Price Change Alerts — tell existing international (USD) subscribers about the lower prices and offer a
 one-click switch to the annual plan (Stripe Checkout via the tenant's renewal token)."""
+import html
 import os
 import uuid
 from datetime import datetime, timezone
@@ -52,13 +53,14 @@ async def price_alert_audience() -> list[dict]:
 
 def price_alert_html(row: dict, switch_url: str) -> str:
     noun = "restaurant" if row["vertical"] == "restaurant" else "salon"
-    was = (f"<p style='font-size:14px;color:#555'>You've been paying about <b>${row['paying_monthly_equiv']:,.2f}/month</b> on {row['plan_label']}.</p>"
+    name, plan_label = html.escape(str(row.get("name") or "")), html.escape(str(row.get("plan_label") or ""))
+    was = (f"<p style='font-size:14px;color:#555'>You've been paying about <b>${row['paying_monthly_equiv']:,.2f}/month</b> on {plan_label}.</p>"
            if row.get("paying_monthly_equiv") else "")
     return f"""
     <div style="font-family:Georgia,serif;max-width:580px;margin:0 auto;color:#1c1c22">
       <div style="background:#1c1c22;color:#f3efe4;border-radius:14px;padding:22px 24px">
         <div style="font-size:11px;letter-spacing:2px;color:#e8c37f">MIRACURL SUITE · PRICE UPDATE</div>
-        <h2 style="margin:8px 0 0;font-size:22px;color:#F0D9A5">Good news, {row['name']} — your price just went down</h2>
+        <h2 style="margin:8px 0 0;font-size:22px;color:#F0D9A5">Good news, {name} — your price just went down</h2>
       </div>
       <p style="font-size:15px;margin:18px 0 6px">We've lowered our international pricing for {noun}s. Nothing to do — your next renewal is already at the new rate:</p>
       {was}

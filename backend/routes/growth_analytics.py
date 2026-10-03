@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from database import _raw_db
-from security import public_rate_limit, require_super_admin
+from security import global_daily_cap, public_rate_limit, require_super_admin
 
 router = APIRouter()
 
@@ -49,11 +49,15 @@ async def log_visit(body: VisitIn, request: Request):
     path = body.path.split("?")[0][:200]
     if not _VID_RE.match(body.vid) or not _is_marketing(path):
         return Response(status_code=204)
+    try:
+        await global_daily_cap("visit_beacon", 50000)
+    except HTTPException:
+        return Response(status_code=204)
     now = datetime.now(timezone.utc)
     await _raw_db.site_visits.insert_one({
         "vid": body.vid, "path": path, "ref": (body.ref or "")[:120], "region": body.region,
         "utm_source": (body.utm_source or "")[:40], "utm_medium": (body.utm_medium or "")[:40],
-        "signup_page": path.startswith("/signup-"), "day": now.date().isoformat(), "created_at": now.isoformat(),
+        "signup_page": path.startswith("/signup-"), "day": now.date().isoformat(), "created_at": now.isoformat(), "created_ts": now,
     })
     return Response(status_code=204)
 

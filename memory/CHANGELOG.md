@@ -434,3 +434,9 @@
 
 ## 2026-10-03 — Signup exit nudge
 - `components/signup/SignupExitNudge.jsx`: once-per-session (sessionStorage `miracurl_signup_nudge`) modal when the form is dirty & not submitting — triggers: desktop mouseout toward browser bar, tab return after >3s hidden, 45s idle. WhatsApp CTA to MIRACURL_SUPPORT_WHATSAPP pre-filled with business name + step; "I'll continue myself" keeps progress. Events signup_exit_nudge (error=reason) / _whatsapp / _dismiss. Mounted in SignupSalon. Tests: iteration_217.json (frontend 7/7).
+
+## 2026-10-03 — Security audit (read-only) + fixes
+- Audit verdict: CONDITIONAL PASS. Auth/JWT/CSRF, tenant isolation (fail-closed TenantCollection), uploads, Razorpay/Stripe webhooks, super-admin guards all verified OK.
+- FIXED SEC-001 (HIGH): stored XSS via tenant name in HQ price-alert preview — `services/price_alerts.py` now html.escape()s name/plan_label; `PricingIntelCards.jsx` preview iframe gets `sandbox=""` (all srcDoc iframes now sandboxed).
+- Hardened visit beacon: `global_daily_cap("visit_beacon", 50000)` + TTL index on `site_visits.created_ts` (400 days).
+- Open P3s (not fixed): public guest-lookup by phone enumeration (already rate-limited); loose `public_base_url` suffix match for preview hosts.
