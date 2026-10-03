@@ -3,7 +3,7 @@ import log from "@/lib/log";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Wrench, Users, Pencil, Stethoscope, Eraser, CreditCard, Menu, PowerOff } from "lucide-react";
+import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Users, Pencil, Stethoscope, Eraser, CreditCard, Menu, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 import { askConfirm } from "@/components/ConfirmDialog";
 import ImportCustomersModal from "./ImportCustomersModal";
@@ -68,14 +68,13 @@ import { Mail } from "lucide-react";
 import { PlatformEarnings } from "@/components/superadmin/PlatformEarnings";
 import { MiraVoiceAssistant } from "@/components/superadmin/MiraVoiceAssistant";
 import { FileText } from "lucide-react";
-import { BellRing, Orbit, Star } from "lucide-react";
+import { BellRing, Orbit } from "lucide-react";
 import { FeedbackPanel } from "@/components/superadmin/FeedbackPanel";
 import { AssistQueueCard } from "@/components/superadmin/AssistQueueCard";
-import { Rocket } from "lucide-react";
 import { Briefcase } from "lucide-react";
 import { NetSpeedIndicator } from "@/components/NetSpeedIndicator";
 import "@/styles/hq-gold.css";
-import { Palette, Activity, Database, FileDown, MailCheck, IdCard } from "lucide-react";
+import { Palette, FileDown, MailCheck, IdCard } from "lucide-react";
 
 async function downloadBlob(url, filename) {
   const r = await api.get(url, { responseType: "blob" });
@@ -451,19 +450,13 @@ export default function SuperAdmin() {
               { id: "inquiries", label: "Leads & Inquiries", icon: Users, badge: inquiryNew },
               { id: "mira-studio", label: "Mira Studio Users", icon: Sparkles },
               { id: "hiring", label: "Hiring & Staff Verification", icon: Briefcase, badge: hiringNew },
-              { id: "feedback", label: "Feedback", icon: Star },
-              { id: "engineer", label: "AI Engineer", icon: Wrench },
-              { id: "onboarding", label: "Onboarding Image", icon: Sparkles },
-              { id: "brandkit", label: "Brand Kit & Promo Video", icon: Palette },
+              { id: "studio", label: "Feedback, AI Engineer & Brand Studio", icon: Palette },
               { id: "team", label: "HQ, Team, Website & CEO", icon: Crown },
-              { id: "deployments", label: "Deployments", icon: Rocket },
-              { id: "load", label: "Platform Load", icon: Activity },
-              { id: "database", label: "Database", icon: Database },
-              { id: "security", label: "Security", icon: ShieldAlert },
+              { id: "security", label: "Security & Database", icon: ShieldAlert },
           ];
           const renderBtn = (item, full = false) => (
               <button key={item.id} data-testid={`super-tab-${item.id}`} onClick={() => { setTab(item.id); setNavOpen(false); }}
-                className={`shrink-0 ${full ? "w-full" : ""} text-left px-3 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 transition ${tab === item.id ? "bg-[#1c1c22] text-[#e8c37f] shadow-md shadow-[#9a7a1f]/20" : item.hot ? "text-amber-600 bg-amber-50 animate-pulse hover:bg-amber-100" : "text-slate-600 hover:bg-slate-100"}`}>
+                className={`shrink-0 ${full ? "w-full" : ""} text-left px-3 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 transition ${tab === item.id ? "bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] font-bold shadow-[0_6px_20px_-8px_rgba(212,175,55,.7)]" : item.hot ? "text-amber-300 bg-amber-400/10 animate-pulse hover:bg-amber-400/20" : "text-slate-300 hover:bg-white/[.06] hover:text-[#F0D9A5]"}`}>
                 <item.icon className={`w-4 h-4 shrink-0 ${item.hot && tab !== item.id ? "text-amber-500" : ""}`} />
                 <span className="whitespace-nowrap">{item.label}</span>
                 {item.hot && <span className="text-xs" aria-hidden>🔥</span>}
@@ -479,28 +472,28 @@ export default function SuperAdmin() {
           return (
             <>
               <aside className="w-full sticky top-2 z-30">
-                <nav data-testid="super-sidebar" className="super-topnav flex items-center gap-1 overflow-x-auto bg-white/95 backdrop-blur border border-slate-200 rounded-2xl p-2 shadow-sm">
+                <nav data-testid="super-sidebar" className="super-topnav flex items-center gap-1 overflow-x-auto bg-[#17171d]/95 backdrop-blur border border-[#d4af37]/25 rounded-2xl p-2 shadow-[0_20px_60px_-30px_rgba(0,0,0,.8)]">
                   <button data-testid="super-nav-more" onClick={() => setNavOpen(true)}
-                    className="shrink-0 px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 bg-gradient-to-r from-slate-100 to-slate-50 border border-slate-200 text-slate-700 hover:border-slate-400 transition">
+                    className="shrink-0 px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 bg-white/[.05] border border-[#d4af37]/30 text-[#F0D9A5] hover:bg-white/[.1] transition">
                     <Menu className="w-4 h-4" /> All
                     {moreBadge > 0 && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold inline-flex items-center justify-center">{moreBadge}</span>}
                   </button>
-                  <span className="w-px h-6 bg-slate-200 shrink-0" />
+                  <span className="w-px h-6 bg-[#d4af37]/25 shrink-0" />
                   {NAV_ITEMS.filter(i => i.top).map(i => renderBtn(i))}
                 </nav>
               </aside>
               {navOpen && (
                 <div className="fixed inset-0 z-[70]" data-testid="super-nav-drawer">
                   <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setNavOpen(false)} />
-                  <div className="absolute left-0 top-0 bottom-0 w-72 bg-white shadow-2xl p-3 overflow-y-auto"
+                  <div className="absolute left-0 top-0 bottom-0 w-72 bg-[#17171d] border-r border-[#d4af37]/25 shadow-2xl p-3 overflow-y-auto"
                     style={{ animation: "superDrawerIn .28s cubic-bezier(.2,.8,.3,1)" }}>
                     <style>{"@keyframes superDrawerIn{from{transform:translateX(-100%);opacity:.4}to{transform:translateX(0);opacity:1}}"}</style>
                     <div className="flex items-center justify-between px-2 py-2 mb-1">
                       <span className="text-xs font-bold uppercase tracking-wider text-slate-400">All sections</span>
-                      <button onClick={() => setNavOpen(false)} data-testid="super-nav-drawer-close" className="text-slate-400 hover:text-slate-900"><X className="w-4 h-4" /></button>
+                      <button onClick={() => setNavOpen(false)} data-testid="super-nav-drawer-close" className="text-slate-400 hover:text-[#F0D9A5]"><X className="w-4 h-4" /></button>
                     </div>
                     <div className="space-y-0.5">
-                      <div className="px-2 pt-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#b8932e]">Pinned on top</div>
+                      <div className="px-2 pt-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#e8c37f]">Pinned on top</div>
                       {NAV_ITEMS.filter(i => i.top).map(i => renderBtn(i, true))}
                       <div className="px-2 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">More tools</div>
                       {NAV_ITEMS.filter(i => !i.top).map(i => renderBtn(i, true))}
@@ -540,21 +533,15 @@ export default function SuperAdmin() {
             ),
             ai: <AiInsightsPanel />,
             inbox: <><LoginCheckCard /><HqInbox onUnreadChange={setHqUnread} /></>,
-            feedback: <FeedbackPanel />,
+            studio: <div className="space-y-10"><FeedbackPanel /><EngineerPanel /><OnboardingStudio tenants={tenants} /><BrandKitPanel /><PromoVideoStudio /></div>,
             inquiries: <InquiriesPanel onNewCount={setInquiryNew} onConvert={convertLead} />,
             "mira-studio": <MiraStudioPanel />,
             hiring: <div className="space-y-10"><HiringPanel onNewCount={setHiringNew} /><VerifiedStaffPanel /></div>,
             "verify-staff": <div className="space-y-10"><HiringPanel onNewCount={setHiringNew} /><VerifiedStaffPanel /></div>,
-            engineer: <EngineerPanel />,
-            onboarding: <OnboardingStudio tenants={tenants} />,
-            brandkit: <div className="space-y-10"><BrandKitPanel /><PromoVideoStudio /></div>,
             promo: <div className="space-y-10"><BrandKitPanel /><PromoVideoStudio /></div>,
             team: <div className="space-y-10"><SuperAdminProfileCard /><MiracurlTeamPanel /><SiteInfoPanel /></div>,
             website: <div className="space-y-10"><SuperAdminProfileCard /><MiracurlTeamPanel /><SiteInfoPanel /></div>,
-            deployments: <DeploymentHistoryPanel />,
-            load: <PlatformLoadPanel />,
-            database: <DatabasePanel />,
-            security: <div className="space-y-6"><SuperAdminProfileCard /><SecurityCard /></div>,
+            security: <div className="space-y-10"><SuperAdminProfileCard /><SecurityCard /><DatabasePanel /><DeploymentHistoryPanel /><PlatformLoadPanel /></div>,
           };
           return panels[tab];
         })() || (

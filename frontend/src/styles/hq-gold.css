@@ -1,131 +1,164 @@
-/* Miracurl HQ — unified "light gold" theme. Scoped to .hq-gold (Super Admin page only).
-   Remaps the fuchsia / sky / violet / indigo accents every panel uses onto the gold palette
-   (#fdf8ec paper · #e8c37f soft gold · #b8932e gold · #9a7a1f deep gold · #1c1c22 ink). */
+/* Miracurl HQ — "Ink & Gold" console theme (same palette as the Onboard-a-Salon modal).
+   Scoped to .hq-gold (Super Admin page only). Remaps the light Tailwind utilities every panel
+   uses onto a dark ink canvas with gold accents so text stays high-contrast everywhere.
+   ink #0f0f14 · panel #17171d · raised #1c1c22 · gold #d4af37 · soft gold #F0D9A5 · deep gold #C89B52 */
 .hq-gold {
-  --hq-paper: #fdf8ec;
-  --hq-soft: #e8c37f;
-  --hq-gold: #b8932e;
-  --hq-deep: #9a7a1f;
-  --hq-ink: #1c1c22;
-  background: #fbf6ea;
+  --hq-ink: #0f0f14;
+  --hq-panel: #17171d;
+  --hq-raised: #1c1c22;
+  --hq-line: rgba(212, 175, 55, 0.22);
+  --hq-line-soft: rgba(255, 255, 255, 0.08);
+  --hq-gold: #d4af37;
+  --hq-soft: #F0D9A5;
+  --hq-deep: #C89B52;
+  --hq-text: #f3efe4;
+  --hq-text-2: #d6d0c2;
+  --hq-muted: #9d978b;
+  --hq-faint: #6f6a61;
+  color: var(--hq-text);
+  background: var(--hq-ink);
   background-image:
-    radial-gradient(1100px 520px at 8% -10%, rgba(232, 195, 127, 0.28), transparent 60%),
-    radial-gradient(900px 480px at 100% 0%, rgba(240, 217, 165, 0.22), transparent 60%),
-    linear-gradient(180deg, #fdf8ec 0%, #faf5e8 55%, #f7f1e1 100%);
+    radial-gradient(1100px 520px at 10% -10%, rgba(212, 175, 55, 0.14), transparent 60%),
+    radial-gradient(900px 480px at 100% 0%, rgba(200, 155, 82, 0.10), transparent 60%),
+    linear-gradient(180deg, #0f0f14 0%, #121218 55%, #0f0f14 100%);
 }
 .hq-gold h1, .hq-gold h2, .hq-gold h3 { font-family: "Playfair Display", serif; }
-.hq-gold h1 { color: var(--hq-deep); }
-.hq-gold ::selection { background: rgba(232, 195, 127, 0.45); }
+.hq-gold h1 { color: var(--hq-soft); }
+.hq-gold ::selection { background: rgba(212, 175, 55, 0.35); color: #fff; }
 
-/* Cards get a faint warm shadow and gold hover edge */
+/* ---------- surfaces ---------- */
+.hq-gold .bg-white { background-color: var(--hq-panel); }
+.hq-gold .bg-white\/95, .hq-gold .bg-white\/90, .hq-gold .bg-white\/80, .hq-gold .bg-white\/70, .hq-gold .bg-white\/60 { background-color: rgba(23, 23, 29, 0.92); }
+.hq-gold .bg-slate-50, .hq-gold .bg-\[\#fdf8ec\], .hq-gold .bg-\[\#fbf7ea\], .hq-gold .bg-\[\#f6f5f1\], .hq-gold .bg-gray-50, .hq-gold .bg-stone-50, .hq-gold .bg-neutral-50 { background-color: rgba(255, 255, 255, 0.04); }
+.hq-gold .bg-slate-100, .hq-gold .bg-\[\#f6e9c8\], .hq-gold .bg-gray-100, .hq-gold .bg-stone-100 { background-color: rgba(255, 255, 255, 0.07); }
+.hq-gold .bg-slate-200, .hq-gold .bg-gray-200 { background-color: rgba(255, 255, 255, 0.12); }
+.hq-gold .bg-slate-50\/50, .hq-gold .bg-slate-50\/60, .hq-gold .bg-slate-50\/80 { background-color: rgba(255, 255, 255, 0.03); }
+.hq-gold .hover\:bg-slate-50:hover, .hq-gold .hover\:bg-slate-100:hover, .hq-gold .hover\:bg-gray-50:hover, .hq-gold .hover\:bg-white:hover { background-color: rgba(255, 255, 255, 0.07); }
+.hq-gold .hover\:bg-slate-200:hover { background-color: rgba(255, 255, 255, 0.12); }
 .hq-gold .bg-white.rounded-2xl.border, .hq-gold .bg-white.rounded-3xl.border, .hq-gold .bg-white.rounded-xl.border {
-  box-shadow: 0 1px 0 rgba(184, 147, 46, 0.04), 0 10px 30px -22px rgba(154, 122, 31, 0.35);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 24px 60px -40px rgba(0, 0, 0, 0.9);
 }
-.hq-gold .border-slate-200 { border-color: #ece3cf; }
-.hq-gold .border-slate-100 { border-color: #f3ecda; }
-.hq-gold .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: #f3ecda; }
-.hq-gold .bg-slate-50 { background-color: var(--hq-paper); }
-.hq-gold .bg-slate-100 { background-color: #f6eedb; }
-.hq-gold .hover\:bg-slate-50:hover { background-color: #fbf3df; }
-.hq-gold .hover\:bg-slate-100:hover { background-color: #f6eedb; }
 
-/* Solid accent fills → gold */
+/* ---------- borders ---------- */
+.hq-gold .border-slate-200, .hq-gold .border-gray-200, .hq-gold .border-\[\#ecdfc0\], .hq-gold .border-\[\#e2d3ae\], .hq-gold .border-\[\#e8c37f\] { border-color: var(--hq-line); }
+.hq-gold .border-slate-100, .hq-gold .border-gray-100, .hq-gold .border-slate-300, .hq-gold .border-\[\#f3ecda\] { border-color: var(--hq-line-soft); }
+.hq-gold .divide-slate-100 > :not([hidden]) ~ :not([hidden]), .hq-gold .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--hq-line-soft); }
+.hq-gold .border-dashed.border-slate-300, .hq-gold .border-dashed.border-slate-200 { border-color: rgba(212, 175, 55, 0.35); }
+.hq-gold .hover\:border-slate-300:hover, .hq-gold .hover\:border-slate-400:hover, .hq-gold .hover\:border-fuchsia-300:hover, .hq-gold .hover\:border-sky-300:hover, .hq-gold .hover\:border-emerald-300:hover { border-color: var(--hq-gold); }
+.hq-gold .ring-slate-200, .hq-gold .ring-slate-100 { --tw-ring-color: var(--hq-line); }
+
+/* ---------- text ---------- */
+.hq-gold .text-slate-900, .hq-gold .text-gray-900, .hq-gold .text-black, .hq-gold .text-\[\#15151b\]:not([class*="from-"]):not([class*="bg-"]), .hq-gold .text-\[\#1d1d24\] { color: var(--hq-text); }
+.hq-gold .text-slate-800, .hq-gold .text-gray-800, .hq-gold .text-\[\#1c1c22\] { color: var(--hq-text); }
+.hq-gold .text-slate-700, .hq-gold .text-gray-700 { color: var(--hq-text-2); }
+.hq-gold .text-slate-600, .hq-gold .text-gray-600 { color: #bdb7a9; }
+.hq-gold .text-slate-500, .hq-gold .text-gray-500 { color: var(--hq-muted); }
+.hq-gold .text-slate-400, .hq-gold .text-gray-400 { color: #88836f; }
+.hq-gold .hover\:text-slate-900:hover, .hq-gold .hover\:text-slate-800:hover, .hq-gold .hover\:text-slate-700:hover, .hq-gold .hover\:text-slate-600:hover { color: var(--hq-soft); }
+.hq-gold .placeholder\:text-slate-400::placeholder, .hq-gold .placeholder\:text-slate-500::placeholder { color: var(--hq-faint); }
+/* gold tones brighten on ink */
+.hq-gold .text-\[\#b8932e\], .hq-gold .text-\[\#9a7a1f\], .hq-gold .text-\[\#a08a4b\], .hq-gold .text-\[\#8a6d1f\] { color: var(--hq-soft); }
+/* legacy accent text → gold */
+.hq-gold .text-fuchsia-500, .hq-gold .text-fuchsia-600, .hq-gold .text-fuchsia-700, .hq-gold .text-pink-600, .hq-gold .text-pink-700,
+.hq-gold .text-sky-500, .hq-gold .text-sky-600, .hq-gold .text-sky-700, .hq-gold .text-violet-500, .hq-gold .text-violet-600, .hq-gold .text-violet-700,
+.hq-gold .text-indigo-500, .hq-gold .text-indigo-600, .hq-gold .text-indigo-700, .hq-gold .text-purple-600, .hq-gold .text-blue-600, .hq-gold .text-blue-700 { color: var(--hq-soft); }
+/* status colours: dark shades become light shades */
+.hq-gold .text-emerald-600, .hq-gold .text-emerald-700, .hq-gold .text-emerald-800, .hq-gold .text-green-600, .hq-gold .text-green-700, .hq-gold .text-teal-600, .hq-gold .text-teal-700 { color: #6ee7b7; }
+.hq-gold .text-rose-600, .hq-gold .text-rose-700, .hq-gold .text-rose-800, .hq-gold .text-red-600, .hq-gold .text-red-700 { color: #fda4af; }
+.hq-gold .text-amber-600, .hq-gold .text-amber-700, .hq-gold .text-amber-800, .hq-gold .text-yellow-700, .hq-gold .text-orange-600, .hq-gold .text-orange-700 { color: #fcd34d; }
+.hq-gold .text-sky-800, .hq-gold .text-blue-800, .hq-gold .text-indigo-800, .hq-gold .text-violet-800 { color: #bfdbfe; }
+.hq-gold .text-emerald-500 { color: #34d399; }
+.hq-gold .text-rose-500, .hq-gold .text-red-500 { color: #fb7185; }
+
+/* ---------- soft tints (chips, callouts) ---------- */
+.hq-gold .bg-emerald-50, .hq-gold .bg-emerald-100, .hq-gold .bg-green-50, .hq-gold .bg-teal-50 { background-color: rgba(16, 185, 129, 0.14); }
+.hq-gold .bg-rose-50, .hq-gold .bg-rose-100, .hq-gold .bg-red-50, .hq-gold .bg-red-100 { background-color: rgba(244, 63, 94, 0.14); }
+.hq-gold .bg-amber-50, .hq-gold .bg-amber-100, .hq-gold .bg-yellow-50, .hq-gold .bg-orange-50, .hq-gold .bg-orange-100 { background-color: rgba(245, 158, 11, 0.14); }
+.hq-gold .bg-sky-50, .hq-gold .bg-sky-100, .hq-gold .bg-blue-50, .hq-gold .bg-blue-100, .hq-gold .bg-indigo-50, .hq-gold .bg-indigo-100,
+.hq-gold .bg-violet-50, .hq-gold .bg-violet-100, .hq-gold .bg-fuchsia-50, .hq-gold .bg-fuchsia-100, .hq-gold .bg-pink-50, .hq-gold .bg-purple-50 { background-color: rgba(212, 175, 55, 0.12); }
+.hq-gold .border-emerald-200, .hq-gold .border-emerald-300 { border-color: rgba(52, 211, 153, 0.4); }
+.hq-gold .border-rose-200, .hq-gold .border-rose-300, .hq-gold .border-red-200 { border-color: rgba(251, 113, 133, 0.4); }
+.hq-gold .border-amber-200, .hq-gold .border-amber-300, .hq-gold .border-orange-200 { border-color: rgba(252, 211, 77, 0.4); }
+.hq-gold .border-sky-200, .hq-gold .border-sky-300, .hq-gold .border-blue-200, .hq-gold .border-indigo-200, .hq-gold .border-indigo-300,
+.hq-gold .border-violet-200, .hq-gold .border-violet-300, .hq-gold .border-fuchsia-200, .hq-gold .border-fuchsia-300, .hq-gold .border-pink-200, .hq-gold .border-purple-200 { border-color: var(--hq-line); }
+.hq-gold .hover\:bg-emerald-50:hover, .hq-gold .hover\:bg-emerald-100:hover { background-color: rgba(16, 185, 129, 0.22); }
+.hq-gold .hover\:bg-rose-50:hover, .hq-gold .hover\:bg-rose-100:hover { background-color: rgba(244, 63, 94, 0.22); }
+.hq-gold .hover\:bg-amber-50:hover, .hq-gold .hover\:bg-amber-100:hover { background-color: rgba(245, 158, 11, 0.22); }
+.hq-gold .hover\:bg-fuchsia-50:hover, .hq-gold .hover\:bg-sky-50:hover, .hq-gold .hover\:bg-violet-50:hover, .hq-gold .hover\:bg-indigo-50:hover { background-color: rgba(212, 175, 55, 0.2); }
+
+/* ---------- solid accents → gold buttons (ink text) ---------- */
 .hq-gold .bg-fuchsia-600, .hq-gold .bg-fuchsia-500, .hq-gold .bg-pink-600, .hq-gold .bg-pink-500,
 .hq-gold .bg-sky-600, .hq-gold .bg-sky-500, .hq-gold .bg-violet-600, .hq-gold .bg-violet-500,
-.hq-gold .bg-indigo-600, .hq-gold .bg-indigo-500, .hq-gold .bg-purple-600, .hq-gold .bg-blue-600 {
+.hq-gold .bg-indigo-600, .hq-gold .bg-indigo-500, .hq-gold .bg-purple-600, .hq-gold .bg-blue-600, .hq-gold .bg-slate-900, .hq-gold .bg-slate-800 {
   background-color: var(--hq-gold);
-  background-image: linear-gradient(180deg, #d9b35a 0%, var(--hq-gold) 100%);
+  background-image: linear-gradient(180deg, var(--hq-soft) 0%, var(--hq-deep) 100%);
   color: #15151b;
 }
-.hq-gold .hover\:bg-fuchsia-700:hover, .hq-gold .hover\:bg-sky-700:hover, .hq-gold .hover\:bg-violet-700:hover,
-.hq-gold .hover\:bg-indigo-700:hover, .hq-gold .hover\:bg-pink-700:hover, .hq-gold .hover\:bg-blue-700:hover { background-color: var(--hq-deep); filter: brightness(1.05); }
-.hq-gold .bg-slate-900, .hq-gold .bg-slate-800, .hq-gold .bg-\[\#1c1c22\], .hq-gold .bg-\[\#15151b\] { background-color: var(--hq-ink); color: var(--hq-soft); }
-.hq-gold .bg-slate-900 .text-white, .hq-gold .bg-slate-800 .text-white { color: var(--hq-soft); }
-.hq-gold .hover\:bg-slate-800:hover { background-color: #2a2a33; }
-
-/* Gradients → gold */
-.hq-gold .from-fuchsia-600, .hq-gold .from-fuchsia-500, .hq-gold .from-pink-600, .hq-gold .from-pink-500,
-.hq-gold .from-sky-600, .hq-gold .from-sky-500, .hq-gold .from-violet-600, .hq-gold .from-violet-500,
-.hq-gold .from-indigo-600, .hq-gold .from-indigo-500, .hq-gold .from-purple-600, .hq-gold .from-blue-600, .hq-gold .from-amber-500 {
-  --tw-gradient-from: #f0d9a5 var(--tw-gradient-from-position);
+.hq-gold .bg-fuchsia-600 .text-white, .hq-gold .bg-sky-600 .text-white, .hq-gold .bg-violet-600 .text-white, .hq-gold .bg-indigo-600 .text-white, .hq-gold .bg-slate-900 .text-white, .hq-gold .bg-slate-800 .text-white { color: #15151b; }
+.hq-gold .hover\:bg-fuchsia-700:hover, .hq-gold .hover\:bg-sky-700:hover, .hq-gold .hover\:bg-violet-700:hover, .hq-gold .hover\:bg-indigo-700:hover,
+.hq-gold .hover\:bg-pink-700:hover, .hq-gold .hover\:bg-blue-700:hover, .hq-gold .hover\:bg-slate-800:hover, .hq-gold .hover\:bg-slate-700:hover { filter: brightness(1.08); }
+.hq-gold .from-fuchsia-600, .hq-gold .from-fuchsia-500, .hq-gold .from-pink-600, .hq-gold .from-pink-500, .hq-gold .from-sky-600, .hq-gold .from-sky-500,
+.hq-gold .from-violet-600, .hq-gold .from-violet-500, .hq-gold .from-indigo-600, .hq-gold .from-indigo-500, .hq-gold .from-purple-600, .hq-gold .from-blue-600, .hq-gold .from-amber-500 {
+  --tw-gradient-from: var(--hq-soft) var(--tw-gradient-from-position);
   --tw-gradient-to: rgb(200 155 82 / 0) var(--tw-gradient-to-position);
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
   color: #15151b;
 }
 .hq-gold .to-pink-500, .hq-gold .to-pink-600, .hq-gold .to-fuchsia-600, .hq-gold .to-fuchsia-500, .hq-gold .to-violet-600, .hq-gold .to-violet-500,
-.hq-gold .to-sky-600, .hq-gold .to-sky-500, .hq-gold .to-indigo-600, .hq-gold .to-purple-600, .hq-gold .to-blue-600, .hq-gold .to-orange-500, .hq-gold .to-rose-500 {
-  --tw-gradient-to: #c89b52 var(--tw-gradient-to-position);
+.hq-gold .to-sky-600, .hq-gold .to-sky-500, .hq-gold .to-indigo-600, .hq-gold .to-purple-600, .hq-gold .to-blue-600, .hq-gold .to-orange-500, .hq-gold .to-rose-500 { --tw-gradient-to: var(--hq-deep) var(--tw-gradient-to-position); }
+.hq-gold .via-fuchsia-600, .hq-gold .via-violet-600, .hq-gold .via-pink-500 { --tw-gradient-to: rgb(200 155 82 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), #d9b35a var(--tw-gradient-via-position), var(--tw-gradient-to); }
+.hq-gold [class*="from-fuchsia-"].text-white, .hq-gold [class*="from-sky-"].text-white, .hq-gold [class*="from-violet-"].text-white, .hq-gold [class*="from-indigo-"].text-white, .hq-gold [class*="from-pink-"].text-white, .hq-gold [class*="from-amber-5"].text-white,
+.hq-gold [class*="from-fuchsia-"] .text-white, .hq-gold [class*="from-sky-"] .text-white, .hq-gold [class*="from-violet-"] .text-white, .hq-gold [class*="from-indigo-"] .text-white { color: #15151b; }
+/* light-page gradients (sky-50 → violet-100 etc.) flatten to panel */
+.hq-gold .from-slate-50, .hq-gold .from-sky-50, .hq-gold .from-violet-50, .hq-gold .from-fuchsia-50, .hq-gold .from-amber-50, .hq-gold .from-emerald-50, .hq-gold .from-rose-50, .hq-gold .from-white {
+  --tw-gradient-from: rgba(255, 255, 255, 0.05) var(--tw-gradient-from-position); --tw-gradient-to: rgb(255 255 255 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
 }
-.hq-gold .via-fuchsia-600, .hq-gold .via-violet-600, .hq-gold .via-pink-500 {
-  --tw-gradient-to: rgb(200 155 82 / 0) var(--tw-gradient-to-position);
-  --tw-gradient-stops: var(--tw-gradient-from), #d9b35a var(--tw-gradient-via-position), var(--tw-gradient-to);
-}
-.hq-gold .from-fuchsia-600 .text-white, .hq-gold .from-fuchsia-500 .text-white, .hq-gold .from-pink-600 .text-white, .hq-gold .from-sky-600 .text-white,
-.hq-gold .from-violet-600 .text-white, .hq-gold .from-indigo-600 .text-white { color: #15151b; }
-.hq-gold .from-fuchsia-600.text-white, .hq-gold .from-fuchsia-500.text-white, .hq-gold .from-pink-600.text-white, .hq-gold .from-sky-600.text-white,
-.hq-gold .from-violet-600.text-white, .hq-gold .from-indigo-600.text-white, .hq-gold .from-amber-500.text-white { color: #15151b; }
-.hq-gold .bg-fuchsia-600.text-white, .hq-gold .bg-sky-600.text-white, .hq-gold .bg-violet-600.text-white, .hq-gold .bg-indigo-600.text-white, .hq-gold .bg-pink-600.text-white { color: #15151b; }
-
-/* Dark hero panels (ROI etc.) keep ink, but tint toward the HQ ink instead of fuchsia/indigo */
+.hq-gold .to-slate-50, .hq-gold .to-sky-50, .hq-gold .to-violet-100, .hq-gold .to-violet-50, .hq-gold .to-fuchsia-50, .hq-gold .to-amber-50, .hq-gold .to-emerald-50, .hq-gold .to-rose-50, .hq-gold .to-white, .hq-gold .to-slate-100 { --tw-gradient-to: rgba(255, 255, 255, 0.02) var(--tw-gradient-to-position); }
+.hq-gold .via-sky-50, .hq-gold .via-violet-50, .hq-gold .via-white { --tw-gradient-stops: var(--tw-gradient-from), rgba(255, 255, 255, 0.03) var(--tw-gradient-via-position), var(--tw-gradient-to); }
+/* dark hero gradients tint toward ink */
 .hq-gold .from-slate-900 { --tw-gradient-from: #15151b var(--tw-gradient-from-position); --tw-gradient-to: rgb(21 21 27 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.hq-gold .from-slate-950 { --tw-gradient-from: #0f0f14 var(--tw-gradient-from-position); --tw-gradient-to: rgb(15 15 20 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
 .hq-gold .to-fuchsia-950, .hq-gold .to-violet-950, .hq-gold .to-indigo-950, .hq-gold .to-slate-800 { --tw-gradient-to: #2b2415 var(--tw-gradient-to-position); }
 .hq-gold .via-indigo-950, .hq-gold .via-violet-950 { --tw-gradient-stops: var(--tw-gradient-from), #1c1c22 var(--tw-gradient-via-position), var(--tw-gradient-to); }
-.hq-gold .from-slate-950 { --tw-gradient-from: #0f0f14 var(--tw-gradient-from-position); --tw-gradient-to: rgb(15 15 20 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
-
-/* Soft accent tints → paper gold */
-.hq-gold .bg-fuchsia-50, .hq-gold .bg-fuchsia-100, .hq-gold .bg-sky-50, .hq-gold .bg-sky-100, .hq-gold .bg-violet-50, .hq-gold .bg-violet-100,
-.hq-gold .bg-indigo-50, .hq-gold .bg-indigo-100, .hq-gold .bg-purple-50, .hq-gold .bg-pink-50, .hq-gold .bg-blue-50, .hq-gold .bg-fuchsia-50\/40 {
-  background-color: var(--hq-paper);
-}
-.hq-gold .bg-fuchsia-100, .hq-gold .bg-sky-100, .hq-gold .bg-violet-100, .hq-gold .bg-indigo-100 { background-color: #f6e9c8; }
-.hq-gold .hover\:bg-fuchsia-50:hover, .hq-gold .hover\:bg-sky-50:hover, .hq-gold .hover\:bg-violet-50:hover, .hq-gold .hover\:bg-indigo-50:hover { background-color: #f6e9c8; }
-
-/* Accent text → gold */
-.hq-gold .text-fuchsia-500, .hq-gold .text-fuchsia-600, .hq-gold .text-fuchsia-700, .hq-gold .text-pink-600, .hq-gold .text-pink-700,
-.hq-gold .text-sky-500, .hq-gold .text-sky-600, .hq-gold .text-sky-700, .hq-gold .text-violet-500, .hq-gold .text-violet-600, .hq-gold .text-violet-700,
-.hq-gold .text-indigo-500, .hq-gold .text-indigo-600, .hq-gold .text-indigo-700, .hq-gold .text-purple-600, .hq-gold .text-blue-600 {
-  color: var(--hq-gold);
-}
-.hq-gold .text-fuchsia-300, .hq-gold .text-sky-300, .hq-gold .text-violet-300, .hq-gold .text-indigo-300, .hq-gold .text-pink-300 { color: var(--hq-soft); }
-.hq-gold .hover\:text-fuchsia-600:hover, .hq-gold .hover\:text-sky-600:hover, .hq-gold .hover\:text-violet-600:hover, .hq-gold .hover\:text-indigo-600:hover { color: var(--hq-deep); }
-
-/* Accent borders → soft gold */
-.hq-gold .border-fuchsia-200, .hq-gold .border-fuchsia-300, .hq-gold .border-fuchsia-600, .hq-gold .border-sky-200, .hq-gold .border-sky-300,
-.hq-gold .border-violet-200, .hq-gold .border-violet-300, .hq-gold .border-indigo-200, .hq-gold .border-indigo-300, .hq-gold .border-pink-200, .hq-gold .border-purple-200 {
-  border-color: var(--hq-soft);
-}
-.hq-gold .hover\:border-fuchsia-300:hover, .hq-gold .hover\:border-fuchsia-400:hover, .hq-gold .hover\:border-sky-300:hover, .hq-gold .hover\:border-sky-400:hover,
-.hq-gold .hover\:border-violet-300:hover, .hq-gold .hover\:border-indigo-300:hover, .hq-gold .hover\:border-slate-400:hover { border-color: var(--hq-gold); }
-
-/* Rings / focus / accent */
-.hq-gold .ring-fuchsia-500, .hq-gold .ring-sky-500, .hq-gold .ring-violet-500, .hq-gold .ring-indigo-500 { --tw-ring-color: var(--hq-gold); }
-.hq-gold .focus\:ring-fuchsia-500:focus, .hq-gold .focus\:ring-sky-500:focus, .hq-gold .focus\:border-fuchsia-400:focus, .hq-gold .focus\:border-sky-400:focus { --tw-ring-color: var(--hq-gold); border-color: var(--hq-gold); }
-.hq-gold .accent-fuchsia-600, .hq-gold .accent-sky-600, .hq-gold .accent-violet-600, .hq-gold .accent-indigo-600 { accent-color: var(--hq-gold); }
-.hq-gold input:focus, .hq-gold select:focus, .hq-gold textarea:focus { outline-color: var(--hq-gold); border-color: var(--hq-soft) !important; box-shadow: 0 0 0 3px rgba(232, 195, 127, 0.28); }
-
-/* Uppercase micro-labels get gold tracking like the Rewards card */
-.hq-gold .uppercase.tracking-wide.text-slate-400, .hq-gold .uppercase.tracking-wider.text-slate-400, .hq-gold .uppercase.tracking-wide.text-slate-500 { color: #a08a4a; letter-spacing: 0.14em; }
-
-/* Scrollbars */
-.hq-gold ::-webkit-scrollbar { width: 8px; height: 8px; }
-.hq-gold ::-webkit-scrollbar-thumb { background: rgba(184, 147, 46, 0.35); border-radius: 8px; }
-.hq-gold ::-webkit-scrollbar-thumb:hover { background: rgba(184, 147, 46, 0.6); }
-
-/* Dark "statement" panels (Mira Home hero, HQ profile card, Platform Map, Security) — navy → HQ ink so they sit with the gold header */
-.hq-gold .bg-\[\#101a35\], .hq-gold .bg-\[\#0b1020\], .hq-gold .bg-\[\#0a0b1a\], .hq-gold .bg-\[\#05060f\], .hq-gold .bg-\[\#101014\],
-.hq-gold .bg-slate-950, .hq-gold .bg-slate-900.rounded-2xl.text-white { background-color: #15151b; }
+.hq-gold .bg-\[\#101a35\], .hq-gold .bg-\[\#0b1020\], .hq-gold .bg-\[\#0a0b1a\], .hq-gold .bg-\[\#05060f\], .hq-gold .bg-\[\#101014\], .hq-gold .bg-slate-950 { background-color: var(--hq-panel); }
 .hq-gold .from-\[\#0b1020\], .hq-gold .from-\[\#0f1420\], .hq-gold .from-\[\#0b0f1a\] { --tw-gradient-from: #0f0f14 var(--tw-gradient-from-position); --tw-gradient-to: rgb(15 15 20 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
 .hq-gold .via-\[\#101a35\], .hq-gold .via-\[\#10182b\] { --tw-gradient-to: rgb(28 28 34 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), #1c1c22 var(--tw-gradient-via-position), var(--tw-gradient-to); }
 .hq-gold .to-\[\#0b0f1e\], .hq-gold .to-\[\#141c30\], .hq-gold .to-\[\#0a0e18\] { --tw-gradient-to: #24201a var(--tw-gradient-to-position); }
-.hq-gold .border-indigo-900\/50, .hq-gold .border-indigo-900\/40, .hq-gold .border-white\/15, .hq-gold .border-white\/10 { border-color: rgba(212, 175, 55, 0.22); }
-.hq-gold .bg-indigo-500\/20, .hq-gold .bg-fuchsia-500\/20, .hq-gold .bg-violet-500\/20, .hq-gold .bg-sky-500\/20 { background-color: rgba(232, 195, 127, 0.16); }
-.hq-gold .text-indigo-200, .hq-gold .text-indigo-300, .hq-gold .text-violet-200, .hq-gold .text-sky-200, .hq-gold .text-fuchsia-200 { color: #f0d9a5; }
-.hq-gold .border-fuchsia-400\/50, .hq-gold .border-fuchsia-500\/40, .hq-gold .border-indigo-400\/40, .hq-gold .border-sky-400\/40 { border-color: rgba(232, 195, 127, 0.5); }
+.hq-gold .border-indigo-900\/50, .hq-gold .border-indigo-900\/40 { border-color: var(--hq-line); }
+.hq-gold .bg-indigo-500\/20, .hq-gold .bg-fuchsia-500\/20, .hq-gold .bg-violet-500\/20, .hq-gold .bg-sky-500\/20 { background-color: rgba(212, 175, 55, 0.16); }
+.hq-gold .border-fuchsia-400\/50, .hq-gold .border-fuchsia-500\/40, .hq-gold .border-indigo-400\/40, .hq-gold .border-sky-400\/40 { border-color: rgba(212, 175, 55, 0.5); }
 
-/* index.css paints every input dark for the consumer app — inside HQ, default inputs are light paper */
-.hq-gold input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([class*="bg-"]),
-.hq-gold select:not([class*="bg-"]), .hq-gold textarea:not([class*="bg-"]) {
-  background-color: #fff; color: #1e293b;
+/* ---------- forms ---------- */
+.hq-gold input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), .hq-gold select, .hq-gold textarea {
+  background-color: rgba(255, 255, 255, 0.04) !important; color: var(--hq-text) !important; -webkit-text-fill-color: var(--hq-text) !important; border-color: var(--hq-line-soft) !important;
 }
-.hq-gold input:not([class*="bg-"])::placeholder, .hq-gold textarea:not([class*="bg-"])::placeholder { color: #94a3b8; }
-.hq-gold select:not([class*="bg-"]) option { background: #fff; color: #1e293b; }
+.hq-gold input:-webkit-autofill, .hq-gold input:-webkit-autofill:focus { -webkit-box-shadow: 0 0 0 1000px #1c1c22 inset !important; -webkit-text-fill-color: var(--hq-text) !important; }
+.hq-gold input::placeholder, .hq-gold textarea::placeholder { color: var(--hq-faint) !important; -webkit-text-fill-color: var(--hq-faint) !important; }
+.hq-gold select option { background: var(--hq-panel); color: var(--hq-text); }
+.hq-gold input:focus, .hq-gold select:focus, .hq-gold textarea:focus { outline: none; border-color: rgba(212, 175, 55, 0.7) !important; box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.18); background-color: rgba(255, 255, 255, 0.06) !important; }
+.hq-gold input[type="date"]::-webkit-calendar-picker-indicator, .hq-gold input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(0.85) sepia(0.4) saturate(2) hue-rotate(5deg); }
+.hq-gold .accent-fuchsia-600, .hq-gold .accent-sky-600, .hq-gold .accent-violet-600, .hq-gold .accent-indigo-600, .hq-gold .accent-slate-900 { accent-color: var(--hq-gold); }
+.hq-gold .ring-fuchsia-500, .hq-gold .ring-sky-500, .hq-gold .ring-violet-500, .hq-gold .ring-indigo-500 { --tw-ring-color: var(--hq-gold); }
+
+/* ---------- micro-labels, tables, scrollbars ---------- */
+.hq-gold .uppercase.tracking-wide.text-slate-400, .hq-gold .uppercase.tracking-wider.text-slate-400, .hq-gold .uppercase.tracking-wide.text-slate-500, .hq-gold .uppercase.tracking-wider.text-slate-500 { color: #b39a55; letter-spacing: 0.14em; }
+.hq-gold thead.bg-slate-50, .hq-gold tr.bg-slate-50, .hq-gold th.bg-slate-50 { background-color: rgba(255, 255, 255, 0.04); }
+.hq-gold .shadow-sm, .hq-gold .shadow, .hq-gold .shadow-md { --tw-shadow-color: rgba(0, 0, 0, 0.5); --tw-shadow: var(--tw-shadow-colored); }
+.hq-gold ::-webkit-scrollbar { width: 8px; height: 8px; }
+.hq-gold ::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.3); border-radius: 8px; }
+.hq-gold ::-webkit-scrollbar-thumb:hover { background: rgba(212, 175, 55, 0.55); }
+
+/* ---------- shared index.css light primitives → ink ---------- */
+.hq-gold .card-light { background: var(--hq-panel); border-color: var(--hq-line); box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 24px 60px -40px rgba(0,0,0,.9); }
+.hq-gold .label-light { color: #b39a55; }
+.hq-gold .input-light { background: rgba(255,255,255,.04); border-color: var(--hq-line-soft); color: var(--hq-text); }
+.hq-gold .input-light:focus { background: rgba(255,255,255,.06); border-color: rgba(212,175,55,.7); box-shadow: 0 0 0 3px rgba(212,175,55,.18); }
+.hq-gold .luxe-table-light thead th { color: #b39a55; border-bottom-color: var(--hq-line-soft); background: rgba(255,255,255,.03); }
+.hq-gold .luxe-table-light tbody td { border-bottom-color: var(--hq-line-soft); color: var(--hq-text-2); }
+.hq-gold .luxe-table-light tbody tr:hover { background: rgba(212,175,55,.06); }
+.hq-gold .btn-slate { background: rgba(255,255,255,.05); border-color: var(--hq-line); color: var(--hq-text-2); }
+.hq-gold .btn-slate:hover { background: rgba(255,255,255,.1); border-color: var(--hq-gold); }
+.hq-gold .btn-blue { background: linear-gradient(180deg, var(--hq-soft), var(--hq-deep)); color: #15151b; box-shadow: 0 8px 20px -10px rgba(212,175,55,.6); }
+.hq-gold .ring-sky-400, .hq-gold .ring-fuchsia-400, .hq-gold .ring-violet-400, .hq-gold .ring-indigo-400 { --tw-ring-color: var(--hq-gold); }
+.hq-gold .text-sky-600.font-playfair, .hq-gold .text-emerald-600.font-playfair, .hq-gold .text-amber-600.font-playfair { color: var(--hq-soft); }
+.hq-gold .border-l-violet-400, .hq-gold .border-l-sky-400, .hq-gold .border-l-fuchsia-400 { border-left-color: var(--hq-gold); }
