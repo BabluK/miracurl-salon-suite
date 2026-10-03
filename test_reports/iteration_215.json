@@ -1,0 +1,53 @@
+{
+  "summary": "Frontend-only verification of the signup redesign: 4 dedicated URLs (/signup-salon-india, /signup-salon-us, /signup-restaurant-india, /signup-restaurant-us), legacy /signup-salon & /signup-restaurant toggles, new cream header with gold MS logo, region-aware placeholders, review-step pricing, live preview, and mobile viewport. All feature points pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Signup header @ 390px mobile", "issues": ["'MIRACURL SUITE' logo text visibly truncated behind the 'Sign in →' button because both the SuiteLogo and the sign-in CTA use shrink-0; no document horizontal overflow but logo wordmark is clipped under the button. Consider shrinking logo text / hiding wordmark on sm:hidden or using min-w-0 + truncate on the logo text wrapper."]}
+    ]
+  },
+  "verified_feature_points": {
+    "dedicated_urls": {
+      "/signup-salon-india":   {"vertical":"salon","region":"in","locked":"1","label":"💇 Salon / Spa · 🇮🇳 India","switch_links":["signup-switch-salon-intl","signup-switch-restaurant-in","signup-switch-restaurant-intl"],"biz_cards_absent":true,"region_toggle_absent":true},
+      "/signup-salon-us":      {"vertical":"salon","region":"intl","locked":"1","label":"💇 Salon / Spa · 🇺🇸 US / International"},
+      "/signup-restaurant-india":{"vertical":"restaurant","region":"in","locked":"1","label":"🍴 Restaurant · 🇮🇳 India"},
+      "/signup-restaurant-us": {"vertical":"restaurant","region":"intl","locked":"1","label":"🍴 Restaurant · 🇺🇸 US / International"}
+    },
+    "switch_link_navigation": "Clicking signup-switch-restaurant-intl on /signup-salon-india navigates to /signup-restaurant-us ✓",
+    "legacy_signup_salon": "data-locked='0', business-type cards present, region toggle present, no signup-switch-links; clicking restaurant card → URL becomes /signup-restaurant, salon card → /signup-salon ✓",
+    "legacy_signup_restaurant": "data-locked='0', cards + toggle present, no switch links ✓",
+    "layout": "No signup-left-brand-panel on any page. signup-header present. suite-logo img src=/assets/ms-logo-gold.png, naturalWidth=495 (loads). Logo contains 'MIRACURL SUITE' + 'AI-POWERED BUSINESS MANAGEMENT PLATFORM' (text-transform:uppercase; subtitle present). signup-have-account href='/login'. No signup-trust-strip. Form card max-w-2xl centered ✓",
+    "placeholders": {
+      "/signup-restaurant-us step1 name": "e.g. Spice Garden, Austin ✓",
+      "/signup-restaurant-us location": ["Austin, TX","+1 (512) 555-0147"],
+      "/signup-salon-india location":   ["Indiranagar, Bangalore","+91 98765 43210"]
+    },
+    "review_pricing": {
+      "/signup-salon-us":        "signup-review-pricing-intl present (USD) ✓",
+      "/signup-restaurant-india":"signup-review-pricing-resto present and contains ₹ ✓"
+    },
+    "live_preview_step1": "signup-live-preview present on all 4 dedicated pages ✓ (logo upload button visible in screenshot)",
+    "trial_badges": {
+      "salon pages": "'30-DAY FREE TRIAL · NO CREDIT CARD · CANCEL ANYTIME' (from /api/public/plans trial_days=30) ✓",
+      "restaurant pages": "'FIRST MONTH FREE · NO CREDIT CARD · CANCEL ANYTIME' ✓"
+    },
+    "mobile_390x844_salon_india": "No horizontal overflow (scrollWidth==clientWidth==390). Header, label chip, form card all visible ✓"
+  },
+  "test_report_links": [],
+  "action_items": [
+    "(Optional / minor) Make signup header responsive on <420px so 'MIRACURL SUITE' wordmark isn't visually clipped behind the Sign in button — e.g. hide wordmark on sm:hidden, truncate, or let the logo wrapper shrink (remove shrink-0 on SuiteLogo and add min-w-0 + truncate on the text block)."
+  ],
+  "critical_code_review_comments": [
+    "SignupSalon.jsx is 604 lines — consider splitting SalonStep / OwnerStep / LocationStep / ReviewStep and the Stepper into separate files for maintainability (>700 line threshold is close).",
+    "parseSignupPath + signupPath are clean; locked state derived from pathRegion works correctly. Minor: pathType is destructured but never used after init since form.business_type carries it — fine."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (not tested per request)", "frontend": "100% (all 7 feature points pass; 1 cosmetic mobile observation)"},
+  "test_credentials": "n/a — public pages only",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Signup redesign fully verified. Logo subtitle rendered uppercase via CSS — if asserting via inner_text, compare case-insensitively. Signup POST is rate-limited; stop at Review step. Legacy /signup-salon and /signup-restaurant still toggle via business-type cards; dedicated URLs enforce locked region (data-locked='1') and hide region toggle + business-type cards and show 3-item signup-switch-links at the bottom."
+}

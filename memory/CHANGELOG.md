@@ -418,3 +418,8 @@
 ## 2026-10-03 — Stale "7-day free trial" copy removed
 - Real trial is 30 days (HQ-configurable; 90-day newbiz offer). Replaced "7-day" wording with trial-length-neutral copy in ReferEarn.jsx (WA share text + how-it-works), AffiliateCard.jsx, Blog.jsx, BlogPost.jsx, index.html og:description + JSON-LD AggregateOffer (also dropped retired "6-month plan from Rs.12,000" → monthly from Rs.1,455), sales.py Mira pitch (now "30 days"), auth.py comments. OG image rebuilt (build_og_image.py gained FreeSerif/Liberation font fallbacks — DejaVu is absent in the pod).
 - Kept intentionally: HQ Tenants "7-day" trial-kind filter/badge (classifies legacy tenants by actual span), last-7-days analytics labels, 7-day reminder windows.
+
+## 2026-10-03 — Dedicated signup pages (India/US × Salon/Restaurant) + simplified layout
+- New routes `/signup-salon-india`, `/signup-salon-us`, `/signup-restaurant-india`, `/signup-restaurant-us` (App.js + sitemap). `parseSignupPath()` locks type+region → business-type cards and ₹/$ toggle hidden, `signup-page-label` chip + "Wrong page?" switch links (`signup-switch-<type>-<in|intl>`). Legacy `/signup-salon`/`/signup-restaurant` unchanged (toggles visible).
+- Layout: `SignupHeroPanel` (dark panel w/ photo, tiles, testimonial, MS video box) removed from signup; light cream fixed header with `SuiteLogo variant=light` (gold ring MS) + "AI-powered business management platform" + Sign in; form card centered max-w-2xl; mobile trust strip dropped. Live preview + logo upload kept in step 1.
+- Region-aware placeholders (US: Austin / +1 phone). Tests: iteration_215.json (frontend all pass).
