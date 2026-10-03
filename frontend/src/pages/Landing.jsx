@@ -9,7 +9,8 @@ import { SoftwareFlowSection } from "@/components/SoftwareFlowSection";
 import { MiraStudioShowcase } from "@/components/MiraStudioShowcase";
 import { MiracurlProductsStrip } from "@/components/MiracurlProductsStrip";
 import api from "@/lib/api";
-import { detectRegion } from "@/lib/region";
+import { detectRegion, signupHref } from "@/lib/region";
+import { trackCta } from "@/lib/analytics";
 
 const IMG = {
   hero: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/98878cd0ea553bd4df7cc6ca3c05eaea3bd83533c44c0b7b2785932491d9d440.jpeg",
@@ -437,7 +438,7 @@ export default function Landing({ scrollTo }) {
             <Link to="/staff-registry" data-testid="landing-verify-staff" className="nav-cap text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Staff Verification</Link>
             <ContactDropdown site={site} />
             <Link to="/login" className="nav-cap text-white/70 hover:text-white font-medium transition-colors" data-testid="landing-login">Sign In</Link>
-            <Link to="/signup-salon" data-testid="landing-cta-nav"
+            <Link to={signupHref("salon", region)} onClick={() => trackCta("landing-cta-nav", { region })} data-testid="landing-cta-nav"
                   className="nav-cap px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#050505] font-bold hover:brightness-110 hover:-translate-y-0.5 shadow-[0_8px_24px_-6px_rgba(223,183,140,0.5)] transition-transform">
               Sign Up
             </Link>
@@ -445,7 +446,7 @@ export default function Landing({ scrollTo }) {
           <div className="flex xl:hidden items-center gap-2 sm:gap-3 text-sm whitespace-nowrap shrink-0">
             <Link to="/contact-us" data-testid="nav-contact-mobile" className="hidden min-[430px]:block text-white/70 hover:text-white transition-colors">Contact</Link>
             <Link to="/login" className="text-white/70 hover:text-white font-medium transition-colors">Sign In</Link>
-            <Link to="/signup-salon"
+            <Link to={signupHref("salon", region)} onClick={() => trackCta("landing-cta-nav-mobile", { region })} data-testid="landing-cta-nav-mobile"
                   className="px-3 sm:px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#050505] text-xs font-bold shadow-[0_8px_24px_-6px_rgba(223,183,140,0.5)]">
               Sign Up
             </Link>
@@ -472,7 +473,7 @@ export default function Landing({ scrollTo }) {
             built for salons, spas and every beauty business.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
-            <Link to="/signup-salon" data-testid="landing-cta-hero"
+            <Link to={signupHref("salon", region)} onClick={() => trackCta("landing-cta-hero", { region })} data-testid="landing-cta-hero"
                   className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[#DFB78C] text-[#050505] font-bold hover:bg-[#EAD3B3] hover:-translate-y-1 shadow-[0_16px_40px_-10px_rgba(223,183,140,0.6)] transition-transform text-base">
               Start your free trial <ArrowRight className="w-4 h-4" />
             </Link>
@@ -576,7 +577,7 @@ export default function Landing({ scrollTo }) {
               <h3 className="font-playfair text-2xl md:text-3xl">24/7 Online Booking · PWA Apps · Loyalty</h3>
               <p className="text-white/60 text-sm mt-2 max-w-2xl">Your own /book page clients install like an app. Loyalty points, memberships, packages and birthday emails keep them coming back.</p>
             </div>
-            <Link to="/signup-salon" className="shrink-0 inline-flex items-center gap-2 px-6 py-3 rounded-full border border-[#E35A89]/50 text-[#E35A89] text-sm font-semibold hover:bg-[#E35A89]/10 transition-colors" data-testid="feature-booking-cta">
+            <Link to={signupHref("salon", region)} onClick={() => trackCta("feature-booking-cta", { region })} className="shrink-0 inline-flex items-center gap-2 px-6 py-3 rounded-full border border-[#E35A89]/50 text-[#E35A89] text-sm font-semibold hover:bg-[#E35A89]/10 transition-colors" data-testid="feature-booking-cta">
               Get your page <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -665,7 +666,7 @@ export default function Landing({ scrollTo }) {
                   </li>
                 ))}
               </ul>
-              <Link to="/signup-salon?region=in" data-testid={`plan-cta-${p.key}`}
+              <Link to={signupHref("salon", "in")} onClick={() => trackCta(`plan-cta-${p.key}`, { region: "in" })} data-testid={`plan-cta-${p.key}`}
                     className={`mt-7 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-full text-sm font-semibold transition-transform hover:-translate-y-0.5 ${p.primary
                       ? "bg-[#DFB78C] text-[#050505] hover:bg-[#EAD3B3] shadow-[0_10px_28px_-8px_rgba(223,183,140,0.5)]"
                       : "border border-white/15 text-white/85 hover:bg-white/5"}`}>
@@ -702,7 +703,7 @@ export default function Landing({ scrollTo }) {
                   </li>
                 ))}
               </ul>
-              <Link to="/signup-salon?region=intl" data-testid={`plan-cta-${p.key}`}
+              <Link to={signupHref("salon", "intl")} onClick={() => trackCta(`plan-cta-${p.key}`, { region: "intl" })} data-testid={`plan-cta-${p.key}`}
                     className={`mt-7 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-full text-sm font-semibold transition-transform hover:-translate-y-0.5 ${p.primary
                       ? "bg-[#DFB78C] text-[#050505] hover:bg-[#EAD3B3] shadow-[0_10px_28px_-8px_rgba(223,183,140,0.5)]"
                       : "border border-white/15 text-white/85 hover:bg-white/5"}`}>
@@ -768,7 +769,7 @@ export default function Landing({ scrollTo }) {
           <h2 className="font-playfair text-3xl sm:text-5xl font-light mt-5">Ready to bring your salon online?</h2>
           <p className="text-white/60 mt-4 max-w-xl mx-auto">Set up in 90 seconds. Cancel anytime in your trial. Pay only when it works.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-9">
-            <Link to="/signup-salon" data-testid="landing-cta-footer"
+            <Link to={signupHref("salon", region)} onClick={() => trackCta("landing-cta-footer", { region })} data-testid="landing-cta-footer"
                   className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[#DFB78C] text-[#050505] font-bold hover:bg-[#EAD3B3] hover:-translate-y-1 transition-transform shadow-[0_16px_40px_-10px_rgba(223,183,140,0.6)]">
               Start free trial <ArrowRight className="w-4 h-4" />
             </Link>
@@ -827,7 +828,7 @@ export default function Landing({ scrollTo }) {
                 <Link to="/features" className="hover:text-white transition-colors">Features</Link>
                 <Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link>
                 <Link to="/staff-registry" className="hover:text-white transition-colors">Staff Verification (Free)</Link>
-                <Link to="/signup-salon" className="hover:text-white transition-colors">Start Free Trial</Link>
+                <Link to={signupHref("salon", region)} className="hover:text-white transition-colors">Start Free Trial</Link>
                 <Link to="/login" className="hover:text-white transition-colors">Sign In</Link>
               </div>
             </div>

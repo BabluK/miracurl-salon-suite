@@ -1,3 +1,4 @@
+import { signupHref } from "@/lib/region";
 import { Link } from "react-router-dom";
 import { ArrowRight, Scissors } from "lucide-react";
 import BrandMark from "@/components/BrandMark";
@@ -11,7 +12,7 @@ export const LegalNav = () => (
         <a href="/#pricing" className="hidden sm:block text-white/70 hover:text-white transition-colors">Pricing</a>
         <Link to="/demo" className="hidden sm:block text-white/70 hover:text-white transition-colors">Demo</Link>
         <Link to="/login" className="hidden sm:block text-white/70 hover:text-white font-medium transition-colors">Sign in</Link>
-        <Link to="/signup-salon" data-testid="legal-nav-cta"
+        <Link to={signupHref("salon")} data-testid="legal-nav-cta"
               className="px-4 py-2 rounded-full bg-gradient-to-r from-fuchsia-600 to-rose-500 text-white text-xs sm:text-sm font-semibold hover:-translate-y-0.5 shadow-[0_8px_24px_-6px_rgba(217,70,239,0.6)] transition-transform">
           Start free trial
         </Link>
@@ -61,7 +62,7 @@ export const LegalFooter = ({ cross = [] }) => (
           <Link key={c.to} to={c.to} className="hover:text-white transition-colors">{c.label}</Link>
         ))}
         <Link to="/" className="hover:text-white transition-colors">Home</Link>
-        <Link to="/signup-salon" className="text-amber-300/70 hover:text-amber-300 transition-colors inline-flex items-center gap-1">
+        <Link to={signupHref("salon")} className="text-amber-300/70 hover:text-amber-300 transition-colors inline-flex items-center gap-1">
           Free trial <ArrowRight className="w-3 h-3" />
         </Link>
       </div>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { signupHref } from "@/lib/region";
 import { ChevronDown, Mail, Instagram, Facebook, ArrowRight, MessageSquare } from "lucide-react";
 
 // Shared marketing header — dark (landing) & light "golden white" (public portals).
@@ -40,7 +41,7 @@ export const SuiteLogo = ({ variant = "dark", size = "md", subtitle = "Smart Sal
   </Link>
 );
 
-export const SiteHeader = ({ variant = "light", site = null, subtitle = "Smart Salon Management Software", signupTo = "/signup-salon" }) => {
+export const SiteHeader = ({ variant = "light", site = null, subtitle = "Smart Salon Management Software", signupTo = signupHref("salon") }) => {
   const t = T[variant];
   const [open, setOpen] = useState(false);
   return (

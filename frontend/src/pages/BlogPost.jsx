@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { signupHref } from "@/lib/region";
 import { Link, useParams } from "react-router-dom";
 import axios from "axios";
 import { ArrowLeft } from "lucide-react";
@@ -63,7 +64,7 @@ export default function BlogPost() {
           <LogoLockup />
           <nav className="flex items-center gap-3 sm:gap-5 text-xs">
             <Link to="/blog" className="hidden sm:inline text-white/60 hover:text-white uppercase tracking-widest transition-colors" data-testid="blogpost-nav-blog">All articles</Link>
-            <Link to="/signup-salon" data-testid="blogpost-nav-trial"
+            <Link to={signupHref("salon")} data-testid="blogpost-nav-trial"
               className="px-4 sm:px-5 py-2 rounded-full bg-[#DFB78C] text-black font-bold hover:bg-[#e8c79f] transition-colors whitespace-nowrap">
               Start free trial ✦
             </Link>
@@ -87,7 +88,7 @@ export default function BlogPost() {
         <div className="mt-14 rounded-3xl border border-[#DFB78C]/25 bg-gradient-to-r from-[#161410] to-[#101011] p-8 text-center">
           <h3 className="font-playfair text-xl">Automate this with Miracurl Suite</h3>
           <p className="text-white/50 text-sm mt-2">Bookings, WhatsApp reminders, GST billing, memberships & payroll — one suite, free trial, no card needed.</p>
-          <Link to="/signup-salon" data-testid="blogpost-cta-signup"
+          <Link to={signupHref("salon")} data-testid="blogpost-cta-signup"
             className="inline-block mt-5 px-8 py-3 rounded-full bg-[#DFB78C] text-black text-sm font-bold hover:bg-[#e8c79f] transition-colors">
             Start free trial ✦
           </Link>

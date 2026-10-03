@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import log from "@/lib/log";
 import { useNavigate } from "react-router-dom";
+import { signupHref } from "@/lib/region";
 import { useAuth } from "@/context/AuthContext";
 import { User, Lock, Eye, EyeOff, Globe } from "lucide-react";
 import { toast } from "sonner";
@@ -314,11 +315,11 @@ export default function Login() {
             <p className="text-center text-sm text-slate-500 mt-6">
               <span className="block mt-1 mb-1">New to Miracurl? Start your free trial —</span>
               <span className="inline-flex items-center gap-2">
-                <a href="/signup-salon" data-testid="link-signup-salon"
+                <a href={signupHref("salon")} data-testid="link-signup-salon"
                   className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full border border-rose-300 bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-semibold transition-colors">
                   ✂️ For Salons →
                 </a>
-                <a href="/signup-restaurant" data-testid="link-signup-restaurant"
+                <a href={signupHref("restaurant")} data-testid="link-signup-restaurant"
                   className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 text-xs font-semibold transition-colors">
                   🍽️ For Restaurants →
                 </a>

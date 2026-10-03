@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "@/lib/api";
+import { signupHref } from "@/lib/region";
+import { trackCta } from "@/lib/analytics";
 import { SiteHeader } from "@/components/SiteHeader";
 import { RestoDemoCarousel } from "@/components/RestoDemoCarousel";
 import { UtensilsCrossed, QrCode, ChefHat, Receipt, CalendarCheck, Sparkles, Bell, TrendingUp, Printer, MessageCircle, ArrowRight, Check } from "lucide-react";
@@ -60,7 +62,7 @@ export default function RestaurantLanding() {
       <div className="pointer-events-none absolute top-[40%] -left-40 w-[420px] h-[420px] rounded-full bg-gradient-to-tr from-rose-100/60 via-amber-100/50 to-transparent blur-3xl" />
 
       {/* Shared branded header — same as the Products page (gold MS logo, light variant) */}
-      <SiteHeader variant="light" subtitle="Smart Restaurant Management Software" signupTo="/signup-restaurant" />
+      <SiteHeader variant="light" subtitle="Smart Restaurant Management Software" signupTo={signupHref("restaurant", cur === "USD" ? "intl" : "in")} />
 
       {/* Hero */}
       <header className="max-w-6xl mx-auto px-5 pt-14 sm:pt-20 pb-14 relative">
@@ -78,7 +80,7 @@ export default function RestaurantLanding() {
               teammate that paints dish photos, writes menus and runs your marketing.
             </p>
             <div className="flex flex-wrap items-center gap-4 mt-8">
-              <Link to="/signup-restaurant" data-testid="resto-hero-cta"
+              <Link to={signupHref("restaurant", cur === "USD" ? "intl" : "in")} onClick={() => trackCta("resto-hero-cta", { region: cur === "USD" ? "intl" : "in" })} data-testid="resto-hero-cta"
                 className="px-7 py-3.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-bold inline-flex items-center gap-2 shadow-lg shadow-amber-200 transition-transform hover:scale-[1.03]">
                 Start your free month <ArrowRight className="w-4 h-4" />
               </Link>
@@ -208,7 +210,7 @@ export default function RestaurantLanding() {
       <section className="max-w-6xl mx-auto px-5 py-16 text-center relative">
         <h2 className="font-playfair text-3xl sm:text-4xl text-slate-800">Ready to serve smarter?</h2>
         <p className="text-slate-500 text-sm mt-3">Set up your menu and table QRs tonight — take orders tomorrow.</p>
-        <Link to="/signup-restaurant" data-testid="resto-bottom-cta"
+        <Link to={signupHref("restaurant", cur === "USD" ? "intl" : "in")} onClick={() => trackCta("resto-bottom-cta", { region: cur === "USD" ? "intl" : "in" })} data-testid="resto-bottom-cta"
           className="inline-flex items-center gap-2 mt-8 px-8 py-4 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-bold shadow-lg shadow-amber-200 transition-transform hover:scale-[1.03]">
           Start your free month <ArrowRight className="w-4 h-4" />
         </Link>

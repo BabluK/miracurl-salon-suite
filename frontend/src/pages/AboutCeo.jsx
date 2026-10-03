@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { signupHref } from "@/lib/region";
 import { Link } from "react-router-dom";
 import { Facebook, Instagram, Linkedin, Crown, ArrowLeft } from "lucide-react";
 import api from "@/lib/api";
@@ -55,7 +56,7 @@ export default function AboutCeo() {
             <h1 className="font-playfair text-4xl sm:text-5xl font-light mt-3 text-slate-900">{site.ceo_name}</h1>
             <p className="text-sm text-[#a87e2f] mt-2 font-medium">{site.ceo_title}</p>
             <p className="text-slate-600 mt-6 leading-relaxed whitespace-pre-line" data-testid="ceo-page-about">{site.ceo_about}</p>
-            <Link to="/signup-salon"
+            <Link to={signupHref("salon")}
               className="inline-block mt-8 px-7 py-3.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#1c160c] font-bold hover:brightness-110 transition-all">
               Join Miracurl Suite — free trial
             </Link>

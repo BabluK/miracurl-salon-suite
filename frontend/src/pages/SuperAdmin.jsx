@@ -76,6 +76,7 @@ import { NetSpeedIndicator } from "@/components/NetSpeedIndicator";
 import "@/styles/hq-gold.css";
 import { PriceAlertCard, CompetitorWatchCard } from "@/components/superadmin/PricingIntelCards";
 import { CompetitorTrendCard } from "@/components/superadmin/CompetitorTrendCard";
+import { SignupQrCards } from "@/components/superadmin/SignupQrCards";
 import { Palette, FileDown, MailCheck, IdCard } from "lucide-react";
 
 async function downloadBlob(url, filename) {
@@ -520,7 +521,7 @@ export default function SuperAdmin() {
             leaderboard: <div className="space-y-10"><PartnersPanel /><LeaderboardPanel /></div>,
             "growth-advisory": <div className="space-y-10"><GrowthAdvisoryPanel /><RewardsCampaignCard /><RewardsCampaignCard campaign="restaurant" /></div>,
             revenue: <div className="space-y-6"><PlatformEarnings /><HiringEarningsReview /><RevenuePanel /></div>,
-            docs: <DocsPanel />,
+            docs: <div className="space-y-6"><DocsPanel /><SignupQrCards /></div>,
             "mira-leads": <MiraLeadAgent />,
             "demo-calendar": <DemoCalendar />,
             "lead-email": (

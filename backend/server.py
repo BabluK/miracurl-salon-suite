@@ -46,6 +46,7 @@ async def root():
 # ---------------- Routers (registration order preserved from the monolith) ----------------
 from routes.auth import router as auth_router  # noqa: E402
 from routes.pricing_intel import router as pricing_intel_router  # noqa: E402
+from routes.growth_analytics import router as growth_analytics_router  # noqa: E402
 from routes.manager_access import router as manager_access_router  # noqa: E402
 from routes.customers import router as customers_router  # noqa: E402
 from routes.uploads import router as uploads_router  # noqa: E402
@@ -164,7 +165,7 @@ for _r in (
     passkeys_router, eod_digests_router, wallet_pass_router, site_info_router,
     blog_router, cash_register_router, rewards_campaign_router, growth_advisory_router,
     subscription_invoices_router, rewards_settlements_router, campaign_agreement_router, tenant_features_router, support_tickets_router,
-    login_emails_router, geo_branch_router, pricing_intel_router,
+    login_emails_router, geo_branch_router, pricing_intel_router, growth_analytics_router,
 ):
     api.include_router(_r)
 
@@ -284,6 +285,8 @@ async def on_startup():
     async def _ensure_indexes():
         await db.users.create_index("email", unique=True)
         await _raw_db.sms_dedupe.create_index("sig", unique=True)
+        await _raw_db.site_visits.create_index([("created_at", 1)])
+        await _raw_db.site_visits.create_index([("day", 1), ("vid", 1)])
         await _raw_db.sms_dedupe.create_index("at")
         await db.tenants.create_index("slug", unique=True)
         if not await _raw_db.app_migrations.find_one({"key": "retire_color_pick_notices"}):

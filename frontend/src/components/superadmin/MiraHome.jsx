@@ -5,6 +5,7 @@ import { Sparkles, Flame, CalendarClock, Target, Megaphone, Lightbulb, Send, Bra
 import { MiraNeuralAvatar, MiraThinkingBeam } from "./MiraNeuralAvatar";
 import { promptAsync } from "@/components/ConfirmDialog";
 import { LinkHealthBadge } from "./LinkHealthBadge";
+import { TrafficConversionCard } from "./TrafficConversionCard";
 
 const KIND_ICON = { search: "🔍", result: "🎯", ask: "💬", call: "📞", email: "✉️", memory: "🧠" };
 
@@ -618,6 +619,7 @@ export function MiraHome({ onGoTab, user }) {
 
         {/* Right panel — status + Memory Timeline */}
         <div className="space-y-4">
+          <TrafficConversionCard />
           {home?.revenue_goal && (
             <div className="rounded-2xl bg-gradient-to-br from-emerald-500/10 to-sky-500/5 border border-emerald-400/20 p-4" data-testid="mira-revenue-goal">
               <div className="flex items-center justify-between mb-2">

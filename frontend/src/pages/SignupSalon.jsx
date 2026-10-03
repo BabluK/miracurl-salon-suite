@@ -11,11 +11,12 @@ import ChatButton from "@/components/ChatButton";
 import { useAuth } from "@/context/AuthContext";
 import { setTenantSlug } from "@/lib/api";
 import { detectRegion } from "@/lib/region";
-import { trackSignup } from "@/lib/analytics";
+import { trackSignup, trackFunnel } from "@/lib/analytics";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const TOASTER_OPTIONS = { style: { background: "#fff", color: "#0f172a", border: "1px solid rgba(14,165,233,0.2)" } };
 const STEP_LABELS = ["Salon", "Owner", "Location", "Confirm"];
+const STEP_KEYS = ["business", "owner", "location", "confirm"];
 const fmtUSD = (n) => (n == null ? "…" : "$" + Number(n).toLocaleString("en-US"));
 
 function slugify(s) {
@@ -112,26 +113,32 @@ export default function SignupSalon() {
   }, [form.salon_name, form.slug_touched]);
 
   const update = (patch) => setForm(f => ({ ...f, ...patch }));
+  const funnelCtx = { business_type: form.business_type, region, locked };
+
+  // Funnel: one signup_start per page load
+  useEffect(() => { trackFunnel("signup_start", { business_type: pathType, region: pathRegion || region, locked }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function next() {
     setErr("");
     if (step === 0) {
-      if (form.salon_name.trim().length < 3) { setErr("Salon name must be at least 3 characters"); return; }
+      if (form.salon_name.trim().length < 3) { setErr("Salon name must be at least 3 characters"); trackFunnel("signup_error", { ...funnelCtx, step, step_name: STEP_KEYS[step], error: "name_short" }); return; }
       if (!/^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$/.test(form.slug)) {
-        setErr("Slug: lowercase letters, digits, hyphens (3–40 chars, no leading/trailing hyphen)"); return;
+        setErr("Slug: lowercase letters, digits, hyphens (3–40 chars, no leading/trailing hyphen)"); trackFunnel("signup_error", { ...funnelCtx, step, step_name: STEP_KEYS[step], error: "slug_invalid" }); return;
       }
     }
     if (step === 1) {
-      if (form.owner_name.trim().length < 2) { setErr("Owner name is required"); return; }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.owner_email)) { setErr("Enter a valid email"); return; }
-      if (form.password.length < 8) { setErr("Password must be at least 8 characters"); return; }
+      if (form.owner_name.trim().length < 2) { setErr("Owner name is required"); trackFunnel("signup_error", { ...funnelCtx, step, step_name: STEP_KEYS[step], error: "owner_name" }); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.owner_email)) { setErr("Enter a valid email"); trackFunnel("signup_error", { ...funnelCtx, step, step_name: STEP_KEYS[step], error: "email_invalid" }); return; }
+      if (form.password.length < 8) { setErr("Password must be at least 8 characters"); trackFunnel("signup_error", { ...funnelCtx, step, step_name: STEP_KEYS[step], error: "password_short" }); return; }
     }
+    trackFunnel("signup_step", { ...funnelCtx, step: step + 2, step_name: STEP_KEYS[step + 1] });
     setStep(step + 1);
   }
   const back = () => { setErr(""); setStep(Math.max(0, step - 1)); };
 
   async function submit() {
     setErr(""); setBusy(true);
+    trackFunnel("signup_submit", { ...funnelCtx, step: 4, step_name: "confirm" });
     try {
       const ref = (localStorage.getItem("miracurl_ref") || "").trim().toLowerCase() || undefined;
       const offer = (localStorage.getItem("miracurl_offer") || "").trim().toLowerCase() || undefined;
@@ -163,6 +170,7 @@ export default function SignupSalon() {
     } catch (e) {
       const d = e.response?.data?.detail;
       const msg = typeof d === "string" ? d : Array.isArray(d) ? d.map(x => x.msg).join(" · ") : "Signup failed";
+      trackFunnel("signup_error", { ...funnelCtx, step: 4, step_name: "confirm", error: msg.slice(0, 80) });
       setErr(msg);
       toast.error(msg);
     } finally { setBusy(false); }

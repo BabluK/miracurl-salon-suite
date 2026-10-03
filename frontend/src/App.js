@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { GoogleAuthCallback } from "@/components/GoogleAuthCallback";
 import { useEffect, lazy, Suspense } from "react";
+import { logVisit } from "@/lib/analytics";
 
 import { BrandSplash } from "@/components/BrandSplash";
 const PageLoader = () => <BrandSplash />;
@@ -19,6 +20,7 @@ function ScrollToTop() {
       if ("requestIdleCallback" in window) window.requestIdleCallback(warm, { timeout: 1500 }); else setTimeout(warm, 600);
     }
     if (typeof window.gtag === "function") window.gtag("event", "page_view", { page_path: pathname, page_location: window.location.href, page_title: document.title });
+    logVisit(pathname);
   }, [pathname]);
   return null;
 }

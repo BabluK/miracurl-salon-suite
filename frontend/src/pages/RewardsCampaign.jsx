@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
+import { signupHref } from "@/lib/region";
 import axios from "axios";
 import { toast } from "sonner";
 import { Sparkles, Trophy, Camera, Loader2, CheckCircle2, Download, Share2, Crown, Star, CalendarDays, MapPin, Phone, Quote, ArrowRight, Scissors, UtensilsCrossed, Heart, Vote, Instagram } from "lucide-react";
@@ -301,8 +302,8 @@ function SiteFooter({ salon, slug, platformLogo, site }) {
             <h3 className="font-playfair text-4xl sm:text-5xl text-white mt-6 leading-[1.05]">Own a salon or restaurant?<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F0D9A5] via-[#d4af37] to-[#C89B52]">Get onboard & grow your business.</span></h3>
             <p className="text-sm sm:text-base text-white/70 mt-4 max-w-xl">Bookings, POS, memberships, Mira AI marketing and campaigns like this one — everything {salon.name} uses to grow, ready for you in minutes.</p>
             <div className="mt-7 flex gap-3 flex-wrap">
-              <a href="/signup-salon" className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] font-bold text-sm shadow-[0_14px_40px_-12px_rgba(212,175,55,.9)] hover:brightness-110 transition" data-testid="rewards-footer-signup-salon"><Scissors className="w-4 h-4" />{W(" Join Miracurl — Salons ")}<ArrowRight className="w-4 h-4" /></a>
-              <a href="/signup-restaurant" className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full border border-[#d4af37]/60 bg-black/30 backdrop-blur text-[#F0D9A5] font-semibold text-sm hover:bg-[#d4af37]/10 transition" data-testid="rewards-footer-signup-restaurant"><UtensilsCrossed className="w-4 h-4" /> Restaurants</a>
+              <a href={signupHref("salon")} className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] font-bold text-sm shadow-[0_14px_40px_-12px_rgba(212,175,55,.9)] hover:brightness-110 transition" data-testid="rewards-footer-signup-salon"><Scissors className="w-4 h-4" />{W(" Join Miracurl — Salons ")}<ArrowRight className="w-4 h-4" /></a>
+              <a href={signupHref("restaurant")} className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full border border-[#d4af37]/60 bg-black/30 backdrop-blur text-[#F0D9A5] font-semibold text-sm hover:bg-[#d4af37]/10 transition" data-testid="rewards-footer-signup-restaurant"><UtensilsCrossed className="w-4 h-4" /> Restaurants</a>
             </div>
           </div>
           <div className="rounded-[1.75rem] border border-[#d4af37]/30 bg-[#0b0b10]/70 backdrop-blur-xl p-7 shadow-[0_30px_80px_-30px_rgba(0,0,0,.9)]">

@@ -1,4 +1,5 @@
 import { Facebook, Instagram, Linkedin, MessageCircle, PlayCircle, Youtube } from "lucide-react";
+import { signupHref } from "@/lib/region";
 
 const NAV = [
   { label: "Features", href: "/features" }, { label: "Industries", href: "/who-can-use" }, { label: "Pricing", href: "/pricing" },
@@ -26,7 +27,7 @@ export function LandingNav() {
       </nav>
       <div className="flex items-center gap-2">
         <a href={WA_DEMO_URL} target="_blank" rel="noreferrer" className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 text-white text-sm font-semibold shadow hover:bg-emerald-700 transition-colors" data-testid="landing-whatsapp-demo"><MessageCircle className="w-4 h-4" /> WhatsApp us</a>
-        <a href="/signup-salon" className="inline-flex items-center px-4 py-2 rounded-full bg-[#14100a] text-[#e8c56a] text-sm font-semibold shadow hover:bg-black transition-colors" data-testid="landing-get-started">Get Started</a>
+        <a href={signupHref("salon")} className="inline-flex items-center px-4 py-2 rounded-full bg-[#14100a] text-[#e8c56a] text-sm font-semibold shadow hover:bg-black transition-colors" data-testid="landing-get-started">Get Started</a>
       </div>
     </header>
   );

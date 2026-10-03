@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { signupHref } from "@/lib/region";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import api from "@/lib/api";
@@ -54,7 +55,7 @@ export default function WhoCanUse() {
         </div>
 
         <div className="mt-14 text-center">
-          <Link to="/signup-salon" data-testid="who-cta-signup"
+          <Link to={signupHref("salon")} data-testid="who-cta-signup"
             className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#1c160c] font-bold hover:brightness-110 transition-all">
             Start your free trial <ArrowRight className="w-4 h-4" />
           </Link>
