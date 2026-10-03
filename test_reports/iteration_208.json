@@ -1,0 +1,36 @@
+{
+  "summary": "Iter 208 testing complete. BACKEND (8/8 pytest, test_iter208_hunt_autoreply_report.py): (a) POST /api/super-admin/mira-leads/hunt-all?vertical=restaurant&city=Bangalore returns 200 {started:bool,count:int}; when started=true, POST /mira-leads/runs/stop was invoked immediately and the resulting runs[0].city contained 'Bangalore restaurants' (actual string: 'Email hunt — Bangalore restaurants no-email leads'). (b) routes.lead_gen._extract_emails('x %22cafe%22%20bangalore%20%22@gmail.com real hello@cafe.in','cafe.in') == ['hello@cafe.in'] — the % filter correctly drops URL-encoded junk. (c) routes.mira_outreach.auto_reply_to_lead branches verified: no-email -> {sent:False, reason:'off'}; email+last_reply_text='not interested' -> reason 'opt_out'; status 'demo' -> {sent:False, reason:'already handled'}. _OPT_OUT_RE.search('Yes send me a demo') is None. (d) PUT /api/super-admin/mira/outreach/settings {auto_reply:false} returned auto_reply=false; set back to true successfully. (e) GET /api/super-admin/mira/outreach/report?vertical=restaurant&days=1 returned found_stats{found,with_email,newly_opened} (all numeric), waiting_for_reply (numeric), auto_replied (numeric). FRONTEND (Playwright, super admin → Mira Lead Agent → Autopilot & outreach): outreach-auto-reply-toggle visible and defaults checked=true; untick emitted toast 'Mira will wait for you to send demo invites'; retick emitted '🤖 Mira now answers lead replies herself'. outreach-report-panel renders outreach-report-summary with text '⏳ Waiting on 0 restaurants  🤖 Mira answered 0 replies herself  🔎 Found 12 new (2 with email · 12 newly opened)' — contains all required keywords. 'All' drawer: 'Partners & Top Referrers'=1, 'Growth Advisory & Customer Rewards'=1, standalone 'Top Referrers'=0, standalone 'Growth Advisory'=0. Clicking Growth Advisory tab rendered both rewards-campaign-card (bg=rgb(255,255,255), color=rgb(30,41,59)) and rewards-campaign-card-restaurant — light/gold styling confirmed. Partners tab rendered PartnersPanel + LeaderboardPanel content. Tenants tab contains 0 rewards-campaign-card elements (correctly moved out).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Partners & Top Referrers tab (pre-existing)", "issues": ["React hydration warning: <span> rendered inside <option> in LabelGenerator (ProductsLaunchPanel). Pre-existing from previous iterations, unrelated to iter 208 changes; still worth fixing to clear console errors."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter208_hunt_autoreply_report.py",
+    "/app/test_reports/pytest/iter208.xml"
+  ],
+  "action_items": [
+    "(Pre-existing, minor) Fix <span> inside <option> hydration warning in frontend/src/components/superadmin/LabelGenerator.jsx (variable rendering inside <option>)."
+  ],
+  "critical_code_review_comments": [
+    "routes/lead_gen.py:hunt_all_emails scopes query with vertical ∈ {salon,restaurant} and city regex ^<city>i — correct, matches spec. Label 'Email hunt — <city> <vertical>s no-email leads' is persisted into run.city, which satisfies the 'Bangalore restaurants' substring check.",
+    "routes/lead_gen.py:_extract_emails includes `'%' in low` early filter — this is the correct guard for URL-encoded junk; also chained with _SKIP_EMAIL / _SKIP_DOMAINS and 5-item cap.",
+    "routes/mira_outreach.py:auto_reply_to_lead ordering is: (1) auto_reply off OR no email -> 'off'; (2) already invited/demo/customer/unsubscribed -> 'already handled'; (3) _OPT_OUT_RE match -> write auto_reply_skipped=opt_out, log, return 'opt_out'; (4) draft + send; (5) update lead with demo_invite_sent_at + auto_replied + status demo; (6) write outreach log + mira event. Correct per spec. One nit: _OPT_OUT_RE is defined at module level with inline flag and only matches whole words — 'spam' as a bare word will trigger opt-out, which could over-match friendly emails mentioning 'spam filter'. Not critical.",
+    "services/outreach_report.py adds found_stats, waiting_for_reply, auto_replied — all computed from DB aggregates. Values returned as int; HTML template includes them. OK.",
+    "SuperAdmin.jsx NAV_ITEMS has consolidated 'Partners & Top Referrers' (id=partners) and 'Growth Advisory & Customer Rewards' (id=growth-advisory); standalone entries removed. Panels map growth-advisory -> <GrowthAdvisoryPanel/> + 2× RewardsCampaignCard; partners -> PartnersPanel + LeaderboardPanel. Verified.",
+    "RewardsCampaignCard.jsx root class 'rounded-3xl border border-slate-200 bg-white' + testid rewards-campaign-card[-restaurant]; computed bg = rgb(255,255,255) and text slate-800 — matches the light/gold restyle spec.",
+    "MiraOutreachCard.jsx outreach-auto-reply-toggle correctly reads s.auto_reply!==false; save({auto_reply:...}) hits PUT /super-admin/mira/outreach/settings and emits the two expected toasts; wording matches spec exactly."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter208_hunt_autoreply_report.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@miracurl-suite.com / og9T@41Es#OQb6 (cookie + X-CSRF-Token header)",
+  "seed_data_creation": "None. hunt-all pipeline started and immediately stopped (per guardrails). PUT settings auto_reply toggled off then restored to true. No real emails sent (no run-now, no /approve, no /send-demo-reply calls).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Regression file: /app/backend/tests/test_iter208_hunt_autoreply_report.py. Run from /app/backend with `export REACT_APP_BACKEND_URL=<preview url>` then `pytest tests/test_iter208_hunt_autoreply_report.py -n 0`. The tests import routes.mira_outreach.auto_reply_to_lead directly and share a single asyncio loop (_LOOP) to avoid motor's 'Event loop is closed' error when asyncio.run is called repeatedly. Hunt-all can be re-run safely; call /mira-leads/runs/stop right after. The LabelGenerator <span>-inside-<option> hydration warning is pre-existing and unrelated."
+}
