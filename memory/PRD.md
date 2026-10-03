@@ -3857,3 +3857,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 
 ## 2026-10-03 — Lint fix closed out
 - SignupSalon.jsx: duplicate data-testid removed, unused vars/import cleaned; oxlint clean. Build .378 features (derived pricing, price-drop alerts, competitor watch, lead history) remain verified (iter 212).
+
+## 2026-10-03 — Signup live preview + Competitor trend chart
+- `components/signup/BookingPreviewCard.jsx`: live mini-preview of the public booking page (browser-frame URL, gold top bar w/ initial avatar + name + CTA, hero w/ default tagline/location chips) on signup step 1; switches salon ↔ restaurant copy & hero. Rendered in SalonStep below the slug field.
+- `services/competitor_watch.py`: `record_history_point()` upserts one point per month into `competitor_watch_history` on every run; `competitor_history()` builds recharts rows + series (backfills from latest snapshot). New GET /api/super-admin/competitor-watch/history.
+- `components/superadmin/CompetitorTrendCard.jsx`: month-over-month LineChart (rivals thin colored, Miracurl thick gold), Salons/Restaurants toggle, empty state, refreshes on `competitor-watch-updated` event dispatched by Re-check now. Placed in Billing tab under the PriceAlert/CompetitorWatch grid.
+- Tests: iteration_213.json (3/3 backend, frontend all pass), tests/test_iter213_signup_preview_competitor_history.py.

@@ -1,0 +1,19 @@
+{
+  "summary": "Iter 213: validated the two new features — signup live preview on /signup-salon and Competitor Trend Chart in Super Admin → Billing. Backend history endpoint + run+upsert verified via pytest (3/3). Frontend signup preview verified for salon mode (name/slug typing updates preview name & URL, CTA 'Book Appointment ✦', tagline 'Where elegance meets every strand.'), slug edit (/book/glow-blr), restaurant mode (CTA 'Reserve a Table ✦', 'Fine Dining · Powered by Mira AI', tagline 'Great food, warm company, memorable evenings.', /resto-hero.jpg loads with naturalWidth=1264), empty-name placeholder 'Your Restaurant', and Continue navigates to Owner step. Super admin Billing tab renders competitor-trend-card below the PriceAlert/CompetitorWatch grid with chart + legend, restaurant toggle switches legend to Square for Restaurants/Toast POS/Miracurl (restaurant), months text present, Re-check now fires 'competitor-watch-updated' and refreshes without errors. PriceAlertCard and CompetitorWatchCard still render.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_iter213_signup_preview_competitor_history.py", "/app/test_reports/pytest/iter213.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "services/competitor_watch.py: record_history_point stores lowest_monthly OR benchmark; when live fetch fails the fallback becomes the stored price — acceptable per design but worth labelling the point as 'benchmark' in history so trend chart can style unreliable points differently.",
+    "CompetitorTrendCard: when only 1 month of data exists Recharts renders points only (no line) — the hint text already explains it. Good.",
+    "BookingPreviewCard uses window.location.host at render — safe (component only on client) but will crash during SSR if ever added."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter213_signup_preview_competitor_history.py"],
+  "success_rate": {"backend": "100% (3/3)", "frontend": "100%"},
+  "test_credentials": "super admin admin@miracurl-suite.com / og9T@41Es#OQb6 from /app/memory/test_credentials.md",
+  "seed_data_creation": "POST /api/super-admin/competitor-watch/run executed twice during the test to seed a history point for the current month and verify monthly upsert — no new tenants/users created.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter 213 features (signup live preview + competitor trend chart) are fully green. The test file /app/backend/tests/test_iter213_signup_preview_competitor_history.py pulls REACT_APP_BACKEND_URL from env or /app/frontend/.env, uses tests/_creds.pw('SUPER_ADMIN'), and sets X-CSRF-Token from the login csrf_token cookie before POSTing /super-admin/competitor-watch/run."
+}
