@@ -23,6 +23,7 @@ from security import public_base_url, require_super_admin
 router = APIRouter()
 log = logging.getLogger("mira_leads")
 from routes.lead_common import (
+    HOOKS, outreach_settings as _outreach_settings, is_luxury, ensure_subject_b, pick_subject, _has_real_inbox,
     _live_plans, _lead_intl, _plans_for, _pricing_lines, _outreach_email_html,
     _lead_reply_to, _lead_headers, _unsub_footer,
 )
@@ -166,17 +167,18 @@ async def _places_search(client: httpx.AsyncClient, city: str, n: int, areas: li
         first_err = await _places_citywide_phase(run, n, first_err)
     if not out:
         return [], first_err or "no results"
-    # Autopilot targeting: growing businesses first (5 ≤ reviews < cap — recently opened, no system yet),
-    # then luxury/premium names, then the big established ones.
-    from routes.mira_outreach import get_settings as _outreach_settings, is_luxury
-    cap = int((await _outreach_settings()).get("max_reviews") or 300)
+    out.sort(key=_targeting_rank(int((await _outreach_settings()).get("max_reviews") or 300)))
+    return out[:max(n, 1)], ""
 
+
+def _targeting_rank(cap: int):
+    """Autopilot targeting: growing businesses first (5 ≤ reviews < cap — recently opened, no system yet),
+    then luxury/premium names, then the big established ones."""
     def _rank(p):
         rv = p.get("reviews") or 0
         tier = 0 if 5 <= rv < cap else (1 if is_luxury(p) else 2)
         return (tier, -(p.get("rating") or 0), -rv)
-    out.sort(key=_rank)
-    return out[:max(n, 1)], ""
+    return _rank
 
 
 def _now():
@@ -406,40 +408,6 @@ def _draft_fields(draft: dict) -> dict:
     return {"email_subject": draft["subject"], "email_subject_b": draft.get("subject_b") or "", "email_body": draft["body"], "status": "drafted"}
 
 
-async def ensure_subject_b(lead: dict) -> dict:
-    """Older drafts have only one subject — ask Mira for the alternate-angle variant once and store it."""
-    if lead.get("email_subject_b") or not lead.get("email_subject") or not lead.get("id"):
-        return lead
-    from routes.mira_common import _ask_json
-    noun = "restaurant" if (lead.get("vertical") or "salon") == "restaurant" else "salon"
-    try:
-        out = await _ask_json(
-            "You write scroll-stopping B2B email subject lines.",
-            f"{noun.capitalize()}: {lead.get('name')} ({lead.get('city')}), rating {lead.get('rating')}, {lead.get('reviews')} reviews. "
-            f"Current subject (variant A): {lead['email_subject']}\nWrite variant B with a DIFFERENT angle (money/time/FOMO if A is a "
-            'compliment, or vice versa), personalized, exactly ONE emoji, max 60 chars. Return JSON: {"subject_b": "..."}')
-        b = str(out.get("subject_b") or "").strip()[:120]
-    except Exception:  # noqa: BLE001 — A/B is a nice-to-have, never block a send
-        b = ""
-    if b and b != lead["email_subject"]:
-        lead["email_subject_b"] = b
-        await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": {"email_subject_b": b}})
-    return lead
-
-
-def pick_subject(lead: dict, ab_enabled: bool = True) -> tuple[str, str]:
-    """(subject, variant). Deterministic 50/50 split on the lead id so retries keep the same variant."""
-    a = lead.get("email_subject") or "Miracurl Suite — free demo"
-    b = lead.get("email_subject_b") or ""
-    if not ab_enabled or not b:
-        return a, "A" if b else ""
-    try:
-        odd = int(str(lead.get("id") or "0")[-1], 16) % 2 == 1
-    except ValueError:
-        odd = False
-    return (b, "B") if odd else (a, "A")
-
-
 _CONTACT_PATHS = ("/contact", "/contact-us", "/contactus", "/contact.html", "/pages/contact",
                   "/pages/contact-us", "/about", "/about-us", "/book", "/booking", "/appointments")
 
@@ -664,27 +632,31 @@ async def _instagram_contacts(client: httpx.AsyncClient, handle: str) -> dict:
     return {**_ig_parse_contacts(text, handle), "via": "search"} if text else {}
 
 
+async def _merge_instagram(client: httpx.AsyncClient, lead: dict, handle: str) -> None:
+    """Fill email / phone / followers from the Instagram bio when the website gave us nothing."""
+    ig = await _instagram_contacts(client, handle)
+    if ig.get("emails") and not lead.get("email"):
+        good = await _pick_deliverable(ig["emails"])
+        if good:
+            lead.update({"email": good[0], "all_emails": list(dict.fromkeys((lead.get("all_emails") or []) + good)),
+                         "email_source": "instagram"})
+    if ig.get("phone") and not lead.get("phone"):
+        lead["phone"], lead["phone_source"] = ig["phone"], "instagram"
+    if ig.get("handle"):
+        lead["instagram_handle"] = ig["handle"]
+    if ig.get("followers") and not lead.get("instagram_followers"):
+        lead["instagram_followers"] = ig["followers"]
+        lead["score"], lead["score_breakdown"] = _score(lead)
+
+
 async def _research_salon(client: httpx.AsyncClient, name: str, city: str, website_hint: str = "",
                           vertical: str = "salon") -> dict:
     site = await _scrape_site(client, website_hint)
     info = await _llm_research(name, city, site, vertical)
     lead = _compose_lead(name, city, site, info, vertical)
-    # Instagram fallback (salons AND restaurants): bio email / phone when the website gave us nothing.
     handle = _ig_handle(site.get("instagram") or info.get("instagram") or "")
-    if handle and (not lead.get("email") or not lead.get("phone") or not lead.get("instagram_followers")):
-        ig = await _instagram_contacts(client, handle)
-        if ig.get("emails") and not lead.get("email"):
-            good = await _pick_deliverable(ig["emails"])
-            if good:
-                lead["email"], lead["all_emails"] = good[0], list(dict.fromkeys((lead.get("all_emails") or []) + good))
-                lead["email_source"] = "instagram"
-        if ig.get("phone") and not lead.get("phone"):
-            lead["phone"], lead["phone_source"] = ig["phone"], "instagram"
-        if ig.get("handle"):
-            lead["instagram_handle"] = ig["handle"]
-        if ig.get("followers") and not lead.get("instagram_followers"):
-            lead["instagram_followers"] = ig["followers"]
-            lead["score"], lead["score_breakdown"] = _score(lead)
+    if handle and not (lead.get("email") and lead.get("phone") and lead.get("instagram_followers")):
+        await _merge_instagram(client, lead, handle)
     return lead
 
 
@@ -737,24 +709,28 @@ def _norm_biz(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", (name or "").lower()).strip()
 
 
+def _digits10(raw: str) -> str:
+    return "".join(ch for ch in (raw or "") if ch.isdigit())[-10:]
+
+
+def _host(url: str) -> str:
+    return (url or "").lower().replace("https://", "").replace("http://", "").split("/")[0].removeprefix("www.")
+
+
 async def _own_business_filter():
     """Returns is_own(candidate) — True for the platform's own tenants (name / phone / website / brand word)."""
     from email_service import _LOGIN_ONLY_DOMAINS
     tenants = await _raw_db.tenants.find({}, {"_id": 0, "name": 1, "phone": 1, "website": 1, "slug": 1}).to_list(500)
-    names = {_norm_biz(t.get("name")) for t in tenants if t.get("name")}
-    phones = {"".join(ch for ch in (t.get("phone") or "") if ch.isdigit())[-10:] for t in tenants if t.get("phone")}
-    sites = {(t.get("website") or "").lower().replace("https://", "").replace("http://", "").split("/")[0].removeprefix("www.")
-             for t in tenants if t.get("website")} | set(_LOGIN_ONLY_DOMAINS)
+    names = {_norm_biz(t["name"]) for t in tenants if t.get("name")}
+    phones = {_digits10(t["phone"]) for t in tenants if t.get("phone")}
+    sites = {_host(t["website"]) for t in tenants if t.get("website")} | set(_LOGIN_ONLY_DOMAINS)
 
     def is_own(c: dict) -> bool:
         n = _norm_biz(c.get("name"))
-        if any(w in n for w in _BRAND_WORDS) or (n and n in names):
-            return True
-        ph = "".join(ch for ch in (c.get("phone") or (c.get("_place") or {}).get("phone") or "") if ch.isdigit())[-10:]
-        if ph and ph in phones:
-            return True
-        site = (c.get("website") or "").lower().replace("https://", "").replace("http://", "").split("/")[0].removeprefix("www.")
-        return bool(site) and site in sites
+        ph = _digits10(c.get("phone") or (c.get("_place") or {}).get("phone"))
+        site = _host(c.get("website"))
+        return (any(w in n for w in _BRAND_WORDS) or (n and n in names)
+                or (ph and ph in phones) or (site and site in sites))
     return is_own
 
 
@@ -1049,13 +1025,7 @@ async def cleanup_leads(body: CleanupIn, user=Depends(require_super_admin)):
     return {"deleted": r.deleted_count, "runs_deleted": runs.deleted_count, "mode": body.mode}
 
 
-def _has_real_inbox(email: str) -> bool:
-    """False when follow-ups would be skipped: no email, login-only @miracurl.com, or a placeholder domain."""
-    from email_service import _is_login_only
-    e = (email or "").strip().lower()
-    if not e or "@" not in e or _is_login_only(e):
-        return False
-    return e.rpartition("@")[2] not in ("example.com", "example.org", "test.com", "email.com", "domain.com")
+
 
 
 def _name_tokens(name: str) -> list:
@@ -1097,33 +1067,47 @@ async def _search_emails(client: httpx.AsyncClient, query: str, lead: dict, site
     return []
 
 
+async def _hunt_website(client, lead: dict) -> tuple[tuple | None, str]:
+    """(result or None, facebook handle discovered on the site)."""
+    if not lead.get("website"):
+        return None, ""
+    site = await _scrape_site(client, lead["website"])
+    if site["emails"]:
+        return (site["emails"][0], site.get("email_from") or "website", site["emails"]), ""
+    return None, _fb_handle(site.get("facebook") or "")
+
+
+async def _hunt_instagram(client, lead: dict) -> tuple | None:
+    handle = _ig_handle(lead.get("instagram") or lead.get("instagram_handle") or "")
+    if not handle:
+        return None
+    emails = await _pick_deliverable((await _instagram_contacts(client, handle)).get("emails") or [])
+    return (emails[0], f"instagram: @{handle}", emails) if emails else None
+
+
+async def _hunt_search(client, lead: dict, queries: list[tuple[str, str]], site_domain: str) -> tuple | None:
+    for q, source in queries:
+        emails = await _pick_deliverable(await _search_emails(client, q, lead, site_domain))
+        if emails:
+            return emails[0], source, emails
+    return None
+
+
 async def _deep_email_hunt(lead: dict) -> tuple:
     """Second-pass hunt: website deep-crawl → Instagram bio → Facebook page → Google/Bing results (name + city + email)."""
     site_domain = _site_domain(lead.get("website") or "")
     name, city = lead.get("name", ""), lead.get("city", "")
     async with httpx.AsyncClient(timeout=15) as client:
-        fb = ""
-        if lead.get("website"):
-            site = await _scrape_site(client, lead["website"])
-            if site["emails"]:
-                return site["emails"][0], site.get("email_from") or "website", site["emails"]
-            fb = _fb_handle(site.get("facebook") or "")
-        handle = _ig_handle(lead.get("instagram") or lead.get("instagram_handle") or "")
-        if handle:
-            ig = await _instagram_contacts(client, handle)
-            emails = await _pick_deliverable(ig.get("emails") or [])
-            if emails:
-                return emails[0], f"instagram: @{handle}", emails
+        found, fb = await _hunt_website(client, lead)
+        found = found or await _hunt_instagram(client, lead)
+        if found:
+            return found
         fb = fb or _fb_handle(lead.get("facebook") or "")
         fb_query = f"site:facebook.com {fb}" if fb else f'site:facebook.com "{name}" {city} email'
-        emails = await _pick_deliverable(await _search_emails(client, fb_query, lead, site_domain))
-        if emails:
-            return emails[0], f"facebook{': ' + fb if fb else ''}", emails
-        for q in (f'"{name}" {city} email contact', f'"{name}" {city} gmail'):
-            emails = await _pick_deliverable(await _search_emails(client, q, lead, site_domain))
-            if emails:
-                return emails[0], "google", emails
-    return "", "", []
+        queries = [(fb_query, f"facebook{': ' + fb if fb else ''}"),
+                   (f'"{name}" {city} email contact', "google"), (f'"{name}" {city} gmail', "google")]
+        found = await _hunt_search(client, lead, queries, site_domain)
+    return found or ("", "", [])
 
 
 @router.post("/super-admin/mira-leads/{lid}/find-email")
@@ -1284,7 +1268,6 @@ async def approve_and_send(lid: str, user=Depends(require_super_admin)):
     if lead.get("unsubscribed"):
         raise HTTPException(400, "This lead unsubscribed — no further emails allowed.")
     from email_service import _send_email
-    from routes.mira_outreach import get_settings as _outreach_settings
     ab_on = (await _outreach_settings()).get("ab_test", True)
     if ab_on:
         lead = await ensure_subject_b(lead)
@@ -1793,8 +1776,8 @@ async def _mark_lead_replied(lead: dict, data: dict) -> None:
     except Exception:
         log.exception("conversion alert failed")
     try:
-        from routes.mira_outreach import auto_reply_to_lead
-        await auto_reply_to_lead(full)
+        if HOOKS.get("auto_reply"):
+            await HOOKS["auto_reply"](full)
     except Exception:
         log.exception("mira auto-reply failed")
 
@@ -1968,7 +1951,6 @@ async def run_lead_followups() -> dict:
     """One-time gentle follow-up to leads still in 'sent' after FOLLOWUP_AFTER_DAYS days.
     Skipped while the Outreach Autopilot is ON — its day 7/14/30/90 reminder cadence takes over."""
     from email_service import _send_email
-    from routes.mira_outreach import get_settings as _outreach_settings
     if (await _outreach_settings()).get("enabled"):
         return {"due": 0, "sent": 0, "failed": 0, "skipped": "autopilot cadence active"}
     cutoff = (datetime.now(timezone.utc) - timedelta(days=FOLLOWUP_AFTER_DAYS)).isoformat()

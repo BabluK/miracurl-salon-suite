@@ -5,13 +5,14 @@ import requests
 import pytest
 from datetime import datetime, timezone
 from pymongo import MongoClient
+from _creds import pw
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "miracurl_db")
 
 EMAIL = "admin@miracurl-suite.com"
-PASSWORD = "og9T@41Es#OQb6"
+PASSWORD = pw("SUPER_ADMIN")
 
 
 @pytest.fixture(scope="module")

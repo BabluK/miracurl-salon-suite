@@ -5,12 +5,13 @@ import uuid
 import requests
 import pytest
 from dotenv import load_dotenv
+from _creds import pw
 
 load_dotenv("/app/backend/.env")
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 EMAIL = "admin@miracurl-suite.com"
-PASSWORD = "og9T@41Es#OQb6"
+PASSWORD = pw("SUPER_ADMIN")
 
 # shared loop (motor single-client pattern)
 _LOOP = asyncio.new_event_loop()
@@ -31,6 +32,7 @@ _SYNC_DB = _SYNC_CLIENT[os.environ["DB_NAME"]]
 # Monkey-patch mira_outreach._raw_db onto a motor client bound to our test loop
 # so that `await _raw_db.<coll>.insert_one(...)` inside remember_tone works.
 import routes.mira_outreach as _mo  # noqa: E402
+from _creds import pw
 _mo._raw_db = AsyncIOMotorClient(os.environ["MONGO_URL"], io_loop=_LOOP)[os.environ["DB_NAME"]]
 
 

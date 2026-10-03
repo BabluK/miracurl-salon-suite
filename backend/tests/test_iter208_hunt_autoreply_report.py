@@ -4,6 +4,10 @@ import asyncio
 import time
 import requests
 import pytest
+from _creds import pw
+from dotenv import load_dotenv
+
+load_dotenv("/app/backend/.env")
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 
@@ -15,7 +19,7 @@ _LOOP = asyncio.new_event_loop()
 def _run(coro):
     return _LOOP.run_until_complete(coro)
 EMAIL = "admin@miracurl-suite.com"
-PASSWORD = "og9T@41Es#OQb6"
+PASSWORD = pw("SUPER_ADMIN")
 
 
 @pytest.fixture(scope="module")

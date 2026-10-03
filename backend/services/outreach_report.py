@@ -132,7 +132,7 @@ async def send_vertical_report(vertical: str, days: int = 1, to: list | None = N
     rep = await build_report(vertical, days)
     noun = "Restaurants" if vertical == "restaurant" else "Salons"
     icon = "🍽️" if vertical == "restaurant" else "💇"
-    subject = (f"{icon} Mira sent {rep['sent_today']} {noun.lower()} email{'s' if rep['sent_today'] != 1 else ''} {_period(rep)} · "
+    subject = (f"{icon} {noun} · Mira sent {rep['sent_today']} email{'s' if rep['sent_today'] != 1 else ''} {_period(rep)} · "
                f"waiting on {rep['waiting_for_reply']} · found {rep['found_stats']['found']} new")
     res = await _send_email(to or hq_notify_emails("sales"), subject, report_html(rep), from_name="Mira at Miracurl")
     await _raw_db.platform_settings.update_one({"key": "mira_outreach_report"},

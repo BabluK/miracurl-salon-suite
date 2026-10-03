@@ -519,31 +519,29 @@ def _lead_rows(leads: list, empty: str) -> str:
 
 # ---------------- Weekly Win Report (Monday morning email) ----------------
 
-async def send_weekly_win_report(force: bool = False) -> bool:
-    """Monday-morning email: Mira's last-7-day wins — leads, emails, demo requests, heat risers."""
-    from email_service import _send_email, hq_notify_emails
-    ist_now = datetime.now(_IST)
-    week_key = ist_now.strftime("%G-W%V")
-    if not force:
-        if ist_now.weekday() != 0 or ist_now.hour < 9:
-            return False
-        sent = await _raw_db.platform_settings.find_one(
-            {"key": "mira_weekly_win", "last_sent": week_key}, {"_id": 1})
-        if sent:
-            return False
-    since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-    stats = await _outreach_stats(since)
-    new_tenants = await _raw_db.tenants.count_documents({"created_at": {"$gte": since}})
+async def _weekly_already_sent(ist_now) -> bool:
+    if ist_now.weekday() != 0 or ist_now.hour < 9:
+        return True
+    return bool(await _raw_db.platform_settings.find_one(
+        {"key": "mira_weekly_win", "last_sent": ist_now.strftime("%G-W%V")}, {"_id": 1}))
+
+
+async def _weekly_risers(since: str) -> list[dict]:
     rd = await _raw_db.platform_settings.find_one({"key": "lead_heat_risers"}, {"_id": 0}) or {}
-    risers = (rd.get("risers") or [])[:3] if (rd.get("ran_at") or "") >= since else []
-    win_rows = _lead_rows(stats["demo_leads"], "No demo requests this week — a fresh outreach push could change that.")
-    riser_html = ""
-    if risers:
-        riser_html = ("<h3 style='color:#1c1c22;font-size:14px;margin:20px 0 6px'>🔥 Heating up this week</h3>" +
-                      "".join(f"<div style='font-size:13px;color:#333;padding:4px 0'>• <b>{html_lib.escape(r['name'])}</b> "
-                              f"<span style='color:#888'>{html_lib.escape(r.get('city') or '')}</span> — score {r['from']} → <b>{r['to']}</b></div>"
-                              for r in risers))
-    html = f"""
+    return (rd.get("risers") or [])[:3] if (rd.get("ran_at") or "") >= since else []
+
+
+def _risers_html(risers: list[dict]) -> str:
+    if not risers:
+        return ""
+    return ("<h3 style='color:#1c1c22;font-size:14px;margin:20px 0 6px'>🔥 Heating up this week</h3>" +
+            "".join(f"<div style='font-size:13px;color:#333;padding:4px 0'>• <b>{html_lib.escape(r['name'])}</b> "
+                    f"<span style='color:#888'>{html_lib.escape(r.get('city') or '')}</span> — score {r['from']} → <b>{r['to']}</b></div>"
+                    for r in risers))
+
+
+def _weekly_win_html(ist_now, stats: dict, new_tenants: int, win_rows: str, riser_html: str) -> str:
+    return f"""
     <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto">
       <div style="background:#1c1c22;border-radius:18px 18px 0 0;padding:24px 28px">
         <div style="color:#d4af37;font-size:20px;font-weight:bold">🏆 Mira's Weekly Win Report</div>
@@ -567,6 +565,20 @@ async def send_weekly_win_report(force: bool = False) -> bool:
           Have a great week! Tell me a city and I'll hunt fresh salon leads for you. — Mira 💫</p>
       </div>
     </div>"""
+
+
+async def send_weekly_win_report(force: bool = False) -> bool:
+    """Monday-morning email: Mira's last-7-day wins — leads, emails, demo requests, heat risers."""
+    from email_service import _send_email, hq_notify_emails
+    ist_now = datetime.now(_IST)
+    week_key = ist_now.strftime("%G-W%V")
+    if not force and await _weekly_already_sent(ist_now):
+        return False
+    since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    stats = await _outreach_stats(since)
+    new_tenants = await _raw_db.tenants.count_documents({"created_at": {"$gte": since}})
+    win_rows = _lead_rows(stats["demo_leads"], "No demo requests this week — a fresh outreach push could change that.")
+    html = _weekly_win_html(ist_now, stats, new_tenants, win_rows, _risers_html(await _weekly_risers(since)))
     to = ([os.environ["HQ_DIGEST_EMAIL"]] if os.environ.get("HQ_DIGEST_EMAIL")
           else hq_notify_emails("admin"))
     if not to:

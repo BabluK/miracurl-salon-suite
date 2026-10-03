@@ -747,6 +747,26 @@ def _welcome_feature_blocks(locked_modules: list | None, is_resto: bool) -> tupl
     return _feature_grid(enabled, is_resto, on=True), locked_block, len(enabled)
 
 
+def _welcome_login_box(owner_email: str, temp_pw: str, login_url: str) -> str:
+    """Credentials card + 'Login Now' button row of the welcome email (values already HTML-escaped)."""
+    return f"""<tr><td style="padding:22px 36px 6px">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#fbf7ea;border:1px solid #ecdfc0;border-radius:14px">
+    <tr><td style="padding:18px 22px">
+      <div style="font-size:18px;color:#1d1d24">🔒 Your Login Details</div>
+      <table cellpadding="0" cellspacing="0" style="margin-top:10px;font-family:Arial,sans-serif;font-size:14px;color:#2b2b33;line-height:2">
+        <tr><td style="color:#6b6b74;width:110px">Username</td><td>: <b>{owner_email}</b></td></tr>
+        <tr><td style="color:#6b6b74">Password</td><td>: <span style="font-family:monospace;background:#fff;border:1px dashed #d4af37;padding:2px 12px;border-radius:8px;font-weight:bold;color:#8a6d1f">{temp_pw}</span></td></tr>
+        <tr><td style="color:#6b6b74">Login here</td><td>: <a href="{login_url}" style="color:#a08a4b;font-weight:bold">{login_url}</a></td></tr>
+      </table>
+      <div style="font-family:Arial,sans-serif;font-size:11px;color:#8a8a94;margin-top:6px">For security, please change your password after your first login.</div>
+    </td>
+    <td align="right" style="padding:18px 22px;vertical-align:middle">
+      <a href="{login_url}" style="background:linear-gradient(135deg,#d4af37,#e6c66e);color:#17171f;text-decoration:none;font-family:Arial,sans-serif;font-weight:bold;font-size:14px;padding:14px 26px;border-radius:12px;display:inline-block;white-space:nowrap">Login Now →</a>
+    </td></tr>
+  </table>
+</td></tr>"""
+
+
 def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_url: str = "",
                         business_type: str = "salon", owner_name: str = "", locked_modules: list | None = None) -> str:
     """Welcome + one-time credentials — dark hero, login box, feature grid (enabled vs locked by plan)."""
@@ -773,22 +793,7 @@ def _welcome_email_html(salon_name: str, owner_email: str, temp_pw: str, poster_
   <div style="color:#e6c66e;font-size:12px;margin-top:10px;font-style:italic">{tagline} ♥</div>
   <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:18px;border-top:1px solid rgba(255,255,255,.1)"><tr>{pillar_cells}</tr></table>
 </td></tr>
-<tr><td style="padding:22px 36px 6px">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#fbf7ea;border:1px solid #ecdfc0;border-radius:14px">
-    <tr><td style="padding:18px 22px">
-      <div style="font-size:18px;color:#1d1d24">🔒 Your Login Details</div>
-      <table cellpadding="0" cellspacing="0" style="margin-top:10px;font-family:Arial,sans-serif;font-size:14px;color:#2b2b33;line-height:2">
-        <tr><td style="color:#6b6b74;width:110px">Username</td><td>: <b>{owner_email}</b></td></tr>
-        <tr><td style="color:#6b6b74">Password</td><td>: <span style="font-family:monospace;background:#fff;border:1px dashed #d4af37;padding:2px 12px;border-radius:8px;font-weight:bold;color:#8a6d1f">{temp_pw}</span></td></tr>
-        <tr><td style="color:#6b6b74">Login here</td><td>: <a href="{login_url}" style="color:#a08a4b;font-weight:bold">{login_url}</a></td></tr>
-      </table>
-      <div style="font-family:Arial,sans-serif;font-size:11px;color:#8a8a94;margin-top:6px">For security, please change your password after your first login.</div>
-    </td>
-    <td align="right" style="padding:18px 22px;vertical-align:middle">
-      <a href="{login_url}" style="background:linear-gradient(135deg,#d4af37,#e6c66e);color:#17171f;text-decoration:none;font-family:Arial,sans-serif;font-weight:bold;font-size:14px;padding:14px 26px;border-radius:12px;display:inline-block;white-space:nowrap">Login Now →</a>
-    </td></tr>
-  </table>
-</td></tr>
+{_welcome_login_box(owner_email, temp_pw, login_url)}
 <tr><td style="padding:16px 36px 8px">
   <div style="font-size:18px;color:#1d1d24;border-bottom:1px solid #ecdfc0;padding-bottom:8px">Explore Powerful Features <span style="font-family:Arial,sans-serif;font-size:11px;color:#8a8a94">· {enabled_count} enabled for {salon}</span></div>
   {enabled_grid}

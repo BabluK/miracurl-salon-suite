@@ -724,6 +724,32 @@ def _project_export_files(doc: dict) -> list[dict]:
     return [{"path": f["path"], "content": f["content"]} for f in (doc.get("gen_files") or [])]
 
 
+async def _gh_ensure_repo(gh: httpx.AsyncClient, owner: str, body: GithubExportIn, description: str) -> str:
+    """Create the repo (or reuse an existing one with that name). Returns the repo name."""
+    r = await gh.post("/user/repos", json={"name": body.repo_name, "private": body.private, "description": description})
+    if r.status_code == 201:
+        return r.json()["name"]
+    if r.status_code == 422:  # already exists — reuse
+        if (await gh.get(f"/repos/{owner}/{body.repo_name}")).status_code != 200:
+            raise HTTPException(400, "Repo name already taken but your token can't access it — pick another name")
+        return body.repo_name
+    if r.status_code == 403:
+        raise HTTPException(400, "Token lacks permission to create repos — grant 'Administration' + 'Contents' (write) permissions")
+    raise HTTPException(502, "GitHub refused the request — check your token permissions")
+
+
+async def _gh_push_file(gh: httpx.AsyncClient, owner: str, repo: str, f: dict) -> None:
+    import base64 as _b64
+    payload = {"message": f"Add {f['path']} — Mira AI Studio ✦", "content": _b64.b64encode(f["content"].encode()).decode()}
+    rf = await gh.get(f"/repos/{owner}/{repo}/contents/{f['path']}")
+    if rf.status_code == 200:
+        payload["sha"] = rf.json().get("sha")
+        payload["message"] = f"Update {f['path']} — Mira AI Studio ✦"
+    rp = await gh.put(f"/repos/{owner}/{repo}/contents/{f['path']}", json=payload)
+    if rp.status_code not in (200, 201):
+        raise HTTPException(502, f"Failed pushing {f['path']} — check token 'Contents' write permission")
+
+
 @router.post("/public/mira-builder/github-export")
 async def builder_github_export(body: GithubExportIn, request: Request, authorization: str = Header(default="")):
     u = await _studio_user(authorization)
@@ -741,36 +767,12 @@ async def builder_github_export(body: GithubExportIn, request: Request, authoriz
         if r.status_code != 200:
             raise HTTPException(400, "GitHub token invalid or expired — create a new token and try again")
         owner = r.json()["login"]
-        r = await gh.post("/user/repos", json={
-            "name": body.repo_name, "private": body.private,
-            "description": f"{doc.get('name', 'Project')} — built with Mira AI Studio ✦"})
-        if r.status_code == 201:
-            repo = r.json()["name"]
-        elif r.status_code == 422:  # already exists — reuse
-            repo = body.repo_name
-            r2 = await gh.get(f"/repos/{owner}/{repo}")
-            if r2.status_code != 200:
-                raise HTTPException(400, "Repo name already taken but your token can't access it — pick another name")
-        elif r.status_code == 403:
-            raise HTTPException(400, "Token lacks permission to create repos — grant 'Administration' + 'Contents' (write) permissions")
-        else:
-            raise HTTPException(502, "GitHub refused the request — check your token permissions")
-        pushed = []
+        repo = await _gh_ensure_repo(gh, owner, body, f"{doc.get('name', 'Project')} — built with Mira AI Studio ✦")
         for f in files:
-            import base64 as _b64
-            payload = {"message": f"Add {f['path']} — Mira AI Studio ✦",
-                       "content": _b64.b64encode(f["content"].encode()).decode()}
-            rf = await gh.get(f"/repos/{owner}/{repo}/contents/{f['path']}")
-            if rf.status_code == 200:
-                payload["sha"] = rf.json().get("sha")
-                payload["message"] = f"Update {f['path']} — Mira AI Studio ✦"
-            rp = await gh.put(f"/repos/{owner}/{repo}/contents/{f['path']}", json=payload)
-            if rp.status_code not in (200, 201):
-                raise HTTPException(502, f"Failed pushing {f['path']} — check token 'Contents' write permission")
-            pushed.append(f["path"])
+            await _gh_push_file(gh, owner, repo, f)
     repo_url = f"https://github.com/{owner}/{repo}"
     await _raw_db.builder_projects.update_one({"id": doc["id"]}, {"$set": {"github_repo": repo_url}})
-    return {"ok": True, "repo_url": repo_url, "files_pushed": pushed}
+    return {"ok": True, "repo_url": repo_url, "files_pushed": [f["path"] for f in files]}
 
 
 @router.get("/public/mira-builder/showcase")

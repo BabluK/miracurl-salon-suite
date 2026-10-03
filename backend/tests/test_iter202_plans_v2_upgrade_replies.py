@@ -2,12 +2,13 @@
 import os
 import pytest
 import requests
+from _creds import pw
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 API = BASE_URL + "/api"
 
 SUPER_EMAIL = "admin@miracurl-suite.com"
-SUPER_PASS = "og9T@41Es#OQb6"
+SUPER_PASS = pw("SUPER_ADMIN")
 TENANT_EMAIL = "admin@miracurl.com"
 TENANT_PASS = "q6QY@tn3p#9DtL"
 TENANT_SLUG = "miracurl-marathahalli"

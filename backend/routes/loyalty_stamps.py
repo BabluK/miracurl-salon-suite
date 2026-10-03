@@ -97,6 +97,10 @@ async def add_stamp_manual(body: StampIn, user=Depends(get_current_user), t=Depe
     return _card(cust, cfg)
 
 
+def _rewards_available(cust: dict, cfg: dict) -> int:
+    return int(cust.get("stamps") or 0) // cfg["stamps_needed"] - int(cust.get("stamp_rewards_redeemed") or 0)
+
+
 @router.post("/loyalty/stamps/redeem")
 async def redeem_reward(body: StampIn, user=Depends(get_current_user), t=Depends(current_tenant)):
     cfg = _cfg(t)
@@ -105,12 +109,16 @@ async def redeem_reward(body: StampIn, user=Depends(get_current_user), t=Depends
     cust = await _find_cust(body.phone)
     if not cust:
         raise HTTPException(404, "No customer found with that phone")
-    available = int(cust.get("stamps") or 0) // cfg["stamps_needed"] - int(cust.get("stamp_rewards_redeemed") or 0)
-    if available < 1:
+    if _rewards_available(cust, cfg) < 1:
         raise HTTPException(400, "Card is not full yet — no reward to redeem")
     await db.customers.update_one({"id": cust["id"]}, {"$inc": {"stamp_rewards_redeemed": 1}})
     cust["stamp_rewards_redeemed"] = int(cust.get("stamp_rewards_redeemed") or 0) + 1
     gift = (body.gift or "").strip()[:80] or cfg["reward_label"]
+    await _log_gift(t, cust, body, gift, user)
+    return {**_card(cust, cfg), "redeemed": True, "gift": gift}
+
+
+async def _log_gift(t: dict, cust: dict, body: StampIn, gift: str, user: dict) -> None:
     import uuid as _uuid
     await _raw_db.loyalty_gift_log.insert_one({
         "id": str(_uuid.uuid4()), "tenant_id": t["id"], "customer_id": cust["id"],
@@ -118,10 +126,6 @@ async def redeem_reward(body: StampIn, user=Depends(get_current_user), t=Depends
         "gift": gift, "is_surprise": bool(body.gift),
         "redeemed_by": user.get("name") or user.get("email") or "staff",
         "created_at": datetime.now(timezone.utc).isoformat()})
-    out = _card(cust, cfg)
-    out["redeemed"] = True
-    out["gift"] = gift
-    return out
 
 
 @router.get("/reports/loyalty-gifts")

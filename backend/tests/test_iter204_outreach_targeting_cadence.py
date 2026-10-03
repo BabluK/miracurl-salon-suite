@@ -6,12 +6,13 @@ from datetime import datetime, timezone, timedelta
 import pytest
 import requests
 from pymongo import MongoClient
+from _creds import pw
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 API = BASE_URL + "/api"
 
 SUPER_EMAIL = "admin@miracurl-suite.com"
-SUPER_PASS = "og9T@41Es#OQb6"
+SUPER_PASS = pw("SUPER_ADMIN")
 
 MONGO_URL = os.environ.get("MONGO_URL")
 DB_NAME = os.environ.get("DB_NAME")

@@ -14,12 +14,14 @@ from pydantic import BaseModel, Field
 
 from database import _raw_db
 from security import require_super_admin
-from routes.lead_common import (_live_plans, _outreach_email_html, _lead_reply_to, _lead_headers, log_mira_event, _unsub_footer)
+from routes.lead_common import (_live_plans, _outreach_email_html, _lead_reply_to, _lead_headers, log_mira_event, _unsub_footer,
+                                HOOKS, OUTREACH_SETTINGS_KEY as SETTINGS_KEY, OUTREACH_DEFAULTS as _DEFAULTS, outreach_settings as get_settings,
+                                is_luxury, segment_of, _LUXURY_RE, ensure_subject_b, pick_subject, _has_real_inbox)
+from routes.lead_gen import _run_pipeline, fail_stale_runs, _draft_email
 from routes.lead_wa_auto import _wa_phone, send_intro, template_status
 
 router = APIRouter()
 log = logging.getLogger("mira_outreach")
-SETTINGS_KEY = "mira_outreach"
 _CYCLE_LOCK = asyncio.Lock()
 
 # ISO suffix on lead.city → (dial code, UTC offset hours). India (no suffix) is the default.
@@ -39,34 +41,6 @@ _WORLD_CITIES = [
     "Singapore, SG", "Kuala Lumpur, MY", "Sydney, AU", "Melbourne, AU", "Auckland, NZ",
     "Nairobi, KE", "Johannesburg, ZA", "Colombo, LK", "Kathmandu, NP", "Dhaka, BD",
 ]
-_DEFAULTS = {"enabled": True, "daily_email_limit": 100, "per_cycle": 10, "min_score": 30,
-             "verticals": ["salon", "restaurant"], "wa_countries": ["91"], "auto_hunt": True, "hunts_per_day": 2,
-             "hunt_countries": ["IN", "AE", "UK", "US", "SG", "AU", "CA"], "start_hour": 9, "end_hour": 18,
-             # targeting: growing businesses (recently opened, < max_reviews Google reviews) + luxury salons
-             "max_reviews": 300, "include_luxury": True,
-             # reminder cadence for leads that never replied: day 7 → day 14 → day 30 → every 90 days
-             "followup_days": [7, 7, 16, 90],
-             # Boss's wording instructions per vertical — appended to Mira's pitch prompt
-             "pitch_notes": {"salon": "", "restaurant": ""},
-             # A/B subject-line test: each drafted pitch carries two subjects; sends split 50/50 by lead id
-             "ab_test": True,
-             # Mira answers lead replies herself (demo invite) instead of waiting for the Boss to tap Send
-             "auto_reply": True}
-
-_LUXURY_RE = re.compile(r"\b(luxury|luxe|premium|royal|elite|signature|prestige|boutique|spa|lounge|couture|imperial|platinum|grand)\b", re.I)
-
-
-def is_luxury(lead: dict) -> bool:
-    text = f"{lead.get('name') or ''} {lead.get('category') or ''} {lead.get('summary') or ''}"
-    return bool(_LUXURY_RE.search(text)) or (float(lead.get("rating") or 0) >= 4.8 and int(lead.get("reviews") or 0) >= 1000)
-
-
-def segment_of(lead: dict, max_reviews: int) -> str:
-    if int(lead.get("reviews") or 0) < max_reviews:
-        return "growing"
-    return "luxury" if is_luxury(lead) else "other"
-
-
 def _esc(v) -> str:
     import html as _h
     return _h.escape(str(v or ""))
@@ -89,9 +63,7 @@ def _local_hour(city: str) -> float:
     return t.hour + t.minute / 60
 
 
-async def get_settings() -> dict:
-    doc = await _raw_db.platform_settings.find_one({"key": SETTINGS_KEY}, {"_id": 0}) or {}
-    return {k: doc.get(k, v) for k, v in _DEFAULTS.items()}
+
 
 
 # ---------------- sending ----------------
@@ -99,7 +71,6 @@ async def get_settings() -> dict:
 async def send_pitch(lead: dict, by: str = "mira-autopilot") -> dict:
     """Email the researched pitch (vertical-specific template + demo link). Records the lead + history row."""
     from email_service import _send_email
-    from routes.lead_gen import pick_subject, ensure_subject_b
     if not lead.get("email") or lead.get("unsubscribed") or lead.get("status") == "sent":
         return {"sent": False, "error": "not eligible"}
     ab_on = (await get_settings()).get("ab_test", True)
@@ -145,7 +116,6 @@ def _candidate_query(vertical: str, s: dict) -> dict:
 
 async def _pick_candidates(s: dict, budget: int, ignore_hours: bool) -> list:
     """Round-robin salon / restaurant so both verticals get their share; hottest first; local business hours."""
-    from routes.lead_gen import _has_real_inbox
     pools = []
     for v in s["verticals"]:
         rows = await _raw_db.mira_leads.find(_candidate_query(v, s), {"_id": 0}).sort(
@@ -246,7 +216,6 @@ async def send_reminder(lead: dict) -> dict:
 
 async def _pick_reminders(s: dict, budget: int, ignore_hours: bool) -> list:
     """Leads emailed earlier that never replied, whose next reminder is due — oldest first, one touch per lead per day."""
-    from routes.lead_gen import _has_real_inbox
     if budget <= 0:
         return []
     rows = await _raw_db.mira_leads.find(
@@ -310,7 +279,6 @@ async def run_outreach_cycle(force: bool = False, dry_run: bool = False, ignore_
 
 async def _auto_hunt_if_thin(s: dict) -> dict | None:
     """Mira picks her own next city (rotating the world list, alternating verticals) when few emails remain to send."""
-    from routes.lead_gen import _run_pipeline, fail_stale_runs
     await fail_stale_runs()
     if await _raw_db.mira_lead_runs.find_one({"status": "running"}):
         return None
@@ -548,7 +516,6 @@ class PitchPreviewIn(BaseModel):
 @router.post("/super-admin/mira/outreach/pitch-preview")
 async def pitch_preview(body: PitchPreviewIn, user=Depends(require_super_admin)):
     """Draft the pitch for a real pending lead of this vertical (else a sample) using the given / saved wording notes."""
-    from routes.lead_gen import _draft_email
     s = await get_settings()
     lead = await _raw_db.mira_leads.find_one(_candidate_query(body.vertical, s), {"_id": 0}, sort=[("score", -1), ("created_at", -1)])
     is_sample = lead is None
@@ -764,3 +731,6 @@ async def send_demo_reply(lid: str, body: DemoReplyIn, user=Depends(require_supe
         "country": _country_of(lead.get("city")), "email": lead["email"], "detail": body.subject[:160]})
     await log_mira_event("result", f"📅 Demo invite sent to {lead.get('name') or lead['email']} — Boss approved Mira's reply." + (" Mira noted the edits for next time 🧠" if learned else ""))
     return {"ok": True, "sent_to": lead["email"], "learned": learned}
+
+
+HOOKS["auto_reply"] = auto_reply_to_lead

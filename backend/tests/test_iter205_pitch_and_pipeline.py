@@ -4,10 +4,11 @@ import re
 import urllib.parse
 import pytest
 import requests
+from _creds import pw
 
 BASE_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 SUPER_EMAIL = "admin@miracurl-suite.com"
-SUPER_PASS = "og9T@41Es#OQb6"
+SUPER_PASS = pw("SUPER_ADMIN")
 
 
 @pytest.fixture(scope="module")

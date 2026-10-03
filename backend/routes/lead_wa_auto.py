@@ -114,73 +114,104 @@ async def _send_batch(leads: list[dict]) -> int:
     return n
 
 
-async def auto_wa_hot_leads() -> int:
-    """Scheduler: WA-pitch (1) fresh hot leads, then (2) every new phone-only lead — in each lead's LOCAL business hours, within the daily cap."""
-    s = await _settings()
-    if not s["enabled"] or await template_status() != "APPROVED":
-        return 0
+async def _auto_budget(s: dict) -> int:
     today = datetime.now(timezone.utc).date().isoformat()
     sent_today = await _raw_db.mira_wa_intros.count_documents({"created_at": {"$gte": today}, "auto": True})
-    budget = s["daily_limit"] - sent_today
-    if budget <= 0:
-        return 0
-    from routes.lead_common import log_mira_event
+    return s["daily_limit"] - sent_today
+
+
+async def _hot_pass(s: dict, budget: int) -> list[dict]:
     since = (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
     hot = await _raw_db.mira_leads.find(
         {**HOT_QUERY, "phone": {"$nin": ["", None]}, **_AUTO_SKIP,
          "status": {"$nin": ["customer", "rejected", "sent", "replied", "demo"]}, "created_at": {"$gte": since}},
         {"_id": 0}).sort("reviews", -1).to_list(40)
-    hot = [ld for ld in hot if _in_business_hours(s, ld)][:min(budget, 10)]
-    n_hot = await _send_batch(hot)
-    if n_hot:
-        await log_mira_event("wa_intro", f"Sent {n_hot} WhatsApp intro{'s' if n_hot != 1 else ''} to fresh hot leads")
-    budget -= n_hot
+    return [ld for ld in hot if _in_business_hours(s, ld)][:min(budget, 10)]
+
+
+async def _phone_only_pass(s: dict, budget: int, skip_ids: set) -> list[dict]:
+    since7 = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    po = await _raw_db.mira_leads.find(
+        {**PHONE_ONLY_QUERY, **_AUTO_SKIP, "status": {"$nin": ["customer", "rejected", "replied", "demo"]},
+         "created_at": {"$gte": since7}}, {"_id": 0}).sort("created_at", -1).to_list(60)
+    return [ld for ld in po if ld["id"] not in skip_ids and _in_business_hours(s, ld)][:min(budget, 10)]
+
+
+async def auto_wa_hot_leads() -> int:
+    """Scheduler: WA-pitch (1) fresh hot leads, then (2) every new phone-only lead — in each lead's LOCAL business hours, within the daily cap."""
+    s = await _settings()
+    if not s["enabled"] or await template_status() != "APPROVED":
+        return 0
+    budget = await _auto_budget(s)
+    if budget <= 0:
+        return 0
+    hot = await _hot_pass(s, budget)
+    n_hot = await _send_and_log(hot, "Sent {n} WhatsApp intro{s} to fresh hot leads")
     n_po = 0
-    if s["phone_only"] and budget > 0:
-        hot_ids = {ld["id"] for ld in hot}
-        since7 = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-        po = await _raw_db.mira_leads.find(
-            {**PHONE_ONLY_QUERY, **_AUTO_SKIP, "status": {"$nin": ["customer", "rejected", "replied", "demo"]},
-             "created_at": {"$gte": since7}}, {"_id": 0}).sort("created_at", -1).to_list(60)
-        po = [ld for ld in po if ld["id"] not in hot_ids and _in_business_hours(s, ld)][:min(budget, 10)]
-        n_po = await _send_batch(po)
-        if n_po:
-            await log_mira_event("wa_intro", f"📱 Pitched {n_po} phone-only lead{'s' if n_po != 1 else ''} on WhatsApp (no email on file)")
-    n = n_hot + n_po
-    if n:
+    if s["phone_only"] and budget - n_hot > 0:
+        po = await _phone_only_pass(s, budget - n_hot, {ld["id"] for ld in hot})
+        n_po = await _send_and_log(po, "📱 Pitched {n} phone-only lead{s} on WhatsApp (no email on file)")
+    if n_hot + n_po:
         log.info("auto WA: %s hot + %s phone-only leads pitched", n_hot, n_po)
+    return n_hot + n_po
+
+
+async def _send_and_log(leads: list[dict], msg: str) -> int:
+    n = await _send_batch(leads)
+    if n:
+        from routes.lead_common import log_mira_event
+        await log_mira_event("wa_intro", msg.format(n=n, s="" if n == 1 else "s"))
     return n
+
+
+_OPT_OUT_WORDS = ("stop", "stop promotions", "unsubscribe")
+
+
+async def _find_intro_lead(wa_id: str) -> dict | None:
+    tail = "".join(ch for ch in (wa_id or "") if ch.isdigit())[-10:]
+    if len(tail) < 10:
+        return None
+    return await _raw_db.mira_leads.find_one({"phone": {"$regex": f"{tail}$"}, "wa_intro_sent_at": {"$exists": True}}, {"_id": 0})
+
+
+def _reply_update(lead: dict, text: str) -> dict:
+    upd = {"wa_intro_replied_at": _now(), "wa_intro_reply": text[:300]}
+    if text.strip().lower() in _OPT_OUT_WORDS:
+        upd.update({"wa_opt_out": True, "do_not_call": True})
+    elif lead.get("status") not in ("customer", "demo"):
+        upd["status"] = "replied"
+    return upd
+
+
+async def _after_reply(lead: dict, text: str) -> None:
+    """HQ conversion alert + Mira's auto demo invite (email leads only)."""
+    try:
+        from services.hq_conversion import notify_hq_conversion
+        await notify_hq_conversion(lead, "wa_replied", text)
+    except Exception:  # noqa: BLE001
+        log.exception("conversion alert failed")
+    if not lead.get("email"):
+        return
+    try:
+        from routes.lead_common import HOOKS
+        if HOOKS.get("auto_reply"):
+            await HOOKS["auto_reply"]({**lead, "last_reply_text": text})
+    except Exception:  # noqa: BLE001
+        log.exception("mira auto-reply (wa) failed")
 
 
 async def note_lead_reply(wa_id: str, text: str) -> None:
     """Inbound on the platform number: if it's a lead we introduced ourselves to, record the reply / opt-out."""
-    tail = "".join(ch for ch in (wa_id or "") if ch.isdigit())[-10:]
-    if len(tail) < 10:
-        return
-    lead = await _raw_db.mira_leads.find_one({"phone": {"$regex": f"{tail}$"}, "wa_intro_sent_at": {"$exists": True}}, {"_id": 0})
+    lead = await _find_intro_lead(wa_id)
     if not lead:
         return
-    upd = {"wa_intro_replied_at": _now(), "wa_intro_reply": (text or "")[:300]}
-    low = (text or "").strip().lower()
-    if low in ("stop", "stop promotions", "unsubscribe"):
-        upd.update({"wa_opt_out": True, "do_not_call": True})
-    elif lead.get("status") not in ("customer", "demo"):
-        upd["status"] = "replied"
+    text = text or ""
+    upd = _reply_update(lead, text)
     await _raw_db.mira_leads.update_one({"id": lead["id"]}, {"$set": upd})
     from routes.lead_common import log_mira_event
-    await log_mira_event("wa_reply", f"{lead.get('name') or 'A lead'} replied on WhatsApp: \"{(text or '')[:80]}\"")
+    await log_mira_event("wa_reply", f"{lead.get('name') or 'A lead'} replied on WhatsApp: \"{text[:80]}\"")
     if not upd.get("wa_opt_out"):
-        try:
-            from services.hq_conversion import notify_hq_conversion
-            await notify_hq_conversion({**lead, **upd}, "wa_replied", text or "")
-        except Exception:  # noqa: BLE001
-            log.exception("conversion alert failed")
-        if lead.get("email"):
-            try:
-                from routes.mira_outreach import auto_reply_to_lead
-                await auto_reply_to_lead({**lead, **upd, "last_reply_text": text or ""})
-            except Exception:  # noqa: BLE001
-                log.exception("mira auto-reply (wa) failed")
+        await _after_reply({**lead, **upd}, text)
 
 
 class AutoWaSettingsIn(BaseModel):
