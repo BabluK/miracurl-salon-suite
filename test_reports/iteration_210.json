@@ -1,0 +1,51 @@
+{
+  "summary": "Iteration 210: Verified HQ outreach report Boss-Brief backend changes (7/7 pytest pass incl. endpoint + unit test with seeded Luxury/Salons docs in Bangalore/Mumbai), confirmed nav regroup (one super-tab-studio = 'Feedback, AI Engineer & Brand Studio' stacked; one super-tab-security = 'Security & Database' stacked; no stray feedback/engineer/onboarding/brand/deployments/platform-load/database tabs), and ran a contrast sweep over all 22 tabs. Theme root is dark (#0f0f14 / cream text). However the hq-gold.css remap does NOT reach several light pastel panels so light cream text (#f3efe4) still renders on light pastel backgrounds — most notably Billing trial inputs (unreadable typed values), HQ Inbox message cards, Notifications amber cards, Mira-Leads 'latest search' panel, Team number-health, Tenants Grant chips, Security card gold panel, Database collection list and Deployment History panel. Also several btn-blue action buttons render DARK text on DARK bg because the theme forces #15151b bg while button class keeps dark text. Also 1 React hydration error (<span> inside <option>) and ~10 duplicate-key warnings.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "BillingPanel trial inputs", "issue": "Typed values invisible — color #f3efe4 (and -webkit-text-fill-color) on light amber/emerald bg; ratio 1.09–1.11", "selector": "[data-testid=trial-days-input], [data-testid=trial-offer-percent]", "priority": "HIGH"},
+      {"component": "HQ Inbox", "issue": "Message cards keep light violet-50 bg (#f5f3ff) under cream text — titles unreadable (ratio 1.05)", "selector": "[data-testid^=hq-msg-]", "priority": "HIGH"},
+      {"component": "NotificationsPanel", "issue": "Notification items keep amber-50 bg (#fffbeb) under cream text — titles unreadable (ratio 1.11)", "selector": "[data-testid^=notif-item-]", "priority": "HIGH"},
+      {"component": "MiraLeadAgent last-run card", "issue": "Light emerald-50 bg under cream text (ratio 1.09)", "selector": "[data-testid=lead-last-run-title], [data-testid=lead-last-run-stats]", "priority": "HIGH"},
+      {"component": "StripePaymentsPanel inside Billing", "issue": "Value tiles still have violet-50 bg, text barely visible (ratio ~1.05)", "selector": "[data-testid=stripe-payments-panel]", "priority": "MED"},
+      {"component": "SecurityCard (security tab)", "issue": "Gold panel bg (#d4af37) remains and tiny rose/emerald/slate labels on it have ratio 1.11-1.42 (unreadable). Looks like SecurityCard wasn't remapped; same gold-cream treatment applied to Database collection list and DeploymentHistoryPanel which still render on cream bg.", "selector": "[data-testid=security-card], [data-testid=server-build-value], [data-testid=server-build-banner]", "priority": "HIGH"},
+      {"component": "DatabasePanel + DeploymentHistoryPanel", "issue": "Cards still render on light cream background instead of dark ink panels (see /security tab screenshot)", "selector": "security tab", "priority": "HIGH"},
+      {"component": "MiracurlTeamPanel number-health", "issue": "Emerald-50 bg still with emerald text + slate labels (ratio 1.45)", "selector": "[data-testid^=number-health-platform-]", "priority": "MED"},
+      {"component": "TenantsPanel SMS/WA points chips", "issue": "Emerald text on rose-50 bg (ratio 1.39)", "selector": "[data-testid^=sms-points-], [data-testid^=wa-points-]", "priority": "LOW"},
+      {"component": "Primary action buttons with btn-blue class", "issue": "Dark text on dark #15151b/#17171d bg (ratio 1.02–1.05) — buttons appear blank. Affected: 'New Tenant', 'Add Verified Staff', 'Add team member', 'New ticket', 'New Subscription', settlement Save/Send-all buttons, 'Generate reel', 'Find salons', 'Draft with Mira', 'Send demo invites', 'Set up their 6 months', outreach-report-send & founder-reply-setup buttons.", "selector": "[data-testid=super-new-tenant-btn], [data-testid=vstaff-save-btn], [data-testid=team-save-btn], [data-testid=new-ticket-btn], [data-testid=open-new-subscription-btn], [data-testid^=settlement-save-], [data-testid=settlement-sendall], [data-testid=promo-generate-btn], [data-testid=lead-run-btn], [data-testid=blog-ai-draft-btn], [data-testid=demo-campaign-send-btn]", "priority": "HIGH"},
+      {"component": "PlatformEarnings recharts legend", "issue": "Legend text hardcoded to #0f172a (slate-900) on dark panel bg → invisible (ratio 1.0)", "selector": "[data-testid=platform-earnings-card] .recharts-legend-item-text", "priority": "MED"},
+      {"component": "FollowUpPipeline column headers", "issue": "Pipeline column cards (NEW/INTERESTED/…) still rendered on blue-50/fuchsia-50/etc. with gold text (ratio ~1.3)", "selector": "[data-testid^=pipeline-col-], [data-testid^=pipeline-count-]", "priority": "MED"},
+      {"component": "React hydration warning", "issue": "In HTML, <span> cannot be a child of <option> — repeated hydration error inside SuperAdmin", "selector": "console", "priority": "MED"},
+      {"component": "React duplicate key warnings", "issue": "~10 'Encountered two children with the same key' warnings on SuperAdmin render — likely in a list panel", "selector": "console", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "SuperAdmin · security tab", "issues": ["SecurityCard uses solid gold (#d4af37) panel making its multiple cream/rose/slate sub-labels nearly invisible — gold panel should keep dark ink body with gold accent header only", "Database table + Deployment History remain light cream — breaks the 'all panels dark ink' promise"]},
+      {"screen": "SuperAdmin · billing / notifications / inbox / mira-leads / team", "issues": ["Pastel background cards (amber-50 / emerald-50 / violet-50 / rose-50) were NOT overridden by .hq-gold → cream text on pastel = unreadable. Fix: add remap rules in /app/frontend/src/styles/hq-gold.css for bg-amber-50, bg-emerald-50, bg-violet-50, bg-rose-50, bg-fuchsia-50, bg-sky-50 inside .hq-gold scope."]},
+      {"screen": "SuperAdmin · global", "issues": ["btn-blue utility paints DARK text (slate-900/ink) but theme repaints it on #15151b bg → text vanishes. Either remap btn-blue to use gold gradient OR force text to #F0D9A5."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter210_outreach_report.py", "/app/test_reports/pytest/iter210_results.xml", "/app/test_reports/pytest/iter210_contrast.json"],
+  "action_items": [
+    "Extend .hq-gold remap to cover bg-amber-50 / bg-emerald-50 / bg-violet-50 / bg-rose-50 / bg-fuchsia-50 / bg-sky-50 / bg-white backgrounds AND override text-slate-700/800/900 to cream INSIDE those remapped panels so Billing/Inbox/Notifications/MiraLeads/Team/Tenants cards become readable.",
+    "Fix btn-blue inside .hq-gold scope — repaint buttons to gold gradient or force --tw-text-opacity so text becomes dark on gold / cream on dark (currently dark-on-dark). Affected: ~12 primary CTAs including super-new-tenant-btn, vstaff-save-btn, team-save-btn, settlement-save-*, promo-generate-btn, lead-run-btn, demo-campaign-send-btn.",
+    "Fix SecurityCard: gold background panel should flip to dark #17171d body so its interior red/emerald/slate labels remain readable. Also wrap DatabasePanel + DeploymentHistoryPanel in the dark hq panel style.",
+    "Override recharts legend text (.recharts-legend-item-text) inside .hq-gold to cream.",
+    "Fix FollowUpPipeline column pills — remove pastel bg or override to #17171d with gold text.",
+    "Fix React hydration error: a <span> is used inside <option> somewhere in SuperAdmin (likely a <select> with icon markup).",
+    "Fix duplicate React keys (10+ warnings)."
+  ],
+  "critical_code_review_comments": [
+    "SuperAdmin.jsx is 978 lines — exceeds 700-line threshold; split panel map and NAV_ITEMS into a separate module.",
+    "outreach_report.py build_report walks 2000+ rows per request without pagination; acceptable for daily, but if endpoint hit on dashboard load it will be slow once data grows.",
+    "In outreach_report.py _boss_today the `wa_q` dict is identical for salon and restaurant branches of the ternary — the ternary is a no-op (minor).",
+    "hq-gold.css does NOT cover pastel utility backgrounds (bg-amber-50 etc.) which is the entire source of the contrast failures above."
+  ],
+  "updated_files": ["/app/backend/tests/test_iter210_outreach_report.py"],
+  "success_rate": {"backend": "100%", "frontend": "nav+theme-root OK; ~15 panels still fail contrast"},
+  "test_credentials": "super admin admin@miracurl-suite.com / og9T@41Es#OQb6 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Transient: 3 mira_leads + 3 mira_outreach_log rows tagged _t='iter210', inserted and deleted inside a single pytest coroutine via build_report; DB is clean after run.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend outreach-report BOSS BRIEF changes are fully verified; do NOT retest unless build_report / boss_subject / report_html / _super_admin_emails change. Nav regroup is confirmed (studio + security merged, no stray old tabs). The remaining work is pure CSS: /app/frontend/src/styles/hq-gold.css needs to also remap bg-amber-50/emerald-50/violet-50/rose-50/fuchsia-50 and btn-blue + .recharts-legend-item-text inside .hq-gold. Also SecurityCard, DatabasePanel, DeploymentHistoryPanel need dark-ink wrappers. Worst-30 offenders JSON saved to /app/test_reports/pytest/iter210_contrast.json for the main agent. Note that many r=1.02 'tab label' offenders are FALSE POSITIVES — those are active-pill gold-gradient buttons where the gradient uses background-image not background-color so the sweep walks up to the nav container and reports dark-on-dark. True offenders are the pastel-bg panels and btn-blue buttons listed above."
+}

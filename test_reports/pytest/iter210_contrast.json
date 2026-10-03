@@ -1,0 +1,546 @@
+{
+  "offenders": [
+    {
+      "tab": "revenue",
+      "text": "Subscriptions",
+      "color": "rgb(15, 23, 42)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1,
+      "tag": "span",
+      "cls": "recharts-legend-item-text",
+      "testid": "platform-earnings-card"
+    },
+    {
+      "tab": "lead-email",
+      "text": "Send demo invites \u2726",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(21,21,27)",
+      "ratio": 1,
+      "tag": "button",
+      "cls": "px-6 py-2.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#151",
+      "testid": "demo-campaign-send-btn"
+    },
+    {
+      "tab": "lead-email",
+      "text": "Set up their 6 months",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(21,21,27)",
+      "ratio": 1,
+      "tag": "button",
+      "cls": "px-3 py-1.5 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#151",
+      "testid": "founder-reply-setup-btn-17ab8541-940e-47a1-8844-82d866012f48"
+    },
+    {
+      "tab": "mira-home",
+      "text": "Mira Home",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "span",
+      "cls": "whitespace-nowrap",
+      "testid": "super-tab-mira-home"
+    },
+    {
+      "tab": "platform-map",
+      "text": "Platform Map",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "span",
+      "cls": "whitespace-nowrap",
+      "testid": "super-tab-platform-map"
+    },
+    {
+      "tab": "pipeline",
+      "text": "Follow-up Pipeline",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "span",
+      "cls": "whitespace-nowrap",
+      "testid": "super-tab-pipeline"
+    },
+    {
+      "tab": "tenants",
+      "text": "Tenants",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "span",
+      "cls": "whitespace-nowrap",
+      "testid": "super-tab-tenants"
+    },
+    {
+      "tab": "notifications",
+      "text": "Notifications",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "span",
+      "cls": "whitespace-nowrap",
+      "testid": "super-tab-notifications"
+    },
+    {
+      "tab": "billing",
+      "text": "Billing & Subscriptions",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "span",
+      "cls": "whitespace-nowrap",
+      "testid": "super-tab-billing"
+    },
+    {
+      "tab": "billing",
+      "text": "New Subscription",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "button",
+      "cls": "inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-sky-50",
+      "testid": "open-new-subscription-btn"
+    },
+    {
+      "tab": "credits",
+      "text": "Message Credits (SMS & WhatsApp)",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "span",
+      "cls": "whitespace-nowrap",
+      "testid": "super-tab-credits"
+    },
+    {
+      "tab": "revenue",
+      "text": "Revenue",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "span",
+      "cls": "whitespace-nowrap",
+      "testid": "super-tab-revenue"
+    },
+    {
+      "tab": "lead-email",
+      "text": "Lead Gen Email",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "span",
+      "cls": "whitespace-nowrap",
+      "testid": "super-tab-lead-email"
+    },
+    {
+      "tab": "mira-leads",
+      "text": "Mira Lead Agent",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "span",
+      "cls": "whitespace-nowrap",
+      "testid": "super-tab-mira-leads"
+    },
+    {
+      "tab": "mira-leads",
+      "text": "Find salons \u2726",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "button",
+      "cls": "px-5 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white ",
+      "testid": "lead-run-btn"
+    },
+    {
+      "tab": "inbox",
+      "text": "HQ Inbox",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "span",
+      "cls": "whitespace-nowrap",
+      "testid": "super-tab-inbox"
+    },
+    {
+      "tab": "partners",
+      "text": "\u2726 Draft with Mira",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "button",
+      "cls": "shrink-0 px-4 py-2 rounded-md bg-gradient-to-r from-fuchsia-600 to-violet-600 te",
+      "testid": "blog-ai-draft-btn"
+    },
+    {
+      "tab": "growth-advisory",
+      "text": "Send pack to all pending salons",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "button",
+      "cls": "px-2.5 py-1 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#151",
+      "testid": "settlement-sendall"
+    },
+    {
+      "tab": "growth-advisory",
+      "text": "Save",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "button",
+      "cls": "h-7 px-2.5 rounded-lg bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b",
+      "testid": "settlement-save-miracurl-marathahalli"
+    },
+    {
+      "tab": "growth-advisory",
+      "text": "Save",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "button",
+      "cls": "h-7 px-2.5 rounded-lg bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b",
+      "testid": "settlement-save-miracurl-whitefield"
+    },
+    {
+      "tab": "growth-advisory",
+      "text": "Send pack to all pending salons",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "button",
+      "cls": "px-2.5 py-1 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#151",
+      "testid": "settlement-sendall"
+    },
+    {
+      "tab": "growth-advisory",
+      "text": "Save",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "button",
+      "cls": "h-7 px-2.5 rounded-lg bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b",
+      "testid": "settlement-save-infinity-family-restaurant"
+    },
+    {
+      "tab": "hiring",
+      "text": "Add Verified Staff",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "button",
+      "cls": "btn-blue flex items-center gap-2",
+      "testid": "vstaff-save-btn"
+    },
+    {
+      "tab": "studio",
+      "text": "Generate reel \u2726",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "button",
+      "cls": "px-5 py-2.5 rounded-xl bg-gradient-to-r from-fuchsia-500 to-pink-600 text-white ",
+      "testid": "promo-generate-btn"
+    },
+    {
+      "tab": "team",
+      "text": "Add team member",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(23,23,29)",
+      "ratio": 1.02,
+      "tag": "button",
+      "cls": "btn-blue flex items-center gap-2",
+      "testid": "team-save-btn"
+    },
+    {
+      "tab": "tenants",
+      "text": "New Tenant",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.05,
+      "tag": "button",
+      "cls": "btn-blue !h-9 !py-0 !px-4 !rounded-full text-xs inline-flex items-center gap-1.5",
+      "testid": "super-new-tenant-btn"
+    },
+    {
+      "tab": "billing",
+      "text": "$0",
+      "color": "rgb(243, 239, 228)",
+      "bg": "rgb(245,243,255)",
+      "ratio": 1.05,
+      "tag": "div",
+      "cls": "text-lg font-semibold mt-0.5 text-slate-800",
+      "testid": "stripe-payments-panel"
+    },
+    {
+      "tab": "inbox",
+      "text": "Fix request \u00b7 Services",
+      "color": "rgb(243, 239, 228)",
+      "bg": "rgb(245,243,255)",
+      "ratio": 1.05,
+      "tag": "div",
+      "cls": "text-sm font-semibold text-slate-800 flex items-center gap-2 flex-wrap",
+      "testid": "hq-msg-f664aef2-b478-4216-8801-bbadc7a53fda"
+    },
+    {
+      "tab": "inbox",
+      "text": "Fix request \u00b7 Services",
+      "color": "rgb(243, 239, 228)",
+      "bg": "rgb(245,243,255)",
+      "ratio": 1.05,
+      "tag": "div",
+      "cls": "text-sm font-semibold text-slate-800 flex items-center gap-2 flex-wrap",
+      "testid": "hq-msg-d3d2a507-b8c1-41a3-8416-2cef2dc245bf"
+    },
+    {
+      "tab": "inbox",
+      "text": "Your fresh weekly promo reel is ready \ud83c\udfac",
+      "color": "rgb(243, 239, 228)",
+      "bg": "rgb(245,243,255)",
+      "ratio": 1.05,
+      "tag": "div",
+      "cls": "text-sm font-semibold text-slate-800 flex items-center gap-2 flex-wrap",
+      "testid": "hq-msg-a463071c-6d5b-4fd4-8423-7da1f6e27e4e"
+    },
+    {
+      "tab": "inbox",
+      "text": "Your fresh weekly promo reel is ready \ud83c\udfac",
+      "color": "rgb(243, 239, 228)",
+      "bg": "rgb(245,243,255)",
+      "ratio": 1.05,
+      "tag": "div",
+      "cls": "text-sm font-semibold text-slate-800 flex items-center gap-2 flex-wrap",
+      "testid": "hq-msg-0f93c583-c856-44b3-a1d3-8e8a3cf6ef6d"
+    },
+    {
+      "tab": "studio",
+      "text": "New ticket",
+      "color": "rgb(21, 21, 27)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.05,
+      "tag": "button",
+      "cls": "btn-blue flex items-center gap-2 text-sm",
+      "testid": "new-ticket-btn"
+    },
+    {
+      "tab": "mira-leads",
+      "text": "Latest search: Restaurants in Bangalore",
+      "color": "rgb(243, 239, 228)",
+      "bg": "rgb(236,253,245)",
+      "ratio": 1.09,
+      "tag": "div",
+      "cls": "text-sm font-semibold text-slate-800",
+      "testid": "lead-last-run-title"
+    },
+    {
+      "tab": "mira-home",
+      "text": "MIRACURL",
+      "color": "rgba(0, 0, 0, 0)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.1,
+      "tag": "span",
+      "cls": "gold-shine-text tracking-[0.12em] font-semibold",
+      "testid": "super-admin-page"
+    },
+    {
+      "tab": "platform-map",
+      "text": "MIRACURL",
+      "color": "rgba(0, 0, 0, 0)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.1,
+      "tag": "span",
+      "cls": "gold-shine-text tracking-[0.12em] font-semibold",
+      "testid": "super-admin-page"
+    },
+    {
+      "tab": "pipeline",
+      "text": "MIRACURL",
+      "color": "rgba(0, 0, 0, 0)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.1,
+      "tag": "span",
+      "cls": "gold-shine-text tracking-[0.12em] font-semibold",
+      "testid": "super-admin-page"
+    },
+    {
+      "tab": "tenants",
+      "text": "MIRACURL",
+      "color": "rgba(0, 0, 0, 0)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.1,
+      "tag": "span",
+      "cls": "gold-shine-text tracking-[0.12em] font-semibold",
+      "testid": "super-admin-page"
+    },
+    {
+      "tab": "notifications",
+      "text": "MIRACURL",
+      "color": "rgba(0, 0, 0, 0)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.1,
+      "tag": "span",
+      "cls": "gold-shine-text tracking-[0.12em] font-semibold",
+      "testid": "super-admin-page"
+    },
+    {
+      "tab": "billing",
+      "text": "MIRACURL",
+      "color": "rgba(0, 0, 0, 0)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.1,
+      "tag": "span",
+      "cls": "gold-shine-text tracking-[0.12em] font-semibold",
+      "testid": "super-admin-page"
+    },
+    {
+      "tab": "credits",
+      "text": "MIRACURL",
+      "color": "rgba(0, 0, 0, 0)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.1,
+      "tag": "span",
+      "cls": "gold-shine-text tracking-[0.12em] font-semibold",
+      "testid": "super-admin-page"
+    },
+    {
+      "tab": "revenue",
+      "text": "MIRACURL",
+      "color": "rgba(0, 0, 0, 0)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.1,
+      "tag": "span",
+      "cls": "gold-shine-text tracking-[0.12em] font-semibold",
+      "testid": "super-admin-page"
+    },
+    {
+      "tab": "lead-email",
+      "text": "MIRACURL",
+      "color": "rgba(0, 0, 0, 0)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.1,
+      "tag": "span",
+      "cls": "gold-shine-text tracking-[0.12em] font-semibold",
+      "testid": "super-admin-page"
+    },
+    {
+      "tab": "mira-leads",
+      "text": "MIRACURL",
+      "color": "rgba(0, 0, 0, 0)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.1,
+      "tag": "span",
+      "cls": "gold-shine-text tracking-[0.12em] font-semibold",
+      "testid": "super-admin-page"
+    },
+    {
+      "tab": "partners",
+      "text": "MIRACURL",
+      "color": "rgba(0, 0, 0, 0)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.1,
+      "tag": "span",
+      "cls": "gold-shine-text tracking-[0.12em] font-semibold",
+      "testid": "super-admin-page"
+    },
+    {
+      "tab": "docs",
+      "text": "MIRACURL",
+      "color": "rgba(0, 0, 0, 0)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.1,
+      "tag": "span",
+      "cls": "gold-shine-text tracking-[0.12em] font-semibold",
+      "testid": "super-admin-page"
+    },
+    {
+      "tab": "demo-calendar",
+      "text": "MIRACURL",
+      "color": "rgba(0, 0, 0, 0)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.1,
+      "tag": "span",
+      "cls": "gold-shine-text tracking-[0.12em] font-semibold",
+      "testid": "super-admin-page"
+    },
+    {
+      "tab": "ai",
+      "text": "MIRACURL",
+      "color": "rgba(0, 0, 0, 0)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.1,
+      "tag": "span",
+      "cls": "gold-shine-text tracking-[0.12em] font-semibold",
+      "testid": "super-admin-page"
+    },
+    {
+      "tab": "inquiries",
+      "text": "MIRACURL",
+      "color": "rgba(0, 0, 0, 0)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.1,
+      "tag": "span",
+      "cls": "gold-shine-text tracking-[0.12em] font-semibold",
+      "testid": "super-admin-page"
+    },
+    {
+      "tab": "mira-studio",
+      "text": "MIRACURL",
+      "color": "rgba(0, 0, 0, 0)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.1,
+      "tag": "span",
+      "cls": "gold-shine-text tracking-[0.12em] font-semibold",
+      "testid": "super-admin-page"
+    },
+    {
+      "tab": "hiring",
+      "text": "MIRACURL",
+      "color": "rgba(0, 0, 0, 0)",
+      "bg": "rgb(15,15,20)",
+      "ratio": 1.1,
+      "tag": "span",
+      "cls": "gold-shine-text tracking-[0.12em] font-semibold",
+      "testid": "super-admin-page"
+    }
+  ],
+  "invisible_inputs": [
+    {
+      "tab": "billing",
+      "value": "30",
+      "color": "rgb(243, 239, 228)",
+      "fill": "rgb(243, 239, 228)",
+      "bg": "rgb(255,251,235)",
+      "ratio": 1.11,
+      "testid": "trial-days-input"
+    },
+    {
+      "tab": "billing",
+      "value": "10",
+      "color": "rgb(243, 239, 228)",
+      "fill": "rgb(243, 239, 228)",
+      "bg": "rgb(236,253,245)",
+      "ratio": 1.09,
+      "testid": "trial-offer-percent"
+    }
+  ],
+  "console_errors": [
+    "In HTML, %s cannot be a child of <%s>.%s\nThis will cause a hydration error.%s <span> option  \n\n  ...\n    <SuperAdminProtected x-file-name=\"App\" x-line-number=\"300\" x-column=\"48\" x-component=\"SuperAdmin...\" ...>\n      <SuperAdmin x-file-name=\"App\" x-line-number=\"300\" x-column=\"69\" x-component=\"SuperAdmin\" x-id=\"App_300_69\" ...>\n        <div className=\"hq-gold mi...\" data-testid=\"super-admi...\" x-file-name=\"SuperAdmin\" x-line-number=\"391\" ...>\n          <Super3DBackdrop>\n          <header>\n          <main className=\"relative z...\" x-file-name=\"SuperAdmin\" x-line-number=\"425\" x-column=\"6\" x-component=\"main\" ...>\n            <DeployBanner>\n            <SuperProfileCard>\n            <div className=\"space-y-4\" x-file-name=\"SuperAdmin\" x-line-number=\"431\" x-column=\"8\" x-component=\"div\" ...>\n              <aside>\n              <div className=\"flex-1 min...\" x-file-name=\"SuperAdmin\" x-line-number=\"507\" x-column=\"8\" x-component=\"div\" ...>\n                <div className=\"space-y-6\" data-testid=\"sa-credits...\" x-file-name=\"SuperAdmin\" x-line-number=\"515\" ...>\n                  <CreditWalletCard>\n                  <PackPricingCard>\n                  <MessageCreditsCard tenants={[...]} x-file-name=\"SuperAdmin\" x-line-number=\"515\" x-column=\"116\" ...>\n                    <div className=\"space-y-3 ...\" data-testid=\"message-cr...\" x-file-name=\"MessageCre...\" ...>\n                      <div>\n                      <div>\n                      <div className=\"grid lg:gr...\" x-file-name=\"MessageCre...\" x-line-number=\"65\" x-column=\"6\" ...>\n                        <div>\n                        <div className=\"rounded-xl...\" x-file-name=\"MessageCre...\" x-line-number=\"77\" x-column=\"8\" ...>\n                          <div>\n                          <div className=\"flex gap-2...\" x-file-name=\"MessageCre...\" x-line-number=\"79\" x-column=\"10\" ...>\n                            <select value=\"\" onChange={function onChange} data-testid=\"give-tenan...\" ...>\n                              <option>\n>                             <option\n>                               value=\"39311ac2-9403-4c17-b100-70f84e5b03e7\"\n>                               x-file-name=\"MessageCreditsCard\"\n>                               x-line-number=\"82\"\n>                               x-column=\"32\"\n>                               x-component=\"option\"\n>                               x-id=\"MessageCreditsCard_82_32\"\n>                               x-dynamic=\"true\"\n>                               x-source-type=\"static-imported\"\n>                               x-source-var=\"tenants\"\n>                               x-source-path=\"name\"\n>                               x-source-editable=\"false\"\n>                               x-array-var=\"tenants\"\n>                               x-array-item-param=\"t\"\n>                             >\n>                               <span\n>                                 data-ve-dynamic=\"true\"\n>                                 x-excluded=\"true\"\n>                                 style={{display:\"contents\"}}\n>                                 x-file-name=\"MessageCreditsCard\"\n>                                 x-line-number=\"82\"\n>                                 x-column=\"32\"\n>                                 x-component=\"option\"\n>                                 x-id=\"MessageCreditsCard_82_32_expr0\"\n>                                 x-dynamic=\"true\"\n>                                 x-source-type=\"static-imported\"\n>                                 x-source-var=\"tenants\"\n>                                 x-source-path=\"name\"\n>                                 x-source-editable=\"false\"\n>                                 x-array-var=\"tenants\"\n>                                 x-array-item-param=\"t\"\n>                               >\n                                ...\n                              ...\n                            ...\n          ...\n",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev",
+    "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted \u2014 the behavior is unsupported and could change in a future version. delivered@resend.dev"
+  ]
+}

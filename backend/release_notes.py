@@ -2,8 +2,8 @@
 Append a new entry (or extend the latest date) whenever a deploy-worthy change lands.
 Bump BUILD on every deploy-worthy change so preview vs production builds are comparable."""
 
-BUILD = "2026-10-03.375"
-BUILD_TIME = "3 Oct 2026, 01:30 PM IST"
+BUILD = "2026-10-03.376"
+BUILD_TIME = "3 Oct 2026, 02:45 PM IST"
 
 # One short line per build (newest first). Powers the HQ "Deploy digest": everything newer than the live build.
 BUILD_LOG = [
@@ -182,7 +182,9 @@ RELEASES = [
             "🧠 Mira learns your tone: edit her demo-invite draft before sending and she mirrors your style on the next replies (HQ → Reply Inbox shows what she's learned, with a Forget button)",
             "📱 WA Autopilot cadence: with Auto WhatsApp on, Mira now also pitches every new phone-only lead (found in the last 7 days) on WhatsApp during its local business hours, sharing the daily cap — toggle 'Also pitch every new phone-only lead' in the Lead Agent",
             "📱 Phone-only leads: HQ shows whether the WhatsApp template is approved by Meta and a one-tap 'Send WA pitch' for every lead without an email",
-            "✨ HQ console restyled in the unified light-gold theme across every section",
+            "✨ HQ console restyled in the Ink & Gold theme (dark ink panels, gold accents, high-contrast text) across every section — matches the Onboard-a-Salon look",
+            "🗂️ HQ nav tidied: Feedback + AI Engineer + Onboarding Image + Brand Kit live under one 'Feedback, AI Engineer & Brand Studio' tab; Deployments + Platform Load + Database + Security under 'Security & Database'",
+            "📬 Boss Brief: Mira's daily outreach email now reads like 'Today Mira sent 20 hot-lead emails to Luxury Salons / Salons in Bangalore, Mumbai · 3 demo invites' with a segment × city table, demo & meeting invites, WA pitches and replies — sent to every HQ admin",
         ],
     },
     {

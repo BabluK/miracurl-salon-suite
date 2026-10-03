@@ -89,12 +89,13 @@
 /* ---------- solid accents → gold buttons (ink text) ---------- */
 .hq-gold .bg-fuchsia-600, .hq-gold .bg-fuchsia-500, .hq-gold .bg-pink-600, .hq-gold .bg-pink-500,
 .hq-gold .bg-sky-600, .hq-gold .bg-sky-500, .hq-gold .bg-violet-600, .hq-gold .bg-violet-500,
-.hq-gold .bg-indigo-600, .hq-gold .bg-indigo-500, .hq-gold .bg-purple-600, .hq-gold .bg-blue-600, .hq-gold .bg-slate-900, .hq-gold .bg-slate-800 {
+.hq-gold .bg-indigo-600, .hq-gold .bg-indigo-500, .hq-gold .bg-purple-600, .hq-gold .bg-blue-600 {
   background-color: var(--hq-gold);
   background-image: linear-gradient(180deg, var(--hq-soft) 0%, var(--hq-deep) 100%);
   color: #15151b;
 }
-.hq-gold .bg-fuchsia-600 .text-white, .hq-gold .bg-sky-600 .text-white, .hq-gold .bg-violet-600 .text-white, .hq-gold .bg-indigo-600 .text-white, .hq-gold .bg-slate-900 .text-white, .hq-gold .bg-slate-800 .text-white { color: #15151b; }
+.hq-gold .bg-fuchsia-600 .text-white, .hq-gold .bg-sky-600 .text-white, .hq-gold .bg-violet-600 .text-white, .hq-gold .bg-indigo-600 .text-white { color: #15151b; }
+.hq-gold .bg-slate-900, .hq-gold .bg-slate-800, .hq-gold .bg-\[\#1c1c22\], .hq-gold .bg-\[\#15151b\], .hq-gold .bg-\[\#17171d\] { background-color: var(--hq-raised); box-shadow: 0 0 0 1px var(--hq-line) inset; }
 .hq-gold .hover\:bg-fuchsia-700:hover, .hq-gold .hover\:bg-sky-700:hover, .hq-gold .hover\:bg-violet-700:hover, .hq-gold .hover\:bg-indigo-700:hover,
 .hq-gold .hover\:bg-pink-700:hover, .hq-gold .hover\:bg-blue-700:hover, .hq-gold .hover\:bg-slate-800:hover, .hq-gold .hover\:bg-slate-700:hover { filter: brightness(1.08); }
 .hq-gold .from-fuchsia-600, .hq-gold .from-fuchsia-500, .hq-gold .from-pink-600, .hq-gold .from-pink-500, .hq-gold .from-sky-600, .hq-gold .from-sky-500,
@@ -158,7 +159,36 @@
 .hq-gold .luxe-table-light tbody tr:hover { background: rgba(212,175,55,.06); }
 .hq-gold .btn-slate { background: rgba(255,255,255,.05); border-color: var(--hq-line); color: var(--hq-text-2); }
 .hq-gold .btn-slate:hover { background: rgba(255,255,255,.1); border-color: var(--hq-gold); }
-.hq-gold .btn-blue { background: linear-gradient(180deg, var(--hq-soft), var(--hq-deep)); color: #15151b; box-shadow: 0 8px 20px -10px rgba(212,175,55,.6); }
+.hq-gold .btn-blue { background-color: var(--hq-deep) !important; background-image: linear-gradient(180deg, var(--hq-soft), var(--hq-deep)) !important; color: #15151b !important; box-shadow: 0 8px 20px -10px rgba(212,175,55,.6); }
+.hq-gold .btn-blue * { color: #15151b; }
 .hq-gold .ring-sky-400, .hq-gold .ring-fuchsia-400, .hq-gold .ring-violet-400, .hq-gold .ring-indigo-400 { --tw-ring-color: var(--hq-gold); }
 .hq-gold .text-sky-600.font-playfair, .hq-gold .text-emerald-600.font-playfair, .hq-gold .text-amber-600.font-playfair { color: var(--hq-soft); }
 .hq-gold .border-l-violet-400, .hq-gold .border-l-sky-400, .hq-gold .border-l-fuchsia-400 { border-left-color: var(--hq-gold); }
+
+/* ---------- pastel tints incl. opacity variants (bg-violet-50/60 …) ---------- */
+.hq-gold [class~="bg-emerald-50"], .hq-gold [class*="bg-emerald-50/"], .hq-gold [class~="bg-emerald-100"], .hq-gold [class*="bg-emerald-100/"], .hq-gold [class~="bg-green-50"], .hq-gold [class*="bg-green-50/"], .hq-gold [class~="bg-teal-50"], .hq-gold [class*="bg-teal-50/"] { background-color: rgba(16, 185, 129, 0.14) !important; }
+.hq-gold [class~="bg-rose-50"], .hq-gold [class*="bg-rose-50/"], .hq-gold [class~="bg-rose-100"], .hq-gold [class*="bg-rose-100/"], .hq-gold [class~="bg-red-50"], .hq-gold [class*="bg-red-50/"] { background-color: rgba(244, 63, 94, 0.14) !important; }
+.hq-gold [class~="bg-amber-50"], .hq-gold [class*="bg-amber-50/"], .hq-gold [class~="bg-amber-100"], .hq-gold [class*="bg-amber-100/"], .hq-gold [class~="bg-yellow-50"], .hq-gold [class*="bg-yellow-50/"], .hq-gold [class~="bg-orange-50"], .hq-gold [class*="bg-orange-50/"] { background-color: rgba(245, 158, 11, 0.14) !important; }
+.hq-gold [class~="bg-sky-50"], .hq-gold [class*="bg-sky-50/"], .hq-gold [class~="bg-sky-100"], .hq-gold [class*="bg-sky-100/"], .hq-gold [class~="bg-blue-50"], .hq-gold [class*="bg-blue-50/"], .hq-gold [class~="bg-indigo-50"], .hq-gold [class*="bg-indigo-50/"],
+.hq-gold [class~="bg-violet-50"], .hq-gold [class*="bg-violet-50/"], .hq-gold [class~="bg-violet-100"], .hq-gold [class*="bg-violet-100/"], .hq-gold [class~="bg-fuchsia-50"], .hq-gold [class*="bg-fuchsia-50/"], .hq-gold [class~="bg-fuchsia-100"], .hq-gold [class*="bg-fuchsia-100/"],
+.hq-gold [class~="bg-pink-50"], .hq-gold [class*="bg-pink-50/"], .hq-gold [class~="bg-purple-50"], .hq-gold [class*="bg-purple-50/"] { background-color: rgba(212, 175, 55, 0.12) !important; }
+.hq-gold [class~="bg-slate-50"], .hq-gold [class*="bg-slate-50/"], .hq-gold [class~="bg-gray-50"], .hq-gold [class*="bg-gray-50/"], .hq-gold [class~="bg-stone-50"], .hq-gold [class~="bg-neutral-50"], .hq-gold [class*="bg-white/"] { background-color: rgba(255, 255, 255, 0.04) !important; }
+.hq-gold [class~="bg-slate-100"], .hq-gold [class*="bg-slate-100/"], .hq-gold [class~="bg-gray-100"] { background-color: rgba(255, 255, 255, 0.07) !important; }
+.hq-gold [class~="bg-white"] { background-color: var(--hq-panel) !important; }
+/* pastel gradients */
+.hq-gold [class*="from-emerald-50"], .hq-gold [class*="from-amber-50"], .hq-gold [class*="from-rose-50"], .hq-gold [class*="from-sky-50"], .hq-gold [class*="from-violet-50"], .hq-gold [class*="from-fuchsia-50"], .hq-gold [class*="from-indigo-50"], .hq-gold [class*="from-slate-50"], .hq-gold [class*="from-orange-50"], .hq-gold [class*="from-pink-50"], .hq-gold [class*="from-white"] {
+  --tw-gradient-from: rgba(255, 255, 255, 0.05) var(--tw-gradient-from-position); --tw-gradient-to: rgb(255 255 255 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+}
+.hq-gold [class*="to-emerald-50"], .hq-gold [class*="to-amber-50"], .hq-gold [class*="to-rose-50"], .hq-gold [class*="to-sky-50"], .hq-gold [class*="to-violet-50"], .hq-gold [class*="to-violet-100"], .hq-gold [class*="to-fuchsia-50"], .hq-gold [class*="to-indigo-50"], .hq-gold [class*="to-slate-50"], .hq-gold [class*="to-orange-50"], .hq-gold [class*="to-teal-50"], .hq-gold [class*="to-pink-50"], .hq-gold [class*="to-white"], .hq-gold [class*="to-slate-100"] { --tw-gradient-to: rgba(255, 255, 255, 0.02) var(--tw-gradient-to-position); }
+.hq-gold [class*="via-emerald-50"], .hq-gold [class*="via-amber-50"], .hq-gold [class*="via-sky-50"], .hq-gold [class*="via-violet-50"], .hq-gold [class*="via-white"] { --tw-gradient-stops: var(--tw-gradient-from), rgba(255, 255, 255, 0.03) var(--tw-gradient-via-position), var(--tw-gradient-to); }
+/* text that sits on those tints */
+.hq-gold [class*="text-emerald-6"], .hq-gold [class*="text-emerald-7"], .hq-gold [class*="text-emerald-8"], .hq-gold [class*="text-emerald-9"] { color: #6ee7b7 !important; }
+.hq-gold [class*="text-rose-6"], .hq-gold [class*="text-rose-7"], .hq-gold [class*="text-rose-8"], .hq-gold [class*="text-red-6"], .hq-gold [class*="text-red-7"] { color: #fda4af !important; }
+.hq-gold [class*="text-amber-6"], .hq-gold [class*="text-amber-7"], .hq-gold [class*="text-amber-8"], .hq-gold [class*="text-amber-9"], .hq-gold [class*="text-orange-6"], .hq-gold [class*="text-orange-7"], .hq-gold [class*="text-yellow-7"] { color: #fcd34d !important; }
+.hq-gold [class*="text-violet-6"], .hq-gold [class*="text-violet-7"], .hq-gold [class*="text-violet-8"], .hq-gold [class*="text-fuchsia-6"], .hq-gold [class*="text-fuchsia-7"], .hq-gold [class*="text-sky-6"], .hq-gold [class*="text-sky-7"], .hq-gold [class*="text-sky-8"], .hq-gold [class*="text-indigo-6"], .hq-gold [class*="text-indigo-7"], .hq-gold [class*="text-blue-6"], .hq-gold [class*="text-blue-7"], .hq-gold [class*="text-pink-6"], .hq-gold [class*="text-pink-7"] { color: var(--hq-soft) !important; }
+.hq-gold [class~="text-slate-900"], .hq-gold [class~="text-slate-800"], .hq-gold [class~="text-slate-700"], .hq-gold [class~="text-gray-900"], .hq-gold [class~="text-gray-800"], .hq-gold [class~="text-gray-700"], .hq-gold [class~="text-black"] { color: var(--hq-text) !important; }
+.hq-gold [class~="text-slate-600"] { color: #bdb7a9 !important; }
+/* charts */
+.hq-gold .recharts-legend-item-text, .hq-gold .recharts-text, .hq-gold .recharts-cartesian-axis-tick-value { fill: #d6d0c2 !important; color: #d6d0c2 !important; }
+.hq-gold .recharts-cartesian-grid line { stroke: rgba(255, 255, 255, 0.08); }
+.hq-gold .recharts-default-tooltip { background: var(--hq-raised) !important; border-color: var(--hq-line) !important; color: var(--hq-text) !important; }
