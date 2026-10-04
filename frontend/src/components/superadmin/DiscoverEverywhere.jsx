@@ -3,12 +3,12 @@ import { Globe, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 
-const ICON = { instagram: "📸", facebook: "📘", linkedin: "💼", web: "🌐", email: "✉️" };
+const ICON = { google: "📍", instagram: "📸", facebook: "📘", linkedin: "💼", web: "🌐", email: "✉️" };
 
 // Step 1b — Mira hunts beyond Google Maps: Instagram, Facebook, LinkedIn, directories, email footprints.
 export function DiscoverEverywhere({ city, vertical, onDone }) {
   const [sources, setSources] = useState([]);
-  const [picked, setPicked] = useState(["instagram", "facebook", "linkedin", "web", "email"]);
+  const [picked, setPicked] = useState(["google", "instagram", "facebook", "linkedin", "web", "email"]);
   const [busy, setBusy] = useState(false);
   const [last, setLast] = useState(null);
   useEffect(() => { api.get("/super-admin/mira-leads/discover/sources").then(r => setSources(r.data.sources)).catch(() => {}); }, []);

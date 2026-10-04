@@ -21,7 +21,7 @@ const Badge = ({ kind, info, leadId, detail }) => (
 );
 
 // "email · Instagram" / "phone · Google" chips showing where Mira found each contact.
-const FOUND_ON = { instagram: ["📸", "Instagram"], facebook: ["📘", "Facebook"], linkedin: ["💼", "LinkedIn"], web: ["🌐", "Web"], email: ["✉️", "Email footprint"] };
+const FOUND_ON = { google: ["📍", "Google Places"], instagram: ["📸", "Instagram"], facebook: ["📘", "Facebook"], linkedin: ["💼", "LinkedIn"], web: ["🌐", "Web"], email: ["✉️", "Email footprint"] };
 
 export function LeadSourceBadges({ lead, className = "" }) {
   const email = lead.email ? sourceInfo(lead.email_source) : null;

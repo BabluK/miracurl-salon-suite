@@ -8,6 +8,7 @@ import { toast, Toaster } from "sonner";
 import { SuiteLogo } from "@/components/SiteHeader";
 import { BookingPreviewCard } from "@/components/signup/BookingPreviewCard";
 import { SignupExitNudge } from "@/components/signup/SignupExitNudge";
+import { SignupSidePanel } from "@/components/signup/SignupSidePanel";
 import ChatButton from "@/components/ChatButton";
 import { useAuth } from "@/context/AuthContext";
 import { setTenantSlug } from "@/lib/api";
@@ -219,7 +220,9 @@ export default function SignupSalon() {
       </header>
       <div className="h-[72px] sm:h-20" aria-hidden="true" />
 
-      <main className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10 pb-20">
+      <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10 pb-20 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-12 xl:gap-16 items-start">
+        <div className="hidden lg:block"><SignupSidePanel resto={isRestoTheme} isIntl={isIntl} /></div>
+        <div className="min-w-0">
         <div className="mb-4 flex flex-col items-center gap-2" data-testid="signup-page-label">
           <div className="inline-flex flex-wrap justify-center gap-1 p-1 rounded-full bg-white border border-[#D9B878]/40 shadow-sm" data-testid="signup-switch-links">
             {SIGNUP_LINKS.map(([t, r, l]) => {
@@ -312,7 +315,7 @@ export default function SignupSalon() {
           </div>
           <p className="mt-3 text-[11px] text-slate-400">By signing up you agree to our <a href="/terms-of-service" className="underline hover:text-slate-600">Terms of Service</a> and <a href="/privacy-policy" className="underline hover:text-slate-600">Privacy Policy</a>.</p>
         </div>
-
+        </div>
       </main>
     </div>
   );

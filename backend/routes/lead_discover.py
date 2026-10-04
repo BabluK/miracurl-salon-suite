@@ -19,6 +19,7 @@ router = APIRouter()
 log = logging.getLogger("lead_discover")
 
 SOURCES = {
+    "google": ("Google Places", "{noun}s in {city}"),
     "instagram": ("Instagram", 'site:instagram.com "{noun}" "{city}"'),
     "facebook": ("Facebook", 'site:facebook.com "{noun}" "{city}"'),
     "linkedin": ("LinkedIn", 'site:linkedin.com/company "{noun}" "{city}"'),
@@ -64,6 +65,24 @@ async def _search(client: httpx.AsyncClient, query: str) -> list[dict]:
     return []
 
 
+async def _google_places(noun: str, city: str, want: int) -> list[dict]:
+    """Structured, phone-rich results straight from Google Places (no LLM needed) — works even when social search is rate-limited."""
+    import os
+    from routes.lead_gen import _places_query
+    key = os.environ.get("GOOGLE_MAPS_API_KEY", "")
+    if not key:
+        return []
+    try:
+        async with httpx.AsyncClient() as client:
+            places = await _places_query(client, key, f"{noun}s in {city}", min(want, 20))
+    except Exception as e:  # noqa: BLE001
+        log.warning("google places discovery failed: %s", e)
+        return []
+    return [{"name": p["name"], "source": "google", "url": p.get("website") or "", "phone": p.get("phone") or "", "email": "",
+             "rating": p.get("rating"), "reviews": p.get("reviews"), "address": p.get("address") or "",
+             "note": f"Google Places · {p.get('rating') or '–'}★ ({p.get('reviews') or 0} reviews)"} for p in places if p.get("name")]
+
+
 class DiscoverIn(BaseModel):
     vertical: str = Field("salon", pattern="^(salon|restaurant)$")
     city: str = Field(..., min_length=2, max_length=60)
@@ -83,6 +102,10 @@ async def discover_leads(body: DiscoverIn, user=Depends(require_super_admin)):
     from services.mira_brain import FAST_MODEL, brain_prompt, learn
     noun = "restaurant" if body.vertical == "restaurant" else "salon"
     picked = [s for s in body.sources if s in SOURCES] or list(SOURCES)
+    google_leads = []
+    if "google" in picked:
+        google_leads = await _google_places(noun, body.city, body.limit)
+        picked = [s for s in picked if s != "google"]
     async with httpx.AsyncClient(headers=_UA) as client:
         results = await asyncio.gather(*[_search(client, SOURCES[s][1].format(noun=noun, city=body.city)) for s in picked])
     raw = []
@@ -90,11 +113,13 @@ async def discover_leads(body: DiscoverIn, user=Depends(require_super_admin)):
         for h in hits:
             raw.append({"source": src, **h, "emails": _EMAIL_RE.findall(h["snippet"])[:2], "phones": [p.strip() for p in _PHONE_RE.findall(h["snippet"])][:2]})
     per_source = {s: len(h) for s, h in zip(picked, results)}
-    if not raw:
+    if google_leads:
+        per_source["google"] = len(google_leads)
+    if not raw and not google_leads:
         return {"found": 0, "saved": 0, "per_source": per_source, "leads": [], "note": "Search engines returned nothing (possibly rate-limited) — try again in a minute or a different city."}
-    out = await _ask_json(_SYS + await brain_prompt(20), f"Business type: {noun}. City: {body.city}.\n\nSearch hits:\n" + "\n".join(
+    out = {"leads": []} if not raw else await _ask_json(_SYS + await brain_prompt(20), f"Business type: {noun}. City: {body.city}.\n\nSearch hits:\n" + "\n".join(
         f"[{r['source']}] {r['title']} | {r['url']} | {r['snippet'][:220]} | emails={r['emails']} phones={r['phones']}" for r in raw[:60]), model=FAST_MODEL)
-    leads = [l for l in (out.get("leads") or []) if isinstance(l, dict) and l.get("name")][:body.limit]
+    leads = (google_leads + [l for l in (out.get("leads") or []) if isinstance(l, dict) and l.get("name")])[:max(body.limit, len(google_leads))]
     run_id = str(uuid.uuid4())
     saved = []
     for l in leads:
@@ -113,9 +138,11 @@ async def discover_leads(body: DiscoverIn, user=Depends(require_super_admin)):
             continue
         doc = {"id": str(uuid.uuid4()), "name": l["name"][:120], "city": body.city, "vertical": body.vertical, "run_id": run_id,
                "source": l.get("source") if l.get("source") in SOURCES else "web", "website": url if url and "instagram.com" not in url and "facebook.com" not in url and "linkedin.com" not in url else "",
+               "address": (l.get("address") or "")[:160],
                "instagram": handle if "instagram" in (l.get("source") or "") else "", "social_url": url,
                "email": email if _EMAIL_RE.fullmatch(email or "") else "", "phone": (f"+{phone.lstrip('+')}" if len(phone) >= 10 else ""),
-               "owner_name": (l.get("owner_name") or "")[:80], "rating": None, "reviews": 0, "score": 35, "score_breakdown": [f"found on {l.get('source')}"],
+               "owner_name": (l.get("owner_name") or "")[:80], "rating": l.get("rating"), "reviews": l.get("reviews") or 0,
+               "score": 55 if l.get("source") == "google" and len(phone) >= 10 else 35, "score_breakdown": [f"found on {l.get('source')}"] + ([f"{l.get('rating')}★ · {l.get('reviews')} reviews"] if l.get("rating") else []),
                "notes": (l.get("note") or "")[:240], "crm": False, "status": "researched" if (email or len(phone) >= 10) else "no_email",
                "discovered_by": "mira_discover", "created_at": _now()}
         await _raw_db.mira_leads.insert_one(dict(doc))
