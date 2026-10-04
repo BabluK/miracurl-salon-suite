@@ -1,0 +1,27 @@
+{
+  "summary": "Iteration 221 — (A) Signup SignupSidePanel on /signup-{salon,restaurant}-{india,us} left-of-form on lg+, hidden <lg, (B) Google Places added as first discovery source in Mira Lead Agent 'Find leads everywhere'. Backend 2/2 pytest passed (test_iter221_google_discovery.py). Validated: GET /api/super-admin/mira-leads/discover/sources returns 6 sources with google first (order: google, instagram, facebook, linkedin, web, email, label='Google Places'); POST /api/super-admin/mira-leads/discover {vertical:'salon', city:'Mysuru', sources:['google'], limit:6} → 200, per_source.google=6, saved=6 leads, all source='google', 6/6 have '+91' phone, 6/6 score=55 when phone present, ratings present (6/6), run_id returned and mira_lead_runs doc kind='discover' city='Mysuru' persisted. Cleanup fixture deleted all Mysuru mira_discover leads + run doc. Frontend verified via Playwright: /signup-salon-india @1920 — [data-testid=signup-side-panel] visible left of [data-testid=signup-form-card] (x=408 vs 905), [data-testid=signup-side-title]='Grow YourSalon Online', [data-testid=signup-side-features] has 5 li items incl. 'Inventory Management' + 'GST ready', [data-testid=signup-side-tagline] contains 'More Clients'. /signup-restaurant-india: title 'Bring Your'/'Restaurant Online', 4 features incl. 'Menu & Order Management', tagline 'More Diners'. /signup-salon-us: features contain 'Tax ready' and NOT 'GST ready'. @390x844 mobile: panel hidden, horizontal overflow=0px, [data-testid=signup-switch-links] still visible. HQ super-admin → Mira Lead Agent → Find & review leads: [data-testid=lead-discover-panel] renders 6 chips in order (google, instagram, facebook, linkedin, web, email), all aria-pressed='true' by default; [data-testid=discover-source-google] label '📍 Google Places'. Discover was NOT run from UI (backend already covered).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter221_google_discovery.py",
+    "/app/test_reports/pytest/iter221.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "SignupSidePanel.jsx line 30 — the US i18n swap uses a brittle string.replace('GST ready, ', 'Tax ready, '); if a future copy edit changes 'GST ready, fast and easy' the replace silently no-ops. Prefer passing region/isIntl into the SALON/RESTO definitions or a dedicated i18n map.",
+    "SignupSidePanel.jsx line 34 — the chip renders a raw '💇' emoji string for salon but an <UtensilsCrossed /> SVG for restaurant; inconsistent sizing/alignment (emoji is 1em font-size, icon is w-3.5 h-3.5). Normalise to a lucide icon for both (Scissors for salon).",
+    "lead_discover.py line 122 — slice uses max(body.limit, len(google_leads)) so a google-only hunt returning more than `limit` would exceed the user-requested cap. Minor; recommend min(body.limit, len(leads)).",
+    "lead_discover.py line 145 — score only climbs to 55 when source=='google' AND phone≥10 digits; otherwise 35. Instagram/Facebook leads with phones get 35, which may underscore legitimately high-signal socials. Consider a lightweight score bump for any lead with phone+email."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter221_google_discovery.py (NEW)",
+    "/app/test_reports/iteration_221.json (NEW)"
+  ],
+  "success_rate": {"backend": "100% (2/2)", "frontend": "100% (all signup side-panel + HQ google chip assertions passed)"},
+  "test_credentials": "Super admin admin@miracurl-suite.com / og9T@41Es#OQb6 (cookie auth + X-CSRF-Token header).",
+  "seed_data_creation": "Discover call created 6 mira_leads (city=Mysuru, discovered_by=mira_discover) + 1 mira_lead_runs doc; teardown fixture deleted all. Final mongo check implied by fixture cleanup output.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Google Places discovery uses GOOGLE_MAPS_API_KEY from backend/.env (present & working — Mysuru returned 6 phone-rich leads with ratings on first call). SOURCES dict in /app/backend/routes/lead_discover.py now has 6 keys with 'google' first; the sources endpoint preserves dict insertion order. UI chip default-selected list in /app/frontend/src/components/superadmin/DiscoverEverywhere.jsx line 11 includes 'google' first — matches the backend ordering. If a future change splits google out of SOURCES dict (it's handled specially via _google_places), update the sources endpoint accordingly. Note that discover-source-* testids use the backend source id — if the id for google ever changes to e.g. 'google_places', update LeadSourceBadges.jsx too (badge 'found on Google Places').",
+  "rca of the issue": "N/A — no bugs found."
+}

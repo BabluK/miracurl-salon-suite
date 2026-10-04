@@ -460,3 +460,8 @@
 - UI: `DiscoverEverywhere.jsx` panel in Lead Agent step 1; `LeadSourceBadges` shows "found on Instagram/Facebook/…" linking to the profile.
 - Signup: generic /signup-salon|restaurant auto-redirects to timezone-detected country page; 4-way pill switcher moved to TOP (`signup-switch-links`, aria-current); region mismatch hint (`signup-region-hint`, sessionStorage dismiss). Bottom "Wrong page?" removed.
 - Tests: iteration_220.json (backend 6 pass/1 skip-ratelimit, frontend all pass).
+
+## 2026-10-04 — Signup side panel + Google Places discovery source
+- `components/signup/SignupSidePanel.jsx` (lg+ only): label chip, Playfair title (Grow Your Salon Online / Bring Your Restaurant Online), subtitle, icon feature bullets (US → "Tax ready"), handwritten font-caveat tagline (More Clients|Diners / Happier Business). SignupSalon main is now `lg:grid-cols-[5fr_7fr]`.
+- `lead_discover.py`: `google` source via `_google_places()` (reuses lead_gen `_places_query`, GOOGLE_MAPS_API_KEY) — structured, phone-rich, no LLM; merged ahead of social hits; score 55 w/ phone. Default-selected chip + "found on Google Places" badge.
+- Tests: iteration_221.json.
