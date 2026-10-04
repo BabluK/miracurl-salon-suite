@@ -53,6 +53,15 @@ async def _refund_credit(message_id: str | None) -> None:
     log.info("refunded 1 WhatsApp credit to tenant %s for undelivered %s", doc["tenant_id"], message_id)
 
 
+async def _flag_lead_not_on_whatsapp(wa_id: str) -> None:
+    """HQ outreach: Meta says this number has no WhatsApp — remember it on the lead so nobody retries."""
+    tail = "".join(ch for ch in wa_id if ch.isdigit())[-10:]
+    if len(tail) < 10:
+        return
+    await _raw_db.mira_leads.update_many({"phone": {"$regex": f"{tail}$"}},
+                                         {"$set": {"wa_not_on_whatsapp": True, "wa_not_on_whatsapp_at": _now()}})
+
+
 async def handle_status_update(st: dict, value: dict) -> None:
     """Business → customer lifecycle: sent / delivered / read / failed."""
     key = f"status:{st.get('id')}:{st.get('status')}"
@@ -63,6 +72,8 @@ async def handle_status_update(st: dict, value: dict) -> None:
         upd["errors"] = st.get("errors") or []
         log.warning("whatsapp message %s FAILED for %s: %s", st.get("id"), st.get("recipient_id"), upd["errors"])
         await _refund_credit(st.get("id"))
+        if any(e.get("code") == 131026 for e in upd["errors"]):
+            await _flag_lead_not_on_whatsapp(st.get("recipient_id") or "")
     if st.get("conversation"):
         upd["conversation"] = st.get("conversation")
     if st.get("pricing"):

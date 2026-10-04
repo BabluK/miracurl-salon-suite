@@ -8,6 +8,7 @@ import { CityWatchCard } from "@/components/superadmin/CityWatchCard";
 import { ReplyInbox } from "@/components/superadmin/ReplyInbox";
 import { MiraOutreachCard } from "@/components/superadmin/MiraOutreachCard";
 import { WaBlastModal } from "@/components/superadmin/WaBlastModal";
+import { WaOutreachHistory } from "@/components/superadmin/WaOutreachHistory";
 import { LeadEmailFix } from "@/components/superadmin/LeadEmailFix";
 import { AutoWaToggle } from "@/components/superadmin/AutoWaToggle";
 import { LeadSourceBadges } from "@/components/superadmin/LeadSourceBadges";
@@ -616,6 +617,7 @@ export function MiraLeadAgent() {
             </div>
           </div>
           <WaQuickInvite onLead={refresh} />
+          <WaOutreachHistory refreshKey={blastOpen ? 0 : 1} />
         </>
       )}
       {blastOpen && <WaBlastModal vertical={vertical} runId={lastSearch?.id} onClose={() => setBlastOpen(false)} onRefresh={() => refresh().catch(() => {})} />}

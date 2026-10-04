@@ -47,6 +47,7 @@ async def root():
 from routes.auth import router as auth_router  # noqa: E402
 from routes.pricing_intel import router as pricing_intel_router  # noqa: E402
 from routes.growth_analytics import router as growth_analytics_router  # noqa: E402
+from routes.lead_wa_outreach import router as lead_wa_outreach_router  # noqa: E402
 from routes.manager_access import router as manager_access_router  # noqa: E402
 from routes.customers import router as customers_router  # noqa: E402
 from routes.uploads import router as uploads_router  # noqa: E402
@@ -165,7 +166,7 @@ for _r in (
     passkeys_router, eod_digests_router, wallet_pass_router, site_info_router,
     blog_router, cash_register_router, rewards_campaign_router, growth_advisory_router,
     subscription_invoices_router, rewards_settlements_router, campaign_agreement_router, tenant_features_router, support_tickets_router,
-    login_emails_router, geo_branch_router, pricing_intel_router, growth_analytics_router,
+    login_emails_router, geo_branch_router, pricing_intel_router, growth_analytics_router, lead_wa_outreach_router,
 ):
     api.include_router(_r)
 

@@ -1662,10 +1662,8 @@ async def trigger_lead_auto_nudge(user=Depends(require_super_admin)):
 
 @router.post("/super-admin/mira-leads/{lid}/whatsapp-sent")
 async def whatsapp_mark_sent(lid: str, user=Depends(require_super_admin)):
-    await _raw_db.mira_leads.update_one(
-        {"id": lid}, {"$set": {"status": "sent", "sent_via": "whatsapp", "sent_at": _now(),
-                               "approved_by": user.get("email")}})
-    return {"ok": True}
+    from routes.lead_wa_outreach import wa_outreach_manual_sent
+    return await wa_outreach_manual_sent(lid, user)
 
 
 class StageIn(BaseModel):
@@ -2387,6 +2385,9 @@ async def wa_blast_prepare(body: WaBlastPrepareIn, request: Request, user=Depend
     poster_base = public_base_url(request)
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     queue = []
+    from routes.lead_wa_outreach import check_phone, _template_preview, _template_body
+    from routes.lead_wa_auto import _intro_params
+    tpl_body = await _template_body()
     for l in leads:
         c = data.get(l["id"]) or {}
         body_txt = str(c.get("message") or "").strip()
@@ -2397,5 +2398,7 @@ async def wa_blast_prepare(body: WaBlastPrepareIn, request: Request, user=Depend
             {"id": l["id"]}, {"$set": {"wa_draft": msg, "wa_draft_at": _now()}})
         queue.append({"id": l["id"], "name": l["name"], "city": l.get("city", ""),
                       "vertical": l.get("vertical") or "salon",
-                      "phone": _wa_phone(l.get("phone", "")), "message": msg})
+                      "phone": _wa_phone(l.get("phone", "")), "message": msg,
+                      "check": await check_phone(l.get("phone", "")),
+                      "meta_message": _template_preview(tpl_body, _intro_params(l)) if tpl_body else ""})
     return {"queue": queue}

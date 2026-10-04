@@ -1,0 +1,62 @@
+/* Miracurl HQ — light re-skin. The Super Admin shell is now the same cream canvas as the tenant app.
+   A few HQ widgets (Mira Home, profile card, traffic card) were written dark-first; this scoped sheet remaps
+   their dark utilities to light equivalents so every panel reads as white cards on cream, gold accents. */
+.hq-l .from-\[\#0b1020\], .hq-l .bg-\[\#101a35\], .hq-l .from-\[\#0f1420\], .hq-l .from-\[\#0b0f1a\],
+.hq-l .bg-\[\#1c1c22\], .hq-l .bg-\[\#17171d\], .hq-l .bg-\[\#0f0f14\], .hq-l .bg-\[\#16121a\], .hq-l .bg-slate-900.rounded-3xl, .hq-l .bg-slate-900.rounded-2xl {
+  background-image: none;
+  background-color: #ffffff;
+  border: 1px solid #e9e1cf;
+  box-shadow: 0 20px 40px -24px rgba(10, 9, 7, 0.12), 0 0 0 1px rgba(212, 175, 55, 0.06);
+  color: #1f2937;
+}
+.hq-l .bg-\[\#101a35\] { background-color: #fbf8f1; }
+
+.hq-l .text-white { color: #1f2937; }
+.hq-l .text-white\/90, .hq-l .text-white\/80, .hq-l .text-white\/70 { color: #475569; }
+.hq-l .text-white\/60, .hq-l .text-white\/55, .hq-l .text-white\/50, .hq-l .text-white\/45 { color: #64748b; }
+.hq-l .text-white\/40, .hq-l .text-white\/35, .hq-l .text-white\/30, .hq-l .text-white\/25 { color: #94a3b8; }
+.hq-l .placeholder\:text-white\/30::placeholder, .hq-l .placeholder\:text-white\/40::placeholder { color: #94a3b8; }
+
+.hq-l .bg-white\/5, .hq-l .bg-white\/\[\.05\], .hq-l .bg-white\/\[\.06\] { background-color: #f8fafc; }
+.hq-l .bg-white\/10, .hq-l .bg-white\/\[\.08\], .hq-l .bg-white\/\[\.1\] { background-color: #f1f5f9; }
+.hq-l .bg-white\/20 { background-color: #e2e8f0; }
+.hq-l .bg-black\/20, .hq-l .bg-black\/30, .hq-l .bg-black\/45 { background-color: #f8fafc; }
+.hq-l .hover\:bg-white\/5:hover, .hq-l .hover\:bg-white\/10:hover, .hq-l .hover\:bg-white\/\[\.06\]:hover { background-color: #f1f5f9; }
+.hq-l .border-white\/5, .hq-l .border-white\/10, .hq-l .border-white\/15, .hq-l .border-white\/20 { border-color: #e2e8f0; }
+.hq-l .divide-white\/10 > :not([hidden]) ~ :not([hidden]) { border-color: #e2e8f0; }
+
+/* Coloured / gradient buttons and chips keep white text */
+.hq-l .text-white:is([class*="bg-emerald-"], [class*="bg-rose-"], [class*="bg-sky-"], [class*="bg-fuchsia-"], [class*="bg-indigo-"], [class*="bg-violet-"],
+  [class*="bg-slate-7"], [class*="bg-slate-8"], [class*="bg-slate-9"], [class*="bg-gray-8"], [class*="bg-gray-9"], [class*="bg-black"], [class*="bg-\[\#25D366\]"], [class*="bg-\[\#1c1c22\]"],
+  [class*="bg-gradient-to"], [class*="bg-red-"], [class*="bg-blue-"], [class*="bg-purple-"], [class*="bg-pink-"], [class*="bg-orange-"], [class*="bg-teal-"], [class*="bg-green-"],
+  [class*="bg-cyan-"], [class*="bg-amber-5"], [class*="bg-amber-6"], [class*="bg-lime-"], [class*="bg-yellow-5"]) { color: #ffffff; }
+.hq-l .text-white:is([class*="bg-gradient-to"][class*="from-\[\#F0D9A5\]"], [class*="bg-gradient-to"][class*="from-\[\#d4af37\]"], [class*="bg-gradient-to"][class*="from-gold"]) { color: #1a1408; }
+/* Dark hero panels we turned white: their gradient children stay readable */
+.hq-l .bg-\[radial-gradient\(ellipse_at_top\,rgba\(99\,102\,241\,0\.25\)\,transparent_60\%\)\] { background-image: none; }
+
+.hq-l h1.font-playfair, .hq-l h2.font-playfair { color: #1c1c22; }
+.hq-l .gold-shine-text { -webkit-text-fill-color: initial; background: none; color: #8a6d1f; }
+
+/* Pastel text shades (made for dark panels) → readable deep shades on light cards */
+.hq-l .text-amber-100, .hq-l .text-amber-200, .hq-l .text-amber-300 { color: #92400e; }
+.hq-l .text-emerald-100, .hq-l .text-emerald-200, .hq-l .text-emerald-300 { color: #047857; }
+.hq-l .text-rose-100, .hq-l .text-rose-200, .hq-l .text-rose-300 { color: #be123c; }
+.hq-l .text-sky-100, .hq-l .text-sky-200, .hq-l .text-sky-300 { color: #0369a1; }
+.hq-l .text-fuchsia-100, .hq-l .text-fuchsia-200, .hq-l .text-fuchsia-300 { color: #a21caf; }
+.hq-l .text-indigo-100, .hq-l .text-indigo-200, .hq-l .text-indigo-300 { color: #4338ca; }
+.hq-l .text-violet-100, .hq-l .text-violet-200, .hq-l .text-violet-300 { color: #6d28d9; }
+.hq-l .text-cyan-100, .hq-l .text-cyan-200, .hq-l .text-cyan-300 { color: #0e7490; }
+.hq-l .text-teal-100, .hq-l .text-teal-200, .hq-l .text-teal-300 { color: #0f766e; }
+.hq-l .text-pink-100, .hq-l .text-pink-200, .hq-l .text-pink-300 { color: #be185d; }
+.hq-l .text-purple-100, .hq-l .text-purple-200, .hq-l .text-purple-300 { color: #6b21a8; }
+.hq-l .text-lime-100, .hq-l .text-lime-200, .hq-l .text-lime-300 { color: #4d7c0f; }
+.hq-l .text-orange-100, .hq-l .text-orange-200, .hq-l .text-orange-300 { color: #c2410c; }
+.hq-l .text-blue-100, .hq-l .text-blue-200, .hq-l .text-blue-300 { color: #1d4ed8; }
+.hq-l .text-green-100, .hq-l .text-green-200, .hq-l .text-green-300 { color: #15803d; }
+.hq-l .text-yellow-100, .hq-l .text-yellow-200, .hq-l .text-yellow-300 { color: #a16207; }
+.hq-l .text-red-100, .hq-l .text-red-200, .hq-l .text-red-300 { color: #b91c1c; }
+.hq-l .text-slate-100, .hq-l .text-slate-200, .hq-l .text-slate-300 { color: #475569; }
+.hq-l .text-gray-100, .hq-l .text-gray-200, .hq-l .text-gray-300 { color: #4b5563; }
+.hq-l .text-zinc-100, .hq-l .text-zinc-200, .hq-l .text-zinc-300 { color: #52525b; }
+.hq-l .text-white\/80.font-caveat, .hq-l .text-\[\#F0D9A5\] { color: #8a6d1f; }
+.hq-l .text-\[\#e8c37f\], .hq-l .text-\[\#e8c56a\] { color: #8a6d1f; }

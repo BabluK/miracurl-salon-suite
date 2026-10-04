@@ -3,7 +3,7 @@ import log from "@/lib/log";
 import { useNavigate, useLocation } from "react-router-dom";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import { Building2, Plus, LogOut, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Trophy, Bell, Send, TrendingUp, Download, IndianRupee, Sparkles, Eye, Inbox, Users, Pencil, Stethoscope, Eraser, CreditCard, Menu, PowerOff } from "lucide-react";
+import { Building2, Plus, X, Crown, ExternalLink, Trash2, Upload, Receipt, Gift, Bell, Send, TrendingUp, Sparkles, Eye, Inbox, Users, Pencil, Stethoscope, Eraser, CreditCard, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 import { askConfirm } from "@/components/ConfirmDialog";
 import ImportCustomersModal from "./ImportCustomersModal";
@@ -51,7 +51,6 @@ import { PlatformOverview } from "@/components/superadmin/PlatformOverview";
 import { DiagnoseTenantModal } from "@/components/superadmin/DiagnoseTenantModal";
 import { HiringPanel } from "@/components/superadmin/HiringPanel";
 import { NotificationsPanel } from "@/components/superadmin/NotificationsPanel";
-import { Super3DBackdrop } from "@/components/superadmin/Super3DBackdrop";
 import { PlatformOrbitMap } from "@/components/superadmin/PlatformOrbitMap";
 import { DocsPanel } from "@/components/superadmin/DocsPanel";
 import { StripePaymentsPanel } from "@/components/superadmin/StripePaymentsPanel";
@@ -72,8 +71,7 @@ import { BellRing, Orbit } from "lucide-react";
 import { FeedbackPanel } from "@/components/superadmin/FeedbackPanel";
 import { AssistQueueCard } from "@/components/superadmin/AssistQueueCard";
 import { Briefcase } from "lucide-react";
-import { NetSpeedIndicator } from "@/components/NetSpeedIndicator";
-import "@/styles/hq-gold.css";
+import { HqShell } from "@/components/superadmin/HqShell";
 import { PriceAlertCard, CompetitorWatchCard } from "@/components/superadmin/PricingIntelCards";
 import { CompetitorTrendCard } from "@/components/superadmin/CompetitorTrendCard";
 import { SignupQrCards } from "@/components/superadmin/SignupQrCards";
@@ -196,11 +194,6 @@ export default function SuperAdmin() {
   const [featuresFor, setFeaturesFor] = useState(null); // tenant whose feature switches are open
   const [cleanFor, setCleanFor] = useState(null); // tenant being cleaned of dummy data
   const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get("tab") || "mira-home");
-  const [navOpen, setNavOpen] = useState(false);
-  const [platformLogo, setPlatformLogo] = useState("");
-  useEffect(() => {
-    api.get("/public/site-info").then((r) => setPlatformLogo(r.data.platform_logo || "")).catch(() => {});
-  }, []);
   const [notifFeed, setNotifFeed] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [trialFilter, setTrialFilter] = useState("all");
@@ -390,123 +383,41 @@ export default function SuperAdmin() {
     (vertFilter === "all" || (t.business_type || "salon") === vertFilter) &&
     trialMatch(t));
 
+  const NAV_ITEMS = [
+      { id: "mira-home", label: "Mira Home", icon: Sparkles, top: true },
+      { id: "platform-map", label: "Platform Map", icon: Orbit, top: true },
+      { id: "pipeline", label: "Follow-up Pipeline", icon: TrendingUp, top: true },
+      { id: "tenants", label: "Tenants", icon: Building2, top: true },
+      { id: "notifications", label: "Notifications", icon: BellRing, badge: notifFeed?.unread || 0, top: true },
+      { id: "billing", label: "Billing & Subscriptions", icon: Receipt, top: true },
+      { id: "credits", label: "Message Credits (SMS & WhatsApp)", icon: CreditCard, top: true },
+      { id: "revenue", label: "Revenue", icon: TrendingUp, top: true },
+      { id: "lead-email", label: "Lead Gen Email", icon: Mail, badge: demoHot, hot: demoHot > 0, top: true },
+      { id: "mira-leads", label: "Mira Lead Agent", icon: Sparkles, top: true },
+      { id: "inbox", label: "HQ Inbox", icon: Inbox, badge: hqUnread, top: true },
+      { id: "partners", label: "Partners & Top Referrers", icon: Handshake },
+      { id: "growth-advisory", label: "Growth Advisory & Customer Rewards", icon: TrendingUp },
+      { id: "docs", label: "Documents", icon: FileText },
+      { id: "demo-calendar", label: "Demo Calendar", icon: Bell },
+      { id: "ai", label: "AI Insights", icon: Sparkles },
+      { id: "inquiries", label: "Leads & Inquiries", icon: Users, badge: inquiryNew },
+      { id: "mira-studio", label: "Mira Studio Users", icon: Sparkles },
+      { id: "hiring", label: "Hiring & Staff Verification", icon: Briefcase, badge: hiringNew },
+      { id: "studio", label: "Feedback, AI Engineer & Brand Studio", icon: Palette },
+      { id: "team", label: "HQ, Team, Website & CEO", icon: Crown },
+      { id: "security", label: "Security & Database", icon: ShieldAlert },
+  ];
+  const activeNav = NAV_ITEMS.find(i => i.id === tab);
   return (
-    <div className="hq-gold min-h-screen overflow-x-hidden text-slate-800" data-testid="super-admin-page">
-      <Super3DBackdrop />
-      {/* Header */}
-      <header className="border-b border-[#d4af37]/30 bg-gradient-to-r from-[#0f0f14] via-[#1c1c22] to-[#15151b] sticky top-0 z-40 shadow-lg shadow-[#9a7a1f]/20">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="relative w-11 h-11 sm:w-14 sm:h-14 shrink-0 rounded-full bg-[#0f0f14] flex items-center justify-center ring-1 ring-amber-300/70 shadow-[0_0_0_4px_rgba(212,175,55,0.12),0_10px_28px_-6px_rgba(212,175,55,0.55)]" data-testid="hq-logo-wrap">
-              <span className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_25%,rgba(240,217,165,0.35),transparent_60%)]" />
-              <img src={platformLogo || "/assets/ms-logo-emblem.png"} alt="Miracurl Suite" className={`relative w-9 h-9 sm:w-11 sm:h-11 drop-shadow-[0_2px_8px_rgba(212,175,55,0.6)] ${platformLogo ? "rounded-full object-cover" : "object-contain"}`} draggable="false" data-testid="hq-logo" />
-              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-slate-950 animate-pulse" title="Systems online" />
-            </div>
-            <div className="min-w-0">
-              <div className="font-playfair text-base sm:text-xl flex items-center gap-2 whitespace-nowrap">
-                <span className="gold-shine-text tracking-[0.12em] font-semibold">MIRACURL</span><span className="text-amber-100/80 tracking-[0.3em] text-xs sm:text-sm">HQ</span>
-                <span data-testid="super-admin-badge" className="super-badge hidden sm:inline-flex items-center gap-1 text-[9px] font-bold tracking-[0.18em] uppercase px-2.5 py-1 rounded-full text-slate-900 whitespace-nowrap">
-                  <Sparkles className="w-3 h-3" /> Super Admin
-                </span>
-              </div>
-              <div className="text-[9px] sm:text-[10px] tracking-[0.2em] sm:tracking-[0.25em] uppercase text-amber-300/80 truncate">Command Console · AI-Powered</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-            <div className="hidden md:block"><NetSpeedIndicator /></div>
-            <SuperNotifBell tenants={tenants} hqUnread={hqUnread} onGoInbox={() => setTab("inbox")}
-              onGoTenant={(id) => { setTab("tenants"); setStatusFilter("all"); setVertFilter("all"); setTrialFilter("all"); setTimeout(() => document.querySelector(`[data-testid="tenant-row-${id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 150); }} />
-            <MiraVoiceAssistant onGoTab={setTab} />
-            <span className="text-xs text-white/50 hidden lg:inline">{user?.email}</span>
-            <button data-testid="super-logout-btn" onClick={async () => { await logout(); nav("/login"); }} className="flex items-center gap-2 text-xs font-bold px-2.5 sm:px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-slate-900 hover:brightness-110 shadow-lg shadow-amber-500/25 transition">
-              <LogOut className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Sign Out</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 py-5 sm:py-10 space-y-5 sm:space-y-6 pb-24">
+    <HqShell items={NAV_ITEMS} tab={tab} onTab={setTab} title={activeNav?.label || "Tenants"} user={user} tenants={tenants}
+      onOpenTenant={openSalon} onLogout={async () => { await logout(); nav("/login"); }}
+      headerRight={<>
+        <SuperNotifBell tenants={tenants} hqUnread={hqUnread} onGoInbox={() => setTab("inbox")}
+          onGoTenant={(id) => { setTab("tenants"); setStatusFilter("all"); setVertFilter("all"); setTrialFilter("all"); setTimeout(() => document.querySelector(`[data-testid="tenant-row-${id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 150); }} />
+        <MiraVoiceAssistant onGoTab={setTab} />
+      </>}>
         <DeployBanner />
-        {/* Super-admin profile */}
-        <SuperProfileCard />
-
-        {/* Top navigation + content */}
-        <div className="space-y-4">
-        {(() => {
-          const NAV_ITEMS = [
-              { id: "mira-home", label: "Mira Home", icon: Sparkles, top: true },
-              { id: "platform-map", label: "Platform Map", icon: Orbit, top: true },
-              { id: "pipeline", label: "Follow-up Pipeline", icon: TrendingUp, top: true },
-              { id: "tenants", label: "Tenants", icon: Building2, top: true },
-              { id: "notifications", label: "Notifications", icon: BellRing, badge: notifFeed?.unread || 0, top: true },
-              { id: "billing", label: "Billing & Subscriptions", icon: Receipt, top: true },
-              { id: "credits", label: "Message Credits (SMS & WhatsApp)", icon: CreditCard, top: true },
-              { id: "revenue", label: "Revenue", icon: TrendingUp, top: true },
-              { id: "lead-email", label: "Lead Gen Email", icon: Mail, badge: demoHot, hot: demoHot > 0, top: true },
-              { id: "mira-leads", label: "Mira Lead Agent", icon: Sparkles, top: true },
-              { id: "inbox", label: "HQ Inbox", icon: Inbox, badge: hqUnread, top: true },
-              { id: "partners", label: "Partners & Top Referrers", icon: Handshake },
-              { id: "growth-advisory", label: "Growth Advisory & Customer Rewards", icon: TrendingUp },
-              { id: "docs", label: "Documents", icon: FileText },
-              { id: "demo-calendar", label: "Demo Calendar", icon: Bell },
-              { id: "ai", label: "AI Insights", icon: Sparkles },
-              { id: "inquiries", label: "Leads & Inquiries", icon: Users, badge: inquiryNew },
-              { id: "mira-studio", label: "Mira Studio Users", icon: Sparkles },
-              { id: "hiring", label: "Hiring & Staff Verification", icon: Briefcase, badge: hiringNew },
-              { id: "studio", label: "Feedback, AI Engineer & Brand Studio", icon: Palette },
-              { id: "team", label: "HQ, Team, Website & CEO", icon: Crown },
-              { id: "security", label: "Security & Database", icon: ShieldAlert },
-          ];
-          const renderBtn = (item, full = false) => (
-              <button key={item.id} data-testid={`super-tab-${item.id}`} onClick={() => { setTab(item.id); setNavOpen(false); }}
-                className={`shrink-0 ${full ? "w-full" : ""} text-left px-3 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2.5 transition ${tab === item.id ? "bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#15151b] font-bold shadow-[0_6px_20px_-8px_rgba(212,175,55,.7)]" : item.hot ? "text-amber-300 bg-amber-400/10 animate-pulse hover:bg-amber-400/20" : "text-slate-300 hover:bg-white/[.06] hover:text-[#F0D9A5]"}`}>
-                <item.icon className={`w-4 h-4 shrink-0 ${item.hot && tab !== item.id ? "text-amber-500" : ""}`} />
-                <span className="whitespace-nowrap">{item.label}</span>
-                {item.hot && <span className="text-xs" aria-hidden>🔥</span>}
-                {item.badge > 0 && (
-                  <span className={`ml-auto relative min-w-[18px] h-[18px] px-1 rounded-full ${item.hot ? "bg-amber-500" : "bg-rose-500"} text-white text-[10px] font-bold inline-flex items-center justify-center`}>
-                    {item.hot && <span className="absolute inset-0 rounded-full bg-amber-400 animate-ping opacity-70" aria-hidden />}
-                    <span className="relative">{item.badge}</span>
-                  </span>
-                )}
-              </button>
-          );
-          const moreBadge = NAV_ITEMS.filter(i => !i.top).reduce((s, i) => s + (i.badge || 0), 0);
-          return (
-            <>
-              <aside className="w-full sticky top-2 z-30">
-                <nav data-testid="super-sidebar" className="super-topnav flex items-center gap-1 overflow-x-auto bg-[#17171d]/95 backdrop-blur border border-[#d4af37]/25 rounded-2xl p-2 shadow-[0_20px_60px_-30px_rgba(0,0,0,.8)]">
-                  <button data-testid="super-nav-more" onClick={() => setNavOpen(true)}
-                    className="shrink-0 px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 bg-white/[.05] border border-[#d4af37]/30 text-[#F0D9A5] hover:bg-white/[.1] transition">
-                    <Menu className="w-4 h-4" /> All
-                    {moreBadge > 0 && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold inline-flex items-center justify-center">{moreBadge}</span>}
-                  </button>
-                  <span className="w-px h-6 bg-[#d4af37]/25 shrink-0" />
-                  {NAV_ITEMS.filter(i => i.top).map(i => renderBtn(i))}
-                </nav>
-              </aside>
-              {navOpen && (
-                <div className="fixed inset-0 z-[70]" data-testid="super-nav-drawer">
-                  <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setNavOpen(false)} />
-                  <div className="absolute left-0 top-0 bottom-0 w-72 bg-[#17171d] border-r border-[#d4af37]/25 shadow-2xl p-3 overflow-y-auto"
-                    style={{ animation: "superDrawerIn .28s cubic-bezier(.2,.8,.3,1)" }}>
-                    <style>{"@keyframes superDrawerIn{from{transform:translateX(-100%);opacity:.4}to{transform:translateX(0);opacity:1}}"}</style>
-                    <div className="flex items-center justify-between px-2 py-2 mb-1">
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">All sections</span>
-                      <button onClick={() => setNavOpen(false)} data-testid="super-nav-drawer-close" className="text-slate-400 hover:text-[#F0D9A5]"><X className="w-4 h-4" /></button>
-                    </div>
-                    <div className="space-y-0.5">
-                      <div className="px-2 pt-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#e8c37f]">Pinned on top</div>
-                      {NAV_ITEMS.filter(i => i.top).map(i => renderBtn(i, true))}
-                      <div className="px-2 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">More tools</div>
-                      {NAV_ITEMS.filter(i => !i.top).map(i => renderBtn(i, true))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          );
-        })()}
+        {tab === "mira-home" && <SuperProfileCard />}
         <div className="flex-1 min-w-0 w-full space-y-6">
 
         {(() => {
@@ -794,8 +705,6 @@ export default function SuperAdmin() {
           </>
         )}
         </div>
-        </div>
-      </main>
 
       {open && <OnboardTenantModal form={form} setForm={setForm} onSave={save} busy={busy} onClose={() => setOpen(false)} />}
 
@@ -865,7 +774,7 @@ export default function SuperAdmin() {
           </div>
         </div>
       )}
-    </div>
+    </HqShell>
   );
 }
 
