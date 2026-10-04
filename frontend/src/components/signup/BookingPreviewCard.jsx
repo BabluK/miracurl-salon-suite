@@ -4,6 +4,12 @@ import axios from "axios";
 import { toast } from "sonner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+// Per-visitor token so only this browser's signup can attach this pending logo
+export function logoClaim() {
+  let c = sessionStorage.getItem("miracurl_logo_claim");
+  if (!c) { c = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/-/g, ""); sessionStorage.setItem("miracurl_logo_claim", c); }
+  return c;
+}
 const SALON_HERO = "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=900";
 const RESTO_HERO = "/resto-hero.jpg";
 
@@ -20,7 +26,7 @@ function LogoAvatar({ initial, logoUrl, onLogo }) {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const { data } = await axios.post(`${BACKEND_URL}/api/public/signup-logo`, fd);
+      const { data } = await axios.post(`${BACKEND_URL}/api/public/signup-logo`, fd, { params: { claim: logoClaim() } });
       onLogo(data.url);
       toast.success("Logo added to your preview ✦");
     } catch (err) {

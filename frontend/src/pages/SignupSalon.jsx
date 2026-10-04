@@ -6,7 +6,7 @@ import axios from "axios";
 import { Scissors, Sparkles, User, Mail, Lock, MapPin, Phone, Check, ArrowRight, ArrowLeft, Building2, Gift, AlertCircle, Eye, EyeOff, PartyPopper, X } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { SuiteLogo } from "@/components/SiteHeader";
-import { BookingPreviewCard } from "@/components/signup/BookingPreviewCard";
+import { BookingPreviewCard, logoClaim } from "@/components/signup/BookingPreviewCard";
 import { SignupExitNudge } from "@/components/signup/SignupExitNudge";
 import { SignupSidePanel } from "@/components/signup/SignupSidePanel";
 import ChatButton from "@/components/ChatButton";
@@ -171,6 +171,7 @@ export default function SignupSalon() {
         region,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
         logo_url: form.logo_url || undefined,
+        logo_claim: form.logo_url ? logoClaim() : undefined,
       });
       setTenantSlug(data.tenant.slug);
       trackSignup({ slug: data.tenant.slug, business_type: form.business_type, trial_days: data.trial_days, region, referred: ref });

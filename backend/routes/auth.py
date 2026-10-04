@@ -297,6 +297,7 @@ class SalonSignupIn(BaseModel):
     timezone: str | None = Field(None, max_length=64)  # browser timezone (stored for intl salons)
     business_type: str | None = Field("salon", pattern="^(salon|restaurant)$")
     logo_url: str | None = Field(None, pattern=r"^/api/files/[0-9a-f-]{36}$")  # from POST /public/signup-logo
+    logo_claim: str | None = Field(None, max_length=64)  # opaque per-visitor token sent at upload time
 
 
 from constants import AFFILIATE_REWARD_INR
@@ -484,8 +485,12 @@ async def _create_signup_tenant(body: SalonSignupIn, email: str) -> tuple[dict, 
     _apply_offer_fields(tenant, offer, body)
     await db.tenants.insert_one(tenant)
     if body.logo_url:
-        await _raw_db.uploads.update_one({"id": body.logo_url.rsplit("/", 1)[-1], "tenant_id": "pending-signup"},
-                                         {"$set": {"tenant_id": tenant["id"]}})
+        import hashlib
+        claim = hashlib.sha256((body.logo_claim or "").encode()).hexdigest()[:32] if body.logo_claim else ""
+        r = await _raw_db.uploads.update_one({"id": body.logo_url.rsplit("/", 1)[-1], "tenant_id": "pending-signup", "claim": claim},
+                                             {"$set": {"tenant_id": tenant["id"]}})
+        if not r.matched_count:  # not this visitor's upload → don't attach it
+            await _raw_db.tenants.update_one({"id": tenant["id"]}, {"$unset": {"logo_url": ""}})
     if tenant.get("business_type") == "restaurant":
         await _seed_restaurant_defaults(tenant["id"])
     asyncio.create_task(_send_signup_welcome(dict(tenant), body, trial_end))

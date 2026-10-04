@@ -124,6 +124,8 @@ async def discover_leads(body: DiscoverIn, user=Depends(require_super_admin)):
     saved = []
     for l in leads:
         url, handle = (l.get("url") or "").strip(), (l.get("handle") or "").strip().lstrip("@")
+        if url and not re.match(r"^https?://[^\s<>\"']+$", url):
+            url = ""
         email, phone = (l.get("email") or "").strip().lower(), re.sub(r"[^\d+]", "", l.get("phone") or "")
         dup_or = [{"name": {"$regex": f"^{re.escape(l['name'])}$", "$options": "i"}, "city": {"$regex": f"^{re.escape(body.city)}$", "$options": "i"}}]
         if url:

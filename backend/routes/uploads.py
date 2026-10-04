@@ -80,7 +80,7 @@ async def upload_image(
 
 
 @router.post("/public/signup-logo")
-async def public_signup_logo(request: Request, file: UploadFile = File(...)):
+async def public_signup_logo(request: Request, file: UploadFile = File(...), claim: str = ""):
     """Pre-signup logo for the live booking-page preview. Stored under a pending path; the signup
     handler re-tags the upload to the new tenant once the account is created."""
     await public_rate_limit(request, key_suffix="signup-logo", limit=10, window_sec=900)
@@ -105,12 +105,12 @@ async def public_signup_logo(request: Request, file: UploadFile = File(...)):
     except requests.HTTPError as e:
         raise HTTPException(400, f"Storage upload failed: {e}") from e
     await _raw_db.uploads.insert_one({
-        "id": file_id, "tenant_id": "pending-signup", "kind": "logo",
+        "id": file_id, "tenant_id": "pending-signup", "kind": "logo", "claim": hashlib.sha256(claim.encode()).hexdigest()[:32] if claim else "",
         "storage_path": result.get("path", storage_path), "original_filename": file.filename or f"{file_id}.{ext}",
         "content_type": _MIME[ext], "size": len(data), "uploaded_by": "public-signup",
         "is_deleted": False, "created_at": datetime.now(timezone.utc).isoformat(),
     })
-    return {"id": file_id, "url": f"/api/files/{file_id}", "size": len(data)}
+    return {"id": file_id, "url": f"/api/files/{file_id}", "size": len(data), "claim": claim}
 
 
 def _fit_logo(data: bytes) -> bytes:

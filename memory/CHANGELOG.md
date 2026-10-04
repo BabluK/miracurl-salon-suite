@@ -465,3 +465,9 @@
 - `components/signup/SignupSidePanel.jsx` (lg+ only): label chip, Playfair title (Grow Your Salon Online / Bring Your Restaurant Online), subtitle, icon feature bullets (US → "Tax ready"), handwritten font-caveat tagline (More Clients|Diners / Happier Business). SignupSalon main is now `lg:grid-cols-[5fr_7fr]`.
 - `lead_discover.py`: `google` source via `_google_places()` (reuses lead_gen `_places_query`, GOOGLE_MAPS_API_KEY) — structured, phone-rich, no LLM; merged ahead of social hits; score 55 w/ phone. Default-selected chip + "found on Google Places" badge.
 - Tests: iteration_221.json.
+
+## 2026-10-04 — Security audit #2 (read-only) + fixes
+- Verdict CONDITIONAL PASS; prior XSS fix + CSP verified intact; discovery/outreach/analytics routes verified (no SSRF/NoSQL/regex injection, super-admin guarded).
+- FIXED SEC-001 (MEDIUM): prompt injection via stored WhatsApp replies — `mira_brain.remember_reply` now stores only outcome + sentiment (interested/declined/neutral), never the prospect text; learned block labelled as untrusted data.
+- Hardening: discovered lead `url` must match ^https?:// before storing (`lead_discover.py`); pending signup logo bound to a per-visitor `claim` token (sessionStorage `miracurl_logo_claim` → `?claim=` on upload, `logo_claim` on signup; mismatch → logo not attached).
+- Accepted P3s: CSP connect-src/img-src https: (not script vectors); `force` on send-meta (super-admin only).
