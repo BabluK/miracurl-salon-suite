@@ -36,7 +36,9 @@ def _llm_retryable(e: Exception) -> bool:
                                 "timed out", "temporarily", "connection", "502", "503"))
 
 
-async def _ask(system: str, prompt: str, *, model: str = "gpt-4o-mini", session: str = "", images_b64: list | None = None) -> str:
+async def _ask(system: str, prompt: str, *, model: str | None = None, session: str = "", images_b64: list | None = None) -> str:
+    from services.mira_brain import MODEL
+    model = model or MODEL
     for attempt in range(4):
         try:
             async with _LLM_SEM:
@@ -56,7 +58,7 @@ async def _ask(system: str, prompt: str, *, model: str = "gpt-4o-mini", session:
             await asyncio.sleep(wait)
 
 
-async def _ask_json(system: str, prompt: str, *, model: str = "gpt-4o-mini", images_b64: list | None = None) -> dict:
+async def _ask_json(system: str, prompt: str, *, model: str | None = None, images_b64: list | None = None) -> dict:
     sys = system + " Reply with ONLY valid minified JSON, no markdown, no prose."
     for attempt in range(2):
         raw = await _ask(sys, prompt, model=model, images_b64=images_b64)

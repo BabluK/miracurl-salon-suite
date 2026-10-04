@@ -186,6 +186,11 @@ def _reply_update(lead: dict, text: str) -> dict:
 async def _after_reply(lead: dict, text: str) -> None:
     """HQ conversion alert + Mira's auto demo invite (email leads only)."""
     try:
+        from services.mira_brain import remember_reply
+        await remember_reply(lead, text, "whatsapp")
+    except Exception:  # noqa: BLE001
+        log.exception("mira memory (wa reply) failed")
+    try:
         from services.hq_conversion import notify_hq_conversion
         await notify_hq_conversion(lead, "wa_replied", text)
     except Exception:  # noqa: BLE001

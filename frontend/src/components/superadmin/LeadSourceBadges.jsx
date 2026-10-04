@@ -21,12 +21,21 @@ const Badge = ({ kind, info, leadId, detail }) => (
 );
 
 // "email · Instagram" / "phone · Google" chips showing where Mira found each contact.
+const FOUND_ON = { instagram: ["📸", "Instagram"], facebook: ["📘", "Facebook"], linkedin: ["💼", "LinkedIn"], web: ["🌐", "Web"], email: ["✉️", "Email footprint"] };
+
 export function LeadSourceBadges({ lead, className = "" }) {
   const email = lead.email ? sourceInfo(lead.email_source) : null;
   const phone = lead.phone ? sourceInfo(lead.phone_source || (lead.source === "google_maps" ? "google" : "")) : null;
-  if (!email && !phone) return null;
+  const found = FOUND_ON[lead.source];
+  if (!email && !phone && !found) return null;
   return (
     <span className={`inline-flex flex-wrap items-center gap-1 ${className}`} data-testid={`lead-sources-${lead.id}`}>
+      {found && (
+        <a href={lead.social_url || undefined} target="_blank" rel="noreferrer" data-testid={`lead-found-on-${lead.id}`}
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#fdf8ec] text-[#8a6d1f] border border-[#d4af37]/40" title={`Mira found this lead on ${found[1]}`}>
+          {found[0]} found on {found[1]}
+        </a>
+      )}
       {email && <Badge kind="email" info={email} leadId={lead.id} detail={lead.instagram_handle ? `@${lead.instagram_handle}` : ""} />}
       {phone && <Badge kind="phone" info={phone} leadId={lead.id} detail={lead.instagram_handle && phone.key === "instagram" ? `@${lead.instagram_handle}` : ""} />}
     </span>

@@ -354,9 +354,10 @@ async def _run_mira_action(action: str, user: dict) -> str:
 async def _mira_llm_decision(user_id: str, question: str, last_mira: str, snap: dict) -> dict:
     """Ask the LLM for {answer, tab}; degrades to a polite fallback on any error."""
     from emergentintegrations.llm.chat import LlmChat, UserMessage
-    memory_block = await mira_memory_prompt()
+    from services.mira_brain import MODEL, brain_prompt
+    memory_block = await brain_prompt()
     chat = LlmChat(api_key=os.environ["EMERGENT_LLM_KEY"], session_id=f"mira-hq-{user_id}-{uuid.uuid4().hex[:6]}",
-                   system_message=_mira_system_prompt()).with_model("openai", "gpt-4o-mini")
+                   system_message=_mira_system_prompt()).with_model("openai", MODEL)
     prev = f'Previous Mira message: "{last_mira.strip()[:200]}"\n' if last_mira.strip() else ""
     ist_now = datetime.now(_IST)
     msg = (f"Current time: {ist_now.strftime('%A %d %B, %I:%M %p')} IST ({_tod_greeting()}).\n"
@@ -731,11 +732,8 @@ async def mira_memory_delete(mid: str, user=Depends(require_super_admin)):
 
 
 async def mira_memory_prompt() -> str:
-    rows = await _raw_db.mira_memory.find({}, {"_id": 0, "category": 1, "text": 1}).sort("created_at", -1).to_list(40)
-    if not rows:
-        return ""
-    lines = "\n".join(f"- [{r['category']}] {r['text']}" for r in rows)
-    return f"\nAPPROVED BUSINESS MEMORY (Boss saved these — use them when relevant):\n{lines}\n"
+    from services.mira_brain import brain_prompt
+    return await brain_prompt()
 
 
 # ---------------- Follow-up Pipeline ----------------

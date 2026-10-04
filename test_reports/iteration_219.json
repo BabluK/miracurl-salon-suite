@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 219 — Super-Admin HQ redesign (HqShell dark gold-night sidebar + cream content + light-mapped widgets) and WhatsApp outreach upgrade in Mira Lead Agent (meta one-click template send, manual wa.me, phone pre-flight, history panel). Backend: 8/8 pytest cases pass against /app/backend/tests/test_iter219_wa_outreach_hq.py (channel/check/send-meta landline 409/manual-sent/history filter/delete 404/unauthed 401|403). Frontend: HqShell renders at 1920×1080 with [data-testid=super-sidebar] containing all 5 group labels (Command/Business/Growth/Operations/System), all 22 [data-testid=super-tab-*] buttons (0 missing), [data-testid=super-logout-btn] at bottom; header has hq-page-title, hq-header-date, hq-tenant-switch, hq-header-user ('Super Admin'); no element with class 'hq-gold' on the page; main bg transparent on top of body (effective cream from parent). Section navigation updates the hq-page-title correctly for tenants/billing/credits/revenue/mira-leads/docs/inbox/security/team/hiring/inquiries (titles: 'Tenants','Billing & Subscriptions','Message Credits (SMS & WhatsApp)','Revenue','Mira Lead Agent','Documents','HQ Inbox','Security & Database','HQ, Team, Website & CEO','Hiring & Staff Verification','Leads & Inquiries'); Billing shows price-alert-preview + competitor-trend-card; Docs shows 4 signup-qr-img-*. Tenant switch: menu opens, search works, clicking [data-testid=hq-tenant-switch-miracurl-marathahalli] navigates straight to /dashboard (act-as, no confirm dialog) — acceptable per task. Mobile 390×844: sidebar hidden off-canvas by default (left=-280px), [data-testid=hq-sidebar-open] hamburger slides it to left=0, no horizontal overflow (scrollWidth=clientWidth=390). WA Blast modal: opens from [data-testid=wa-blast-open-btn]; setup hint mentions '+919180379552'; Compose generated a queue (lead 1/20 Apple Unisex Salon · Pune), [data-testid=wa-blast-phone-check] present showing 'Mobile — WhatsApp likely · IN', meta mode shows meta-preview + send-meta-btn (NOT clicked per instructions), toggling to manual reveals wa-blast-message textarea + wa-blast-send-btn. History panel [data-testid=wa-outreach-history] renders below quick-invite with wa-history-filter-all|meta|manual. Mira Home readability spot-check: text nodes sampled on light cards use dark/medium colours (slate-500 rgb(100,116,139), gold rgb(243,223,174) on tinted dark-gold card, violet rgb(109,40,217) on violet-tint, etc.) over cream/white — no white-on-white detected. Overall: all requested checks for both (A) HQ redesign and (B) WA outreach upgrade work.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Mira Home widget hero", "issues": ["The AI-mascot hero behind Mira Home still renders with its original dark cosmic background (purple/black) in the cream HQ layout — this is intentional per task spec (dark-native widget remapped light outside), but the mascot section itself is still visually dark; readable, just contrast island vs rest of cream page. Not a blocker."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter219_wa_outreach_hq.py",
+    "/app/test_reports/pytest/iter219.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Pre-existing React hydration warning in console when navigating sections: 'In HTML, <span> cannot be a child of <option>. This will cause a hydration error.' — happens inside SuperAdminProtected tree. Not caused by iter-219 code but should be cleaned up (an <option> contains a <span>).",
+    "Pre-existing CSP violation on inline script hash mismatch still present on /super-admin (same issue as iter-218 report) — not iter-219 related.",
+    "lead_wa_outreach.py: _template_body() cache check compares an ISO datetime string against an unmoored date — works only because midnight-ISO truncation makes it string-comparable; brittle. Suggest storing fetched_at as a date and comparing numerically.",
+    "Tenant switch skips the confirm dialog entirely and navigates straight to /dashboard — task said either is acceptable; still worth noting there's no 'super-admin acting as X' audit log confirmation step surfaced to the user before navigation."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter219_wa_outreach_hq.py (NEW)",
+    "/app/test_reports/iteration_219.json (NEW)"
+  ],
+  "success_rate": {"backend": "100% (8/8 pytest)", "frontend": "100% (all requested data-testids present, all flows render)"},
+  "test_credentials": "Super admin: admin@miracurl-suite.com / og9T@41Es#OQb6 — verified working (cookie + X-CSRF-Token header required for state-changing requests).",
+  "seed_data_creation": "QA landline lead inserted directly into mongo (mira_leads) with id=qa-test-<uuid> phone=+442887767955 vertical=salon status=researched — cleaned up by pytest fixture teardown (delete mira_leads + mira_wa_outreach for that lead_id).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "To reach the WA Blast + history panel on /super-admin: click [data-testid=super-tab-mira-leads], then click sub-tab [data-testid=lead-section-inbox] (label '📥 Replies, funnel & tools'). The wa-blast-compose action calls the LLM — budget ~25-30s before the queue renders. The modal is 20 leads per blast; the queue counter shows 'N/20'. For CSRF, after POST /api/auth/login read cookies.get('csrf_token') and send as 'X-CSRF-Token' header on POST/DELETE. backend/.env values are quoted ('mongodb://...'); when reading manually strip surrounding quotes. NEVER click [data-testid=wa-blast-send-meta-btn] in tests (sends real WhatsApp). To validate landline rejection on send-meta, insert a mongo doc into mira_leads with phone='+442887767955' and POST send-meta {force:false} → expect 409 with 'Landline' in body.",
+  "rca of the issue": "N/A — no bugs found this iteration."
+}

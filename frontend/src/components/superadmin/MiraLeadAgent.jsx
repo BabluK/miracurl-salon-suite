@@ -9,6 +9,7 @@ import { ReplyInbox } from "@/components/superadmin/ReplyInbox";
 import { MiraOutreachCard } from "@/components/superadmin/MiraOutreachCard";
 import { WaBlastModal } from "@/components/superadmin/WaBlastModal";
 import { WaOutreachHistory } from "@/components/superadmin/WaOutreachHistory";
+import { DiscoverEverywhere } from "@/components/superadmin/DiscoverEverywhere";
 import { LeadEmailFix } from "@/components/superadmin/LeadEmailFix";
 import { AutoWaToggle } from "@/components/superadmin/AutoWaToggle";
 import { LeadSourceBadges } from "@/components/superadmin/LeadSourceBadges";
@@ -543,6 +544,7 @@ export function MiraLeadAgent() {
         <>
           <SearchPanel city={city} setCity={setCity} target={target} setTarget={setTarget} vertical={vertical} setVertical={setVertical}
             onRun={startRun} onStop={stopRun} starting={starting} activeRun={activeRun} />
+          <DiscoverEverywhere city={city} vertical={vertical} onDone={() => refresh().catch(() => {})} />
           <LastRunCard run={lastSearch} leads={leads} showing={scope === "recent"} onShowLeads={() => { setScope(scope === "recent" ? "all" : "recent"); setFilter("all"); }} />
 
           <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3" data-testid="lead-results">

@@ -396,7 +396,8 @@ async def _draft_email(lead: dict, notes: str | None = None) -> dict:
                     'Same rules: personalized, ONE emoji, max 60 chars. Final JSON keys: subject, subject_b, body.')
     if notes:
         user_prompt += f"\n\nBOSS'S WORDING INSTRUCTIONS (follow these strictly, they override the style rules above): {notes}"
-    out = await _ask_json(prompts["system"].format(pricing=pricing), user_prompt)
+    from services.mira_brain import brain_prompt
+    out = await _ask_json(prompts["system"].format(pricing=pricing) + await brain_prompt(), user_prompt)
     subject = (out.get("subject") or prompts["fallback_subject"])[:120]
     subject_b = (out.get("subject_b") or "")[:120]
     return {"subject": subject, "subject_b": subject_b if subject_b and subject_b != subject else "",
@@ -2349,7 +2350,8 @@ async def _blast_compose(leads: list, posters: dict) -> dict:
         f"{l['id']}|{l['name']}|{l.get('city', '')}|{l.get('vertical') or 'salon'}|"
         f"rating {l.get('rating') or '?'}|{l.get('reviews') or 0} reviews"
         + ("|NEWLY OPENED" if l.get("new_business") else "") for l in leads)
-    return await _ask_json(_WA_BLAST_SYS,
+    from services.mira_brain import brain_prompt
+    return await _ask_json(_WA_BLAST_SYS + await brain_prompt(),
                            f"Quote posters available:\n{poster_list or 'none'}\n\n"
                            f"Leads (id|name|city|type|rating|reviews):\n{listing}")
 

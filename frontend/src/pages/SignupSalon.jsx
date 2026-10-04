@@ -35,8 +35,19 @@ const SIGNUP_LINKS = [["salon", "in", "Salon · India"], ["salon", "intl", "Salo
 export default function SignupSalon() {
   const nav = useNavigate();
   const auth = useAuth();
-  const [{ business_type: pathType, pathRegion }] = useState(() => parseSignupPath(window.location.pathname));
+  const [{ business_type: pathType, pathRegion }] = useState(() => {
+    const parsed = parseSignupPath(window.location.pathname);
+    if (!parsed.pathRegion) {
+      // Generic /signup-salon → land straight on the visitor's country page (timezone-detected)
+      const detected = (() => { try { return localStorage.getItem("miracurl_region") || detectRegion(); } catch { return detectRegion(); } })();
+      window.location.replace(signupPath(parsed.business_type, detected, true) + window.location.search);
+      return { ...parsed, pathRegion: detected };
+    }
+    return parsed;
+  });
   const locked = !!pathRegion;
+  const detectedRegion = detectRegion();
+  const [regionHintDismissed, setRegionHintDismissed] = useState(() => sessionStorage.getItem("miracurl_region_hint") === "1");
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -209,10 +220,25 @@ export default function SignupSalon() {
       <div className="h-[72px] sm:h-20" aria-hidden="true" />
 
       <main className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10 pb-20">
-        <div className="mb-4 flex items-center justify-center gap-2 text-xs text-[#8a7048]" data-testid="signup-page-label">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#D9B878]/40 font-semibold">
-            {isRestoTheme ? "🍴 Restaurant" : "💇 Salon / Spa"} · {isIntl ? "🇺🇸 US / International" : "🇮🇳 India"}
-          </span>
+        <div className="mb-4 flex flex-col items-center gap-2" data-testid="signup-page-label">
+          <div className="inline-flex flex-wrap justify-center gap-1 p-1 rounded-full bg-white border border-[#D9B878]/40 shadow-sm" data-testid="signup-switch-links">
+            {SIGNUP_LINKS.map(([t, r, l]) => {
+              const active = t === form.business_type && r === region;
+              return (
+                <a key={t + r} href={signupPath(t, r, true)} data-testid={`signup-switch-${t}-${r}`} aria-current={active ? "page" : undefined}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${active ? "bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#1a1408] shadow" : "text-[#8a7048] hover:bg-[#FBF6EC]"}`}>
+                  {t === "restaurant" ? "🍴" : "💇"} {l.replace("India", "🇮🇳 India").replace("US", "🇺🇸 US")}
+                </a>
+              );
+            })}
+          </div>
+          {detectedRegion !== region && !regionHintDismissed && (
+            <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800" data-testid="signup-region-hint">
+              <span>📍 Looks like you're {detectedRegion === "in" ? "in India" : "outside India"} — want {detectedRegion === "in" ? "₹ India" : "$ US / International"} pricing?</span>
+              <a href={signupPath(form.business_type, detectedRegion, true)} data-testid="signup-region-hint-switch" className="font-bold underline">Switch</a>
+              <button type="button" onClick={() => { sessionStorage.setItem("miracurl_region_hint", "1"); setRegionHintDismissed(true); }} data-testid="signup-region-hint-dismiss" className="text-amber-500 hover:text-amber-700" aria-label="Dismiss">✕</button>
+            </div>
+          )}
         </div>
         <div className="bg-white rounded-[28px] shadow-[0_20px_40px_-15px_rgba(10,9,7,.08),0_0_20px_rgba(212,175,55,.06)] border border-[#d4af37]/25 p-6 sm:p-9" data-testid="signup-form-card" style={{ "--su-accent": accent, "--su-soft": soft, "--su-grad": grad }}>
           <div className="flex items-center justify-between gap-3 flex-wrap mb-6">
@@ -287,14 +313,6 @@ export default function SignupSalon() {
           <p className="mt-3 text-[11px] text-slate-400">By signing up you agree to our <a href="/terms-of-service" className="underline hover:text-slate-600">Terms of Service</a> and <a href="/privacy-policy" className="underline hover:text-slate-600">Privacy Policy</a>.</p>
         </div>
 
-        {locked && (
-          <p className="mt-5 text-center text-[11px] text-slate-400" data-testid="signup-switch-links">
-            Wrong page?{" "}
-            {SIGNUP_LINKS.filter(([t, r]) => !(t === form.business_type && r === region)).map(([t, r, l], i) => (
-              <span key={t + r}>{i > 0 && <span className="mx-1.5 text-slate-300">|</span>}<a href={signupPath(t, r, true)} data-testid={`signup-switch-${t}-${r}`} className="underline hover:text-[var(--su-accent)]">{l}</a></span>
-            ))}
-          </p>
-        )}
       </main>
     </div>
   );

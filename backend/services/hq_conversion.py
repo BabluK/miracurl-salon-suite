@@ -28,6 +28,11 @@ async def notify_hq_conversion(lead: dict, kind: str, snippet: str = "") -> bool
     from email_service import _send_email, hq_notify_emails
     if kind in (lead.get("conversion_alerts") or []):
         return False
+    try:
+        from services.mira_brain import remember_conversion
+        await remember_conversion(lead, kind)
+    except Exception:  # noqa: BLE001
+        log.exception("mira memory (conversion) failed")
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     vert = "Restaurant" if (lead.get("vertical") or "salon") == "restaurant" else "Salon"
     label = {"replied": "replied to Mira's email", "wa_replied": "replied on WhatsApp",
