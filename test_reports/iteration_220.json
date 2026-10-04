@@ -1,0 +1,31 @@
+{
+  "summary": "Iteration 220 — (A) multi-source lead discovery (routes/lead_discover.py), (B) Mira brain memory injection (services/mira_brain.py + routes/mira_hq.py), and (C) Signup top switcher + timezone-based auto-redirect + region hint. Backend: 7 pytest tests on /app/backend/tests/test_iter220_discover_brain.py — 6 passed + 1 skipped. Passed: GET /api/super-admin/mira-leads/discover/sources returns exactly {instagram,facebook,linkedin,web,email}; unauthed → 403; discover 422 for 1-char city; discover unauthed → 401/403; GET /api/super-admin/mira/memory returns ≥1 auto-source rows (2 'discovery' auto rows in mongo); POST /api/super-admin/mira/ask responds with a non-empty answer that references outreach stats (brain_prompt injection works). The dedupe test (POST discover Pune/facebook twice) was SKIPPED on this rerun because DuckDuckGo+Bing returned 0 raw hits (rate-limited from the preview IP) and the endpoint correctly returns {found:0,saved:0,note:'…'} with no run_id. The initial clean run of the same test (earlier full suite) returned a run_id, saved leads, and the second call deduped (saved <= first) — confirmed working, cleanup fixture then deleted all Pune mira_discover leads and run docs. Frontend (super-admin + 2 incognito contexts for timezone): /signup-salon with Asia/Kolkata → /signup-salon-india; with America/New_York → /signup-salon-us; same for /signup-restaurant → /signup-restaurant-{us|india}. On /signup-restaurant-india: [data-testid=signup-switch-links] is ABOVE [data-testid=signup-form-card] (y=120 < y=174), contains exactly 4 links, [data-testid=signup-switch-restaurant-in] has aria-current='page'; href on signup-switch-salon-us = /signup-salon-us; zero occurrences of 'Wrong page' text. Region hint: with US tz on /signup-salon-india the hint renders text containing 'outside India' and '$ US / International pricing', [data-testid=signup-region-hint-switch] href=/signup-salon-us; clicking [data-testid=signup-region-hint-dismiss] hides it; after reload (sessionStorage) it stays hidden; with Asia/Kolkata on /signup-salon-india no hint renders (count=0). HQ Mira Lead Agent → Find & review leads: [data-testid=lead-discover-panel] visible, exactly 5 [data-testid=discover-source-*] chips (instagram/facebook/linkedin/web/email), all aria-pressed='true' by default; clicking a chip toggles aria-pressed to 'false'; [data-testid=discover-run-btn] text in salon mode = 'Find salons everywhere ✦', after toggling [data-testid=lead-vertical-restaurant] it becomes 'Find restaurants everywhere ✦'. Per task instructions the run button was NOT clicked a 3rd time (budget already spent on backend pytest). Regression: [data-testid=wa-blast-open-btn] opens the WA Blast modal; [data-testid=super-sidebar] renders; [data-testid=hq-page-title]='Mira Lead Agent'. Overall: all task checks for Mira brain, multi-source discovery and signup redesign work as spec'd.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter220_discover_brain.py",
+    "/app/test_reports/pytest/iter220.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "lead_discover.py line 93-94 early-return path (empty raw) does NOT include a run_id, while the normal path (line 128) does. The frontend only reads data.saved and data.note so it's fine, but any API consumer relying on run_id would need to handle the key being absent. Consider always returning run_id (even for a 0-result run) and still inserting a mira_lead_runs doc so operators can see search-engine throttling in history.",
+    "lead_discover.py — DuckDuckGo + Bing scraping is unauth'd and visibly rate-limited from the preview IP; discovery intermittently returns 0 raw hits. Not a bug but suggests adding a server-side cache or a 3rd fallback (SerpAPI/Brave) to make the feature reliable in production.",
+    "SignupSalon.jsx — the timezone-based redirect runs inside useState initializer and calls window.location.replace during render. Works, but is a known React anti-pattern (side effects in init). Consider moving to a top-level useEffect with an early-return guard component.",
+    "SignupSalon.jsx line 50 — sessionStorage access in useState init can throw in private-mode browsers that disable storage; wrap in try/catch like the other storage reads in this file."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter220_discover_brain.py (NEW)",
+    "/app/test_reports/iteration_220.json (NEW)"
+  ],
+  "success_rate": {"backend": "100% (6 passed / 1 skipped — skip is upstream rate-limit tolerance; dedupe path verified on earlier full run)", "frontend": "100% (all requested data-testids + behaviours verified)"},
+  "test_credentials": "Super admin admin@miracurl-suite.com / og9T@41Es#OQb6 — cookie auth, X-CSRF-Token header required on POST (sent as the csrf_token cookie value).",
+  "seed_data_creation": "None persistent. The discover test created mira_leads with discovered_by='mira_discover', city='Pune' and matching mira_lead_runs; teardown fixture deletes both. Final mongo check confirms 0 remaining Pune mira_discover docs.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Discovery endpoint hits DDG+Bing which are rate-limited from this IP — expect intermittent {found:0,saved:0,note:...} 200 responses. Backend test skips the dedupe assertion gracefully in that case. Call POST /api/super-admin/mira-leads/discover sparingly (LLM + web). For signup timezone redirects use a fresh playwright context with timezone_id='Asia/Kolkata' or 'America/New_York'; the detectRegion() function reads Intl timezone and caches to localStorage, so reuse of a context across regions can mislead. To exercise lead-found-on-{id} badges in UI you need at least one lead with discovered_by='mira_discover' in mongo (none exist currently after cleanup).",
+  "rca of the issue": "N/A — no bugs."
+}

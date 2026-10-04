@@ -1,6 +1,7 @@
 """HQ conversion alerts — leaf service (imports no routers) so auth/lead_gen/hq_documents/lead_wa_auto can hook
 into it without circular imports. Emails admin@ once per (lead, kind) when an outreach lead replies / books / signs up."""
 import html as _html
+import logging
 import os
 import re
 import uuid
@@ -8,6 +9,8 @@ from datetime import datetime, timezone
 
 from database import _raw_db
 from routes.lead_common import log_mira_event
+
+log = logging.getLogger("hq_conversion")
 
 
 def _now() -> str:
