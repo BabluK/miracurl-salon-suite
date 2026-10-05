@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="5" skipped="0" tests="9" time="2.952" timestamp="2026-10-05T05:45:32.098491+00:00" hostname="agent-env-d1dfed1a-214d-43b3-ad1c-27a56ad52812"><testcase classname="tests.test_iter222_send_demo_whatsapp.TestSendDemoWhatsApp" name="test_unauthed" time="0.312" /><testcase classname="tests.test_iter222_send_demo_whatsapp.TestHelpers" name="test_wa_caption_strips_urls_and_has_signature" time="0.239"><failure message="KeyError: 'MONGO_URL'">tests/test_iter222_send_demo_whatsapp.py:127: in test_wa_caption_strips_urls_and_has_signature
+    from routes.mira_outreach import _wa_caption
+routes/mira_outreach.py:15: in &lt;module&gt;
+    from database import _raw_db
+database.py:12: in &lt;module&gt;
+    mongo_url = os.environ['MONGO_URL']
+                ^^^^^^^^^^^^^^^^^^^^^^^
+&lt;frozen os&gt;:679: in __getitem__
+    ???
+E   KeyError: 'MONGO_URL'</failure></testcase><testcase classname="tests.test_iter222_send_demo_whatsapp.TestHelpers" name="test_hq_contact_block_india_restaurant" time="0.001"><failure message="KeyError: 'MONGO_URL'">tests/test_iter222_send_demo_whatsapp.py:136: in test_hq_contact_block_india_restaurant
+    from routes.mira_outreach import _hq_contact_block
+routes/mira_outreach.py:15: in &lt;module&gt;
+    from database import _raw_db
+database.py:12: in &lt;module&gt;
+    mongo_url = os.environ['MONGO_URL']
+                ^^^^^^^^^^^^^^^^^^^^^^^
+&lt;frozen os&gt;:679: in __getitem__
+    ???
+E   KeyError: 'MONGO_URL'</failure></testcase><testcase classname="tests.test_iter222_send_demo_whatsapp.TestHelpers" name="test_hq_contact_block_us_restaurant" time="0.001"><failure message="KeyError: 'MONGO_URL'">tests/test_iter222_send_demo_whatsapp.py:146: in test_hq_contact_block_us_restaurant
+    from routes.mira_outreach import _hq_contact_block
+routes/mira_outreach.py:15: in &lt;module&gt;
+    from database import _raw_db
+database.py:12: in &lt;module&gt;
+    mongo_url = os.environ['MONGO_URL']
+                ^^^^^^^^^^^^^^^^^^^^^^^
+&lt;frozen os&gt;:679: in __getitem__
+    ???
+E   KeyError: 'MONGO_URL'</failure></testcase><testcase classname="tests.test_iter222_send_demo_whatsapp.TestSendDemoWhatsApp" name="test_not_found" time="0.727" /><testcase classname="tests.test_iter222_send_demo_whatsapp.TestMiraRepliesProjection" name="test_replies_include_phone_and_vertical" time="0.702"><failure message="AssertionError: missing 'phone' key in dict_keys(['id', 'name', 'city', 'owner_name', 'email', 'email_source', 'status', 'meeting', 'replied_at', 'last_reply_at', 'last_reply_text', 'reply_subject', 'channel', 'reply_text'])&#10;assert 'phone' in {'id': '2a446d29-f095-41a3-8125-da5396fbf62c', 'name': 'BBlunt', 'city': 'Bangalore', 'owner_name': '', ...}">tests/test_iter222_send_demo_whatsapp.py:119: in test_replies_include_phone_and_vertical
+    assert "phone" in row, f"missing 'phone' key in {row.keys()}"
+E   AssertionError: missing 'phone' key in dict_keys(['id', 'name', 'city', 'owner_name', 'email', 'email_source', 'status', 'meeting', 'replied_at', 'last_reply_at', 'last_reply_text', 'reply_subject', 'channel', 'reply_text'])
+E   assert 'phone' in {'id': '2a446d29-f095-41a3-8125-da5396fbf62c', 'name': 'BBlunt', 'city': 'Bangalore', 'owner_name': '', ...}</failure></testcase><testcase classname="tests.test_iter222_send_demo_whatsapp.TestSendDemoWhatsApp" name="test_body_too_short" time="0.152" /><testcase classname="tests.test_iter222_send_demo_whatsapp.TestSendDemoWhatsApp" name="test_no_usable_phone" time="0.068" /><testcase classname="tests.test_iter222_send_demo_whatsapp.TestSendDemoWhatsApp" name="test_uk_landline_meta_rejects" time="0.834"><failure message="AssertionError: expected 502 got 200 {&quot;ok&quot;:true,&quot;sent_to&quot;:&quot;+442887767955&quot;,&quot;message_id&quot;:&quot;wamid.HBgMNDQyODg3NzY3OTU1FQIAERgSQzdGOUNCNzE0MjNEOUE4NkY2AA==&quot;,&quot;caption&quot;:&quot;This body is long enough to pass pydantic validator.\n\n📅 Book your free 20-min demo: https://miracurl-suite.com/demo\n🚀 Start your free trial: https://miracurl-suite.com/signup-salon-india\n📧 admin@miracurl-suite.com · 📞 +919180261256\n📸 Instagram: https://www.instagram.co&#10;assert 200 == 502&#10; +  where 200 = &lt;Response [200]&gt;.status_code">tests/test_iter222_send_demo_whatsapp.py:106: in test_uk_landline_meta_rejects
+    assert r.status_code == 502, f"expected 502 got {r.status_code} {r.text[:400]}"
+E   AssertionError: expected 502 got 200 {"ok":true,"sent_to":"+442887767955","message_id":"wamid.HBgMNDQyODg3NzY3OTU1FQIAERgSQzdGOUNCNzE0MjNEOUE4NkY2AA==","caption":"This body is long enough to pass pydantic validator.\n\n📅 Book your free 20-min demo: https://miracurl-suite.com/demo\n🚀 Start your free trial: https://miracurl-suite.com/signup-salon-india\n📧 admin@miracurl-suite.com · 📞 +919180261256\n📸 Instagram: https://www.instagram.co
+E   assert 200 == 502
+E    +  where 200 = &lt;Response [200]&gt;.status_code</failure></testcase></testsuite></testsuites>

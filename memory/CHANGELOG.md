@@ -471,3 +471,8 @@
 - FIXED SEC-001 (MEDIUM): prompt injection via stored WhatsApp replies — `mira_brain.remember_reply` now stores only outcome + sentiment (interested/declined/neutral), never the prospect text; learned block labelled as untrusted data.
 - Hardening: discovered lead `url` must match ^https?:// before storing (`lead_discover.py`); pending signup logo bound to a per-visitor `claim` token (sessionStorage `miracurl_logo_claim` → `?claim=` on upload, `logo_claim` on signup; mismatch → logo not attached).
 - Accepted P3s: CSP connect-src/img-src https: (not script vectors); `force` on send-meta (super-admin only).
+
+## 2026-10-05 — One-click WhatsApp demo invite (poster + links) from Reply Inbox
+- `whatsapp_cloud.send_image()`; `mira_outreach.send_demo_whatsapp` POST /super-admin/mira-leads/{lid}/send-demo-whatsapp {body, force}: free-form image (`{APP_PUBLIC_URL}/og-image.png`) + caption = Mira draft (URLs stripped) + `_hq_contact_block()` (demo link, country/vertical signup page via `_lead_country()` — lead.country → ", XX" suffix → phone code → US city list → IN; admin email `contact_email`; direct number = site-info `whatsapp` 919180261256 (not Meta sender); Instagram). Pre-flight `check_phone` (409 unless force). Logs mira_wa_outreach + mira_outreach_log `demo_invite_wa`, lead status demo. 24h-window error 131047 → hint to use template blast.
+- `mira/replies` now always returns phone/vertical/email keys. ReplyInbox: email button only when email; green "Send demo on WhatsApp 🖼️ ✦" when phone (`reply-send-wa-{id}`).
+- Tests: iteration_222 (backend 6/9 → the 3 fails fixed: setdefault keys, Austin→US, landline pre-check); UI verified by screenshot (preview DB has no phone-reply lead, so only email button showed — logic confirmed in code/backend).

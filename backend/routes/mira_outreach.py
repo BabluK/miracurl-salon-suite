@@ -576,6 +576,7 @@ async def mira_replies(user=Depends(require_super_admin)):
     rows = await _raw_db.mira_leads.find(
         {"$or": [{"replied_at": {"$exists": True}}, {"wa_intro_replied_at": {"$exists": True}}]}, _REPLY_FIELDS).to_list(300)
     for r in rows:
+        r.setdefault("phone", None); r.setdefault("vertical", "salon"); r.setdefault("email", None)
         r["channel"] = "email" if r.get("replied_at") else "whatsapp"
         r["reply_text"] = r.get("last_reply_text") or r.get("wa_intro_reply") or ""
         r["replied_at"] = r.get("last_reply_at") or r.get("replied_at") or r.get("wa_intro_replied_at")
@@ -736,12 +737,35 @@ async def send_demo_reply(lid: str, body: DemoReplyIn, user=Depends(require_supe
 HOOKS["auto_reply"] = auto_reply_to_lead
 
 
+_US_CITIES = {"austin", "new york", "los angeles", "chicago", "houston", "phoenix", "philadelphia", "san antonio", "san diego", "dallas",
+              "san jose", "san francisco", "seattle", "denver", "boston", "miami", "atlanta", "las vegas", "portland", "nashville", "orlando",
+              "tampa", "charlotte", "detroit", "minneapolis", "sacramento", "washington", "jersey city", "newark", "columbus", "indianapolis"}
+
+
+def _lead_country(lead: dict) -> str:
+    """Country for signup-page routing: explicit lead.country → ', XX' suffix → phone country code → known US cities → IN."""
+    if (lead.get("country") or "").strip():
+        return lead["country"].strip().upper()[:2]
+    city = (lead.get("city") or "").strip()
+    suffix = _country_of(city)
+    if suffix and suffix != "IN":
+        return suffix
+    digits = re.sub(r"\D", "", lead.get("phone") or "")
+    if digits.startswith("1") and len(digits) == 11:
+        return "US"
+    if digits.startswith("44"):
+        return "UK"
+    if city.split(",")[0].strip().lower() in _US_CITIES:
+        return "US"
+    return "IN"
+
+
 async def _hq_contact_block(lead: dict) -> str:
     """Admin email + direct number (site-info WhatsApp, not the Meta sender), Instagram, country signup page and demo link."""
     from routes.site_info import _DEFAULTS as SITE_DEFAULTS
     si = {**SITE_DEFAULTS, **((await _raw_db.platform_settings.find_one({"key": "site_info"}, {"_id": 0})) or {})}
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
-    country = _country_of(lead.get("city")) or "IN"
+    country = _lead_country(lead)
     signup = f"{base}/signup-{'restaurant' if (lead.get('vertical') or 'salon') == 'restaurant' else 'salon'}-{'india' if country == 'IN' else 'us'}"
     phone = re.sub(r"\D", "", si.get("whatsapp") or "")
     lines = [f"📅 Book your free 20-min demo: {_demo_url()}", f"🚀 Start your free trial: {signup}"]
@@ -764,6 +788,7 @@ def _wa_caption(body: str, contact_block: str) -> str:
 
 class DemoWaIn(BaseModel):
     body: str = Field(..., min_length=10, max_length=3000)
+    force: bool = False
 
 
 @router.post("/super-admin/mira-leads/{lid}/send-demo-whatsapp")
@@ -782,6 +807,10 @@ async def send_demo_whatsapp(lid: str, body: DemoWaIn, user=Depends(require_supe
         raise HTTPException(400, "No usable phone on this lead")
     if lead.get("wa_opt_out") or lead.get("unsubscribed"):
         raise HTTPException(409, "This lead opted out — not sending")
+    from routes.lead_wa_outreach import check_phone
+    check = await check_phone(phone)
+    if not check["wa_likely"] and not body.force:
+        raise HTTPException(409, f"{check['label']} — skip, or send anyway with force")
     base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
     poster = f"{base}/og-image.png"
     caption = _wa_caption(body.body, await _hq_contact_block(lead))
