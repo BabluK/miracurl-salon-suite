@@ -101,6 +101,7 @@ const SignupSalon = lazy(() => import("@/pages/SignupSalon"));
 const RestaurantLanding = lazy(() => import("@/pages/RestaurantLanding"));
 import Landing from "@/pages/Landing";
 const ContactUs = lazy(() => import("@/pages/ContactUs"));
+const Features = lazy(() => import("@/pages/Features"));
 const WhoCanUse = lazy(() => import("@/pages/WhoCanUse"));
 const AboutCeo = lazy(() => import("@/pages/AboutCeo"));
 const Terms = lazy(() => import("@/pages/Terms"));
@@ -302,7 +303,7 @@ export default function App() {
             <Route path="/restaurant" element={<RestaurantLanding />} />
             <Route path="/super-admin" element={<SuperAdminProtected><SuperAdmin /></SuperAdminProtected>} />
             <Route path="/" element={<RootRoute />} />
-            <Route path="/features" element={<Landing scrollTo="features" />} />
+            <Route path="/features" element={<Features />} />
             <Route path="/pricing" element={<Landing scrollTo="pricing" />} />
             <Route path="/about-us" element={<Landing scrollTo="about" />} />
             <Route path="/contact-us" element={<ContactUs />} />

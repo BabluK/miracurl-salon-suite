@@ -10,6 +10,8 @@ import { COPY } from "@/components/landing/landingCopy";
 import { UsWhySwitch, UsStickyCta } from "@/components/landing/UsLanding";
 import { TwoDoorHero } from "@/components/landing/TwoDoorHero";
 import { VerticalSection } from "@/components/landing/VerticalSection";
+import { PricingSection } from "@/components/landing/PricingSection";
+import { restoPlans, fmtINR } from "@/components/landing/pricingData";
 import { SiteHeader } from "@/components/SiteHeader";
 
 // Below-the-fold sections load after first paint — keeps the hero fast on phones.
@@ -25,135 +27,6 @@ const IMG = {
   pos: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/65e892308ec77806aafab7631f043393928bd5918a8b0fc0debb8ee8782bc338.png",
 };
 
-
-const PLANS = [
-  { key: "trial", title: "Free Trial", price: "₹0", per: "30 days", cta: "Start trial", primary: false,
-    items: ["All features unlocked", "Up to 50 customers", "Email support", "Cancel anytime"] },
-  { key: "monthly", title: "Monthly Plan", price: "…", per: "per month · cancel anytime", cta: "Get started", primary: false,
-    items: ["Unlimited customers", "Unlimited bookings", "Per-stylist commission", "WhatsApp support", "All features"] },
-  { key: "quarter", title: "3-Month Plan", price: "…", per: "for 3 months · flexible", cta: "Pay quarterly", primary: false,
-    items: ["Everything in Monthly", "One payment per quarter", "WhatsApp support", "All features"] },
-  { key: "annual", title: "Annual Plan", price: "…", per: "for 1 year", cta: "Best value", primary: true,
-    items: ["Everything in Monthly", "12 months for the price of 11", "Priority support", "Custom branding next year"] },
-  { key: "multi_branch", title: "Multi-Branch", price: "…", per: "annual plans for 2, 3 and 5+ branches", cta: "For salon chains", primary: false,
-    items: ["Everything in Annual", "5+ branches, one account", "Branch-wise reports", "Dedicated onboarding"] },
-];
-
-const fmtINR = (n) => "₹" + Number(n).toLocaleString("en-IN");
-const kINR = (n) => "₹" + Math.round(n / 1000) + "k";
-const fmtUSD = (n) => (n == null ? "…" : "$" + Number(n).toLocaleString("en-US"));
-
-// Restaurant plans straight from the HQ catalog (vertical === "restaurant"), filtered by currency.
-function restoPlans(catalog, currency) {
-  return Object.entries(catalog || {})
-    .filter(([, v]) => v && typeof v === "object" && v.vertical === "restaurant" && (v.currency || "INR") === currency)
-    .sort((a, b) => (a[1].duration_days || 0) - (b[1].duration_days || 0))
-    .map(([k, v]) => ({
-      key: k, label: v.custom ? v.label : (v.duration_days <= 31 ? "Monthly" : v.duration_days >= 365 ? "1 Year" : `${Math.round(v.duration_days / 30.4)} Months`),
-      price: currency === "USD" ? fmtUSD(v.price) : fmtINR(v.price), popular: !!v.highlight,
-      sub: v.duration_days <= 31 ? "Flexible — cancel anytime" : v.duration_days >= 365 ? "Best value — one payment a year" : "Perfect to try everything",
-    }));
-}
-
-function RestaurantPlans({ catalog, currency, region }) {
-  const list = restoPlans(catalog, currency);
-  if (!list.length) return null;
-  return (
-    <div className="mt-14" data-testid="resto-pricing">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
-        <div>
-          <div className="text-[10px] tracking-[0.35em] uppercase font-bold text-amber-600">🍽️ Restaurant plans</div>
-          <h3 className="font-playfair text-2xl sm:text-3xl text-slate-900 mt-2">First month free — then pick what suits you</h3>
-        </div>
-        <Link to={signupHref("restaurant", region)} onClick={() => trackCta("pricing-resto-cta", { region })} data-testid="resto-pricing-cta"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-bold bg-gradient-to-r from-amber-500 to-rose-500 hover:brightness-110 hover:-translate-y-0.5 transition-transform">
-          Start your free month <ArrowRight className="w-4 h-4" />
-        </Link>
-      </div>
-      <div className="grid sm:grid-cols-3 gap-4">
-        {list.map(p => (
-          <div key={p.key} data-testid={`resto-plan-${p.key}`}
-            className={`rounded-3xl border p-6 bg-white ${p.popular ? "border-amber-400 ring-2 ring-amber-200 shadow-lg" : "border-[#e9d9ae]"}`}>
-            {p.popular && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white">MOST POPULAR</span>}
-            <p className={`text-sm font-bold text-slate-500 ${p.popular ? "mt-3" : ""}`}>{p.label}</p>
-            <p className="font-playfair text-3xl mt-1 text-amber-600">{p.price}</p>
-            <p className="text-slate-400 text-xs mt-1">{p.sub}</p>
-            <ul className="mt-4 space-y-1.5">
-              {["All features included", "Unlimited orders & tables", "Mira AI included"].map(f => (
-                <li key={f} className="flex items-center gap-2 text-xs text-slate-500"><Check className="w-3 h-3 text-emerald-500" /> {f}</li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-      <p className="text-[11px] text-slate-400 mt-4">Annual = 10 × monthly — 2 months free. {currency === "INR" ? "Billed in INR, GST extra." : "Billed in USD."}</p>
-    </div>
-  );
-}
-
-const INTL_TIERS = [
-  { tier: "starter", title: "Starter", tagline: "For independent & small salons", primary: false,
-    items: ["Online booking & CRM", "POS billing", "Email & WhatsApp reminders", "Email support"] },
-  { tier: "professional", title: "Professional", tagline: "For growing salons", primary: true,
-    items: ["Everything in Starter", "Inventory & vendors", "Staff payroll & commissions", "Analytics & reports", "Multi-staff accounts"] },
-  { tier: "premium", title: "Premium AI", tagline: "For salons wanting Mira AI + automation", primary: false,
-    items: ["Everything in Professional", "Mira AI receptionist", "AI marketing studio", "Review automation", "Staff verification registry"] },
-];
-
-function buildIntlPlans(c) {
-  const price = (key) => c?.[key]?.price ?? null;
-  const keys = { starter: "intl_starter", professional: "intl_pro", premium: "intl_premium" };
-  const anyHl = Object.entries(c || {}).some(([k, v]) => k.startsWith("intl_") && v?.highlight);
-  const tiers = INTL_TIERS.filter(t => !c || c[`${keys[t.tier]}_monthly`]).map(t => {
-    const k = keys[t.tier];
-    const v = c?.[`${k}_monthly`];
-    return { ...t, key: `${k}_monthly`, monthly: price(`${k}_monthly`), annual: price(`${k}_annual`),
-      items: v?.features?.length ? v.features : t.items, primary: anyHl ? !!v?.highlight : t.primary };
-  });
-  return [...tiers, ...customPlanCards(c, "USD")];
-}
-
-const durLabel = (days, cur) => {
-  const m = Math.round((days || 30) / 30.4);
-  return m >= 12 && m % 12 === 0 ? `for ${m / 12} year${m > 12 ? "s" : ""}` : m <= 1 ? "per month" : `for ${m} months`;
-};
-
-function customPlanCards(c, currency, vertical = "salon") {
-  return Object.entries(c || {})
-    .filter(([, v]) => v && typeof v === "object" && v.custom && (v.currency || "INR") === currency && (v.vertical || "salon") === vertical)
-    .sort((a, b) => (a[1].price || 0) - (b[1].price || 0))
-    .map(([key, v]) => ({
-      key, title: v.label, price: currency === "USD" ? fmtUSD(v.price) : fmtINR(v.price), monthly: v.price, annual: null,
-      per: `${durLabel(v.duration_days)}${(v.branches || 1) > 1 ? ` · ${v.branches} branches` : ""}`, cta: "Get started", primary: !!v.highlight,
-      tagline: v.branches > 1 ? "For salon chains" : "All-in-one salon suite",
-      items: v.features?.length ? v.features : ["All features included", currency === "USD" ? "Email & chat support" : "WhatsApp support", "Cancel anytime"],
-    }));
-}
-
-function buildPlans(c) {
-  if (!c) return PLANS;
-  const mo = c.monthly?.price, qt = c.quarter?.price, an = c.annual?.price;
-  const b2a = c.two_branch_annual?.price, b3a = c.three_branch_annual?.price, b5a = c.multi_branch_annual?.price;
-  const anyMulti = b2a || b3a || b5a;
-  const kept = PLANS.filter(p => (p.key === "trial") || (p.key === "monthly" ? !!mo : p.key === "quarter" ? !!qt : p.key === "annual" ? !!an : p.key === "multi_branch" ? !!anyMulti : true));
-  const catKey = (k) => (k === "multi_branch" ? "two_branch_annual" : k);
-  const anyHl = Object.entries(c).some(([k, v]) => v && typeof v === "object" && v.highlight && !k.startsWith("intl_") && !k.startsWith("resto_"));
-  const decorate = (p) => {
-    const v = c[catKey(p.key)];
-    return { ...p, items: v?.features?.length ? v.features : p.items, primary: anyHl ? !!v?.highlight : p.primary };
-  };
-  return [...kept.map(p => {
-    if (p.key === "trial" && c.trial_days) return { ...p, per: `${c.trial_days} days` };
-    if (p.key === "monthly" && mo) return { ...p, price: fmtINR(mo) };
-    if (p.key === "quarter" && qt) return { ...p, price: fmtINR(qt), per: mo && mo * 3 > qt ? `for 3 months — save ${fmtINR(mo * 3 - qt)}` : "for 3 months · flexible" };
-    if (p.key === "annual" && an) return { ...p, price: fmtINR(an), per: mo && mo * 12 > an ? `for 1 year — save ${fmtINR(mo * 12 - an)} (1 month free)` : "for 1 year" };
-    if (p.key === "multi_branch" && b2a) return {
-      ...p, price: `from ${fmtINR(b2a)}`,
-      per: `2 branches ${kINR(b2a)}/yr · 3 branches ${kINR(b3a)}/yr · 5+ ${kINR(b5a)}/yr`,
-    };
-    return p;
-  }).map(decorate), ...customPlanCards(c, "INR")];
-}
 
 const TESTIMONIALS = [
   { name: "Kavita R.", role: "Owner · Bangalore", img: "https://images.pexels.com/photos/17163945/pexels-photo-17163945.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=160&w=160",
@@ -329,8 +202,6 @@ export default function Landing({ scrollTo }) {
   const [liveTestimonials, setLiveTestimonials] = useState([]);
   const [site, setSite] = useState(null);
   const [stats, setStats] = useState(null);
-  const plans = buildPlans(catalog);
-  const intlPlans = buildIntlPlans(catalog);
   const testimonials = liveTestimonials.length > 0
     ? liveTestimonials.map(t => ({
         name: t.owner_name,
@@ -435,139 +306,7 @@ export default function Landing({ scrollTo }) {
       <TrustedPartnersSection />
       <Suspense fallback={null}><MiracurlProductsStrip light /></Suspense>
 
-      {/* Pricing */}
-      <section id="pricing" className="relative z-10 max-w-7xl mx-auto px-6 sm:px-10 py-16">
-        <div className="text-center mb-14">
-          <Label className="text-[#E35A89]">Pricing</Label>
-          <h2 className="font-playfair text-4xl sm:text-5xl font-light mt-4">Simple pricing — salons & restaurants</h2>
-          <p className="text-slate-500 mt-4 max-w-xl mx-auto text-sm">No per-booking fees, no commissions on your sales. Salon plans first, restaurant plans right below — same toggle.</p>
-          <div className="inline-flex items-center gap-1 mt-7 p-1 rounded-full bg-amber-50/60 border border-[#e9d9ae]" data-testid="pricing-region-toggle">
-            {[["in", "🇮🇳 India · ₹"], ["intl", "🌍 International · $"]].map(([k, l]) => (
-              <button key={k} data-testid={`pricing-region-${k}`} onClick={() => pickRegion(k)}
-                className={`px-5 py-2 rounded-full text-xs font-semibold transition-colors ${region === k
-                  ? "bg-[#C89B52] text-white"
-                  : "text-slate-600 hover:text-slate-900"}`}>
-                {l}
-              </button>
-            ))}
-          </div>
-        </div>
-        {region === "in" ? (
-        <>
-        <div className={`grid grid-cols-1 md:grid-cols-2 gap-5 ${plans.length >= 5 ? "lg:grid-cols-5" : plans.length === 4 ? "lg:grid-cols-4" : plans.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
-          {plans.map(p => (
-            <div key={p.key} data-testid={`plan-${p.key}`}
-                 className={`rounded-3xl p-7 relative bg-white border transition-colors ${p.primary
-                   ? "border-[#C89B52] shadow-[0_30px_80px_-40px_rgba(184,134,59,0.6)]"
-                   : "border-[#e9d9ae] hover:border-[#C89B52]/60"}`}>
-              {p.primary && <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-[#C89B52] text-white text-[10px] uppercase tracking-widest font-bold">Best value</div>}
-              <div className="text-xs uppercase tracking-[0.2em] text-slate-400 font-semibold">{p.title}</div>
-              <div className="mt-4 flex items-end gap-2">
-                <span className="text-4xl font-bold font-playfair text-[#a87e2f]">{p.price}</span>
-              </div>
-              <div className="text-xs text-slate-400 mt-1">{p.per}</div>
-              <ul className="mt-6 space-y-2.5">
-                {p.items.map(i => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
-                    <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" /> {i}
-                  </li>
-                ))}
-              </ul>
-              <Link to={signupHref("salon", "in")} onClick={() => trackCta(`plan-cta-${p.key}`, { region: "in" })} data-testid={`plan-cta-${p.key}`}
-                    className={`mt-7 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-full text-sm font-semibold transition-transform hover:-translate-y-0.5 ${p.primary
-                      ? "bg-[#C89B52] text-white hover:bg-[#b8863b] shadow-[0_10px_28px_-8px_rgba(223,183,140,0.5)]"
-                      : "border border-[#e0c07a]/70 text-slate-800 hover:bg-amber-50"}`}>
-                {p.cta} <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-          ))}
-        </div>
-        <RestaurantPlans catalog={catalog} currency="INR" region={region} />
-        </>
-        ) : (
-        <>
-        <div className={`grid grid-cols-1 md:grid-cols-3 gap-5 mx-auto ${intlPlans.length > 3 ? "lg:grid-cols-4 max-w-6xl" : "max-w-5xl"}`}>
-          {intlPlans.map(p => (
-            <div key={p.key} data-testid={`plan-${p.key}`}
-                 className={`rounded-3xl p-7 relative bg-white border transition-colors ${p.primary
-                   ? "border-[#C89B52] shadow-[0_30px_80px_-40px_rgba(184,134,59,0.6)]"
-                   : "border-[#e9d9ae] hover:border-[#C89B52]/60"}`}>
-              {p.primary && <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-[#C89B52] text-white text-[10px] uppercase tracking-widest font-bold">Most popular</div>}
-              <div className="text-xs uppercase tracking-[0.2em] text-slate-400 font-semibold">{p.title}</div>
-              <div className="text-xs text-slate-500 mt-1" data-testid={`plan-tagline-${p.key}`}>{p.tagline}</div>
-              <div className="mt-4 flex items-end gap-2">
-                <span className="text-4xl font-bold font-playfair text-[#a87e2f]">{fmtUSD(p.monthly)}</span>
-                <span className="text-sm text-slate-400 mb-1.5">{p.annual ? "/mo" : p.per}</span>
-              </div>
-              {p.annual && <div className="text-xs text-slate-400 mt-2" data-testid={`plan-annual-${p.key}`}>
-                or <b className="text-slate-800">{fmtUSD(p.annual)}/yr</b> {p.monthly && p.monthly * 12 > p.annual && <span className="text-emerald-600">— save {fmtUSD(p.monthly * 12 - p.annual)} a year</span>}
-              </div>}
-              <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-400/10 border border-emerald-400/25 text-[11px] text-emerald-700 font-medium" data-testid={`plan-trial-badge-${p.key}`}>
-                <Check className="w-3 h-3" /> 30-day free trial · no card needed
-              </div>
-              <ul className="mt-6 space-y-2.5">
-                {p.items.map(i => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
-                    <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" /> {i}
-                  </li>
-                ))}
-              </ul>
-              <Link to={signupHref("salon", "intl")} onClick={() => trackCta(`plan-cta-${p.key}`, { region: "intl" })} data-testid={`plan-cta-${p.key}`}
-                    className={`mt-7 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-full text-sm font-semibold transition-transform hover:-translate-y-0.5 ${p.primary
-                      ? "bg-[#C89B52] text-white hover:bg-[#b8863b] shadow-[0_10px_28px_-8px_rgba(223,183,140,0.5)]"
-                      : "border border-[#e0c07a]/70 text-slate-800 hover:bg-amber-50"}`}>
-                Start free trial <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-          ))}
-        </div>
-        <div className="max-w-5xl mx-auto mt-6 rounded-2xl border border-[#e0c07a] bg-amber-50/70 p-6 sm:p-8" data-testid="plan-intl-enterprise">
-          <div className="flex flex-col lg:flex-row gap-6 lg:items-center">
-            <div className="flex-1">
-              <p className="text-[11px] uppercase tracking-[3px] text-[#a87e2f] font-semibold">Managing 5+ branches?</p>
-              <h3 className="mt-1.5 text-xl sm:text-2xl font-semibold text-slate-900">Enterprise for Multi-Branch Chains</h3>
-              <p className="text-xs text-slate-500 mt-1">For multi-location & larger operations</p>
-              <p className="text-sm text-slate-600 mt-1.5">
-                Starting from <b className="text-[#a87e2f]">{fmtUSD(catalog?.intl_enterprise_monthly?.price ?? 399)}/month</b> — or custom annual contracts tailored to your chain.
-              </p>
-              <ul className="mt-4 grid sm:grid-cols-3 gap-2.5">
-                {["Centralized bookings & billing", "AI marketing on autopilot", "Unlimited staff & branches"].map(f => (
-                  <li key={f} className="flex items-start gap-2 text-[13px] text-slate-600">
-                    <Check className="w-4 h-4 text-[#a87e2f] mt-0.5 flex-shrink-0" /> {f}
-                  </li>
-                ))}
-              </ul>
-              <div className="mt-5 inline-flex items-center gap-3 rounded-full border border-[#e9d9ae] bg-amber-50/60 pl-1.5 pr-4 py-1.5" data-testid="enterprise-consultant-chip">
-                <span className="w-8 h-8 rounded-full bg-amber-100 text-[#a87e2f] flex items-center justify-center text-sm">👨‍💼</span>
-                <span className="text-[12px] text-slate-600 leading-tight">
-                  <b className="text-slate-900">Bablu Kumar</b> · Enterprise Consultant
-                  <span className="block text-[10px] text-emerald-600">● Usually replies within 5 minutes</span>
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-col gap-3 lg:w-72 flex-shrink-0">
-              <Link to="/demo" data-testid="enterprise-book-demo"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold text-[#050505] bg-[#DFB78C] shadow-[0_0_26px_-6px_rgba(223,183,140,0.65)] hover:bg-[#b8863b] hover:-translate-y-0.5 transition-transform">
-                📞 Book a Demo
-              </Link>
-              <a href={`https://wa.me/919180379552?text=${encodeURIComponent("Hi! I run a multi-branch salon chain and I'd like to know about Miracurl Enterprise plans.")}`}
-                target="_blank" rel="noreferrer" data-testid="enterprise-whatsapp"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold text-slate-900 bg-[#25D366] shadow-[0_0_22px_-8px_rgba(37,211,102,0.7)] hover:-translate-y-0.5 transition-transform">
-                💬 Chat on WhatsApp
-              </a>
-              <button onClick={() => window.dispatchEvent(new Event("open-sales-chat"))} data-testid="enterprise-ask-mira"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full text-[13px] font-semibold text-[#a87e2f] border border-[#C89B52]/60 hover:bg-amber-50 transition-colors">
-                ✦ Ask Mira — instant answers
-              </button>
-            </div>
-          </div>
-        </div>
-        <p className="text-center text-[11px] text-slate-400 mt-5">Prices in USD for clients outside India (US, UK, UAE, Canada, Australia & more). Billed via secure international payment link.</p>
-        <RestaurantPlans catalog={catalog} currency="USD" region={region} />
-        </>
-        )}
-      </section>
-
+      <PricingSection region={region} pickRegion={pickRegion} catalog={catalog} salonFrom={salonFrom} restoFrom={restoFrom} />
 
       {/* Meet the Founder / About Us */}
       <div id="about"><CeoSection site={site} /></div>
