@@ -147,7 +147,7 @@ class ForgotIn(BaseModel):
 
 class ResetIn(BaseModel):
     token: str
-    new_password: str = Field(..., min_length=8, max_length=128)
+    new_password: str = Field(..., min_length=1, max_length=128)
 
 async def _match_unclaimed_staff(email: str) -> tuple[dict | None, dict | None]:
     """(staff, tenant) when the email exactly matches a staff profile no user has claimed yet."""

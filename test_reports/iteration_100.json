@@ -1,0 +1,36 @@
+{
+  "summary": "Iter 100 — Tested Mira lead intent scoring + rescore API, password policy on signup/reset, CRM bulk-delete API (tenant-scoped), and frontend flows for SignupSalon PasswordStrength, ResetPassword, SuccessStories, Customers bulk-delete, and HQ MiraLeadAgent cards. 6/7 pytest tests PASS; one FAIL is a Pydantic-vs-policy ordering issue on /api/auth/reset-password (details below). All frontend selectors from spec render correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/auth/reset-password", "issue": "ResetIn.new_password has Pydantic Field(..., min_length=8), so a <8-char payload (spec example 'weak') returns 422 Unprocessable Entity BEFORE the password_policy_errors() check runs — spec expects 400 'Password needs …'. Passwords ≥8 chars that still violate the policy (e.g. 'weakpassword') correctly return 400 'Password needs an uppercase letter, a number, a symbol'. Fix: drop min_length=8 from ResetIn so the policy branch always owns the error contract (as /public/signup-salon already does — SalonSignupIn.password also has min_length=8 but that path happens to accept 'weakpassword' which is ≥8). Low-impact — frontend already blocks submit on weak passwords, but violates the documented API contract."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Customers /customers", "issue": "After ticking crm-select-all → bulk-delete-customers-btn appears with correct text 'Delete selected (20)'. However clicking crm-select-all a second time to untick leaves the button still visible (bulk btn count still truthy). Spec says 'Untick → button disappears'. Likely cause: the header checkbox is tri-state or the second click re-selects. Needs verification in Customers.jsx removeSelected / selection state effect.", "selector": "[data-testid=crm-select-all]", "priority": "LOW"},
+      {"component": "Customers bulk-delete confirm", "issue": "Clicking bulk-delete-customers-btn did NOT fire a window.confirm dialog in headless test — may be an inline modal (not window.confirm) or require different trigger. Spec says 'confirm dialog appears'. Please verify it is a native confirm() or a shadcn Dialog with data-testid.", "selector": "[data-testid=bulk-delete-customers-btn]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_iter100_mira_signup_bulk.py", "/app/test_reports/pytest/iter100.xml"],
+  "action_items": [
+    "LOW/BACKEND: Remove min_length=8 from ResetIn.new_password in /app/backend/routes/auth.py so /api/auth/reset-password returns the documented 400 'Password needs …' for very short passwords instead of 422. (test case: {token:'x', new_password:'weak'})",
+    "LOW/FRONTEND: Verify Customers.jsx bulk-delete UX — (a) untick path should hide the button, (b) confirm the delete uses a confirm dialog (native or testid-marked). Both are minor polish."
+  ],
+  "critical_code_review_comments": [
+    "routes/customers.py bulk_delete_customers correctly tenant-scopes via require_admin + the db wrapper's tenant_id filter — verified: tenant-2 attempting to delete tenant-1 ids returns deleted:0.",
+    "routes/auth.py password_policy_errors() is shared cleanly between /public/signup-salon (line 520) and /auth/reset-password (line 926) — single source of truth.",
+    "routes/lead_gen.py rescore_intent iterates all leads and writes 10 enriched fields atomically; counts dict is well-shaped {HOT, WARM, COLD}. Returned counts match /super-admin/mira-leads intent distribution.",
+    "ResetIn.new_password min_length=8 shadows the policy error — unify (see action item)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "6/7 pytest (86%)", "frontend": "100% of specified selectors render correctly"},
+  "test_credentials": "admin@miracurl-suite.com / og9T@41Es#OQb6 (SA); admin@miracurl.com / q6QY@tn3p#9DtL + X-Tenant-Slug miracurl-marathahalli (salon); owner@elegance.com / Owner@123 + elegance-koramangala (tenant-2).",
+  "seed_data_creation": "pytest created 2 throwaway customers in miracurl-marathahalli (TEST_bulk_0, TEST_bulk_1) and bulk-deleted them cleanly in the same run. No lingering test data. No frontend seed deletion — spec said do NOT delete seed; test cancelled the confirm.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All data-testids from the spec are present and correct: password-strength, password-rules, rule-* (×5), site-header, stories-stats-band, stories-nav-demo-btn, crm-select-all, bulk-delete-customers-btn, lead-intent-badge-*, lead-profile-*, lead-intent-reasons-*. SuccessStories body computed bg is rgb(10,10,10) (dark) but the inner page wrapper is cream — visually matches spec. SA Mira Lead Agent cards render WARM/HOT/COLD badges with correct emojis; expanded cards show the 6-field grid (Owner/Country/Software/Locations/Team/WhatsApp) + intent-reasons list. On /customers, crm-select-all toggle untick path appears not to hide the bulk-delete button — single edge case to verify.",
+  "rca of the issue": "Reset-password 422-vs-400: Pydantic validates body before the FastAPI handler body executes, so min_length=8 on new_password short-circuits with 422 before the password_policy_errors() check inside the handler ever runs. Simplest fix: change `new_password: str = Field(..., min_length=8, max_length=128)` to `new_password: str = Field(..., min_length=1, max_length=128)` (keep max for abuse), then the handler emits the uniform 400 'Password needs …' message."
+}
