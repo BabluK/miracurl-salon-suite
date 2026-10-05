@@ -1,0 +1,28 @@
+{
+  "summary": "iter-225 FRONTEND-ONLY review of redesigned cream-themed landing (/) with TwoDoorHero. Validated US (default, preview TZ) + India (via localStorage miracurl_region_choice='in') variants on desktop 1920 and mobile 390. All data-testids present and correct: two-door-hero, hero-h1 'One suite. Two businesses.', door-salon/restaurant CTAs route to /signup-salon-us & /signup-restaurant-us (US) and /signup-salon-india & /signup-restaurant-india (India). Live chips, more-links, hero-demo-cta → /demo, door-restaurant-more → /restaurant all work. Section order verified: section-salon → #features → section-restaurant → #peek (both DemoCarousel + RestoDemoCarousel) → tour video (hero-video-play opens VideoLightbox, tour-video-close dismisses) → trust-numbers-strip → us-why-switch (US only) / testimonial-card-1 (India only) → #pricing with region toggle (pricing-region-in shows plan-cta-trial…, pricing-region-intl shows plan-intl-enterprise) → ceo-section (#about) → landing-cta-footer (salon) + landing-cta-footer-resto (restaurant) → landing-footer. India salon door bullets include 'GST billing', salon tiles include 'WhatsApp Confirmations' and 'Reviews → ₹ Credits'; US tiles say 'Email & WhatsApp Reminders' and 'Reviews → $ Credits'. Header signup-link label = 'Start free trial' (US) / 'Sign Up' (India). us-sticky-cta visible on mobile 390 US only. Page bg rgb(253,249,244) = #fdf9f4 cream — no dark hero. Mira AI Studio text absent on landing. No page errors / no error-boundary. Routes /features, /pricing, /about-us all render landing-page. Regression /restaurant /signup-salon-us /demo /login all return 200.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "All pages (pre-existing)", "issues": ["CSP inline-script violations (Emergent injected inline scripts without nonce) and anonymous 401s on protected APIs during landing — unchanged from iter_224, not introduced by this redesign."]},
+      {"screen": "Mobile landing header", "issues": ["Service Worker 'A new version of Miracurl is ready' update banner occasionally overlays the top header on 390px viewport but auto-dismisses; not blocking any CTA and matches intended UX."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "/app/frontend/src/components/landing/TwoDoorHero.jsx: Clean, well-structured. doors array properly uses signupHref() so US/India routing is centralized. pick() swallows localStorage errors — good.",
+    "/app/frontend/src/pages/Landing.jsx (668 lines): Starting to exceed the 700-line guideline. CeoSection, TrustNumbersStrip, TrustedPartnersSection, VideoLightbox and buildPlans/buildIntlPlans helpers could be extracted to /components/landing/*.jsx for maintainability. Non-blocking but recommended before next feature.",
+    "/app/frontend/src/pages/Landing.jsx:302–305 — track('landing_view') fires on every region change, which is correct, but gtag user_properties set alongside; no PII leaked.",
+    "VerticalSection correctly derives tiles based on region (SALON_TILES(us)) and uses signupHref(vertical, region) for section CTAs — verified both variants render the right copy."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only)", "frontend": "100% on in-scope checks"},
+  "test_credentials": "None required.",
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Preview container runs US TZ → default region 'intl'. Use localStorage.miracurl_region_choice='in' then reload to simulate India. Landing.jsx is now 668 lines — flag if it grows further. US sticky bar (us-sticky-cta) only renders on <sm viewport; test with 390x844. Pricing toggle persists via rememberRegion() which writes to the same miracurl_region_choice key, so toggling the pricing region also flips the entire landing variant — verified behavior.",
+  "rca of the issue": "N/A — no bugs reported."
+}
