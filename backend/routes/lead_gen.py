@@ -739,24 +739,30 @@ def _host(url: str) -> str:
     return (url or "").lower().replace("https://", "").replace("http://", "").split("/")[0].removeprefix("www.")
 
 
+def _own_identity(tenants: list[dict], login_domains) -> tuple[set, set, set]:
+    names = {_norm_biz(t["name"]) for t in tenants if t.get("name")}
+    phones = {_digits10(t["phone"]) for t in tenants if t.get("phone")}
+    sites = {_host(t["website"]) for t in tenants if t.get("website")} | set(login_domains)
+    return names, phones, sites
+
+
+def _is_own_name(c: dict, names: set) -> bool:
+    n = _norm_biz(c.get("name"))
+    return any(w in n for w in _BRAND_WORDS) or bool(n and n in names)
+
+
+def _is_own_contact(c: dict, phones: set, sites: set) -> bool:
+    ph = _digits10(c.get("phone") or (c.get("_place") or {}).get("phone"))
+    site = _host(c.get("website"))
+    return bool(ph and ph in phones) or bool(site and site in sites)
+
+
 async def _own_business_filter():
     """Returns is_own(candidate) — True for the platform's own tenants (name / phone / website / brand word)."""
     from email_service import _LOGIN_ONLY_DOMAINS
     tenants = await _raw_db.tenants.find({}, {"_id": 0, "name": 1, "phone": 1, "website": 1, "slug": 1}).to_list(500)
-    names = {_norm_biz(t["name"]) for t in tenants if t.get("name")}
-    phones = {_digits10(t["phone"]) for t in tenants if t.get("phone")}
-    sites = {_host(t["website"]) for t in tenants if t.get("website")} | set(_LOGIN_ONLY_DOMAINS)
-
-    def is_own(c: dict) -> bool:
-        n = _norm_biz(c.get("name"))
-        if any(w in n for w in _BRAND_WORDS) or (n and n in names):
-            return True
-        ph = _digits10(c.get("phone") or (c.get("_place") or {}).get("phone"))
-        if ph and ph in phones:
-            return True
-        site = _host(c.get("website"))
-        return bool(site and site in sites)
-    return is_own
+    names, phones, sites = _own_identity(tenants, _LOGIN_ONLY_DOMAINS)
+    return lambda c: _is_own_name(c, names) or _is_own_contact(c, phones, sites)
 
 
 async def purge_own_business_leads() -> int:

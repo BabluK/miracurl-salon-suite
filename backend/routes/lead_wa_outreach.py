@@ -205,6 +205,13 @@ async def _leads_for(rows: list[dict]) -> dict:
         {"id": {"$in": lead_ids}}, {"_id": 0, "id": 1, "status": 1, "wa_intro_replied_at": 1, "replied_at": 1, "wa_intro_reply": 1})}
 
 
+async def _outreach_counts(rows: list[dict]) -> dict:
+    return {"meta": await _raw_db.mira_wa_outreach.count_documents({"channel": "meta"}),
+            "manual": await _raw_db.mira_wa_outreach.count_documents({"channel": "manual"}),
+            "not_on_wa": sum(1 for r in rows if r.get("error_code") in NOT_ON_WA_CODES),
+            "replied": sum(1 for r in rows if r.get("replied_at"))}
+
+
 @router.get("/super-admin/wa-outreach/history")
 async def wa_outreach_history(limit: int = 150, channel: str = "", user=Depends(require_super_admin)):
     """Every HQ WhatsApp outreach (Meta one-click + manual) with live delivery status from Meta receipts."""
@@ -214,11 +221,7 @@ async def wa_outreach_history(limit: int = 150, channel: str = "", user=Depends(
     for r in rows:
         _apply_receipt(r, status_by.get(r.get("message_id") or ""))
         _apply_lead(r, leads.get(r["lead_id"]) or {})
-    counts = {"meta": await _raw_db.mira_wa_outreach.count_documents({"channel": "meta"}),
-              "manual": await _raw_db.mira_wa_outreach.count_documents({"channel": "manual"}),
-              "not_on_wa": sum(1 for r in rows if r.get("error_code") in NOT_ON_WA_CODES),
-              "replied": sum(1 for r in rows if r.get("replied_at"))}
-    return {"items": rows, "counts": counts}
+    return {"items": rows, "counts": await _outreach_counts(rows)}
 
 
 @router.delete("/super-admin/wa-outreach/history/{oid}")

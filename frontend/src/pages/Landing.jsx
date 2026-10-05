@@ -8,7 +8,8 @@ import { currentRegion, rememberRegion, signupHref } from "@/lib/region";
 import { track, trackCta } from "@/lib/analytics";
 import { COPY } from "@/components/landing/landingCopy";
 import { UsWhySwitch, UsStickyCta } from "@/components/landing/UsLanding";
-import { TwoDoorHero, VerticalSection } from "@/components/landing/TwoDoorHero";
+import { TwoDoorHero } from "@/components/landing/TwoDoorHero";
+import { VerticalSection } from "@/components/landing/VerticalSection";
 import { SiteHeader } from "@/components/SiteHeader";
 
 // Below-the-fold sections load after first paint — keeps the hero fast on phones.
@@ -244,11 +245,7 @@ function CeoSection({ site }) {
 }
 
 
-function TrustNumbersStrip({ label }) {
-  const [stats, setStats] = useState(null);
-  useEffect(() => {
-    api.get("/public/platform-stats").then(r => setStats(r.data)).catch(() => {});
-  }, []);
+function TrustNumbersStrip({ label, stats }) {
   if (!stats) return null;
   const fmt = (n) => n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k+` : `${n}`;
   const items = [
@@ -331,6 +328,7 @@ export default function Landing({ scrollTo }) {
   const copy = COPY[us ? "intl" : "in"];
   const [liveTestimonials, setLiveTestimonials] = useState([]);
   const [site, setSite] = useState(null);
+  const [stats, setStats] = useState(null);
   const plans = buildPlans(catalog);
   const intlPlans = buildIntlPlans(catalog);
   const testimonials = liveTestimonials.length > 0
@@ -345,6 +343,7 @@ export default function Landing({ scrollTo }) {
     api.get("/public/plans").then(r => setCatalog(r.data)).catch(() => {});
     api.get("/public/testimonials").then(r => setLiveTestimonials(r.data.testimonials || [])).catch(() => {});
     api.get("/public/site-info").then(r => setSite(r.data)).catch(() => {});
+    api.get("/public/platform-stats").then(r => setStats(r.data)).catch(() => {});
   }, []);
   useEffect(() => {
     const device = window.matchMedia("(max-width: 640px)").matches ? "mobile" : "desktop";
@@ -362,7 +361,8 @@ export default function Landing({ scrollTo }) {
     const t = setTimeout(() => document.getElementById(scrollTo)?.scrollIntoView({ behavior: "smooth" }), 350);
     return () => clearTimeout(t);
   }, [scrollTo]);
-  const fromPrice = us ? (catalog?.intl_starter_monthly?.price != null ? `$${catalog.intl_starter_monthly.price}/mo` : "") : (catalog?.monthly?.price != null ? `${fmtINR(catalog.monthly.price)}/mo` : "");
+  const salonFrom = us ? (catalog?.intl_starter_monthly?.price != null ? `$${catalog.intl_starter_monthly.price}` : "") : (catalog?.monthly?.price != null ? fmtINR(catalog.monthly.price) : "");
+  const restoFrom = restoPlans(catalog, us ? "USD" : "INR")[0]?.price || "";
 
   return (
     <div className="relative min-h-screen bg-[#fdf9f4] text-slate-800 font-outfit overflow-x-clip" data-testid="landing-page">
@@ -377,19 +377,7 @@ export default function Landing({ scrollTo }) {
 
       <SiteHeader variant="light" site={site} subtitle="Salon & Restaurant Management Software" signupTo={signupHref("salon", region)} signupLabel={copy.navCta} peekHref="#peek" />
 
-      <TwoDoorHero region={region} trialDays={Number(catalog?.trial_days) || 30} fromPrice={fromPrice} />
-
-      {/* Stats strip */}
-      <section className="relative z-10 max-w-5xl mx-auto px-6 sm:px-10 pb-6">
-        <div className="grid grid-cols-2 sm:grid-cols-4 rounded-2xl border border-[#e9d9ae] bg-white overflow-hidden">
-          {copy.stats.map((s, i) => (
-            <div key={s.l} className={`px-4 py-6 text-center hover:bg-amber-50 transition-colors ${i < 3 ? "sm:border-r sm:border-[#e9d9ae]" : ""} ${i % 2 === 0 ? "border-r border-[#e9d9ae] sm:border-r" : ""} ${i < 2 ? "border-b border-[#e9d9ae] sm:border-b-0" : ""}`}>
-              <div className="text-2xl sm:text-3xl font-playfair text-[#a87e2f]">{s.v}</div>
-              <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400 mt-1.5">{s.l}</div>
-            </div>
-          ))}
-        </div>
-      </section>
+      <TwoDoorHero region={region} trialDays={Number(catalog?.trial_days) || 30} salonFrom={salonFrom} restoFrom={restoFrom} stats={stats} />
 
       <VerticalSection id="salon" vertical="salon" region={region} demoPath={copy.demoBookPath} />
       <div id="features" />
@@ -419,7 +407,7 @@ export default function Landing({ scrollTo }) {
       </section>
       <VideoLightbox open={videoOpen} onClose={() => setVideoOpen(false)} />
 
-      <TrustNumbersStrip label={copy.trustLabel} />
+      <TrustNumbersStrip label={copy.trustLabel} stats={stats} />
       {us ? <UsWhySwitch /> : (
       <section className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 pb-20">
         <Label className="text-[#a87e2f]">Owners on Miracurl</Label>

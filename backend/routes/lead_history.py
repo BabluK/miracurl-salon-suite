@@ -62,25 +62,33 @@ def _stale_row(ld: dict, v: str, country: str) -> dict:
             "days_silent": (datetime.now(timezone.utc) - datetime.fromisoformat(last_touch)).days}
 
 
+def _fold_lead(out: dict, stale: list, ld: dict, cutoff: str) -> None:
+    v = _vertical(ld)
+    bucket = _country_bucket(out, v, ld)
+    out[v]["total"] += 1
+    _tally(bucket, ld)
+    if _is_stale(ld, cutoff):
+        bucket["stale"] += 1
+        stale.append(_stale_row(ld, v, bucket["country"]))
+
+
+def _rank_buckets(out: dict) -> None:
+    for v in out.values():
+        for c in v["countries"].values():
+            c["cities"] = sorted(c["cities"].items(), key=lambda x: -x[1])[:6]
+        v["countries"] = sorted(v["countries"].values(), key=lambda c: -c["total"])
+
+
 @router.get("/super-admin/mira-leads/history")
 async def lead_history(user=Depends(require_super_admin)):
     cutoff = (datetime.now(timezone.utc) - timedelta(days=STALE_DAYS)).isoformat()
     leads = await _raw_db.mira_leads.find({}, _FIELDS).sort("created_at", -1).to_list(5000)
     out = {"salon": {"label": "Salon · Spa · Boutique · Barber", "total": 0, "countries": {}},
            "restaurant": {"label": "Restaurants", "total": 0, "countries": {}}}
-    stale = []
+    stale: list = []
     for ld in leads:
-        v = _vertical(ld)
-        bucket = _country_bucket(out, v, ld)
-        out[v]["total"] += 1
-        _tally(bucket, ld)
-        if _is_stale(ld, cutoff):
-            bucket["stale"] += 1
-            stale.append(_stale_row(ld, v, bucket["country"]))
-    for v in out.values():
-        for c in v["countries"].values():
-            c["cities"] = sorted(c["cities"].items(), key=lambda x: -x[1])[:6]
-        v["countries"] = sorted(v["countries"].values(), key=lambda c: -c["total"])
+        _fold_lead(out, stale, ld, cutoff)
+    _rank_buckets(out)
     return {"stale_days": STALE_DAYS, "verticals": out, "stale": sorted(stale, key=lambda s: -s["days_silent"])[:200], "total": len(leads)}
 
 
