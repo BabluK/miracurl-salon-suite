@@ -3967,3 +3967,8 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 ## 2026-10-05 — Software-switch pitch + Lead sheet
 - `lead_intent.SWITCH_ANGLES` (salon + restaurant, India + intl: Fresha, Vagaro, Treatwell, Zenoti, MioSalon, Petpooja, Posist, Toast, OpenTable, Zomato…) → `outreach_angle()`, `fit_reason()`, `platform_signal()` saved on every lead (rescore endpoint backfills). `_draft_email` adds a SOFTWARE SWITCH PITCH block ("Moving from X?" + angle + free migration) and a REGION block for non-India leads (no GST/₹/Aadhaar wording).
 - `components/superadmin/LeadSheet.jsx`: spreadsheet view (toggle `lead-view-toggle`) with Priority · Country · City · Business · Owner · Public email · WhatsApp · Website · Booking/platform signal · Why fits · Suggested outreach angle · Email sent · WhatsApp sent · Source; pagination 25/50/100 (`lead-sheet-prev/next/size`), "Auto search & outreach ON/OFF" chip (from /mira/outreach/summary settings.enabled), CSV export (formula-injection safe).
+
+## 2026-10-05 — Landing dark-theme leftovers purged
+- `PartnerGrid.jsx`: removed deprecated dark variant (Landing was rendering white-on-cream). Single cream/gold card style, uniform heights, 5-star rating row, footer row only when trusted/owner-review exists. Used by Landing + /partners.
+- `MiracurlProductsStrip.jsx`: added `light` prop (Landing uses light; public booking page keeps dark).
+- `UsLanding.jsx`: "Why owners switch" cards + mobile sticky CTA converted from black to cream.

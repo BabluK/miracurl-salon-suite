@@ -39,7 +39,7 @@ export default function Partners() {
           {loading ? (
             <p className="text-[#8b7a5e] text-sm">Loading partners…</p>
           ) : partners.length ? (
-            <PartnerGrid partners={partners} light />
+            <PartnerGrid partners={partners} />
           ) : (
             <p className="text-[#8b7a5e] text-sm">Partners will appear here soon.</p>
           )}

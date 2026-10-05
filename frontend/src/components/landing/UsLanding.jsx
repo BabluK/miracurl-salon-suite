@@ -79,12 +79,12 @@ export function UsWhySwitch() {
   ];
   return (
     <section className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 pb-24" data-testid="us-why-switch">
-      <div className="text-[10px] tracking-[0.35em] uppercase text-[#DFB78C]">Why owners switch</div>
+      <div className="text-[10px] tracking-[0.35em] uppercase text-[#a8813d] font-semibold">Why owners switch</div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-8">
         {rows.map(([h, d]) => (
-          <div key={h} className="rounded-3xl bg-[#0F0F10] border border-white/10 p-8 hover:border-[#DFB78C]/30 transition-colors">
-            <h3 className="font-playfair text-2xl text-white">{h}</h3>
-            <p className="text-white/60 text-sm mt-3 leading-relaxed">{d}</p>
+          <div key={h} className="rounded-3xl bg-white border border-[#E8DCC3] p-8 shadow-[0_6px_24px_-14px_rgba(120,90,40,0.25)] hover:border-[#C89B52]/70 hover:shadow-[0_18px_40px_-18px_rgba(184,134,59,0.4)] transition-[border-color,box-shadow] duration-300">
+            <h3 className="font-playfair text-2xl text-[#2b2115]">{h}</h3>
+            <p className="text-[#6b5636] text-sm mt-3 leading-relaxed">{d}</p>
           </div>
         ))}
       </div>
@@ -95,14 +95,14 @@ export function UsWhySwitch() {
 // Phones: the two actions stay one thumb away at all times.
 export function UsStickyCta() {
   return (
-    <div className="sm:hidden fixed bottom-0 inset-x-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+10px)] pt-2 bg-gradient-to-t from-black via-black/95 to-transparent" data-testid="us-sticky-cta">
+    <div className="sm:hidden fixed bottom-0 inset-x-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+10px)] pt-3 bg-[#FBF6EC]/95 backdrop-blur border-t border-[#E8DCC3] shadow-[0_-10px_30px_-20px_rgba(120,90,40,0.35)]" data-testid="us-sticky-cta">
       <div className="flex gap-2">
         <Link to="/signup-salon-us" onClick={() => trackCta("sticky-trial", { region: "intl" })} data-testid="us-sticky-trial"
-          className="flex-1 text-center py-3 rounded-full bg-[#DFB78C] text-[#050505] font-bold text-sm shadow-[0_10px_30px_-10px_rgba(223,183,140,0.7)]">
+          className="flex-1 text-center py-3 rounded-full bg-[#C89B52] text-white font-bold text-sm shadow-[0_10px_30px_-10px_rgba(200,155,82,0.7)]">
           Start free trial
         </Link>
         <Link to="/demo" onClick={() => track("demo_cta_click", { placement: "sticky", region: "intl" })} data-testid="us-sticky-demo"
-          className="flex-1 text-center py-3 rounded-full border border-white/25 bg-black/70 backdrop-blur text-white font-semibold text-sm">
+          className="flex-1 text-center py-3 rounded-full border border-[#C89B52]/60 bg-white text-[#2b2115] font-semibold text-sm">
           Book demo
         </Link>
       </div>

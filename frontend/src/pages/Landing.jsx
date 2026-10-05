@@ -288,7 +288,7 @@ function TrustedPartnersSection() {
           <p className="text-sm text-slate-500 mt-3 max-w-xl">Salons already growing on Miracurl — rated by their own customers.</p>
         </div>
         <Link to="/partners" data-testid="view-all-partners-link"
-          className="inline-flex items-center gap-1.5 text-xs text-[#a87e2f] hover:text-[#EAD3B3] transition-colors font-medium">
+          className="inline-flex items-center gap-1.5 text-xs text-[#a87e2f] hover:text-[#7a5a1e] transition-colors font-medium">
           View all partners <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
@@ -443,7 +443,7 @@ export default function Landing({ scrollTo }) {
       )}
 
       <TrustedPartnersSection />
-      <Suspense fallback={null}><MiracurlProductsStrip /></Suspense>
+      <Suspense fallback={null}><MiracurlProductsStrip light /></Suspense>
 
       {/* Pricing */}
       <section id="pricing" className="relative z-10 max-w-7xl mx-auto px-6 sm:px-10 py-16">
