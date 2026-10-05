@@ -1891,7 +1891,7 @@ async def lead_replies(user=Depends(require_super_admin)):
     """Reply Inbox — every lead that wrote back, newest first, with their message."""
     rows = await _raw_db.mira_leads.find(
         {"replied_at": {"$exists": True}},
-        {"_id": 0, "id": 1, "name": 1, "email": 1, "city": 1, "status": 1,
+        {"_id": 0, "id": 1, "name": 1, "email": 1, "phone": 1, "city": 1, "status": 1, "vertical": 1,
          "replied_at": 1, "last_reply_at": 1, "reply_subject": 1, "last_reply_text": 1},
     ).sort("replied_at", -1).to_list(200)
     return {"count": len(rows), "replies": rows}

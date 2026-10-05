@@ -170,3 +170,24 @@ async def send_text(to: str, body: str, tenant_id: str | None = None) -> dict[st
         "direction": "outbound", "message_id": mid, "wa_id": to, "type": "text", "text": body,
         "phone_number_id": ch["phone_number_id"], "own_number": ch["own"], "tenant_id": tenant_id, "status": "accepted", "created_at": _now()})
     return data
+
+
+async def send_image(to: str, image_url: str, caption: str, tenant_id: str | None = None) -> dict[str, Any]:
+    """Free-form image + caption (24h customer-service window) — e.g. Mira's polished demo invite poster."""
+    ch = await channel_for(tenant_id)
+    if not ch["token"] or not ch["phone_number_id"]:
+        raise RuntimeError("WhatsApp Cloud API not configured (WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID)")
+    url = f"https://graph.facebook.com/{GRAPH_API_VERSION}/{ch['phone_number_id']}/messages"
+    payload = {"messaging_product": "whatsapp", "recipient_type": "individual", "to": to,
+               "type": "image", "image": {"link": image_url, "caption": caption[:1024]}}
+    async with httpx.AsyncClient(timeout=25.0) as client:
+        r = await client.post(url, json=payload, headers={"Authorization": f"Bearer {ch['token']}"})
+    if r.is_error:
+        log.warning("whatsapp image send failed %s: %.300s", r.status_code, r.text)
+        raise RuntimeError(f"Meta API {r.status_code}: {r.text[:300]}")
+    data = r.json()
+    mid = ((data.get("messages") or [{}])[0]).get("id")
+    await _raw_db.whatsapp_messages.insert_one({
+        "direction": "outbound", "message_id": mid, "wa_id": to, "type": "image", "text": caption, "media_url": image_url,
+        "phone_number_id": ch["phone_number_id"], "own_number": ch["own"], "tenant_id": tenant_id, "status": "accepted", "created_at": _now()})
+    return data

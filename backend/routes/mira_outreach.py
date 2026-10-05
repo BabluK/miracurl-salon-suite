@@ -734,3 +734,72 @@ async def send_demo_reply(lid: str, body: DemoReplyIn, user=Depends(require_supe
 
 
 HOOKS["auto_reply"] = auto_reply_to_lead
+
+
+async def _hq_contact_block(lead: dict) -> str:
+    """Admin email + direct number (site-info WhatsApp, not the Meta sender), Instagram, country signup page and demo link."""
+    from routes.site_info import _DEFAULTS as SITE_DEFAULTS
+    si = {**SITE_DEFAULTS, **((await _raw_db.platform_settings.find_one({"key": "site_info"}, {"_id": 0})) or {})}
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    country = _country_of(lead.get("city")) or "IN"
+    signup = f"{base}/signup-{'restaurant' if (lead.get('vertical') or 'salon') == 'restaurant' else 'salon'}-{'india' if country == 'IN' else 'us'}"
+    phone = re.sub(r"\D", "", si.get("whatsapp") or "")
+    lines = [f"📅 Book your free 20-min demo: {_demo_url()}", f"🚀 Start your free trial: {signup}"]
+    contact = " · ".join(x for x in [f"📧 {si.get('contact_email')}" if si.get("contact_email") else "", f"📞 +{phone}" if phone else ""] if x)
+    if contact:
+        lines.append(contact)
+    if si.get("instagram"):
+        lines.append(f"📸 Instagram: {si['instagram']}")
+    return "\n".join(lines)
+
+
+def _wa_caption(body: str, contact_block: str) -> str:
+    """Email draft → WhatsApp caption: drop the greeting-less signature noise, strip any URLs Mira already put in, add the contact block."""
+    text = re.sub(r"https?://\S+", "", body or "")
+    text = re.sub(r"[ \t]*(?:here|below|at)?:[ \t]*(?=\n|$)", ".", text)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    text = re.sub(r"(?i)\n*(Mira & the Miracurl team|Warm regards.*|Best,.*)$", "", text).strip()
+    return (text + "\n\n" + contact_block + "\n\n— Mira & the Miracurl team ✦")[:1024]
+
+
+class DemoWaIn(BaseModel):
+    body: str = Field(..., min_length=10, max_length=3000)
+
+
+@router.post("/super-admin/mira-leads/{lid}/send-demo-whatsapp")
+async def send_demo_whatsapp(lid: str, body: DemoWaIn, user=Depends(require_super_admin)):
+    """One click: polished demo-invite poster + caption (demo link, signup page, admin email/number, Instagram) from the Meta number.
+    Works inside the 24h window after the lead's WhatsApp reply (free-form media allowed)."""
+    from services.whatsapp_cloud import send_image
+    from routes.lead_wa_outreach import record_outreach
+    lead = await _raw_db.mira_leads.find_one({"id": lid}, {"_id": 0})
+    if not lead:
+        raise HTTPException(404, "Lead not found")
+    phone = re.sub(r"\D", "", lead.get("phone") or "")
+    if len(phone) == 10:
+        phone = "91" + phone
+    if len(phone) < 10:
+        raise HTTPException(400, "No usable phone on this lead")
+    if lead.get("wa_opt_out") or lead.get("unsubscribed"):
+        raise HTTPException(409, "This lead opted out — not sending")
+    base = os.environ.get("APP_PUBLIC_URL", "https://miracurl-suite.com")
+    poster = f"{base}/og-image.png"
+    caption = _wa_caption(body.body, await _hq_contact_block(lead))
+    try:
+        res = await send_image(phone, poster, caption)
+    except RuntimeError as e:
+        msg = str(e)
+        hint = " — the 24-hour reply window has closed; use the approved template (WhatsApp Blast) to re-open it." if "131047" in msg else ""
+        raise HTTPException(502, f"Meta send failed: {msg[:160]}{hint}") from e
+    mid = ((res.get("messages") or [{}])[0]).get("id")
+    await record_outreach(lead, "meta", user.get("email", ""), mid, caption, "accepted")
+    sets = {"demo_invite_sent_at": _now(), "demo_invite_by": user.get("email"), "demo_invite_channel": "whatsapp", "demo_draft": None}
+    if lead.get("status") not in ("demo", "customer"):
+        sets["status"] = "demo"
+    await _raw_db.mira_leads.update_one({"id": lid}, {"$set": sets})
+    await _raw_db.mira_outreach_log.insert_one({
+        "id": str(uuid.uuid4()), "day": _today(), "created_at": _now(), "channel": "demo_invite_wa", "lead_id": lid,
+        "name": lead.get("name") or "", "vertical": lead.get("vertical") or "salon", "city": lead.get("city") or "",
+        "country": _country_of(lead.get("city")), "phone": phone, "detail": caption[:160]})
+    await log_mira_event("result", f"📅 Demo invite poster sent on WhatsApp to {lead.get('name') or phone} — Boss approved Mira's reply.")
+    return {"ok": True, "sent_to": f"+{phone}", "message_id": mid, "caption": caption}

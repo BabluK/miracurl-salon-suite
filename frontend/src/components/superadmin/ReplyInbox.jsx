@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, Sparkles, Send, CheckCircle2 } from "lucide-react";
+import { Loader2, Sparkles, Send, CheckCircle2, MessageCircle } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { LeadSourceBadges } from "@/components/superadmin/LeadSourceBadges";
@@ -16,6 +16,14 @@ function ReplyRow({ r, onChanged }) {
     setBusy("draft");
     try { const { data } = await api.post(`/super-admin/mira-leads/${r.id}/draft-demo-reply`); setDraft(data); setOpen(true); }
     catch (e) { toast.error(e.response?.data?.detail || "Mira couldn't draft just now"); }
+    finally { setBusy(""); }
+  };
+  const doSendWa = async () => {
+    setBusy("wa");
+    try {
+      const { data } = await api.post(`/super-admin/mira-leads/${r.id}/send-demo-whatsapp`, { body: draft.body });
+      toast.success(`📅 Demo poster + invite sent on WhatsApp to ${data.sent_to} ✦`); onChanged(false);
+    } catch (e) { toast.error(e.response?.data?.detail || "WhatsApp send failed"); }
     finally { setBusy(""); }
   };
   const doSend = async () => {
@@ -62,12 +70,21 @@ function ReplyRow({ r, onChanged }) {
               <textarea value={draft.body} onChange={e => setDraft(d => ({ ...d, body: e.target.value }))} rows={7} data-testid={`reply-draft-body-${r.id}`}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-800 leading-relaxed" />
               <div className="flex flex-wrap gap-2">
-                <button onClick={doSend} disabled={!!busy || !r.email} data-testid={`reply-send-${r.id}`}
-                  className="px-4 py-2 rounded-xl bg-[#1c1c22] text-[#e8c37f] text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50">
-                  {busy === "send" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Send demo invite ✦
-                </button>
+                {r.email && (
+                  <button onClick={doSend} disabled={!!busy} data-testid={`reply-send-${r.id}`}
+                    className="px-4 py-2 rounded-xl bg-[#1c1c22] text-[#e8c37f] text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50">
+                    {busy === "send" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Send demo invite by email ✦
+                  </button>
+                )}
+                {r.phone && (
+                  <button onClick={doSendWa} disabled={!!busy} data-testid={`reply-send-wa-${r.id}`}
+                    title="One click from the Meta number: polished poster + demo link, signup page, admin email & number, Instagram"
+                    className="px-4 py-2 rounded-xl bg-[#25D366] text-white text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-50">
+                    {busy === "wa" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageCircle className="w-3.5 h-3.5" />} Send demo on WhatsApp 🖼️ ✦
+                  </button>
+                )}
                 <button onClick={doDraft} disabled={!!busy} data-testid={`reply-redraft-${r.id}`} className="px-3 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold">Redraft</button>
-                {!r.email && <span className="text-[11px] text-rose-500 self-center">No email on this lead — reply on WhatsApp</span>}
+                {!r.email && <span className="text-[11px] text-slate-500 self-center" data-testid={`reply-no-email-${r.id}`}>No email on this lead — WhatsApp sends the poster with demo link, signup page, admin email & number, Instagram</span>}
               </div>
             </div>
           )}
