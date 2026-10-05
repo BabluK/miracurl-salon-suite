@@ -593,6 +593,40 @@ async def send_weekly_win_report(force: bool = False) -> bool:
     return bool(res.get("sent"))
 
 
+def _goal_coach(collected: float, target: float, stretch: float, pct: float, avg_pay: int) -> str:
+    lk = lambda v: f"{v / 100000:g}"  # noqa: E731
+    if collected >= stretch:
+        return f"LEGENDARY, Boss! ₹{collected:,.0f} collected — you've crossed even the ₹{lk(stretch)} lakh stretch goal! 🏆"
+    if collected >= target:
+        return (f"Target achieved, Boss! 🎉 ₹{collected:,.0f} is past the ₹{lk(target)}L goal — "
+                f"now let's chase the ₹{lk(stretch)}L stretch. Keep onboarding!")
+    if collected > 0:
+        needed = int((target - collected + avg_pay - 1) // avg_pay) if avg_pay else 0
+        return (f"We're at {pct:g}% of the ₹{lk(target)}L goal. At ~₹{avg_pay:,} per payment, "
+                f"about {needed} more subscription payments get us there — say 'find salon leads' and I'll hunt!")
+    return (f"No subscription revenue yet this month, Boss. Our ₹{lk(target)}–{lk(stretch)} lakh goal needs "
+            "more salons onboard — tell me a city and I'll start hunting leads right away!")
+
+
+async def _revenue_goal(now: datetime) -> dict:
+    """Month-to-date subscription revenue vs the Boss's target/stretch, with Mira's coaching line."""
+    month_start = now.date().replace(day=1).isoformat()
+    goal_doc = await _raw_db.platform_settings.find_one({"key": "revenue_goal"}, {"_id": 0}) or {}
+    target = float(goal_doc.get("target") or 1000000)
+    stretch = float(goal_doc.get("stretch") or max(2000000, target * 2))
+    mrev = await _raw_db.subscription_payments.aggregate([
+        {"$match": {"$or": [{"paid_at": {"$gte": month_start}},
+                            {"paid_at": {"$in": ["", None]}, "created_at": {"$gte": month_start}}]}},
+        {"$group": {"_id": None, "s": {"$sum": "$amount"}, "n": {"$sum": 1}}}]).to_list(1)
+    collected = round((mrev[0]["s"] if mrev else 0) or 0, 2)
+    pay_n = (mrev[0]["n"] if mrev else 0) or 0
+    pct = round(collected / target * 100, 1) if target else 0.0
+    avg_pay = round(collected / pay_n) if pay_n else 0
+    return {"collected_this_month": collected, "payments_this_month": pay_n,
+            "target": target, "stretch": stretch, "pct": pct,
+            "month": now.strftime("%B"), "coach": _goal_coach(collected, target, stretch, pct, avg_pay)}
+
+
 @router.get("/super-admin/mira/home")
 async def mira_home(user=Depends(require_super_admin)):
     """Everything Mira Home needs in one call: snapshot cards + memory timeline."""
@@ -609,35 +643,7 @@ async def mira_home(user=Depends(require_super_admin)):
         {"status": "trial", "trial_ends_at": {"$lte": in5}})
     timeline = await _raw_db.mira_timeline.find({}, {"_id": 0}).sort("created_at", -1).to_list(30)
     health, orphans, alerts = await _system_health()
-    # Revenue goal tracker
-    month_start = now.date().replace(day=1).isoformat()
-    goal_doc = await _raw_db.platform_settings.find_one({"key": "revenue_goal"}, {"_id": 0}) or {}
-    target = float(goal_doc.get("target") or 1000000)
-    stretch = float(goal_doc.get("stretch") or max(2000000, target * 2))
-    mrev = await _raw_db.subscription_payments.aggregate([
-        {"$match": {"$or": [{"paid_at": {"$gte": month_start}},
-                            {"paid_at": {"$in": ["", None]}, "created_at": {"$gte": month_start}}]}},
-        {"$group": {"_id": None, "s": {"$sum": "$amount"}, "n": {"$sum": 1}}}]).to_list(1)
-    collected = round((mrev[0]["s"] if mrev else 0) or 0, 2)
-    pay_n = (mrev[0]["n"] if mrev else 0) or 0
-    pct = round(collected / target * 100, 1) if target else 0.0
-    avg_pay = round(collected / pay_n) if pay_n else 0
-    lk = lambda v: f"{v / 100000:g}"  # noqa: E731
-    if collected >= stretch:
-        coach = f"LEGENDARY, Boss! ₹{collected:,.0f} collected — you've crossed even the ₹{lk(stretch)} lakh stretch goal! 🏆"
-    elif collected >= target:
-        coach = (f"Target achieved, Boss! 🎉 ₹{collected:,.0f} is past the ₹{lk(target)}L goal — "
-                 f"now let's chase the ₹{lk(stretch)}L stretch. Keep onboarding!")
-    elif collected > 0:
-        needed = int((target - collected + avg_pay - 1) // avg_pay) if avg_pay else 0
-        coach = (f"We're at {pct:g}% of the ₹{lk(target)}L goal. At ~₹{avg_pay:,} per payment, "
-                 f"about {needed} more subscription payments get us there — say 'find salon leads' and I'll hunt!")
-    else:
-        coach = (f"No subscription revenue yet this month, Boss. Our ₹{lk(target)}–{lk(stretch)} lakh goal needs "
-                 "more salons onboard — tell me a city and I'll start hunting leads right away!")
-    revenue_goal = {"collected_this_month": collected, "payments_this_month": pay_n,
-                    "target": target, "stretch": stretch, "pct": pct,
-                    "month": now.strftime("%B"), "coach": coach}
+    revenue_goal = await _revenue_goal(now)
     sweep = await _raw_db.system_flags.find_one(
         {"key": "db_health"}, {"_id": 0, "checked_at": 1, "orphans": 1, "new_findings": 1, "announced": 1})
     blog_drafts = await _raw_db.blog_posts.find(

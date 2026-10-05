@@ -29,7 +29,7 @@ def _load_backend_url():
 BASE = _load_backend_url()
 
 SUPER = {"email": "super@miracurl.com", "password": pw("SUPER_ADMIN")}
-OWNER = {"email": "owner@elegance.com", "password": "Owner@123", "slug": "elegance-koramangala"}
+OWNER = {"email": "owner@elegance.com", "password": pw("ELEGANCE_OWNER"), "slug": "elegance-koramangala"}
 ADMIN = {"email": "admin@miracurl.com", "password": password_for("admin@miracurl.com", "TEST_ADMIN_PASSWORD"), "slug": "miracurl-marathahalli"}
 
 INV_NUM_RE = re.compile(r"^MC-2026-\d{4}$")

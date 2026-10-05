@@ -3,10 +3,11 @@ import os
 import pytest
 import requests
 from pymongo import MongoClient
+from tests._creds import pw
 
 BASE_URL = (os.environ.get("REACT_APP_BACKEND_URL") or "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 ADMIN_EMAIL = "admin@miracurl-suite.com"
-ADMIN_PASSWORD = "og9T@41Es#OQb6"
+ADMIN_PASSWORD = pw("SUPER_ADMIN")
 
 
 def _strip(v: str) -> str:

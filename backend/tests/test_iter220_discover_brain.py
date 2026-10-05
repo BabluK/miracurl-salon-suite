@@ -4,10 +4,11 @@ import time
 import pytest
 import requests
 from pymongo import MongoClient
+from tests._creds import pw
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 ADMIN_EMAIL = "admin@miracurl-suite.com"
-ADMIN_PASSWORD = "og9T@41Es#OQb6"
+ADMIN_PASSWORD = pw("SUPER_ADMIN")
 
 
 def _strip(v: str) -> str:
@@ -55,7 +56,7 @@ class TestDiscovery:
         assert r.status_code == 200
         data = r.json()
         ids = {s["id"] for s in data["sources"]}
-        assert ids == {"instagram", "facebook", "linkedin", "web", "email"}, ids
+        assert ids == {"instagram", "facebook", "linkedin", "web", "email", "google"}, ids
 
     def test_discover_unauth(self):
         r = requests.post(f"{BASE_URL}/api/super-admin/mira-leads/discover",

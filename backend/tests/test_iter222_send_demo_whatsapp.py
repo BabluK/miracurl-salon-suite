@@ -18,11 +18,12 @@ import asyncio
 import pytest
 import requests
 from dotenv import load_dotenv
+from tests._creds import pw
 load_dotenv("/app/backend/.env")
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 SA_EMAIL = "admin@miracurl-suite.com"
-SA_PASSWORD = "og9T@41Es#OQb6"
+SA_PASSWORD = pw("SUPER_ADMIN")
 
 sys.path.insert(0, "/app/backend")
 

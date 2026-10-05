@@ -14,6 +14,7 @@ import pytest
 import requests
 from pymongo import MongoClient
 from dotenv import dotenv_values
+from tests._creds import pw
 
 _BE = dotenv_values("/app/backend/.env")
 _FE = dotenv_values("/app/frontend/.env")
@@ -22,7 +23,7 @@ MONGO_URL = _BE.get("MONGO_URL") or os.environ["MONGO_URL"]
 DB_NAME = _BE.get("DB_NAME") or os.environ["DB_NAME"]
 
 SUPER_EMAIL = "admin@miracurl-suite.com"
-SUPER_PASS = "og9T@41Es#OQb6"
+SUPER_PASS = pw("SUPER_ADMIN")
 
 
 @pytest.fixture(scope="module")

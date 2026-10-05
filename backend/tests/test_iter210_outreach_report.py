@@ -14,13 +14,14 @@ from datetime import datetime, timezone
 import pytest
 import requests
 from dotenv import load_dotenv
+from tests._creds import pw
 
 sys.path.insert(0, "/app/backend")
 load_dotenv("/app/backend/.env")
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 SA_EMAIL = "admin@miracurl-suite.com"
-SA_PASS = "og9T@41Es#OQb6"
+SA_PASS = pw("SUPER_ADMIN")
 TAG = "iter210"
 
 

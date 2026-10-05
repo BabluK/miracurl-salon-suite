@@ -728,10 +728,13 @@ async def _own_business_filter():
 
     def is_own(c: dict) -> bool:
         n = _norm_biz(c.get("name"))
+        if any(w in n for w in _BRAND_WORDS) or (n and n in names):
+            return True
         ph = _digits10(c.get("phone") or (c.get("_place") or {}).get("phone"))
+        if ph and ph in phones:
+            return True
         site = _host(c.get("website"))
-        return (any(w in n for w in _BRAND_WORDS) or (n and n in names)
-                or (ph and ph in phones) or (site and site in sites))
+        return bool(site and site in sites)
     return is_own
 
 

@@ -17,7 +17,7 @@ API = f"{BASE}/api"
 ADMIN = ("admin@miracurl.com", pw("SALON_ADMIN"), "miracurl-marathahalli")
 SUPER = ("super@miracurl.com", pw("SUPER_ADMIN"), None)
 STAFF = ("priya.staff@miracurl.com", pw("STAFF"), "miracurl-marathahalli")
-OTHER = ("owner@elegance.com", "Owner@123", "elegance-koramangala")
+OTHER = ("owner@elegance.com", pw("ELEGANCE_OWNER"), "elegance-koramangala")
 
 
 def _login(email, pw, slug):

@@ -36,6 +36,32 @@ def timeline(lead: dict) -> list[dict]:
     return sorted([{"at": lead[k], "label": lbl} for k, lbl in _EVENTS if lead.get(k)], key=lambda e: e["at"])
 
 
+_STALE_KEYS = ("id", "name", "city", "email", "phone", "status", "sent_at", "wa_intro_sent_at")
+
+
+def _country_bucket(out: dict, v: str, ld: dict) -> dict:
+    code = country_of(ld.get("city"))
+    return out[v]["countries"].setdefault(code, {"code": code, "country": _country_name(ld.get("city")), "total": 0, "found": 0, "pitched": 0,
+                                                 "replied": 0, "demo": 0, "customers": 0, "stale": 0, "cities": {}})
+
+
+def _tally(bucket: dict, ld: dict) -> None:
+    bucket["total"] += 1
+    bucket["found"] += 1
+    bucket["pitched"] += bool(ld.get("sent_at") or ld.get("wa_intro_sent_at"))
+    bucket["replied"] += bool(ld.get("replied_at") or ld.get("wa_intro_replied_at"))
+    bucket["demo"] += bool(ld.get("demo_invite_sent_at") or ld.get("demo_booked_at") or ld.get("status") == "demo")
+    bucket["customers"] += bool(ld.get("converted_tenant_id") or ld.get("status") == "customer")
+    city = (ld.get("city") or "—").split(",")[0].strip()
+    bucket["cities"][city] = bucket["cities"].get(city, 0) + 1
+
+
+def _stale_row(ld: dict, v: str, country: str) -> dict:
+    last_touch = max(ld.get("sent_at") or "", ld.get("wa_intro_sent_at") or "", ld.get("reminder_sent_at") or "", ld.get("pdf_resent_at") or "")
+    return {**{k: ld.get(k) for k in _STALE_KEYS}, "vertical": v, "country": country,
+            "days_silent": (datetime.now(timezone.utc) - datetime.fromisoformat(last_touch)).days}
+
+
 @router.get("/super-admin/mira-leads/history")
 async def lead_history(user=Depends(require_super_admin)):
     cutoff = (datetime.now(timezone.utc) - timedelta(days=STALE_DAYS)).isoformat()
@@ -44,23 +70,13 @@ async def lead_history(user=Depends(require_super_admin)):
            "restaurant": {"label": "Restaurants", "total": 0, "countries": {}}}
     stale = []
     for ld in leads:
-        v, code = _vertical(ld), country_of(ld.get("city"))
-        bucket = out[v]["countries"].setdefault(code, {"code": code, "country": _country_name(ld.get("city")), "total": 0, "found": 0, "pitched": 0,
-                                                       "replied": 0, "demo": 0, "customers": 0, "stale": 0, "cities": {}})
+        v = _vertical(ld)
+        bucket = _country_bucket(out, v, ld)
         out[v]["total"] += 1
-        bucket["total"] += 1
-        bucket["found"] += 1
-        bucket["pitched"] += bool(ld.get("sent_at") or ld.get("wa_intro_sent_at"))
-        bucket["replied"] += bool(ld.get("replied_at") or ld.get("wa_intro_replied_at"))
-        bucket["demo"] += bool(ld.get("demo_invite_sent_at") or ld.get("demo_booked_at") or ld.get("status") == "demo")
-        bucket["customers"] += bool(ld.get("converted_tenant_id") or ld.get("status") == "customer")
-        city = (ld.get("city") or "—").split(",")[0].strip()
-        bucket["cities"][city] = bucket["cities"].get(city, 0) + 1
+        _tally(bucket, ld)
         if _is_stale(ld, cutoff):
             bucket["stale"] += 1
-            stale.append({**{k: ld.get(k) for k in ("id", "name", "city", "email", "phone", "status", "sent_at", "wa_intro_sent_at")}, "vertical": v,
-                          "country": bucket["country"], "days_silent": (datetime.now(timezone.utc) - datetime.fromisoformat(
-                              max(ld.get("sent_at") or "", ld.get("wa_intro_sent_at") or "", ld.get("reminder_sent_at") or "", ld.get("pdf_resent_at") or ""))).days})
+            stale.append(_stale_row(ld, v, bucket["country"]))
     for v in out.values():
         for c in v["countries"].values():
             c["cities"] = sorted(c["cities"].items(), key=lambda x: -x[1])[:6]

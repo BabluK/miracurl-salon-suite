@@ -10,7 +10,7 @@ API = BASE_URL + "/api"
 SUPER_EMAIL = "admin@miracurl-suite.com"
 SUPER_PASS = pw("SUPER_ADMIN")
 TENANT_EMAIL = "admin@miracurl.com"
-TENANT_PASS = "q6QY@tn3p#9DtL"
+TENANT_PASS = pw("SALON_ADMIN")
 TENANT_SLUG = "miracurl-marathahalli"
 
 HIDDEN_KEYS = ["half_year", "two_branch_half", "three_branch_half", "multi_branch_half", "resto_half", "resto_intl_half"]

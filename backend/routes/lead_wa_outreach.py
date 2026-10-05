@@ -68,25 +68,34 @@ def _template_preview(body: str, params: list[str]) -> str:
     return body
 
 
-async def _template_body() -> str:
-    doc = await _raw_db.platform_settings.find_one({"key": "wa_lead_intro_body"}, {"_id": 0}) or {}
-    if doc.get("body") and doc.get("fetched_at", "") > (datetime.now(timezone.utc).replace(hour=0, minute=0)).isoformat():
-        return doc["body"]
+async def _fetch_meta_template_body(tok: str, waba: str, fallback: str) -> str:
+    """Pull the approved template's BODY text from Meta; returns fallback when not found."""
     import httpx
     from routes.lead_wa_auto import TEMPLATE
+    async with httpx.AsyncClient(timeout=15) as client:
+        r = await client.get(f"https://graph.facebook.com/v22.0/{waba}/message_templates",
+                             params={"name": TEMPLATE, "fields": "name,components"}, headers={"Authorization": f"Bearer {tok}"})
+    for t in r.json().get("data") or []:
+        if t.get("name") == TEMPLATE:
+            return next((c.get("text", "") for c in t.get("components", []) if c.get("type") == "BODY"), fallback)
+    return fallback
+
+
+async def _template_body() -> str:
+    """Approved WA intro template text, refreshed from Meta at most once a day."""
+    doc = await _raw_db.platform_settings.find_one({"key": "wa_lead_intro_body"}, {"_id": 0}) or {}
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0).isoformat()
+    if doc.get("body") and doc.get("fetched_at", "") > today_start:
+        return doc["body"]
     tok, waba = os.environ.get("WHATSAPP_ACCESS_TOKEN", ""), os.environ.get("WHATSAPP_BUSINESS_ACCOUNT_ID", "")
     body = doc.get("body") or ""
-    if tok and waba:
-        try:
-            async with httpx.AsyncClient(timeout=15) as client:
-                r = await client.get(f"https://graph.facebook.com/v22.0/{waba}/message_templates",
-                                     params={"name": TEMPLATE, "fields": "name,components"}, headers={"Authorization": f"Bearer {tok}"})
-            for t in r.json().get("data") or []:
-                if t.get("name") == TEMPLATE:
-                    body = next((c.get("text", "") for c in t.get("components", []) if c.get("type") == "BODY"), body)
-            await _raw_db.platform_settings.update_one({"key": "wa_lead_intro_body"}, {"$set": {"body": body, "fetched_at": _now()}}, upsert=True)
-        except Exception as e:  # noqa: BLE001
-            log.warning("template body fetch failed: %s", e)
+    if not (tok and waba):
+        return body
+    try:
+        body = await _fetch_meta_template_body(tok, waba, body)
+        await _raw_db.platform_settings.update_one({"key": "wa_lead_intro_body"}, {"$set": {"body": body, "fetched_at": _now()}}, upsert=True)
+    except Exception as e:  # noqa: BLE001
+        log.warning("template body fetch failed: %s", e)
     return body
 
 
@@ -164,38 +173,52 @@ _ERR_HINT = {131026: "Not on WhatsApp (or hasn't accepted the new terms)", 13104
              131047: "Outside 24h window — template required", 131030: "Test number — recipient not allow-listed"}
 
 
+def _apply_receipt(r: dict, m: dict | None) -> None:
+    """Overlay Meta delivery receipt (status / error hint) onto an outreach row."""
+    if not m:
+        return
+    r["status"] = m.get("status") or r["status"]
+    errs = m.get("errors") or []
+    code = errs[0].get("code") if errs else None
+    r["error"] = _ERR_HINT.get(code, errs[0].get("title") if errs else None)
+    r["error_code"] = code
+    r["status_at"] = m.get("status_at")
+
+
+def _apply_lead(r: dict, ld: dict) -> None:
+    r["lead_status"] = ld.get("status")
+    r["replied_at"] = ld.get("wa_intro_replied_at") or ld.get("replied_at")
+    r["reply"] = ld.get("wa_intro_reply")
+
+
+async def _receipts_for(rows: list[dict]) -> dict:
+    mids = [r["message_id"] for r in rows if r.get("message_id")]
+    if not mids:
+        return {}
+    return {m["message_id"]: m async for m in _raw_db.whatsapp_messages.find(
+        {"message_id": {"$in": mids}}, {"_id": 0, "message_id": 1, "status": 1, "errors": 1, "status_at": 1})}
+
+
+async def _leads_for(rows: list[dict]) -> dict:
+    lead_ids = list({r["lead_id"] for r in rows})
+    return {l["id"]: l async for l in _raw_db.mira_leads.find(
+        {"id": {"$in": lead_ids}}, {"_id": 0, "id": 1, "status": 1, "wa_intro_replied_at": 1, "replied_at": 1, "wa_intro_reply": 1})}
+
+
 @router.get("/super-admin/wa-outreach/history")
 async def wa_outreach_history(limit: int = 150, channel: str = "", user=Depends(require_super_admin)):
     """Every HQ WhatsApp outreach (Meta one-click + manual) with live delivery status from Meta receipts."""
     q = {"channel": channel} if channel in ("meta", "manual") else {}
     rows = await _raw_db.mira_wa_outreach.find(q, {"_id": 0}).sort("created_at", -1).to_list(max(1, min(limit, 500)))
-    mids = [r["message_id"] for r in rows if r.get("message_id")]
-    status_by = {}
-    if mids:
-        async for m in _raw_db.whatsapp_messages.find({"message_id": {"$in": mids}}, {"_id": 0, "message_id": 1, "status": 1, "errors": 1, "status_at": 1}):
-            status_by[m["message_id"]] = m
-    lead_ids = list({r["lead_id"] for r in rows})
-    leads = {l["id"]: l async for l in _raw_db.mira_leads.find({"id": {"$in": lead_ids}}, {"_id": 0, "id": 1, "status": 1, "wa_intro_replied_at": 1, "replied_at": 1, "wa_intro_reply": 1})}
-    out = []
+    status_by, leads = await _receipts_for(rows), await _leads_for(rows)
     for r in rows:
-        m = status_by.get(r.get("message_id") or "")
-        if m:
-            r["status"] = m.get("status") or r["status"]
-            errs = m.get("errors") or []
-            code = errs[0].get("code") if errs else None
-            r["error"] = _ERR_HINT.get(code, errs[0].get("title") if errs else None)
-            r["error_code"] = code
-            r["status_at"] = m.get("status_at")
-        ld = leads.get(r["lead_id"]) or {}
-        r["lead_status"] = ld.get("status")
-        r["replied_at"] = ld.get("wa_intro_replied_at") or ld.get("replied_at")
-        r["reply"] = ld.get("wa_intro_reply")
-        out.append(r)
+        _apply_receipt(r, status_by.get(r.get("message_id") or ""))
+        _apply_lead(r, leads.get(r["lead_id"]) or {})
     counts = {"meta": await _raw_db.mira_wa_outreach.count_documents({"channel": "meta"}),
               "manual": await _raw_db.mira_wa_outreach.count_documents({"channel": "manual"}),
-              "not_on_wa": sum(1 for r in out if r.get("error_code") in NOT_ON_WA_CODES),
-              "replied": sum(1 for r in out if r.get("replied_at"))}
-    return {"items": out, "counts": counts}
+              "not_on_wa": sum(1 for r in rows if r.get("error_code") in NOT_ON_WA_CODES),
+              "replied": sum(1 for r in rows if r.get("replied_at"))}
+    return {"items": rows, "counts": counts}
 
 
 @router.delete("/super-admin/wa-outreach/history/{oid}")

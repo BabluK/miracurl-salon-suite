@@ -50,7 +50,7 @@ def super_sess():
 @pytest.fixture(scope="module")
 def tenant_sess():
     s = requests.Session()
-    _login(s, "admin@miracurl.com", "q6QY@tn3p#9DtL", slug="miracurl-marathahalli")
+    _login(s, "admin@miracurl.com", pw("SALON_ADMIN"), slug="miracurl-marathahalli")
     return s
 
 

@@ -4,10 +4,11 @@ import pytest
 import requests
 import uuid
 from datetime import datetime, timezone
+from tests._creds import pw
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://hair-hub-system.preview.emergentagent.com").rstrip("/")
 SUPER_EMAIL = "admin@miracurl-suite.com"
-SUPER_PASSWORD = "og9T@41Es#OQb6"
+SUPER_PASSWORD = pw("SUPER_ADMIN")
 
 
 @pytest.fixture(scope="module")
