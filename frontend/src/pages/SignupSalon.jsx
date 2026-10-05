@@ -13,6 +13,7 @@ import ChatButton from "@/components/ChatButton";
 import { useAuth } from "@/context/AuthContext";
 import { setTenantSlug } from "@/lib/api";
 import { detectRegion, currentRegion, rememberRegion } from "@/lib/region";
+import { PasswordStrength, isStrongPassword } from "@/components/auth/PasswordStrength";
 import { trackSignup, trackFunnel } from "@/lib/analytics";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -145,7 +146,7 @@ export default function SignupSalon() {
     if (step === 1) {
       if (form.owner_name.trim().length < 2) { setErr("Owner name is required"); trackFunnel("signup_error", { ...funnelCtx, step, step_name: STEP_KEYS[step], error: "owner_name" }); return; }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.owner_email)) { setErr("Enter a valid email"); trackFunnel("signup_error", { ...funnelCtx, step, step_name: STEP_KEYS[step], error: "email_invalid" }); return; }
-      if (form.password.length < 8) { setErr("Password must be at least 8 characters"); trackFunnel("signup_error", { ...funnelCtx, step, step_name: STEP_KEYS[step], error: "password_short" }); return; }
+      if (!isStrongPassword(form.password)) { setErr("Make your password strong: 8+ chars with upper, lower, number & symbol"); trackFunnel("signup_error", { ...funnelCtx, step, step_name: STEP_KEYS[step], error: "password_weak" }); return; }
     }
     trackFunnel("signup_step", { ...funnelCtx, step: step + 2, step_name: STEP_KEYS[step + 1] });
     setStep(step + 1);
@@ -576,13 +577,14 @@ function OwnerStep({ form, update, showPw, setShowPw }) {
         type={showPw ? "text" : "password"}
         value={form.password}
         onChange={v => update({ password: v })}
-        placeholder="At least 8 characters"
+        placeholder="8+ chars · upper · lower · number · symbol"
         trailing={
           <button type="button" onClick={() => setShowPw(!showPw)} className="text-slate-400 hover:text-slate-600" data-testid="signup-toggle-password" aria-label={showPw ? "Hide password" : "Show password"}>
             {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         }
       />
+      {form.password && <PasswordStrength password={form.password} compact />}
     </div>
   );
 }

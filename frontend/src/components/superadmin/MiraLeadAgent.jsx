@@ -235,6 +235,12 @@ function LeadRow({ lead, onRefresh, waStatus }) {
             {waApproved ? "📱 WA ready" : "📱 WA · template pending"}
           </span>
         )}
+        {lead.intent && (
+          <span data-testid={`lead-intent-badge-${lead.id}`} title={(lead.intent_reasons || []).join(" · ")}
+            className={`shrink-0 text-[10px] px-2 py-1 rounded-full font-bold border ${lead.intent === "HOT" ? "bg-rose-100 text-rose-700 border-rose-200" : lead.intent === "WARM" ? "bg-orange-100 text-orange-700 border-orange-200" : "bg-sky-50 text-sky-700 border-sky-200"}`}>
+            {lead.intent === "HOT" ? "🔥 HOT" : lead.intent === "WARM" ? "🟠 WARM" : "🔵 COLD"}
+          </span>
+        )}
         {lead.competitor && <span data-testid={`lead-competitor-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-red-100 text-red-700 font-bold border border-red-200" title={`Currently uses ${lead.competitor} — strong migration lead`}>🔥 {lead.competitor}</span>}
         {lead.converted_at && <span data-testid={`lead-converted-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 font-bold border border-emerald-200" title={`Signed up for a trial${lead.converted_tenant_slug ? ` as "${lead.converted_tenant_slug}"` : ""} on ${(lead.converted_at || "").slice(0, 10)} — thanks to your outreach!`}>🎉 Converted</span>}
         {lead.demo_slot && <span data-testid={`lead-demo-slot-badge-${lead.id}`} className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-violet-100 text-violet-700 font-bold border border-violet-200" title={`Demo booked${lead.demo_slot.local_time ? ` (${lead.demo_slot.local_time} their time)` : ""}`}>📅 {lead.demo_slot.date} · {lead.demo_slot.time} IST</span>}
@@ -246,6 +252,19 @@ function LeadRow({ lead, onRefresh, waStatus }) {
 
       {open && (
         <div className="px-4 pb-4 space-y-3 border-t border-slate-100 pt-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 text-[11px]" data-testid={`lead-profile-${lead.id}`}>
+            {[["Owner", lead.owner_name || "—"], ["Country", lead.country || "—"], ["Software", lead.current_software || lead.competitor || "none detected"],
+              ["Locations", lead.locations_count || lead.branches || 1], ["Team", lead.team_size ? `${lead.team_size} staff` : "—"],
+              ["WhatsApp", lead.whatsapp || lead.phone || "—"]].map(([k, v]) => (
+              <div key={k} className="rounded-lg bg-slate-50 border border-slate-100 px-2 py-1.5"><div className="text-[9px] uppercase tracking-wider text-slate-400">{k}</div><div className="font-semibold text-slate-700 truncate">{v}</div></div>
+            ))}
+          </div>
+          {(lead.intent_reasons || []).length > 0 && (
+            <div className="text-[11px] text-slate-500" data-testid={`lead-intent-reasons-${lead.id}`}>
+              <b className={lead.intent === "HOT" ? "text-rose-600" : lead.intent === "WARM" ? "text-orange-600" : "text-sky-600"}>{lead.intent}</b> because: {lead.intent_reasons.join(" · ")}
+              {lead.booking_link && <> · <a href={lead.booking_link} target="_blank" rel="noreferrer" className="text-sky-600 underline">booking page</a></>}
+            </div>
+          )}
           <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
             {lead.website && <a href={lead.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-600"><Globe className="w-3 h-3" /> Website</a>}
             {lead.competitor && <span className="text-red-600 font-semibold">📅 Booking: {lead.competitor}</span>}

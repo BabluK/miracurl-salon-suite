@@ -18,7 +18,7 @@ export function SearchPanel({ city, setCity, target, setTarget, vertical, setVer
       <div className="flex items-center gap-2 mb-3">
         <span className="w-6 h-6 rounded-full bg-fuchsia-600 text-white text-[11px] font-bold inline-flex items-center justify-center">1</span>
         <h2 className="text-base font-semibold text-slate-800">Find new leads</h2>
-        <span className="text-xs text-slate-400">Mira searches Google Maps → researches each business → finds the email → drafts the pitch</span>
+        <span className="text-xs text-slate-400">Mira searches Google Maps → researches each business → builds the full profile (owner · country · website · Instagram · current software · locations · team · booking link · email · WhatsApp) → scores intent 🔥 HOT / 🟠 WARM / 🔵 COLD → drafts the pitch</span>
       </div>
       <div className="flex flex-wrap items-end gap-3">
         <Field label="Business type">

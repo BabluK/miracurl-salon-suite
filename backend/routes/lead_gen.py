@@ -5,6 +5,7 @@ Lead Finder (Google Places when key enabled, else AI research) -> Research -> Em
 import os
 import re
 import uuid
+from services.lead_intent import detect_software, enrich_profile
 import asyncio
 import base64
 import html as html_lib
@@ -466,7 +467,7 @@ _COMPETITORS = {
 
 def _detect_competitor(html: str) -> str:
     low = (html or "").lower()
-    for needle, label in _COMPETITORS.items():
+    for needle, label in {**_COMPETITORS, **{k: v for k, v in __import__("services.lead_intent", fromlist=["x"]).SOFTWARE_SIGNATURES.items() if v}}.items():
         if needle in low:
             return label
     return ""
@@ -514,7 +515,12 @@ async def _llm_research(name: str, city: str, site: dict, vertical: str = "salon
         f'"has_online_booking": {str(site["booking"]).lower()} '
         'or true if the website text clearly offers online booking, '
         '"website_quality": "<none|poor|good — judge from the website text richness>", '
-        '"owner_name": "<if found, else empty>"}')
+        '"owner_name": "<owner / decision maker if found, else empty>", '
+        '"team_size": <approx number of stylists/staff if the text or your knowledge suggests it, else 0>, '
+        '"current_software": "<booking/POS software they use if detectable (Fresha, Vagaro, Treatwell, Zenoti, MioSalon, Petpooja, Toast, OpenTable…), else empty>", '
+        '"booking_link": "<URL of their online booking page if present, else empty>", '
+        '"newly_opened": <true if the business is newly opened / opening soon>, '
+        '"looking_to_switch": <true if they take bookings manually (DM/call/WhatsApp) or clearly look for software>}')
 
 
 def _lead_contact_fields(site: dict, info: dict) -> dict:
@@ -536,7 +542,11 @@ def _lead_quality_fields(site: dict, info: dict) -> dict:
         "branches": int(info.get("branches") or 1),
         "has_online_booking": site["booking"] or bool(info.get("has_online_booking")),
         "website_quality": (info.get("website_quality") or ("none" if not site["website"] else "poor")),
-        "competitor": site.get("competitor") or "",
+        "competitor": site.get("competitor") or detect_software(site.get("text") or "") or (info.get("current_software") or ""),
+        "team_size": int(info.get("team_size") or 0),
+        "booking_link": (info.get("booking_link") or "")[:300],
+        "newly_opened": bool(info.get("newly_opened")),
+        "looking_to_switch": bool(info.get("looking_to_switch")),
     }
 
 
@@ -546,7 +556,7 @@ def _compose_lead(name: str, city: str, site: dict, info: dict, vertical: str = 
             **_lead_contact_fields(site, info), **_lead_quality_fields(site, info),
             "crm": False, "status": "researched", "created_at": _now()}
     lead["score"], lead["score_breakdown"] = _score(lead)
-    return lead
+    return enrich_profile(lead)
 
 
 _IG_HANDLE_RE = re.compile(r"instagram\.com/([A-Za-z0-9_.]{2,40})/?", re.I)
@@ -988,6 +998,19 @@ async def stop_run(user=Depends(require_super_admin)):
 async def list_runs(user=Depends(require_super_admin)):
     await fail_stale_runs()
     return await _raw_db.mira_lead_runs.find({}, {"_id": 0}).sort("created_at", -1).to_list(10)
+
+
+@router.post("/super-admin/mira-leads/rescore-intent")
+async def rescore_intent(user=Depends(require_super_admin)):
+    """Backfill the full prospect profile + HOT/WARM/COLD intent on every existing lead."""
+    n = {"HOT": 0, "WARM": 0, "COLD": 0}
+    async for ld in _raw_db.mira_leads.find({}, {"_id": 0}):
+        enriched = enrich_profile(dict(ld))
+        n[enriched["intent"]] += 1
+        await _raw_db.mira_leads.update_one({"id": ld["id"]}, {"$set": {k: enriched[k] for k in (
+            "country", "current_software", "locations_count", "team_size", "booking_link", "public_email", "whatsapp",
+            "intent", "intent_reasons", "intent_score")}})
+    return {"ok": True, "counts": n}
 
 
 @router.get("/super-admin/mira-leads")

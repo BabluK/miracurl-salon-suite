@@ -405,6 +405,17 @@ async def delete_customer(cid: str, user=Depends(require_admin)):
     await db.customers.delete_one({"id": cid})
     return {"ok": True}
 
+
+class BulkDeleteIn(BaseModel):
+    ids: List[str] = Field(..., min_length=1, max_length=5000)
+
+
+@router.post("/customers/bulk-delete")
+async def bulk_delete_customers(body: BulkDeleteIn, user=Depends(require_admin)):
+    """One-click CRM clean-up: remove the ticked guests (tenant-scoped). Past bills keep their own copy."""
+    r = await db.customers.delete_many({"id": {"$in": body.ids}})
+    return {"ok": True, "deleted": r.deleted_count}
+
 # ---------------- Uploads (staff / service / product images) ----------------
 
 

@@ -285,25 +285,27 @@ def salon_welcome_email_html(salon_name: str, owner_name: str, owner_email: str,
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
     hq_email = hq_inbox("support")
     return f"""
-    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #efe3c4;border-radius:22px;overflow:hidden;box-shadow:0 24px 60px -36px rgba(184,134,59,.45)">
       {_welcome_poster_row(poster_url)}
-      <div style="background:#1c1c22;padding:26px 30px">
-        {platform_brand_mark(22, "Miracurl ✦ Salon Suite")}
-        <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Welcome aboard — your salon is live</div>
+      <div style="padding:26px 32px 18px;text-align:center;border-bottom:1px solid #f3eadb;background:#ffffff">
+        <img src="{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/assets/ms-logo-ring.png" alt="Miracurl Suite" width="68" height="68" style="display:block;margin:0 auto 10px">
+        <div style="font-size:19px;letter-spacing:.14em;color:#b8863b;font-weight:bold">MIRACURL <span style="letter-spacing:.3em">SUITE</span></div>
+        <div style="font-size:10px;letter-spacing:.3em;color:#a69c8c;text-transform:uppercase;margin-top:4px">Salon &amp; Restaurant Management Software</div>
+        <div style="display:inline-block;margin-top:14px;background:#fff4e0;color:#b8863b;font-size:10px;letter-spacing:.25em;text-transform:uppercase;padding:6px 12px;border-radius:999px;font-family:Arial,sans-serif;font-weight:bold">Welcome aboard — your salon is live</div>
       </div>
-      <div style="padding:28px 30px;color:#333">
-        <p>Namaste <b>{owner_name}</b> 🎉</p>
+      <div style="padding:28px 32px;color:#3f3a34;font-family:Arial,sans-serif;font-size:15px">
+        <h1 style="font-family:Georgia,serif;font-size:27px;line-height:1.2;margin:0 0 12px;font-weight:normal;color:#1c1917">Welcome, <b>{owner_name}</b> ✦</h1>
         <p style="line-height:1.7">A very warm welcome to the Miracurl family! <b>{salon_name}</b> is now set up with
           online bookings, POS billing, staff management and Mira AI — everything you need to run a beautiful, busy salon with ease.</p>
         <p style="line-height:1.7">Your <b>free trial</b> runs until <b>{html_lib.escape(trial_end or "")}</b>. Here are your login details:</p>
-        <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:16px 20px;margin:18px 0;font-size:15px">
+        <div style="background:#fbf7ef;border:1px solid #f0e4c8;border-radius:14px;padding:16px 20px;margin:18px 0;font-size:15px">
           👤 <b>Login email:</b> {owner_email}<br/><br/>
           🔑 <b>Password:</b> <span style="font-family:monospace;background:#fff;border:1px dashed #d4af37;padding:3px 12px;border-radius:8px;font-weight:bold;color:#8a6d1f">{password}</span>
         </div>
         <p style="text-align:center;margin:24px 0">
-          <a href="{login_url}" style="background:linear-gradient(135deg,#d4af37,#e6c66e);color:#17171f;text-decoration:none;padding:13px 38px;border-radius:999px;font-weight:bold">💇 &nbsp;Open your dashboard&nbsp; →</a>
+          <a href="{login_url}" style="display:inline-block;background:linear-gradient(135deg,#f0d9a5,#c89b52);color:#1c160c;text-decoration:none;padding:15px 36px;border-radius:999px;font-weight:bold;box-shadow:0 12px 30px -12px rgba(200,155,82,.8)">💇 &nbsp;Open your dashboard&nbsp; →</a>
         </p>
-        <div style="background:#f4f8f4;border:1px solid #d4e6d4;border-radius:12px;padding:16px 20px;font-size:13px;font-family:Arial,sans-serif;line-height:2">
+        <div style="background:#fbf7ef;border:1px solid #f0e4c8;border-radius:14px;padding:16px 20px;font-size:13px;font-family:Arial,sans-serif;line-height:2">
           <b style="font-size:14px">🚀 Get glowing in 4 quick steps</b><br/>
           1️⃣ &nbsp;<b>Services</b> — add your service menu, or one-tap import our presets<br/>
           2️⃣ &nbsp;<b>Staff</b> — add your stylists so appointments &amp; commissions flow<br/>
@@ -324,25 +326,27 @@ def restaurant_welcome_email_html(restaurant_name: str, owner_name: str, owner_e
     login_url = f"{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/login"
     hq_email = hq_inbox("support")
     return f"""
-    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#fdfbf7;border:1px solid #eee;border-radius:16px;overflow:hidden">
+    <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #efe3c4;border-radius:22px;overflow:hidden;box-shadow:0 24px 60px -36px rgba(184,134,59,.45)">
       {_welcome_poster_row(poster_url)}
-      <div style="background:#1c1c22;padding:26px 30px">
-        {platform_brand_mark(22, "Miracurl ✦ Restaurant Suite")}
-        <div style="color:#999;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px">Welcome aboard — your restaurant is live</div>
+      <div style="padding:26px 32px 18px;text-align:center;border-bottom:1px solid #f3eadb;background:#ffffff">
+        <img src="{os.environ.get('APP_PUBLIC_URL', 'https://miracurl-suite.com')}/assets/ms-logo-ring.png" alt="Miracurl Suite" width="68" height="68" style="display:block;margin:0 auto 10px">
+        <div style="font-size:19px;letter-spacing:.14em;color:#b8863b;font-weight:bold">MIRACURL <span style="letter-spacing:.3em">SUITE</span></div>
+        <div style="font-size:10px;letter-spacing:.3em;color:#a69c8c;text-transform:uppercase;margin-top:4px">Salon &amp; Restaurant Management Software</div>
+        <div style="display:inline-block;margin-top:14px;background:#fff4e0;color:#b8863b;font-size:10px;letter-spacing:.25em;text-transform:uppercase;padding:6px 12px;border-radius:999px;font-family:Arial,sans-serif;font-weight:bold">Welcome aboard — your restaurant is live</div>
       </div>
-      <div style="padding:28px 30px;color:#333">
-        <p>Namaste <b>{owner_name}</b> 🎉</p>
+      <div style="padding:28px 32px;color:#3f3a34;font-family:Arial,sans-serif;font-size:15px">
+        <h1 style="font-family:Georgia,serif;font-size:27px;line-height:1.2;margin:0 0 12px;font-weight:normal;color:#1c1917">Welcome, <b>{owner_name}</b> ✦</h1>
         <p style="line-height:1.7">A very warm welcome to the Miracurl family! <b>{restaurant_name}</b> is now set up with
           QR table ordering, live kitchen tickets, POS billing and Mira AI — everything you need to run a busy floor with ease.</p>
         <p style="line-height:1.7">Your <b>first month is on us</b> — free trial until <b>{html_lib.escape(trial_end or "")}</b>. Here are your login details:</p>
-        <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:16px 20px;margin:18px 0;font-size:15px">
+        <div style="background:#fbf7ef;border:1px solid #f0e4c8;border-radius:14px;padding:16px 20px;margin:18px 0;font-size:15px">
           👤 <b>Login email:</b> {owner_email}<br/><br/>
           🔑 <b>Password:</b> <span style="font-family:monospace;background:#fff;border:1px dashed #d4af37;padding:3px 12px;border-radius:8px;font-weight:bold;color:#8a6d1f">{password}</span>
         </div>
         <p style="text-align:center;margin:24px 0">
-          <a href="{login_url}" style="background:linear-gradient(135deg,#d4af37,#e6c66e);color:#17171f;text-decoration:none;padding:13px 38px;border-radius:999px;font-weight:bold">🍽️ &nbsp;Open your dashboard&nbsp; →</a>
+          <a href="{login_url}" style="display:inline-block;background:linear-gradient(135deg,#f0d9a5,#c89b52);color:#1c160c;text-decoration:none;padding:15px 36px;border-radius:999px;font-weight:bold;box-shadow:0 12px 30px -12px rgba(200,155,82,.8)">🍽️ &nbsp;Open your dashboard&nbsp; →</a>
         </p>
-        <div style="background:#f4f8f4;border:1px solid #d4e6d4;border-radius:12px;padding:16px 20px;font-size:13px;font-family:Arial,sans-serif;line-height:2">
+        <div style="background:#fbf7ef;border:1px solid #f0e4c8;border-radius:14px;padding:16px 20px;font-size:13px;font-family:Arial,sans-serif;line-height:2">
           <b style="font-size:14px">🚀 Get serving in 4 quick steps</b><br/>
           1️⃣ &nbsp;<b>Menu</b> — add your dishes, or one-tap import our Starters menu<br/>
           2️⃣ &nbsp;<b>Table QR codes</b> — print table tents from Kitchen → Table QR codes<br/>
@@ -369,7 +373,7 @@ def _credentials_email_html(salon_name: str, owner_email: str, temp_pw: str) -> 
       <div style="padding:28px 30px;color:#333">
         <p>Hello,</p>
         <p>Your login credentials for <b>{salon_name}</b> were reset by Miracurl HQ. Use these to sign in — you'll be asked to set a new password on first login.</p>
-        <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:16px 20px;margin:18px 0;font-size:15px">
+        <div style="background:#fbf7ef;border:1px solid #f0e4c8;border-radius:14px;padding:16px 20px;margin:18px 0;font-size:15px">
           👤 <b>Login email:</b> {owner_email}<br/><br/>
           🔑 <b>Temp password:</b> <span style="font-family:monospace;background:#fff;border:1px dashed #d4af37;padding:3px 12px;border-radius:8px;font-weight:bold;color:#8a6d1f">{temp_pw}</span>
         </div>
@@ -397,7 +401,7 @@ def staff_welcome_email_html(staff_name: str, salon_name: str, login_email: str,
       <div style="padding:28px 30px;color:#333">
         <p>Hi <b>{staff_name}</b> 👋</p>
         <p><b>{salon_name}</b> has created your Miracurl {html_lib.escape(role_label)} account. Use the one-time password below to sign in — you'll set your own password on first login.</p>
-        <div style="background:#faf6ec;border:1px solid #eadfc0;border-radius:12px;padding:16px 20px;margin:18px 0;font-size:15px">
+        <div style="background:#fbf7ef;border:1px solid #f0e4c8;border-radius:14px;padding:16px 20px;margin:18px 0;font-size:15px">
           👤 <b>Login email:</b> {login_email}<br/><br/>
           🔑 <b>One-time password:</b> <span style="font-family:monospace;background:#fff;border:1px dashed #d4af37;padding:3px 12px;border-radius:8px;font-weight:bold;color:#8a6d1f">{temp_pw}</span>
         </div>

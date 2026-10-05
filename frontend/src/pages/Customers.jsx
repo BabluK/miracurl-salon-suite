@@ -132,6 +132,24 @@ export default function Customers() {
     });
   }
 
+  function removeSelected() {
+    const ids = [...selected];
+    askConfirm({
+      title: `Delete ${ids.length} customer${ids.length > 1 ? "s" : ""}?`,
+      message: "This removes the ticked CRM entries in one go. Their past bills are untouched.", confirmLabel: `Yes, delete ${ids.length}`, danger: true,
+      action: async () => {
+        try {
+          const r = await api.post("/customers/bulk-delete", { ids });
+          toast.success(`Deleted ${r.data.deleted} customer${r.data.deleted === 1 ? "" : "s"}`);
+          setSelected(new Set());
+          load();
+        } catch (e) {
+          toast.error(e.response?.data?.detail || "Delete failed");
+        }
+      },
+    });
+  }
+
   const sorted = sortCustomers(visible, sort);
   const paged = sorted.slice((page - 1) * perPage, page * perPage);
   const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
@@ -182,6 +200,12 @@ export default function Customers() {
               <Icon className="w-4 h-4" /> {label}
             </button>
           ))}
+          {selected.size > 0 && (
+            <button data-testid="bulk-delete-customers-btn" onClick={removeSelected}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 text-red-700 border border-red-200 text-sm font-semibold hover:bg-red-100 transition-colors">
+              <Trash2 className="w-4 h-4" /> Delete selected ({selected.size})
+            </button>
+          )}
           <button data-testid="wa-campaign-btn" onClick={() => setView("campaign")} disabled={selected.size === 0}
             title={selected.size ? "Send a WhatsApp campaign to the ticked guests" : "Tick guests in the list first"}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold shadow-sm hover:bg-emerald-700 disabled:opacity-40 transition-colors">

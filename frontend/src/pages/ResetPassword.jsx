@@ -1,22 +1,12 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import { KeyRound, Loader2, CheckCircle2, Eye, EyeOff, ShieldCheck, Check, X } from "lucide-react";
 import BrandMark from "@/components/BrandMark";
+import { PasswordStrength, isStrongPassword } from "@/components/auth/PasswordStrength";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-
-const RULES = [
-  ["len", "At least 8 characters", (p) => p.length >= 8],
-  ["upper", "An uppercase letter (A–Z)", (p) => /[A-Z]/.test(p)],
-  ["lower", "A lowercase letter (a–z)", (p) => /[a-z]/.test(p)],
-  ["digit", "A number (0–9)", (p) => /\d/.test(p)],
-  ["symbol", "A symbol (!@#$…)", (p) => /[^A-Za-z0-9]/.test(p)],
-];
-const STRENGTH = [
-  ["", "bg-slate-200"], ["Weak", "bg-rose-500"], ["Weak", "bg-rose-500"], ["Fair", "bg-amber-500"], ["Good", "bg-lime-500"], ["Strong", "bg-emerald-500"],
-];
 
 function PasswordField({ value, onChange, placeholder, testid, autoFocus }) {
   const [show, setShow] = useState(false);
@@ -42,10 +32,8 @@ export default function ResetPassword() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
 
-  const passed = useMemo(() => RULES.filter(([, , ok]) => ok(pw)).length, [pw]);
-  const strong = passed === RULES.length;
+  const strong = isStrongPassword(pw);
   const match = pw2.length > 0 && pw === pw2;
-  const [label, bar] = STRENGTH[pw ? passed : 0];
 
   const submit = async (e) => {
     e.preventDefault();
@@ -87,25 +75,7 @@ export default function ResetPassword() {
             <p className="text-slate-500 text-sm mt-1.5 mb-6">Any login lock on your account is cleared automatically.</p>
             <form onSubmit={submit} className="space-y-3" noValidate>
               <PasswordField value={pw} onChange={e => setPw(e.target.value)} placeholder="New password" testid="reset-password-input" autoFocus />
-              <div data-testid="password-strength">
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5].map(i => <span key={i} className={`h-1.5 flex-1 rounded-full transition-colors ${pw && i <= passed ? bar : "bg-slate-200"}`} />)}
-                </div>
-                <div className="flex items-center justify-between mt-1.5 text-[11px]">
-                  <span className="text-slate-400">Password strength</span>
-                  <span className={`font-semibold ${strong ? "text-emerald-600" : passed >= 3 ? "text-amber-600" : "text-rose-500"}`} data-testid="password-strength-label">{label || "—"}</span>
-                </div>
-              </div>
-              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 rounded-xl bg-[#fdf9f4] border border-[#efe3c4] p-3" data-testid="password-rules">
-                {RULES.map(([k, text, ok]) => {
-                  const hit = ok(pw);
-                  return (
-                    <li key={k} data-testid={`rule-${k}`} data-ok={hit} className={`flex items-center gap-1.5 text-[11.5px] ${hit ? "text-emerald-700" : "text-slate-500"}`}>
-                      {hit ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5 text-slate-300" />} {text}
-                    </li>
-                  );
-                })}
-              </ul>
+              <PasswordStrength password={pw} />
               <PasswordField value={pw2} onChange={e => setPw2(e.target.value)} placeholder="Confirm new password" testid="reset-password-confirm-input" />
               {pw2.length > 0 && (
                 <p className={`text-[11.5px] flex items-center gap-1.5 ${match ? "text-emerald-700" : "text-rose-500"}`} data-testid="password-match">

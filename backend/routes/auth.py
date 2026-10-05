@@ -39,6 +39,21 @@ from security import (
 router = APIRouter()
 
 
+_PW_RULES = (
+    (lambda p: len(p) >= 8, "at least 8 characters"),
+    (lambda p: any(c.isupper() for c in p), "an uppercase letter"),
+    (lambda p: any(c.islower() for c in p), "a lowercase letter"),
+    (lambda p: any(c.isdigit() for c in p), "a number"),
+    (lambda p: any(not c.isalnum() for c in p), "a symbol"),
+)
+
+
+def password_policy_errors(pw: str) -> list[str]:
+    return [label for ok, label in _PW_RULES if not ok(pw)]
+
+
+
+
 class RegisterIn(BaseModel):
     email: EmailStr
     password: str
@@ -502,6 +517,8 @@ async def _create_signup_tenant(body: SalonSignupIn, email: str) -> tuple[dict, 
 @router.post("/public/signup-salon")
 async def public_signup_salon(body: SalonSignupIn, request: Request, response: Response):
     await public_rate_limit(request, key_suffix="signup", limit=4, window_sec=900)
+    if (missing := password_policy_errors(body.password)):
+        raise HTTPException(400, "Password needs " + ", ".join(missing))
     await global_daily_cap("signup", 50, "New signups are temporarily paused due to unusually high demand — "
                                          "please try again tomorrow or contact us at miracurl-suite.com/contact-us.")
     email = body.owner_email.lower()
@@ -903,19 +920,6 @@ async def forgot(body: ForgotIn, request: Request):
             logging.error(f"reset email send failed (user {user['id']}): {e}")
         logging.info("[Miracurl] Password reset requested for user %s", user["id"])
     return {"message": "If that email exists, a reset link was sent."}
-
-_PW_RULES = (
-    (lambda p: len(p) >= 8, "at least 8 characters"),
-    (lambda p: any(c.isupper() for c in p), "an uppercase letter"),
-    (lambda p: any(c.islower() for c in p), "a lowercase letter"),
-    (lambda p: any(c.isdigit() for c in p), "a number"),
-    (lambda p: any(not c.isalnum() for c in p), "a symbol"),
-)
-
-
-def password_policy_errors(pw: str) -> list[str]:
-    return [label for ok, label in _PW_RULES if not ok(pw)]
-
 
 @router.post("/auth/reset-password")
 async def reset(body: ResetIn):

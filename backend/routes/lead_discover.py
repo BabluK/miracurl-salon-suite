@@ -5,6 +5,7 @@ import html as html_lib
 import logging
 import re
 import uuid
+from services.lead_intent import enrich_profile
 from datetime import datetime, timezone
 from urllib.parse import parse_qs, quote_plus, unquote, urlparse
 
@@ -34,7 +35,10 @@ _UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.
 _SYS = ("You are Mira, Miracurl Suite's lead researcher. From raw search hits, extract REAL local businesses of the requested type in the "
         "requested city. Skip aggregators, articles, job posts, and duplicates. For each business return: name, city, source "
         "(instagram|facebook|linkedin|web|email), url, handle (instagram/facebook handle if any), email (only if literally present), "
-        "phone (only if literally present, keep country code), owner_name (if present), note (one line: why they're a good fit). "
+        "phone (only if literally present, keep country code), owner_name (owner / decision maker if present), "
+        "current_software (booking/POS software they appear to use — Fresha, Vagaro, Treatwell, Zenoti, MioSalon, Petpooja, Toast, OpenTable… — else empty), "
+        "team_size (approx staff count if stated, else 0), locations_count (number of branches if stated, else 1), booking_link (their online booking URL if present), "
+        "newly_opened (true/false), looking_to_switch (true if they take bookings by DM/call/WhatsApp or ask for software), note (one line: why they're a good fit). "
         "Reply ONLY with JSON {\"leads\": [...]} — max 15 items.")
 
 
@@ -151,7 +155,10 @@ def _lead_doc(l: dict, body: "DiscoverIn", run_id: str, url: str, handle: str, e
             "owner_name": (l.get("owner_name") or "")[:80], "rating": l.get("rating"), "reviews": l.get("reviews") or 0,
             "score": 55 if src == "google" and has_phone else 35,
             "score_breakdown": [f"found on {src}"] + ([f"{l.get('rating')}★ · {l.get('reviews')} reviews"] if l.get("rating") else []),
-            "notes": (l.get("note") or "")[:240], "crm": False, "status": "researched" if (email or has_phone) else "no_email",
+            "notes": (l.get("note") or "")[:240], "crm": False,
+            "current_software": (l.get("current_software") or "")[:60], "team_size": int(l.get("team_size") or 0) if str(l.get("team_size") or "0").isdigit() else 0,
+            "locations_count": int(l.get("locations_count") or 1) if str(l.get("locations_count") or "1").isdigit() else 1,
+            "booking_link": (l.get("booking_link") or "")[:300], "newly_opened": bool(l.get("newly_opened")), "looking_to_switch": bool(l.get("looking_to_switch")), "status": "researched" if (email or has_phone) else "no_email",
             "discovered_by": "mira_discover", "created_at": _now()}
 
 
@@ -162,7 +169,7 @@ async def _save_new_leads(leads: list[dict], body: "DiscoverIn", run_id: str) ->
         url, handle, email, phone = _identity(l)
         if await _raw_db.mira_leads.find_one(_dup_query(l, body.city, url, handle, email, phone), {"_id": 1}):
             continue
-        doc = _lead_doc(l, body, run_id, url, handle, email, phone)
+        doc = enrich_profile(_lead_doc(l, body, run_id, url, handle, email, phone))
         await _raw_db.mira_leads.insert_one(dict(doc))
         saved.append(doc)
     return saved
