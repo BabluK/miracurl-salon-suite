@@ -13,6 +13,8 @@ import { MorningBriefing } from "@/components/MorningBriefing";
 import { MiracurlUpdates } from "@/components/MiracurlUpdates";
 import { getSelectedBranch } from "@/lib/branch";
 import { takeDashboardPrefetch, fetchDashboard } from "@/lib/dashPrefetch";
+import { dashSnapshotKey, readDashSnapshot, writeDashSnapshot } from "@/lib/dashSnapshot";
+import { warmRoutes } from "@/lib/warmRoutes";
 import { WhatsAppApprovals } from "@/components/WhatsAppApprovals";
 import { BranchSwitchApprovals } from "@/components/BranchSwitchApprovals";
 import { QuickMusicBar } from "@/components/QuickMusicBar";
@@ -87,13 +89,11 @@ function Stat({ icon: Icon, label, value, hint, testid, color = "sky", action, n
   );
 }
 
-const dashCacheKey = (tenantId, b) => `mc_dash:${tenantId || ""}:${b || ""}`;
-const readDashCache = (k) => { try { return JSON.parse(sessionStorage.getItem(k) || "null"); } catch { return null; } };
-
 export default function Dashboard() {
   const { tenant, user } = useAuth();
   // Perf: paint the last snapshot instantly (stale-while-revalidate), then refresh from the server.
-  const [data, setData] = useState(() => readDashCache(dashCacheKey(tenant?.id, getSelectedBranch())));
+  const [data, setData] = useState(() => readDashSnapshot(dashSnapshotKey(user?.id, tenant?.id, getSelectedBranch())));
+  const [instant, setInstant] = useState(() => !!readDashSnapshot(dashSnapshotKey(user?.id, tenant?.id, getSelectedBranch())));
   const [loadMs, setLoadMs] = useState(0);
   const [serverMs, setServerMs] = useState(0);
   const [wireMs, setWireMs] = useState(0);
@@ -107,12 +107,13 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchDash = (ev) => {
       const b = getSelectedBranch();
-      const key = dashCacheKey(tenant?.id, b);
+      const key = dashSnapshotKey(user?.id, tenant?.id, b);
       // Branch switch: swap to that branch's last snapshot at once (or a soft "updating" state) instead of
       // showing the previous branch's numbers until the new payload lands — that read as a double load.
       if (ev?.type === "branch-changed") {
-        const snap = readDashCache(key);
+        const snap = readDashSnapshot(key);
         setData(snap || null);
+        setInstant(!!snap);
         setSettled(false);
       }
       const { t0, p } = takeDashboardPrefetch(b) || fetchDashboard(b);
@@ -125,10 +126,10 @@ export default function Dashboard() {
           // Browser-measured wire time for this exact request — separates the network from time the device
           // spent busy (chunk parsing, rendering) before the response could be handled.
           try {
-            const res = performance.getEntriesByType("resource").filter(e => e.name.includes("/api/reports/dashboard")).pop();
+            const res = performance.getEntriesByType("resource").filter(e => /\/api\/(reports\/dashboard|bootstrap)/.test(e.name)).pop();
             setWireMs(res ? Math.round(res.duration) : 0);
           } catch { setWireMs(0); }
-          try { sessionStorage.setItem(key, JSON.stringify(r.data)); } catch { /* quota */ }
+          writeDashSnapshot(key, r.data);
         })
         .catch(e => {
           if (e?.response?.status === 403 && user?.role === "super_admin") {
@@ -138,7 +139,7 @@ export default function Dashboard() {
           }
           toast.error(`Couldn't load dashboard: ${e?.response?.data?.detail || e?.message || "network error"}`);
         })
-        .finally(() => setSettled(true));
+        .finally(() => { setSettled(true); warmRoutes(); });
     };
     fetchDash();
     window.addEventListener("branch-changed", fetchDash);
@@ -212,7 +213,7 @@ export default function Dashboard() {
   return (
     <div className="gold-night-canvas relative isolate overflow-hidden -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-vertical={tenant?.business_type === "restaurant" ? "restaurant" : "salon"} data-testid="dashboard-page">
       <DashboardAurora />
-      <DashboardHero user={user} tenant={tenant} slug={slug} data={data} bookingUrl={bookingUrl} onCopy={copyLink} inr={inr} loadMs={isOwner ? loadMs : 0} serverMs={serverMs} wireMs={wireMs} />
+      <DashboardHero user={user} tenant={tenant} slug={slug} data={data} bookingUrl={bookingUrl} onCopy={copyLink} inr={inr} loadMs={isOwner ? loadMs : 0} serverMs={serverMs} wireMs={wireMs} instant={instant} />
       {isOwner && <WaCreditsBanner />}
 
       {/* KPIs */}

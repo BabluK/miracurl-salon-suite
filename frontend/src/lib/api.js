@@ -131,7 +131,7 @@ api.interceptors.response.use(
     }
     // Never redirect on the bootstrap /auth/me probe or on the login endpoint itself —
     // AuthContext already handles those explicitly.
-    const isAuthBootstrap = url.includes("/auth/me") || url.includes("/auth/login");
+    const isAuthBootstrap = url.includes("/auth/me") || url.includes("/bootstrap") || url.includes("/auth/login");
     const isRefresh = url.includes("/auth/refresh");
     // Access token expired (8h) but the refresh token (15d) may still be valid —
     // silently renew once and replay the original request.

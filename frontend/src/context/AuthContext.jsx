@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import log from "@/lib/log";
 import api, { formatApiError, setTenantSlug, detectTenantSlug, isPublicPath, bumpSessionEpoch } from "@/lib/api";
-import { setSelectedBranch } from "@/lib/branch";
-import { prefetchDashboard } from "@/lib/dashPrefetch";
+import { seedDashboardPrefetch } from "@/lib/dashPrefetch";
+import { getSelectedBranch, setSelectedBranch } from "@/lib/branch";
+import { clearDashboardSnapshots } from "@/lib/dashSnapshot";
 
 const AuthContext = createContext(null);
 
@@ -63,27 +64,24 @@ export function AuthProvider({ children }) {
     const guestPage = isPublicPath(window.location.pathname);
     (async () => {
       try {
-        // Perf: fetch the session and the tenant in one parallel wave (was two sequential round-trips).
-        // On guest pages (QR menu, gift, loyalty…) the tenant call waits for a real session so it never 401s.
-        const tenantP = guestPage ? null : fetchCurrentTenant().catch(() => null);
-        // Returning owner (slug remembered on this device, landing on the dashboard): the dashboard payload
-        // rides in the same wave as the session probe instead of waiting one extra round-trip behind it.
-        const returning = !!localStorage.getItem("miracurl_tenant") && /^\/(dashboard)?$/.test(window.location.pathname);
-        if (returning) prefetchDashboard();
-        const { data } = await api.get("/auth/me");
+        // Perf: ONE cold-start round-trip — session + tenant (+ dashboard KPIs when landing on the dashboard).
+        // Owners far from the server used to pay 2-3 sequential round-trips here.
+        const t0 = performance.now();
+        const wantDash = !guestPage && /^\/(dashboard)?$/.test(window.location.pathname);
+        const b0 = getSelectedBranch();
+        const { data: boot, headers } = await api.get("/bootstrap", { params: wantDash ? { dash: 1, ...(b0 ? { branch: b0 } : {}) } : {} });
         if (cancelled) return;
+        const data = boot.user;
         if (data.role === "manager" && data.branch) setSelectedBranch(data.branch);
         if (data.role === "super_admin") { markHqDevice(); setUser(data); return; }
-        if (!returning) prefetchDashboard();
-        const t = await (tenantP || fetchCurrentTenant().catch(() => null));
-        if (cancelled) return;
+        if (boot.dashboard) seedDashboardPrefetch(getSelectedBranch(), boot.dashboard, headers, t0);
         // Tenant + user land in one batch → the shell paints once with full context.
-        if (t) { setTenant(t); persistTenant(t); }
+        if (boot.tenant) { setTenant(boot.tenant); persistTenant(boot.tenant); }
         setUser(data);
       } catch (e) {
         if (!cancelled) {
           if (e?.response?.status && e.response.status !== 401) {
-            log.warn("[auth] /auth/me failed:", e?.message || e);
+            log.warn("[auth] /bootstrap failed:", e?.message || e);
           }
           setUser(false);
         }
@@ -109,10 +107,18 @@ export function AuthProvider({ children }) {
     setTenantSlug(null); // drop any stale slug from a previous user on this device
     // Resolve the tenant BEFORE exposing the user: the workspace then mounts once with full context
     // (no tenant-less first render → second repaint that looked like a "double refresh").
-    // The dashboard payload is fetched in the same wave, so the first paint already has its numbers.
-    if (data.user.role !== "staff") prefetchDashboard(true);
-    const t = await fetchCurrentTenant();
-    if (t) { setTenant(t); persistTenant(t); }
+    // Tenant + dashboard KPIs arrive in ONE round-trip, so the first paint already has its numbers.
+    const t0 = performance.now();
+    const b0 = getSelectedBranch();
+    try {
+      const { data: boot, headers } = await api.get("/bootstrap", { params: { dash: 1, ...(b0 ? { branch: b0 } : {}) } });
+      if (boot.dashboard) seedDashboardPrefetch(getSelectedBranch(), boot.dashboard, headers, t0);
+      if (boot.tenant) { setTenant(boot.tenant); persistTenant(boot.tenant); }
+    } catch (e) {
+      log.warn("[auth] bootstrap after login failed:", e?.message || e);
+      const t = await fetchCurrentTenant();
+      if (t) { setTenant(t); persistTenant(t); }
+    }
     setUser(data.user);
   }, []);
 
@@ -152,6 +158,7 @@ export function AuthProvider({ children }) {
     bumpSessionEpoch();
     clearSectionUnlocks();
     clearTenantStorage();
+    clearDashboardSnapshots();
     try { sessionStorage.clear(); } catch { /* private mode */ }
     setUser(false);
     setTenant(null);

@@ -63,6 +63,7 @@ from routes.crm import router as crm_router  # noqa: E402
 from routes.briefings import router as briefings_router  # noqa: E402
 from routes.reviews import router as reviews_router  # noqa: E402
 from routes.reports import router as reports_router  # noqa: E402
+from routes.bootstrap import router as bootstrap_router  # noqa: E402
 from routes.public_site import router as public_site_router  # noqa: E402
 from routes.super_admin import router as super_admin_router  # noqa: E402
 from routes.data_cleanup import router as data_cleanup_router  # noqa: E402
@@ -168,6 +169,7 @@ for _r in (
     blog_router, cash_register_router, rewards_campaign_router, growth_advisory_router,
     subscription_invoices_router, rewards_settlements_router, campaign_agreement_router, tenant_features_router, support_tickets_router,
     login_emails_router, geo_branch_router, pricing_intel_router, growth_analytics_router, lead_wa_outreach_router, lead_discover_router,
+    bootstrap_router,
 ):
     api.include_router(_r)
 

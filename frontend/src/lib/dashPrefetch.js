@@ -16,6 +16,11 @@ export function prefetchDashboard(force = false) {
   pending.p.catch(() => {});
 }
 
+// The dashboard payload already arrived inside /api/bootstrap — hand it to the page as if it were prefetched.
+export function seedDashboardPrefetch(b, data, headers, t0) {
+  pending = { b, t0, p: Promise.resolve({ data, headers: headers || {} }) };
+}
+
 export function takeDashboardPrefetch(b) {
   const hit = pending && pending.b === b ? pending : null;
   pending = null;
