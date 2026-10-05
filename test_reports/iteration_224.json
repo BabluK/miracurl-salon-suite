@@ -1,0 +1,31 @@
+{
+  "summary": "iter-224 (US landing variant + signup in-place switch + Mira AI Studio public removal + visit-beacon device + traffic segments). Backend 8/8 pytest green. Frontend validated end-to-end: US hero/CTAs/copy, mobile sticky bar, India variant unchanged, legacy miracurl_region key cleared under Kolkata TZ, pricing toggle persistence, signup in-place switch (no reload, URL updates, typed name + window marker survived, salon↔restaurant & in↔intl both work), /mira.ai shows no 'Mira AI Studio', Quick Peek nav scrolls to #peek, removed sections absent, regression pages (/restaurant, /demo, /book/glow-studio-austin, /book/miracurl-marathahalli) all return 200. No pageerrors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "All pages", "issues": ["Pre-existing CSP console errors (inline-script violation) and anonymous 401s on protected APIs during landing — not introduced by this iteration."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter224_us_landing_and_traffic.py",
+    "/app/test_reports/pytest/iter224.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "/app/backend/routes/growth_analytics.py: _region_segments correctly computes mobile_pct and signup_page_rate_pct and skips self-referrers. Clean, no _id leak.",
+    "VisitIn.device validation uses Pydantic regex pattern (mobile|desktop) → returns 422 on invalid as expected.",
+    "/app/frontend/src/lib/region.js: currentRegion() unconditionally calls localStorage.removeItem('miracurl_region') on every read — fine for correctness but a tiny perf drag on hot paths; cheap enough to ignore.",
+    "/app/frontend/src/pages/SignupSalon.jsx: switchTo() mutates state + rememberRegion, and a useEffect replaces the URL via history.replaceState — in-place switch verified to preserve window globals and typed form data. Nicely done.",
+    "UsLanding.jsx hero padding (pb-44 sm:pb-56) + sticky bar at bottom only on <sm — verified on 390×844 viewport."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% on in-scope flows"},
+  "test_credentials": "Used /app/memory/test_credentials.md — super admin admin@miracurl-suite.com, tenant admin@miracurl.com (miracurl-marathahalli).",
+  "seed_data_creation": "The test suite posts a handful of /api/public/visit beacons which land in site_visits collection; these are rate-limited and auto-aggregated for the traffic card.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter224 tests at /app/backend/tests/test_iter224_us_landing_and_traffic.py cover (a) visit beacon device validation, (b) /api/super-admin/traffic-conversion segments shape, (c) 404 for public mira-studio & mira-builder, (d) tenant /api/mira-studio/agents still 200. Preview container runs US TZ, so landing defaults to US variant — use timezone_id='Asia/Kolkata' or localStorage.miracurl_region_choice='in' to simulate India. HQ TrafficConversionCard only renders [data-testid=traffic-segments] when d.segments.length > 0 — endpoint returns segments populated in preview.",
+  "rca of the issue": "N/A — no bugs reported."
+}

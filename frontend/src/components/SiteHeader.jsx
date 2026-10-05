@@ -41,7 +41,7 @@ export const SuiteLogo = ({ variant = "dark", size = "md", subtitle = "Smart Sal
   </Link>
 );
 
-export const SiteHeader = ({ variant = "light", site = null, subtitle = "Smart Salon Management Software", signupTo = signupHref("salon") }) => {
+export const SiteHeader = ({ variant = "light", site = null, subtitle = "Smart Salon Management Software", signupTo = signupHref("salon"), peekHref = "", signupLabel = "Sign Up" }) => {
   const t = T[variant];
   const [open, setOpen] = useState(false);
   return (
@@ -51,6 +51,12 @@ export const SiteHeader = ({ variant = "light", site = null, subtitle = "Smart S
         <div className="hidden xl:flex items-center gap-3 2xl:gap-5 text-sm">
           <Link to="/" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className={`nav-cap ${t.link} transition-colors`} data-testid="header-home-link">Home</Link>
           <Link to="/about-us" className={`nav-cap ${t.link} transition-colors`} data-testid="header-about-link">About Us</Link>
+          {peekHref && (
+            <a href={peekHref} data-testid="nav-quick-peek-link" onClick={(e) => { e.preventDefault(); document.getElementById(peekHref.slice(1))?.scrollIntoView({ behavior: "smooth" }); }}
+              className={`nav-cap flex items-center gap-1.5 px-3 py-1.5 rounded-full border font-medium transition-colors ${t.pill}`}>
+              ✦ Quick Peek
+            </a>
+          )}
           <Link to="/features" className={`nav-cap ${t.link} transition-colors`} data-testid="header-features-link">Features</Link>
           <Link to="/pricing" className={`nav-cap ${t.link} transition-colors`} data-testid="header-pricing-link">Pricing</Link>
           <a href="/products" className="nav-cap text-[#C89B52] hover:text-[#8a6420] font-medium transition-colors" data-testid="header-products-link">🧴 Our Products</a>
@@ -93,7 +99,7 @@ export const SiteHeader = ({ variant = "light", site = null, subtitle = "Smart S
           <Link to="/login" className={`nav-cap ${t.link} font-medium transition-colors`} data-testid="header-signin-link">Sign In</Link>
           <Link to={signupTo} data-testid="header-signup-link"
             className="nav-cap px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#1c160c] font-bold hover:brightness-110 hover:-translate-y-0.5 shadow-[0_8px_24px_-6px_rgba(200,155,82,0.5)] transition-transform">
-            Sign Up
+            {signupLabel}
           </Link>
         </div>
         <div className="flex xl:hidden items-center gap-2 sm:gap-3 text-sm whitespace-nowrap">
@@ -101,7 +107,7 @@ export const SiteHeader = ({ variant = "light", site = null, subtitle = "Smart S
           <Link to="/login" className={`${t.link} font-medium transition-colors`}>Sign In</Link>
           <Link to={signupTo}
             className="px-3 sm:px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#1c160c] text-xs font-bold shadow-[0_8px_24px_-6px_rgba(200,155,82,0.5)]">
-            Sign Up
+            {signupLabel}
           </Link>
         </div>
       </div>

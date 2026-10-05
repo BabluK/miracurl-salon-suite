@@ -1,16 +1,19 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState, useCallback, lazy, Suspense } from "react";
-import { Calendar, Receipt, Star, ArrowRight, Check, Sparkles, MessageSquare, Scissors, Gift, ShieldCheck, Wand2, MapPin, UserCog, Mic, BadgePercent, Zap, BarChart3, Package, Play, X, ChevronDown, Mail, Instagram, Facebook, Linkedin, Crown } from "lucide-react";
+import { Star, ArrowRight, Check, Sparkles, Gift, Zap, Play, X, Mail, Instagram, Facebook, Linkedin, Crown, MessageSquare, MapPin } from "lucide-react";
 import SalesChatWidget from "@/components/SalesChatWidget";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import api from "@/lib/api";
 import { currentRegion, rememberRegion, signupHref } from "@/lib/region";
 import { track, trackCta } from "@/lib/analytics";
-import { COPY, localizeFeatures } from "@/components/landing/landingCopy";
-import { UsHero, UsWhySwitch, UsStickyCta } from "@/components/landing/UsLanding";
+import { COPY } from "@/components/landing/landingCopy";
+import { UsWhySwitch, UsStickyCta } from "@/components/landing/UsLanding";
+import { TwoDoorHero, VerticalSection } from "@/components/landing/TwoDoorHero";
+import { SiteHeader } from "@/components/SiteHeader";
 
 // Below-the-fold sections load after first paint — keeps the hero fast on phones.
 const DemoCarousel = lazy(() => import("@/components/DemoCarousel").then(m => ({ default: m.DemoCarousel })));
+const RestoDemoCarousel = lazy(() => import("@/components/RestoDemoCarousel").then(m => ({ default: m.RestoDemoCarousel })));
 const PartnerGrid = lazy(() => import("@/components/PartnerGrid").then(m => ({ default: m.PartnerGrid })));
 const MiracurlProductsStrip = lazy(() => import("@/components/MiracurlProductsStrip").then(m => ({ default: m.MiracurlProductsStrip })));
 
@@ -21,24 +24,6 @@ const IMG = {
   pos: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/65e892308ec77806aafab7631f043393928bd5918a8b0fc0debb8ee8782bc338.png",
 };
 
-const SMALL_FEATURES = [
-  { icon: Calendar, title: "Online Booking 24/7", desc: "Clients self-book in 5 taps — WhatsApp link, stylist-level slots, zero double-booking." },
-  { icon: MessageSquare, title: "WhatsApp Confirmations", desc: "One-tap confirmations, reminders & review links with approval workflow." },
-  { icon: Star, title: "Reviews → ₹ Credits", desc: "4★+ reviews earn ₹50 credit — lifts your Google rating on autopilot." },
-  { icon: Gift, title: "Refer & Earn", desc: "Referral codes reward both sides — clients bring clients." },
-  { icon: Wand2, title: "AI Brand Studio", desc: "AI logo & promo posters applied to your page in one tap." },
-  { icon: MapPin, title: "Multi-Branch", desc: "Every branch with phone & directions, branch-tagged billing." },
-  { icon: UserCog, title: "Roles & Staff Portal", desc: "Attendance, commissions, salary slips — managers restricted from finances." },
-  { icon: BarChart3, title: "Reports + Commission", desc: "Daily & monthly revenue, per-stylist performance emailed weekly." },
-  { icon: Package, title: "Inventory & Vendors", desc: "Low-stock alerts with one-click vendor restock emails." },
-  { icon: Receipt, title: "POS Billing & CRM", desc: "Multi-tab billing, GST invoices, discounts and full customer visit history." },
-  { icon: Check, title: "Staff Check-in / Check-out", desc: "Daily attendance with check-in & check-out, week-offs, leave and late alerts." },
-  { icon: Crown, title: "Staff Payroll", desc: "Automated salaries, commissions, fines and downloadable salary slips." },
-  { icon: ShieldCheck, title: "Verified Staff Registry", desc: "Cross-salon staff verification with badges, ID cards and work history." },
-  { icon: Mic, title: "Booking with Mira AI", desc: "Mira answers calls & chats 24/7 and books appointments for your clients." },
-  { icon: Sparkles, title: "Mira Beauty Advisory", desc: "AI beauty advice that recommends the right services & products to every guest." },
-  { icon: Play, title: "Staff Entertainment", desc: "Music & entertainment hub that keeps your team energised between clients." },
-];
 
 const PLANS = [
   { key: "trial", title: "Free Trial", price: "₹0", per: "30 days", cta: "Start trial", primary: false,
@@ -140,102 +125,18 @@ export const WHO_CAN_USE = [
 
 export const LogoLockup = ({ size = "md" }) => (
   <Link to="/" className="flex items-center gap-3 group shrink-0" data-testid="landing-logo">
-    <img src="/assets/ms-logo-emblem.png" alt="Miracurl Suite"
+    <img src="/assets/ms-logo-gold.png" alt="Miracurl Suite"
       className={`${size === "lg" ? "w-24 h-24" : "w-10 h-10 sm:w-14 sm:h-14 xl:w-[72px] xl:h-[72px]"} gold-shine-img group-hover:scale-105 transition-transform`} />
     <span className="leading-tight">
       <span className={`block font-playfair ${size === "lg" ? "text-2xl" : "text-sm sm:text-lg"} tracking-[0.08em] gold-shine-text font-semibold whitespace-nowrap`}>
         MIRACURL <span className="tracking-[0.3em]">SUITE</span>
       </span>
-      <span className="hidden sm:block text-[9px] uppercase tracking-[0.3em] text-white/45">Smart Salon Management Software</span>
+      <span className="hidden sm:block text-[9px] uppercase tracking-[0.3em] text-slate-500">Salon & Restaurant Management Software</span>
     </span>
   </Link>
 );
 
-function ExploreDropdown() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="nav-cap relative hidden sm:block"
-      onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
-      <button onClick={() => setOpen((v) => !v)} data-testid="nav-explore-btn"
-        className="flex items-center gap-1 uppercase text-white/70 hover:text-white transition-colors">
-        Explore <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open && (
-        <div className="absolute left-0 top-full pt-3 w-[220px]" data-testid="nav-explore-dropdown">
-          <div className="rounded-2xl border border-[#DFB78C]/25 bg-[#0b0a08]/95 backdrop-blur-xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] p-2">
-            <Link to="/features" data-testid="nav-features-link" className="block px-3 py-2.5 rounded-xl text-sm text-white/80 hover:bg-[#DFB78C]/10 hover:text-[#DFB78C] transition-colors">✦ Features</Link>
-            <Link to="/pricing" data-testid="nav-pricing-link" className="block px-3 py-2.5 rounded-xl text-sm text-white/80 hover:bg-[#DFB78C]/10 hover:text-[#DFB78C] transition-colors">💰 Pricing</Link>
-            <a href="/products" data-testid="nav-products-link" className="block px-3 py-2.5 rounded-xl text-sm text-white/80 hover:bg-[#DFB78C]/10 hover:text-[#DFB78C] transition-colors">🧴 Our Products</a>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
-function ContactDropdown({ site }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="nav-cap relative hidden sm:block"
-      onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
-      <button onClick={() => setOpen((v) => !v)} data-testid="nav-contact-btn"
-        className="flex items-center gap-1 uppercase text-white/70 hover:text-white transition-colors">
-        Contact Us <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full pt-3 w-[340px]" data-testid="nav-contact-dropdown">
-          <div className="rounded-2xl border border-[#DFB78C]/25 bg-[#0b0a08]/95 backdrop-blur-xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] p-5 space-y-4">
-            <div>
-              <Label className="text-[#DFB78C]">Get in touch</Label>
-              <div className="mt-3 space-y-2 text-sm">
-                <a href={`mailto:${site?.contact_email || "admin@miracurl-suite.com"}`} data-testid="contact-email-link"
-                  className="flex items-center gap-2.5 text-white/80 hover:text-[#DFB78C] transition-colors">
-                  <Mail className="w-4 h-4 text-[#DFB78C]" /> {site?.contact_email || "admin@miracurl-suite.com"}
-                </a>
-                {site?.instagram && (
-                  <a href={site.instagram} target="_blank" rel="noreferrer" data-testid="contact-instagram-link"
-                    className="flex items-center gap-2.5 text-white/80 hover:text-[#DFB78C] transition-colors">
-                    <Instagram className="w-4 h-4 text-[#E35A89]" /> Instagram
-                  </a>
-                )}
-                {site?.facebook && (
-                  <a href={site.facebook} target="_blank" rel="noreferrer" data-testid="contact-facebook-link"
-                    className="flex items-center gap-2.5 text-white/80 hover:text-[#DFB78C] transition-colors">
-                    <Facebook className="w-4 h-4 text-sky-400" /> Facebook
-                  </a>
-                )}
-                {site?.whatsapp && (
-                  <a href={`https://wa.me/${(site.whatsapp || "").replace(/\D/g, "")}`} target="_blank" rel="noreferrer" data-testid="contact-whatsapp-link"
-                    className="flex items-center gap-2.5 text-white/80 hover:text-[#DFB78C] transition-colors">
-                    <MessageSquare className="w-4 h-4 text-emerald-400" /> WhatsApp
-                  </a>
-                )}
-              </div>
-            </div>
-            <div className="border-t border-white/10 pt-4">
-              <Label className="text-emerald-300">Who can use Miracurl</Label>
-              <div className="mt-3 flex flex-wrap gap-1.5" data-testid="who-can-use-list">
-                {WHO_CAN_USE.slice(0, 6).map((w) => (
-                  <span key={w} className="text-[11px] px-2.5 py-1 rounded-full border border-white/10 bg-white/5 text-white/65">{w}</span>
-                ))}
-              </div>
-              <Link to="/who-can-use" data-testid="who-can-use-page-link"
-                className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-300 hover:text-emerald-200 transition-colors">
-                See all business types with photos <ArrowRight className="w-3 h-3" />
-              </Link>
-            </div>
-            <div className="border-t border-white/10 pt-4">
-              <Link to="/contact-us" data-testid="contact-page-link"
-                className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#DFB78C] hover:text-[#EAD3B3] transition-colors">
-                Visit the Contact Us page <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function CeoSection({ site }) {
   if (!site) return null;
@@ -282,7 +183,7 @@ function CeoSection({ site }) {
               )}
               {site.ceo_linkedin && (
                 <a href={site.ceo_linkedin} target="_blank" rel="noreferrer" data-testid="ceo-linkedin-link"
-                  className="w-9 h-9 rounded-full border border-[#e0c07a]/60 bg-amber-50 flex items-center justify-center text-[#8a6420] hover:text-[#DFB78C] hover:border-[#DFB78C]/50 transition-colors">
+                  className="w-9 h-9 rounded-full border border-[#e0c07a]/60 bg-amber-50 flex items-center justify-center text-[#8a6420] hover:text-[#a87e2f] hover:border-[#DFB78C]/50 transition-colors">
                   <Linkedin className="w-4 h-4" />
                 </a>
               )}
@@ -310,13 +211,13 @@ function TrustNumbersStrip({ label }) {
   ];
   return (
     <section className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 pb-6" data-testid="trust-numbers-strip">
-      <div className="rounded-3xl border border-[#DFB78C]/25 bg-gradient-to-r from-[#151310] via-[#0F0F10] to-[#151310] px-6 sm:px-10 py-8">
-        <div className="text-center text-[10px] tracking-[0.35em] uppercase text-[#DFB78C] mb-6">{label}</div>
+      <div className="rounded-3xl border border-[#e0c07a] bg-gradient-to-r from-[#fff8ea] via-white to-[#fff8ea] px-6 sm:px-10 py-8">
+        <div className="text-center text-[10px] tracking-[0.35em] uppercase text-[#a87e2f] mb-6">{label}</div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {items.map(it => (
             <div key={it.label} className="text-center" data-testid={`trust-stat-${it.label.toLowerCase().replace(/ /g, "-")}`}>
-              <div className="font-playfair text-3xl sm:text-4xl text-white">{it.value}</div>
-              <div className="text-[10px] uppercase tracking-[0.2em] text-white/40 mt-1.5">{it.label}</div>
+              <div className="font-playfair text-3xl sm:text-4xl text-slate-900">{it.value}</div>
+              <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400 mt-1.5">{it.label}</div>
             </div>
           ))}
         </div>
@@ -335,11 +236,11 @@ function TrustedPartnersSection() {
     <section className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 pb-24" data-testid="trusted-partners-section">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-8">
         <div>
-          <Label className="text-emerald-300">Our Trusted Partners</Label>
-          <p className="text-sm text-white/50 mt-3 max-w-xl">Salons already growing on Miracurl — rated by their own customers.</p>
+          <Label className="text-emerald-700">Our Trusted Partners</Label>
+          <p className="text-sm text-slate-500 mt-3 max-w-xl">Salons already growing on Miracurl — rated by their own customers.</p>
         </div>
         <Link to="/partners" data-testid="view-all-partners-link"
-          className="inline-flex items-center gap-1.5 text-xs text-[#DFB78C] hover:text-[#EAD3B3] transition-colors font-medium">
+          className="inline-flex items-center gap-1.5 text-xs text-[#a87e2f] hover:text-[#EAD3B3] transition-colors font-medium">
           View all partners <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
@@ -360,13 +261,13 @@ function VideoLightbox({ open, onClose }) {
   return (
     <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 sm:p-10" data-testid="tour-video-lightbox" onClick={onClose}>
       <button onClick={onClose} data-testid="tour-video-close"
-        className="absolute top-5 right-5 z-10 w-11 h-11 rounded-full bg-white/10 border border-white/20 text-white flex items-center justify-center hover:bg-white/20 transition-colors">
+        className="absolute top-5 right-5 z-10 w-11 h-11 rounded-full bg-white/10 border border-white/30 text-white flex items-center justify-center hover:bg-white/20 transition-colors">
         <X className="w-5 h-5" />
       </button>
       <div className="w-full max-w-6xl" onClick={(e) => e.stopPropagation()}>
         <video src="/miracurl-full-tour.mp4" controls autoPlay playsInline data-testid="tour-video-player"
-          className="w-full rounded-2xl border border-white/15 shadow-[0_40px_120px_-20px_rgba(223,183,140,0.25)]" />
-        <p className="text-center text-xs text-white/50 mt-4">Miracurl — the complete 2-minute product tour</p>
+          className="w-full rounded-2xl border border-[#e0c07a]/70 shadow-[0_40px_120px_-20px_rgba(223,183,140,0.25)]" />
+        <p className="text-center text-xs text-slate-500 mt-4">Miracurl — the complete 2-minute product tour</p>
       </div>
     </div>
   );
@@ -380,12 +281,6 @@ export default function Landing({ scrollTo }) {
   const pickRegion = (k) => { setRegion(k); rememberRegion(k); };
   const us = region === "intl";
   const copy = COPY[us ? "intl" : "in"];
-  const smallFeatures = localizeFeatures(SMALL_FEATURES, region);
-  useEffect(() => {
-    const device = window.matchMedia("(max-width: 640px)").matches ? "mobile" : "desktop";
-    if (typeof window.gtag === "function") window.gtag("set", "user_properties", { region, device });
-    track("landing_view", { region, device, page: window.location.pathname });
-  }, [region]);
   const [liveTestimonials, setLiveTestimonials] = useState([]);
   const [site, setSite] = useState(null);
   const plans = buildPlans(catalog);
@@ -394,7 +289,7 @@ export default function Landing({ scrollTo }) {
     ? liveTestimonials.map(t => ({
         name: t.owner_name,
         role: `${t.salon_name}${t.city ? ` · ${t.city}` : ""}`,
-        img: t.photo_url || `https://ui-avatars.com/api/?background=1c1917&color=fbbf24&name=${encodeURIComponent(t.owner_name)}`,
+        img: t.photo_url || `https://ui-avatars.com/api/?background=fff7e6&color=b8863b&name=${encodeURIComponent(t.owner_name)}`,
         quote: t.quote,
       }))
     : TESTIMONIALS;
@@ -403,6 +298,11 @@ export default function Landing({ scrollTo }) {
     api.get("/public/testimonials").then(r => setLiveTestimonials(r.data.testimonials || [])).catch(() => {});
     api.get("/public/site-info").then(r => setSite(r.data)).catch(() => {});
   }, []);
+  useEffect(() => {
+    const device = window.matchMedia("(max-width: 640px)").matches ? "mobile" : "desktop";
+    if (typeof window.gtag === "function") window.gtag("set", "user_properties", { region, device });
+    track("landing_view", { region, device, page: window.location.pathname });
+  }, [region]);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ref = (params.get("ref") || "").trim().toLowerCase();
@@ -414,215 +314,78 @@ export default function Landing({ scrollTo }) {
     const t = setTimeout(() => document.getElementById(scrollTo)?.scrollIntoView({ behavior: "smooth" }), 350);
     return () => clearTimeout(t);
   }, [scrollTo]);
+  const fromPrice = us ? (catalog?.intl_starter_monthly?.price != null ? `$${catalog.intl_starter_monthly.price}/mo` : "") : (catalog?.monthly?.price != null ? `${fmtINR(catalog.monthly.price)}/mo` : "");
 
   return (
-    <div className="relative min-h-screen bg-[#050505] text-white font-outfit overflow-x-clip" data-testid="landing-page">
-      <div className="pointer-events-none fixed inset-0 z-0" aria-hidden="true" data-testid="landing-luxe-bg">
-        <img src="/brand-luxe-bg.jpg" alt="" loading="lazy" decoding="async" className="hidden sm:block w-full h-full object-cover opacity-55" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#050505]/55 via-[#0a0812]/70 to-[#050505]/95" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(223,183,140,.18),transparent_50%),radial-gradient(ellipse_at_85%_100%,rgba(122,45,78,.28),transparent_55%)]" />
-      </div>
+    <div className="relative min-h-screen bg-[#fdf9f4] text-slate-800 font-outfit overflow-x-clip" data-testid="landing-page">
+      <div className="pointer-events-none absolute -top-32 -right-32 w-[480px] h-[480px] rounded-full bg-gradient-to-br from-amber-200/60 via-rose-200/50 to-transparent blur-3xl" aria-hidden="true" />
+      <div className="pointer-events-none absolute top-[38%] -left-40 w-[420px] h-[420px] rounded-full bg-gradient-to-tr from-rose-100/60 via-amber-100/50 to-transparent blur-3xl" aria-hidden="true" />
       <div className="relative z-10">
-      {/* Referral banner — slim, elegant, top of everything */}
       {refSlug && (
-        <div className="bg-[#DFB78C] text-black text-sm py-2 px-4 text-center font-medium" data-testid="landing-ref-banner">
+        <div className="bg-[#C89B52] text-white text-sm py-2 px-4 text-center font-medium" data-testid="landing-ref-banner">
           <Gift className="w-4 h-4 inline -mt-0.5 mr-1.5" /> Referred by <b>{refSlug}</b> — they'll earn a free month when you subscribe.
         </div>
       )}
 
-      {/* Nav — crystal glass with the new gold monogram */}
-      <header className="sticky top-0 z-40 backdrop-blur-xl bg-black/70 border-b border-[#DFB78C]/15">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 xl:px-10 py-2 flex items-center justify-between">
-          <LogoLockup />
-          <div className="hidden xl:flex items-center gap-4 2xl:gap-6 text-sm pr-1">
-            <Link to="/" data-testid="nav-home-link" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="nav-cap text-white/70 hover:text-white transition-colors">Home</Link>
-            <a href="#about" data-testid="nav-about-link" className="nav-cap text-white/70 hover:text-white transition-colors">About Us</a>
-            <a href="#peek" data-testid="nav-quick-peek-link" onClick={(e) => { e.preventDefault(); document.getElementById("peek")?.scrollIntoView({ behavior: "smooth" }); }}
-              className="nav-cap flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#DFB78C]/40 bg-[#DFB78C]/10 text-[#DFB78C] hover:bg-[#DFB78C]/20 font-medium transition-colors">
-              ✦ Quick Peek
-            </a>
-            <ExploreDropdown />
-            <Link to="/restaurant" data-testid="nav-restaurant-link" className="nav-cap text-[#DFB78C] hover:text-[#F0D9A5] font-medium transition-colors">🍽️ For Restaurants</Link>
-            <Link to="/staff-registry" data-testid="landing-verify-staff" className="nav-cap text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Staff Verification</Link>
-            <ContactDropdown site={site} />
-            <Link to="/login" className="nav-cap text-white/70 hover:text-white font-medium transition-colors" data-testid="landing-login">Sign In</Link>
-            <Link to={signupHref("salon", region)} onClick={() => trackCta("landing-cta-nav", { region })} data-testid="landing-cta-nav"
-                  className="nav-cap px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#050505] font-bold hover:brightness-110 hover:-translate-y-0.5 shadow-[0_8px_24px_-6px_rgba(223,183,140,0.5)] transition-transform">
-              {copy.navCta}
-            </Link>
-          </div>
-          <div className="flex xl:hidden items-center gap-2 sm:gap-3 text-sm whitespace-nowrap shrink-0">
-            <Link to="/contact-us" data-testid="nav-contact-mobile" className="hidden min-[430px]:block text-white/70 hover:text-white transition-colors">Contact</Link>
-            <Link to="/login" className="text-white/70 hover:text-white font-medium transition-colors">Sign In</Link>
-            <Link to={signupHref("salon", region)} onClick={() => trackCta("landing-cta-nav-mobile", { region })} data-testid="landing-cta-nav-mobile"
-                  className="px-3 sm:px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#050505] text-xs font-bold shadow-[0_8px_24px_-6px_rgba(223,183,140,0.5)]">
-              {copy.navCta}
-            </Link>
-          </div>
-        </div>
-      </header>
+      <SiteHeader variant="light" site={site} subtitle="Salon & Restaurant Management Software" signupTo={signupHref("salon", region)} signupLabel={copy.navCta} peekHref="#peek" />
 
-      <link rel="preload" as="image" href={IMG.hero} fetchPriority="high" />
-      {us ? (
-        <UsHero trialDays={Number(catalog?.trial_days) || 30} fromPrice={catalog?.intl_starter_monthly?.price} demoBookPath={copy.demoBookPath} heroImg={IMG.hero} />
-      ) : (
-      <section className="relative overflow-hidden">
-        <img src={IMG.hero} alt="" aria-hidden="true" fetchPriority="high" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-black/70" />
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 20%, rgba(5,5,5,0.25) 0%, rgba(5,5,5,0.92) 80%)" }} />
-        <div className="relative z-10 max-w-5xl mx-auto px-6 sm:px-10 pt-20 sm:pt-28 pb-44 sm:pb-56 text-center animate-fade-up">
-          <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-black/50 border border-white/15 backdrop-blur text-[#DFB78C] text-[11px] uppercase tracking-[0.2em] font-semibold">
-            <Sparkles className="w-3 h-3" /> {Number(catalog?.trial_days) || 30}-Day Free Trial · No credit card
-          </span>
-          <img src="/assets/ms-logo-emblem.png" alt="Miracurl Suite" className="w-20 h-20 mx-auto mt-8 drop-shadow-[0_8px_30px_rgba(223,183,140,0.45)] animate-fade-up" />
-          <h1 className="font-playfair text-5xl sm:text-6xl lg:text-7xl tracking-tight font-light mt-6 leading-[1.05]">
-            <span className="text-transparent bg-clip-text bg-gradient-to-b from-[#F5DFA8] via-[#DFB78C] to-[#B8863B]">Manage. Automate. Grow.</span>
-          </h1>
-          <p className="text-white/70 text-lg md:text-xl mt-7 max-w-2xl mx-auto font-light">
-            <b className="text-[#EAD3B3] font-medium">Miracurl Suite</b> — smart salon management software.
-            Appointments, POS billing, CRM, staff payroll and Mira AI in one premium suite,
-            built for salons, spas and every beauty business.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
-            <Link to={signupHref("salon", region)} onClick={() => trackCta("landing-cta-hero", { region })} data-testid="landing-cta-hero"
-                  className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[#DFB78C] text-[#050505] font-bold hover:bg-[#EAD3B3] hover:-translate-y-1 shadow-[0_16px_40px_-10px_rgba(223,183,140,0.6)] transition-transform text-base">
-              Start your free trial <ArrowRight className="w-4 h-4" />
-            </Link>
-            <Link to={copy.demoBookPath} data-testid="landing-demo-btn"
-                  className="inline-flex items-center gap-2 px-8 py-4 rounded-full border border-white/25 bg-black/30 backdrop-blur text-white/90 font-medium hover:bg-white/10 hover:-translate-y-1 transition-transform">
-              See a live booking page
-            </Link>
-          </div>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-white/50">
-            {copy.bullets.map(t => (
-              <span key={t} className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-400" /> {t}</span>
-            ))}
-          </div>
-        </div>
-      </section>
-      )}
-
-      {/* Floating tour video card — overlaps hero into the next section */}
-      <section className="relative z-20 max-w-4xl mx-auto px-6 sm:px-10 -mt-32 sm:-mt-44">
-        <div className="relative">
-          <div className="pointer-events-none absolute -inset-10 mx-auto max-w-lg rounded-full bg-[#E35A89]/15 blur-3xl" aria-hidden="true" />
-          <button onClick={() => setVideoOpen(true)} data-testid="hero-video-play"
-            className="group relative block w-full aspect-video rounded-3xl overflow-hidden border border-white/15 bg-black/60 backdrop-blur-xl shadow-[0_40px_100px_-20px_rgba(0,0,0,0.9)] hover:border-[#DFB78C]/50 transition-colors">
-            <img src={IMG.videoPoster} alt="Miracurl product tour preview" loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-95 group-hover:scale-[1.02] transition-transform duration-700" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/30" />
-            <span className="absolute inset-0 flex items-center justify-center">
-              <span className="relative flex items-center justify-center">
-                <span className="absolute w-24 h-24 rounded-full bg-[#DFB78C]/30 animate-ping" style={{ animationDuration: "2.2s" }} />
-                <span className="relative w-20 h-20 rounded-full bg-[#DFB78C] text-[#050505] flex items-center justify-center shadow-[0_0_50px_rgba(223,183,140,0.6)] group-hover:scale-110 transition-transform duration-300">
-                  <Play className="w-8 h-8 ml-1 fill-current" />
-                </span>
-              </span>
-            </span>
-            <span className="absolute bottom-5 left-5 right-5 flex items-center justify-between gap-3">
-              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/60 backdrop-blur border border-white/15 text-sm text-white/90 font-medium">
-                <Sparkles className="w-3.5 h-3.5 text-[#DFB78C]" /> Watch the full product tour
-              </span>
-              <span className="px-3 py-1.5 rounded-full bg-black/60 backdrop-blur border border-white/15 text-xs text-white/70 font-mono">2:00</span>
-            </span>
-          </button>
-        </div>
-      </section>
-      <VideoLightbox open={videoOpen} onClose={() => setVideoOpen(false)} />
+      <TwoDoorHero region={region} trialDays={Number(catalog?.trial_days) || 30} fromPrice={fromPrice} />
 
       {/* Stats strip */}
-      <section className="relative z-10 max-w-5xl mx-auto px-6 sm:px-10 mt-16 pb-8">
-        <div className="grid grid-cols-2 sm:grid-cols-4 rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
+      <section className="relative z-10 max-w-5xl mx-auto px-6 sm:px-10 pb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 rounded-2xl border border-[#e9d9ae] bg-white overflow-hidden">
           {copy.stats.map((s, i) => (
-            <div key={s.l} className={`px-4 py-6 text-center hover:bg-white/[0.04] transition-colors ${i < 3 ? "sm:border-r sm:border-white/10" : ""} ${i % 2 === 0 ? "border-r border-white/10 sm:border-r" : ""} ${i < 2 ? "border-b border-white/10 sm:border-b-0" : ""}`}>
-              <div className="text-2xl sm:text-3xl font-playfair text-[#DFB78C]">{s.v}</div>
-              <div className="text-[10px] uppercase tracking-[0.2em] text-white/40 mt-1.5">{s.l}</div>
+            <div key={s.l} className={`px-4 py-6 text-center hover:bg-amber-50 transition-colors ${i < 3 ? "sm:border-r sm:border-[#e9d9ae]" : ""} ${i % 2 === 0 ? "border-r border-[#e9d9ae] sm:border-r" : ""} ${i < 2 ? "border-b border-[#e9d9ae] sm:border-b-0" : ""}`}>
+              <div className="text-2xl sm:text-3xl font-playfair text-[#a87e2f]">{s.v}</div>
+              <div className="text-[10px] uppercase tracking-[0.2em] text-slate-400 mt-1.5">{s.l}</div>
             </div>
           ))}
         </div>
       </section>
 
-      <div id="peek"><Suspense fallback={null}><DemoCarousel /></Suspense></div>
+      <VerticalSection id="salon" vertical="salon" region={region} demoPath={copy.demoBookPath} />
+      <div id="features" />
+      <VerticalSection id="restaurant" vertical="restaurant" region={region} demoPath="/restaurant" />
 
-      {/* Features — bento grid */}
-      <section id="features" className="relative z-10 max-w-7xl mx-auto px-6 sm:px-10 py-24">
-        <div className="text-left mb-14 max-w-2xl">
-          <Label className="text-[#E35A89]">Everything you need</Label>
-          <h2 className="font-playfair text-4xl sm:text-5xl font-light mt-4" data-testid="features-h2">{copy.featuresH2[0]}<em className="text-[#DFB78C] not-italic font-playfair">{copy.featuresH2[1]}</em>{copy.featuresH2[2]}</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
-          {/* Mira AI — large card */}
-          <div className="md:col-span-8 md:row-span-2 relative overflow-hidden rounded-3xl bg-[#0F0F10] border border-white/10 group hover:border-[#DFB78C]/30 transition-colors" data-testid="feature-mira-ai">
-            <img src={IMG.mira} alt="" aria-hidden="true" loading="lazy" decoding="async" className="absolute right-0 bottom-0 w-2/3 md:w-1/2 object-contain opacity-80 group-hover:scale-105 transition-transform duration-700" />
-            <div className="relative p-8 md:p-12 max-w-md">
-              <span className="inline-flex items-center gap-1.5 text-[#DFB78C] text-[11px] uppercase tracking-[0.2em] font-semibold"><Sparkles className="w-3.5 h-3.5" /> Your AI employee</span>
-              <h3 className="font-playfair text-3xl md:text-4xl mt-3">Mira AI ✦</h3>
-              <p className="text-white/60 mt-4 leading-relaxed">{copy.miraDesc}</p>
-              <div className="flex flex-wrap gap-2 mt-6">
-                {[[Mic, "Voice booking"], [Calendar, "Slot-aware"], [BadgePercent, "Upsells offers"]].map(([I, t]) => (
-                  <span key={t} className="inline-flex items-center gap-1.5 bg-black/40 border border-white/10 rounded-full px-3 py-1.5 text-xs text-white/80"><I className="w-3.5 h-3.5 text-[#E35A89]" /> {t}</span>
-                ))}
-              </div>
-              <a href={copy.demoBookPath} target="_blank" rel="noreferrer" data-testid="mira-try-live-btn"
-                 className="inline-flex items-center gap-2 mt-8 px-5 py-2.5 rounded-full bg-[#DFB78C] text-[#050505] font-semibold text-sm hover:bg-[#EAD3B3] hover:-translate-y-0.5 transition-transform">
-                Try Mira live <ArrowRight className="w-4 h-4" />
-              </a>
-            </div>
-          </div>
-          {/* Smart POS */}
-          <div className="md:col-span-4 relative overflow-hidden rounded-3xl bg-[#0F0F10] border border-white/10 group hover:border-[#DFB78C]/30 transition-colors min-h-[220px]" data-testid="feature-smart-pos">
-            <img src={IMG.pos} alt="" aria-hidden="true" loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-55 transition-opacity duration-500" />
-            <div className="relative p-8">
-              <Receipt className="w-6 h-6 text-[#DFB78C]" />
-              <h3 className="font-playfair text-2xl mt-3">Smart POS</h3>
-              <p className="text-white/60 text-sm mt-2">{copy.posDesc}</p>
-            </div>
-          </div>
-          {/* Staff Registry */}
-          <div className="md:col-span-4 rounded-3xl bg-[#0F0F10] border border-white/10 p-8 hover:border-[#DFB78C]/30 transition-colors" data-testid="feature-staff-registry">
-            <ShieldCheck className="w-6 h-6 text-emerald-400" />
-            <h3 className="font-playfair text-2xl mt-3">Staff Registry</h3>
-            <p className="text-white/60 text-sm mt-2">{copy.registryDesc}</p>
-          </div>
-          {/* Wide booking card */}
-          <div className="md:col-span-12 rounded-3xl bg-gradient-to-r from-[#0F0F10] to-[#E35A89]/[0.08] border border-white/10 p-8 md:p-10 flex flex-col md:flex-row md:items-center gap-6 hover:border-[#E35A89]/30 transition-colors" data-testid="feature-online-booking">
-            <div className="flex-1">
-              <h3 className="font-playfair text-2xl md:text-3xl">24/7 Online Booking · PWA Apps · Loyalty</h3>
-              <p className="text-white/60 text-sm mt-2 max-w-2xl">Your own /book page clients install like an app. Loyalty points, memberships, packages and birthday emails keep them coming back.</p>
-            </div>
-            <Link to={signupHref("salon", region)} onClick={() => trackCta("feature-booking-cta", { region })} className="shrink-0 inline-flex items-center gap-2 px-6 py-3 rounded-full border border-[#E35A89]/50 text-[#E35A89] text-sm font-semibold hover:bg-[#E35A89]/10 transition-colors" data-testid="feature-booking-cta">
-              Get your page <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-          {/* Small feature tiles */}
-          {smallFeatures.map(f => {
-            const I = f.icon;
-            return (
-              <div key={f.title} className="md:col-span-4 rounded-3xl bg-[#0F0F10] border border-white/10 p-7 hover:border-[#DFB78C]/30 hover:-translate-y-1 transition-transform duration-300" data-testid={`feature-${f.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
-                <I className="w-5 h-5 text-[#DFB78C]" />
-                <h3 className="font-playfair text-xl mt-3">{f.title}</h3>
-                <p className="text-white/50 text-sm mt-2 leading-relaxed">{f.desc}</p>
-              </div>
-            );
-          })}
-        </div>
+      {/* Quick peek — salon + restaurant screens */}
+      <div id="peek">
+        <Suspense fallback={null}><DemoCarousel /></Suspense>
+        <Suspense fallback={null}><RestoDemoCarousel /></Suspense>
+      </div>
+
+      {/* Tour video */}
+      <section className="relative z-10 max-w-4xl mx-auto px-6 sm:px-10 py-10">
+        <button onClick={() => setVideoOpen(true)} data-testid="hero-video-play"
+          className="group relative block w-full aspect-video rounded-3xl overflow-hidden border border-[#e9d9ae] bg-white shadow-[0_40px_100px_-40px_rgba(184,134,59,0.5)] hover:border-[#C89B52]/60 transition-colors">
+          <img src={IMG.videoPoster} alt="Miracurl product tour preview" loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:scale-[1.02] transition-transform duration-700" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+          <span className="absolute inset-0 flex items-center justify-center">
+            <span className="relative w-20 h-20 rounded-full bg-[#C89B52] text-white flex items-center justify-center shadow-[0_0_50px_rgba(200,155,82,0.6)] group-hover:scale-110 transition-transform duration-300">
+              <Play className="w-8 h-8 ml-1 fill-current" />
+            </span>
+          </span>
+          <span className="absolute bottom-5 left-5 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/90 backdrop-blur text-sm text-slate-800 font-medium">
+            <Sparkles className="w-3.5 h-3.5 text-[#C89B52]" /> Watch the 2-min product tour
+          </span>
+        </button>
       </section>
+      <VideoLightbox open={videoOpen} onClose={() => setVideoOpen(false)} />
 
-      {/* Testimonials — editorial (India) · factual "why owners switch" (US — no invented quotes) */}
       <TrustNumbersStrip label={copy.trustLabel} />
       {us ? <UsWhySwitch /> : (
-      <section className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 pb-24">
-        <Label className="text-[#DFB78C]">Salon owners on Miracurl</Label>
+      <section className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 pb-20">
+        <Label className="text-[#a87e2f]">Owners on Miracurl</Label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-8">
           {testimonials.map((t, i) => (
             <figure key={t.id || `${t.name}-${i}`} data-testid={`testimonial-card-${i + 1}`}
-                    className="rounded-3xl bg-[#0F0F10] border border-white/10 p-8 hover:border-[#DFB78C]/30 transition-colors">
-              <div className="flex gap-1 text-[#DFB78C]">{["s1", "s2", "s3", "s4", "s5"].map(s => <Star key={s} className="w-4 h-4 fill-[#DFB78C]" />)}</div>
-              <blockquote className="font-playfair text-xl md:text-2xl leading-relaxed mt-4 text-white/90">"{t.quote}"</blockquote>
+                    className="rounded-3xl bg-white border border-[#e9d9ae] p-8 hover:border-[#C89B52]/60 transition-colors">
+              <div className="flex gap-1 text-[#C89B52]">{["s1", "s2", "s3", "s4", "s5"].map(s => <Star key={s} className="w-4 h-4 fill-[#C89B52]" />)}</div>
+              <blockquote className="font-playfair text-xl md:text-2xl leading-relaxed mt-4 text-slate-800">"{t.quote}"</blockquote>
               <figcaption className="flex items-center gap-3 mt-6">
-                <img src={t.img} alt={t.name} loading="lazy" decoding="async" className="w-11 h-11 rounded-full object-cover border border-white/20" />
+                <img src={t.img} alt={t.name} loading="lazy" decoding="async" className="w-11 h-11 rounded-full object-cover border border-[#e9d9ae]" />
                 <div>
-                  <div className="text-sm font-semibold">{t.name}</div>
-                  <div className="text-xs text-white/50">{t.role}</div>
+                  <div className="text-sm font-semibold text-slate-900">{t.name}</div>
+                  <div className="text-xs text-slate-500">{t.role}</div>
                 </div>
               </figcaption>
             </figure>
@@ -631,24 +394,21 @@ export default function Landing({ scrollTo }) {
       </section>
       )}
 
-      {/* Trusted Partners — onboarded salons, auto-listed */}
       <TrustedPartnersSection />
-
-      {/* Miracurl Products — hair science range */}
       <Suspense fallback={null}><MiracurlProductsStrip /></Suspense>
 
       {/* Pricing */}
-      <section id="pricing" className="relative z-10 max-w-7xl mx-auto px-6 sm:px-10 pb-24">
+      <section id="pricing" className="relative z-10 max-w-7xl mx-auto px-6 sm:px-10 py-16">
         <div className="text-center mb-14">
           <Label className="text-[#E35A89]">Pricing</Label>
-          <h2 className="font-playfair text-4xl sm:text-5xl font-light mt-4">Simple, salon-friendly</h2>
-          <p className="text-white/50 mt-4 max-w-xl mx-auto text-sm">No per-booking fees, no commissions on your sales. Pay once, use everything.</p>
-          <div className="inline-flex items-center gap-1 mt-7 p-1 rounded-full bg-white/5 border border-white/10" data-testid="pricing-region-toggle">
+          <h2 className="font-playfair text-4xl sm:text-5xl font-light mt-4">Simple pricing — salons & restaurants</h2>
+          <p className="text-slate-500 mt-4 max-w-xl mx-auto text-sm">No per-booking fees, no commissions on your sales. Salon plans below — restaurant plans on the <Link to="/restaurant#pricing" className="underline text-[#8a6420]" data-testid="pricing-resto-link">restaurant page</Link>.</p>
+          <div className="inline-flex items-center gap-1 mt-7 p-1 rounded-full bg-amber-50/60 border border-[#e9d9ae]" data-testid="pricing-region-toggle">
             {[["in", "🇮🇳 India · ₹"], ["intl", "🌍 International · $"]].map(([k, l]) => (
               <button key={k} data-testid={`pricing-region-${k}`} onClick={() => pickRegion(k)}
                 className={`px-5 py-2 rounded-full text-xs font-semibold transition-colors ${region === k
-                  ? "bg-[#DFB78C] text-[#050505]"
-                  : "text-white/60 hover:text-white"}`}>
+                  ? "bg-[#C89B52] text-white"
+                  : "text-slate-600 hover:text-slate-900"}`}>
                 {l}
               </button>
             ))}
@@ -658,26 +418,26 @@ export default function Landing({ scrollTo }) {
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-5 ${plans.length >= 5 ? "lg:grid-cols-5" : plans.length === 4 ? "lg:grid-cols-4" : plans.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
           {plans.map(p => (
             <div key={p.key} data-testid={`plan-${p.key}`}
-                 className={`rounded-3xl p-7 relative bg-[#0F0F10] border transition-colors ${p.primary
-                   ? "border-[#DFB78C]/60 shadow-[0_0_40px_rgba(223,183,140,0.15)]"
-                   : "border-white/10 hover:border-white/25"}`}>
-              {p.primary && <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-[#DFB78C] text-[#050505] text-[10px] uppercase tracking-widest font-bold">Best value</div>}
-              <div className="text-xs uppercase tracking-[0.2em] text-white/40 font-semibold">{p.title}</div>
+                 className={`rounded-3xl p-7 relative bg-white border transition-colors ${p.primary
+                   ? "border-[#C89B52] shadow-[0_30px_80px_-40px_rgba(184,134,59,0.6)]"
+                   : "border-[#e9d9ae] hover:border-[#C89B52]/60"}`}>
+              {p.primary && <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-[#C89B52] text-white text-[10px] uppercase tracking-widest font-bold">Best value</div>}
+              <div className="text-xs uppercase tracking-[0.2em] text-slate-400 font-semibold">{p.title}</div>
               <div className="mt-4 flex items-end gap-2">
-                <span className="text-4xl font-bold font-playfair text-[#DFB78C]">{p.price}</span>
+                <span className="text-4xl font-bold font-playfair text-[#a87e2f]">{p.price}</span>
               </div>
-              <div className="text-xs text-white/40 mt-1">{p.per}</div>
+              <div className="text-xs text-slate-400 mt-1">{p.per}</div>
               <ul className="mt-6 space-y-2.5">
                 {p.items.map(i => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-white/60">
-                    <Check className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" /> {i}
+                  <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
+                    <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" /> {i}
                   </li>
                 ))}
               </ul>
               <Link to={signupHref("salon", "in")} onClick={() => trackCta(`plan-cta-${p.key}`, { region: "in" })} data-testid={`plan-cta-${p.key}`}
                     className={`mt-7 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-full text-sm font-semibold transition-transform hover:-translate-y-0.5 ${p.primary
-                      ? "bg-[#DFB78C] text-[#050505] hover:bg-[#EAD3B3] shadow-[0_10px_28px_-8px_rgba(223,183,140,0.5)]"
-                      : "border border-white/15 text-white/85 hover:bg-white/5"}`}>
+                      ? "bg-[#C89B52] text-white hover:bg-[#b8863b] shadow-[0_10px_28px_-8px_rgba(223,183,140,0.5)]"
+                      : "border border-[#e0c07a]/70 text-slate-800 hover:bg-amber-50"}`}>
                 {p.cta} <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
@@ -688,206 +448,212 @@ export default function Landing({ scrollTo }) {
         <div className={`grid grid-cols-1 md:grid-cols-3 gap-5 mx-auto ${intlPlans.length > 3 ? "lg:grid-cols-4 max-w-6xl" : "max-w-5xl"}`}>
           {intlPlans.map(p => (
             <div key={p.key} data-testid={`plan-${p.key}`}
-                 className={`rounded-3xl p-7 relative bg-[#0F0F10] border transition-colors ${p.primary
-                   ? "border-[#DFB78C]/60 shadow-[0_0_40px_rgba(223,183,140,0.15)]"
-                   : "border-white/10 hover:border-white/25"}`}>
-              {p.primary && <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-[#DFB78C] text-[#050505] text-[10px] uppercase tracking-widest font-bold">Most popular</div>}
-              <div className="text-xs uppercase tracking-[0.2em] text-white/40 font-semibold">{p.title}</div>
-              <div className="text-xs text-white/55 mt-1" data-testid={`plan-tagline-${p.key}`}>{p.tagline}</div>
+                 className={`rounded-3xl p-7 relative bg-white border transition-colors ${p.primary
+                   ? "border-[#C89B52] shadow-[0_30px_80px_-40px_rgba(184,134,59,0.6)]"
+                   : "border-[#e9d9ae] hover:border-[#C89B52]/60"}`}>
+              {p.primary && <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-[#C89B52] text-white text-[10px] uppercase tracking-widest font-bold">Most popular</div>}
+              <div className="text-xs uppercase tracking-[0.2em] text-slate-400 font-semibold">{p.title}</div>
+              <div className="text-xs text-slate-500 mt-1" data-testid={`plan-tagline-${p.key}`}>{p.tagline}</div>
               <div className="mt-4 flex items-end gap-2">
-                <span className="text-4xl font-bold font-playfair text-[#DFB78C]">{fmtUSD(p.monthly)}</span>
-                <span className="text-sm text-white/40 mb-1.5">{p.annual ? "/mo" : p.per}</span>
+                <span className="text-4xl font-bold font-playfair text-[#a87e2f]">{fmtUSD(p.monthly)}</span>
+                <span className="text-sm text-slate-400 mb-1.5">{p.annual ? "/mo" : p.per}</span>
               </div>
-              {p.annual && <div className="text-xs text-white/40 mt-2" data-testid={`plan-annual-${p.key}`}>
-                or <b className="text-white/80">{fmtUSD(p.annual)}/yr</b> {p.monthly && p.monthly * 12 > p.annual && <span className="text-emerald-400">— save {fmtUSD(p.monthly * 12 - p.annual)} a year</span>}
+              {p.annual && <div className="text-xs text-slate-400 mt-2" data-testid={`plan-annual-${p.key}`}>
+                or <b className="text-slate-800">{fmtUSD(p.annual)}/yr</b> {p.monthly && p.monthly * 12 > p.annual && <span className="text-emerald-600">— save {fmtUSD(p.monthly * 12 - p.annual)} a year</span>}
               </div>}
-              <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-400/10 border border-emerald-400/25 text-[11px] text-emerald-300 font-medium" data-testid={`plan-trial-badge-${p.key}`}>
+              <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-400/10 border border-emerald-400/25 text-[11px] text-emerald-700 font-medium" data-testid={`plan-trial-badge-${p.key}`}>
                 <Check className="w-3 h-3" /> 30-day free trial · no card needed
               </div>
               <ul className="mt-6 space-y-2.5">
                 {p.items.map(i => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-white/60">
-                    <Check className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" /> {i}
+                  <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
+                    <Check className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" /> {i}
                   </li>
                 ))}
               </ul>
               <Link to={signupHref("salon", "intl")} onClick={() => trackCta(`plan-cta-${p.key}`, { region: "intl" })} data-testid={`plan-cta-${p.key}`}
                     className={`mt-7 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-full text-sm font-semibold transition-transform hover:-translate-y-0.5 ${p.primary
-                      ? "bg-[#DFB78C] text-[#050505] hover:bg-[#EAD3B3] shadow-[0_10px_28px_-8px_rgba(223,183,140,0.5)]"
-                      : "border border-white/15 text-white/85 hover:bg-white/5"}`}>
+                      ? "bg-[#C89B52] text-white hover:bg-[#b8863b] shadow-[0_10px_28px_-8px_rgba(223,183,140,0.5)]"
+                      : "border border-[#e0c07a]/70 text-slate-800 hover:bg-amber-50"}`}>
                 Start free trial <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
           ))}
         </div>
-        <div className="max-w-5xl mx-auto mt-6 rounded-2xl border border-[#DFB78C]/25 bg-[#DFB78C]/[0.05] p-6 sm:p-8" data-testid="plan-intl-enterprise">
+        <div className="max-w-5xl mx-auto mt-6 rounded-2xl border border-[#e0c07a] bg-amber-50/70 p-6 sm:p-8" data-testid="plan-intl-enterprise">
           <div className="flex flex-col lg:flex-row gap-6 lg:items-center">
             <div className="flex-1">
-              <p className="text-[11px] uppercase tracking-[3px] text-[#DFB78C]/80 font-semibold">Managing 5+ branches?</p>
-              <h3 className="mt-1.5 text-xl sm:text-2xl font-semibold text-white">Enterprise for Multi-Branch Chains</h3>
-              <p className="text-xs text-white/50 mt-1">For multi-location & larger operations</p>
-              <p className="text-sm text-white/60 mt-1.5">
-                Starting from <b className="text-[#DFB78C]">{fmtUSD(catalog?.intl_enterprise_monthly?.price ?? 399)}/month</b> — or custom annual contracts tailored to your chain.
+              <p className="text-[11px] uppercase tracking-[3px] text-[#a87e2f] font-semibold">Managing 5+ branches?</p>
+              <h3 className="mt-1.5 text-xl sm:text-2xl font-semibold text-slate-900">Enterprise for Multi-Branch Chains</h3>
+              <p className="text-xs text-slate-500 mt-1">For multi-location & larger operations</p>
+              <p className="text-sm text-slate-600 mt-1.5">
+                Starting from <b className="text-[#a87e2f]">{fmtUSD(catalog?.intl_enterprise_monthly?.price ?? 399)}/month</b> — or custom annual contracts tailored to your chain.
               </p>
               <ul className="mt-4 grid sm:grid-cols-3 gap-2.5">
                 {["Centralized bookings & billing", "AI marketing on autopilot", "Unlimited staff & branches"].map(f => (
-                  <li key={f} className="flex items-start gap-2 text-[13px] text-white/70">
-                    <Check className="w-4 h-4 text-[#DFB78C] mt-0.5 flex-shrink-0" /> {f}
+                  <li key={f} className="flex items-start gap-2 text-[13px] text-slate-600">
+                    <Check className="w-4 h-4 text-[#a87e2f] mt-0.5 flex-shrink-0" /> {f}
                   </li>
                 ))}
               </ul>
-              <div className="mt-5 inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.04] pl-1.5 pr-4 py-1.5" data-testid="enterprise-consultant-chip">
-                <span className="w-8 h-8 rounded-full bg-[#DFB78C]/20 text-[#DFB78C] flex items-center justify-center text-sm">👨‍💼</span>
-                <span className="text-[12px] text-white/70 leading-tight">
-                  <b className="text-white">Bablu Kumar</b> · Enterprise Consultant
-                  <span className="block text-[10px] text-emerald-400">● Usually replies within 5 minutes</span>
+              <div className="mt-5 inline-flex items-center gap-3 rounded-full border border-[#e9d9ae] bg-amber-50/60 pl-1.5 pr-4 py-1.5" data-testid="enterprise-consultant-chip">
+                <span className="w-8 h-8 rounded-full bg-amber-100 text-[#a87e2f] flex items-center justify-center text-sm">👨‍💼</span>
+                <span className="text-[12px] text-slate-600 leading-tight">
+                  <b className="text-slate-900">Bablu Kumar</b> · Enterprise Consultant
+                  <span className="block text-[10px] text-emerald-600">● Usually replies within 5 minutes</span>
                 </span>
               </div>
             </div>
             <div className="flex flex-col gap-3 lg:w-72 flex-shrink-0">
               <Link to="/demo" data-testid="enterprise-book-demo"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold text-[#050505] bg-[#DFB78C] shadow-[0_0_26px_-6px_rgba(223,183,140,0.65)] hover:bg-[#EAD3B3] hover:-translate-y-0.5 transition-transform">
+                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold text-[#050505] bg-[#DFB78C] shadow-[0_0_26px_-6px_rgba(223,183,140,0.65)] hover:bg-[#b8863b] hover:-translate-y-0.5 transition-transform">
                 📞 Book a Demo
               </Link>
               <a href={`https://wa.me/919180379552?text=${encodeURIComponent("Hi! I run a multi-branch salon chain and I'd like to know about Miracurl Enterprise plans.")}`}
                 target="_blank" rel="noreferrer" data-testid="enterprise-whatsapp"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold text-white bg-[#25D366] shadow-[0_0_22px_-8px_rgba(37,211,102,0.7)] hover:-translate-y-0.5 transition-transform">
+                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full text-sm font-bold text-slate-900 bg-[#25D366] shadow-[0_0_22px_-8px_rgba(37,211,102,0.7)] hover:-translate-y-0.5 transition-transform">
                 💬 Chat on WhatsApp
               </a>
               <button onClick={() => window.dispatchEvent(new Event("open-sales-chat"))} data-testid="enterprise-ask-mira"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full text-[13px] font-semibold text-[#DFB78C] border border-[#DFB78C]/40 hover:bg-[#DFB78C]/10 transition-colors">
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full text-[13px] font-semibold text-[#a87e2f] border border-[#C89B52]/60 hover:bg-amber-50 transition-colors">
                 ✦ Ask Mira — instant answers
               </button>
             </div>
           </div>
         </div>
-        <p className="text-center text-[11px] text-white/35 mt-5">Prices in USD for clients outside India (US, UK, UAE, Canada, Australia & more). Billed via secure international payment link.</p>
+        <p className="text-center text-[11px] text-slate-400 mt-5">Prices in USD for clients outside India (US, UK, UAE, Canada, Australia & more). Billed via secure international payment link.</p>
         </>
         )}
       </section>
+
 
       {/* Meet the Founder / About Us */}
       <div id="about"><CeoSection site={site} /></div>
 
       {/* Final CTA */}
       <section className="relative z-10 max-w-4xl mx-auto px-6 sm:px-10 pb-24">
-        <div className="rounded-3xl p-10 sm:p-16 text-center relative overflow-hidden border border-[#DFB78C]/20"
-             style={{ background: "linear-gradient(135deg, rgba(227,90,137,0.12) 0%, rgba(223,183,140,0.10) 100%)" }}>
-          <Zap className="w-10 h-10 mx-auto text-[#DFB78C]" />
+        <div className="rounded-3xl p-10 sm:p-16 text-center relative overflow-hidden border border-[#e0c07a]"
+             style={{ background: "linear-gradient(135deg, rgba(227,90,137,0.10) 0%, rgba(200,155,82,0.14) 100%)" }}>
+          <Zap className="w-10 h-10 mx-auto text-[#a87e2f]" />
           <h2 className="font-playfair text-3xl sm:text-5xl font-light mt-5">{copy.finalH2}</h2>
-          <p className="text-white/60 mt-4 max-w-xl mx-auto">{copy.finalSub}</p>
+          <p className="text-slate-600 mt-4 max-w-xl mx-auto">{copy.finalSub}</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-9">
+            <Link to={signupHref("restaurant", region)} onClick={() => trackCta("landing-cta-footer-resto", { region })} data-testid="landing-cta-footer-resto"
+                  className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 text-white font-bold hover:brightness-110 hover:-translate-y-1 transition-transform">
+              Restaurant free month <ArrowRight className="w-4 h-4" />
+            </Link>
             <Link to={signupHref("salon", region)} onClick={() => trackCta("landing-cta-footer", { region })} data-testid="landing-cta-footer"
-                  className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[#DFB78C] text-[#050505] font-bold hover:bg-[#EAD3B3] hover:-translate-y-1 transition-transform shadow-[0_16px_40px_-10px_rgba(223,183,140,0.6)]">
-              Start free trial <ArrowRight className="w-4 h-4" />
+                  className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[#C89B52] text-white font-bold hover:bg-[#b8863b] hover:-translate-y-1 transition-transform shadow-[0_16px_40px_-10px_rgba(223,183,140,0.6)]">
+              Salon free trial <ArrowRight className="w-4 h-4" />
             </Link>
             <button onClick={() => setVideoOpen(true)} data-testid="footer-watch-tour-btn"
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-full border border-white/20 text-white/85 font-medium hover:bg-white/5 transition-colors">
-              <Play className="w-4 h-4 text-[#DFB78C] fill-[#DFB78C]" /> Watch the 2-min tour
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-full border border-[#e0c07a] text-slate-800 font-medium hover:bg-amber-50 transition-colors">
+              <Play className="w-4 h-4 text-[#a87e2f] fill-[#C89B52]" /> Watch the 2-min tour
             </button>
           </div>
         </div>
       </section>
 
+
       {/* Footer — professional columns + massive typography */}
-      <footer className="relative z-10 border-t border-[#DFB78C]/15 pt-16 pb-8 overflow-hidden" data-testid="landing-footer">
+      <footer className="relative z-10 border-t border-[#e9d9ae] pt-16 pb-8 overflow-hidden" data-testid="landing-footer">
         <div className="max-w-7xl mx-auto px-6 sm:px-10">
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 pb-12">
             <div>
               <LogoLockup />
-              <p className="text-xs text-white/45 mt-4 leading-relaxed max-w-xs">
-                Smart salon management software — manage, automate and grow your beauty business with one premium suite.
+              <p className="text-xs text-slate-500 mt-4 leading-relaxed max-w-xs">
+                Salon & restaurant management software — booking, POS, CRM, staff payroll and Mira AI in one premium suite.
               </p>
               <div className="flex items-center gap-2.5 mt-5">
                 {site?.instagram && (
                   <a href={site.instagram} target="_blank" rel="noreferrer" data-testid="footer-instagram"
-                    className="w-9 h-9 rounded-full border border-white/15 bg-white/5 flex items-center justify-center text-white/60 hover:text-[#E35A89] hover:border-[#E35A89]/50 transition-colors">
+                    className="w-9 h-9 rounded-full border border-[#e0c07a]/70 bg-amber-50/60 flex items-center justify-center text-slate-600 hover:text-[#E35A89] hover:border-[#E35A89]/50 transition-colors">
                     <Instagram className="w-4 h-4" />
                   </a>
                 )}
                 {site?.facebook && (
                   <a href={site.facebook} target="_blank" rel="noreferrer" data-testid="footer-facebook"
-                    className="w-9 h-9 rounded-full border border-white/15 bg-white/5 flex items-center justify-center text-white/60 hover:text-sky-400 hover:border-sky-400/50 transition-colors">
+                    className="w-9 h-9 rounded-full border border-[#e0c07a]/70 bg-amber-50/60 flex items-center justify-center text-slate-600 hover:text-sky-400 hover:border-sky-400/50 transition-colors">
                     <Facebook className="w-4 h-4" />
                   </a>
                 )}
                 {site?.youtube && (
                   <a href={site.youtube} target="_blank" rel="noreferrer" data-testid="footer-youtube"
-                    className="w-9 h-9 rounded-full border border-white/15 bg-white/5 flex items-center justify-center text-white/60 hover:text-red-400 hover:border-red-400/50 transition-colors">
+                    className="w-9 h-9 rounded-full border border-[#e0c07a]/70 bg-amber-50/60 flex items-center justify-center text-slate-600 hover:text-red-400 hover:border-red-400/50 transition-colors">
                     <Play className="w-4 h-4" />
                   </a>
                 )}
               </div>
             </div>
             <div>
-              <Label className="text-[#DFB78C]">Company</Label>
-              <div className="mt-4 flex flex-col gap-2.5 text-sm text-white/55">
-                <Link to="/" className="hover:text-white transition-colors">Home</Link>
-                <a href="#about" className="hover:text-white transition-colors">About Us</a>
-                <Link to="/contact-us" className="hover:text-white transition-colors" data-testid="footer-contact-link">Contact Us</Link>
-                <Link to="/partners" className="hover:text-white transition-colors">Our Partners</Link>
-                <Link to="/blog" className="hover:text-white transition-colors" data-testid="footer-blog-link">Blog</Link>
+              <Label className="text-[#a87e2f]">Company</Label>
+              <div className="mt-4 flex flex-col gap-2.5 text-sm text-slate-500">
+                <Link to="/" className="hover:text-slate-900 transition-colors">Home</Link>
+                <a href="#about" className="hover:text-slate-900 transition-colors">About Us</a>
+                <Link to="/contact-us" className="hover:text-slate-900 transition-colors" data-testid="footer-contact-link">Contact Us</Link>
+                <Link to="/partners" className="hover:text-slate-900 transition-colors">Our Partners</Link>
+                <Link to="/blog" className="hover:text-slate-900 transition-colors" data-testid="footer-blog-link">Blog</Link>
               </div>
             </div>
             <div>
-              <Label className="text-[#DFB78C]">Product</Label>
-              <div className="mt-4 flex flex-col gap-2.5 text-sm text-white/55">
-                <Link to="/features" className="hover:text-white transition-colors">Features</Link>
-                <Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link>
-                <Link to="/staff-registry" className="hover:text-white transition-colors">Staff Verification (Free)</Link>
-                <Link to={signupHref("salon", region)} className="hover:text-white transition-colors">Start Free Trial</Link>
-                <Link to="/login" className="hover:text-white transition-colors">Sign In</Link>
+              <Label className="text-[#a87e2f]">Product</Label>
+              <div className="mt-4 flex flex-col gap-2.5 text-sm text-slate-500">
+                <Link to="/features" className="hover:text-slate-900 transition-colors">Features</Link>
+                <Link to="/pricing" className="hover:text-slate-900 transition-colors">Pricing</Link>
+                <Link to="/staff-registry" className="hover:text-slate-900 transition-colors">Staff Verification (Free)</Link>
+                <Link to={signupHref("salon", region)} className="hover:text-slate-900 transition-colors">Start Free Trial</Link>
+                <Link to="/login" className="hover:text-slate-900 transition-colors">Sign In</Link>
               </div>
             </div>
             <div>
-              <Label className="text-[#DFB78C]">Contact</Label>
-              <div className="mt-4 flex flex-col gap-2.5 text-sm text-white/55">
+              <Label className="text-[#a87e2f]">Contact</Label>
+              <div className="mt-4 flex flex-col gap-2.5 text-sm text-slate-500">
                 <a href={`mailto:${site?.contact_email || "admin@miracurl-suite.com"}`} data-testid="footer-email"
-                  className="flex items-center gap-2 hover:text-white transition-colors">
-                  <Mail className="w-3.5 h-3.5 text-[#DFB78C]" /> {site?.contact_email || "admin@miracurl-suite.com"}
+                  className="flex items-center gap-2 hover:text-slate-900 transition-colors">
+                  <Mail className="w-3.5 h-3.5 text-[#a87e2f]" /> {site?.contact_email || "admin@miracurl-suite.com"}
                 </a>
                 {site?.whatsapp && (
                   <a href={`https://wa.me/${(site.whatsapp || "").replace(/\D/g, "")}`} target="_blank" rel="noreferrer"
-                    className="flex items-center gap-2 hover:text-white transition-colors">
-                    <MessageSquare className="w-3.5 h-3.5 text-emerald-400" /> WhatsApp us
+                    className="flex items-center gap-2 hover:text-slate-900 transition-colors">
+                    <MessageSquare className="w-3.5 h-3.5 text-emerald-600" /> WhatsApp us
                   </a>
                 )}
                 <span className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5 text-[#E35A89]" /> Marathahalli, Bangalore</span>
               </div>
               <div className="mt-5">
-                <Label className="text-emerald-300 !text-[10px]">Who can use</Label>
-                <p className="text-[11px] text-white/40 mt-2 leading-relaxed">
+                <Label className="text-emerald-700 !text-[10px]">Who can use</Label>
+                <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
                   {WHO_CAN_USE.join(" · ")}
                 </p>
                 <Link to="/who-can-use" data-testid="footer-who-can-use-link"
-                  className="mt-2 inline-block text-[11px] font-semibold text-emerald-300/80 hover:text-emerald-200 transition-colors">
+                  className="mt-2 inline-block text-[11px] font-semibold text-emerald-700/80 hover:text-emerald-200 transition-colors">
                   See all with photos →
                 </Link>
               </div>
             </div>
           </div>
-          <div className="font-playfair text-[13vw] md:text-[9vw] leading-none text-white/[0.05] select-none whitespace-nowrap" aria-hidden="true">
-            MIRACURL SUITE <span className="text-[#DFB78C]/20">✦</span>
+          <div className="font-playfair text-[13vw] md:text-[9vw] leading-none text-[#C89B52]/[0.10] select-none whitespace-nowrap" aria-hidden="true">
+            MIRACURL SUITE <span className="text-[#a87e2f]/20">✦</span>
           </div>
           <div className="h-px bg-gradient-to-r from-transparent via-[#DFB78C]/40 to-transparent" />
           <div className="pt-6 text-center">
-            <span className="text-xs uppercase tracking-[0.3em] text-[#DFB78C]/80 font-semibold" data-testid="footer-features-title">✦ Our Features ✦</span>
+            <span className="text-xs uppercase tracking-[0.3em] text-[#a87e2f] font-semibold" data-testid="footer-features-title">✦ Our Features ✦</span>
           </div>
           <div className="pt-4 pb-2 flex flex-wrap justify-center gap-2 text-xs" data-testid="footer-features-strip">
             {["Appointments", "Staff & Payroll", "Inventory", "Marketing", "Reports", "POS & Billing", "Mira AI", "Promo Studio", "AI Assistant", "Online Booking", "Gift Cards", "Memberships", "Reviews"].map((f) => (
               <span key={f}
-                className="px-3 py-1.5 rounded-full border border-white/10 bg-white/[0.03] text-white/55 select-none">
+                className="px-3 py-1.5 rounded-full border border-[#e9d9ae] bg-white text-slate-500 select-none">
                 ✦ {f}
               </span>
             ))}
           </div>
           <div className="mt-6 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-          <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/40">
-            <div className="flex items-center gap-2"><img src="/assets/ms-logo-emblem.png" alt="MS" className="w-6 h-6 object-contain" /> © {new Date().getFullYear()} Miracurl Suite · Manage. Automate. Grow.</div>
+          <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+            <div className="flex items-center gap-2"><img src="/assets/ms-logo-gold.png" alt="MS" className="w-6 h-6 object-contain" /> © {new Date().getFullYear()} Miracurl Suite · Manage. Automate. Grow.</div>
             <div className="flex items-center gap-5 flex-wrap justify-center">
-              <Link to="/terms-of-service" className="hover:text-white transition-colors" data-testid="footer-terms-link">Terms</Link>
-              <Link to="/privacy-policy" className="hover:text-white transition-colors" data-testid="footer-privacy-link">Privacy</Link>
-              <Link to="/refund-policy" className="hover:text-white transition-colors" data-testid="footer-refund-link">Refunds</Link>
+              <Link to="/terms-of-service" className="hover:text-slate-900 transition-colors" data-testid="footer-terms-link">Terms</Link>
+              <Link to="/privacy-policy" className="hover:text-slate-900 transition-colors" data-testid="footer-privacy-link">Privacy</Link>
+              <Link to="/refund-policy" className="hover:text-slate-900 transition-colors" data-testid="footer-refund-link">Refunds</Link>
             </div>
           </div>
         </div>
