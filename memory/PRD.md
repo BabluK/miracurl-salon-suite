@@ -3981,3 +3981,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - `GET /api/public/geo`: edge header → ipapi.co/ipwho.is IP country (cached). `lib/region.js` `resolveGeoRegion()` refines timezone guess; Landing + Signup use it unless the visitor made an explicit ₹/$ choice.
 - `SignupSidePanel.jsx` redesigned to match landing (photo showcase, gradient icon features, "Starts from" price via `startingPrice(catalog)`).
 - Images: /landing/hero-salon.jpg, hero-restaurant.jpg, salon-suite.jpg, restaurant-suite.jpg (Gemini generated, compressed).
+
+## 2026-10-05 — Pricing doors, mobile tile carousel, Features page
+- `PricingSection.jsx` + `pricingData.js` (moved from Landing): Salon/Restaurant door cards with photo header, "Starts from" chip, PlanCard grid, gradient CTAs; region toggle + geo auto-detect.
+- `VerticalSection.jsx`: tiles are a snap-scroll carousel under 640px (grid above); each tile links to `/features#slug`.
+- New `/features` page (`pages/Features.jsx`) driven by `featureData.js` (icon, blurb, mock, bullets) with jump nav and hash scroll. App.js route switched from Landing scrollTo.
+- Tested: iteration_227 (all pass).

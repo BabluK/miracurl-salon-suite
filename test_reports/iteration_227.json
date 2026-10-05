@@ -1,0 +1,24 @@
+{
+  "summary": "Frontend-only validation of iteration 227 (Miracurl Suite pricing redesign + mobile tile carousel + new /features page). All critical flows pass: two-door pricing cards, region toggle (INR/USD) updates salon + resto plan cards and hero door prices, auto-detection via sessionStorage miracurl_geo_region, mobile carousel scrollWidth > clientWidth with swipe hint and no page-level horizontal overflow, desktop grid behavior, deep-link scrolling to #slug on /features for both salon and restaurant tiles, and header FEATURES link navigation.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Pricing region toggle buttons do not expose aria-pressed state (both return null). Consider adding aria-pressed='true/false' for a11y and clearer selected-state semantics.",
+    "Footer uses data-testid='landing-footer' instead of 'footer'. The review request listed 'footer' as the testid; either align the id or document the alias to avoid future test confusion.",
+    "Many 401 console errors on load (likely background authed probes). Not blocking but noisy — consider gating those calls behind an auth check."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "n/a (public pages)",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Validated against GET /api/public/plans: INR monthly=1455, annual=14550, multi-branch from 40000; resto INR monthly=1000; INTL salon tiers starter/pro/premium + enterprise block + resto $45 start. Region toggle flips plan cards, resto cards, enterprise block visibility and hero door-salon-price/door-restaurant-price. Mobile tiles-salon scrollWidth=2448 cw=390, tiles-restaurant 1842/390, swipe hint visible, page scrollWidth==390. Desktop (1280): both tile containers sw==cw (grid). Deep-links: tile-salon-pos-billing-crm → /features#pos-billing-crm (feature in-view top=112px); tile-restaurant-qr-table-ordering → /features#qr-table-ordering (top=230px). features-jump-nav has exactly 14 jump links; features-group-salon=8 rows, features-group-restaurant=6 rows; sample feature-cta-* link resolves region-aware signup route.",
+  "rca of the issue": "n/a — no bugs found"
+}
