@@ -835,18 +835,39 @@ async def _send_reset_email(login_email: str, recipient: str, token: str):
     from email_service import _send_email
     base = (os.environ.get("APP_PUBLIC_URL") or os.environ.get("FRONTEND_URL") or "https://miracurl-suite.com").rstrip("/")
     reset_link = f"{base}/reset-password?token={token}"
-    await _send_email(
-        [recipient],
-        "Reset your Miracurl password",
-        f"<div style='font-family:Arial,sans-serif;max-width:520px'>"
-        f"<h2 style='margin:0 0 8px'>Password reset ✦</h2>"
-        f"<p style='color:#444'>Tap the button below to set a new password for your login "
-        f"<b>{login_email}</b>. This link works once and expires in 1 hour.</p>"
-        f"<p style='margin:20px 0'><a href='{reset_link}' "
-        f"style='background:#e11d48;color:#fff;padding:12px 22px;border-radius:24px;"
-        f"text-decoration:none;font-weight:bold'>Set new password</a></p>"
-        f"<p style='color:#888;font-size:12px'>Didn't ask for this? You can safely ignore this email — "
-        f"your password stays unchanged.</p></div>")
+    gold, ink, muted = "#b8863b", "#1c1917", "#6b6660"
+    html = f"""
+<div style="background:#fdf9f4;padding:28px 12px;font-family:Georgia,'Times New Roman',serif;color:{ink}">
+  <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #efe3c4;border-radius:22px;overflow:hidden;box-shadow:0 24px 60px -36px rgba(184,134,59,.45)">
+    <div style="padding:26px 32px 18px;text-align:center;border-bottom:1px solid #f3eadb">
+      <img src="{base}/assets/ms-logo-ring.png" alt="Miracurl Suite" width="68" height="68" style="display:block;margin:0 auto 10px">
+      <div style="font-size:19px;letter-spacing:.14em;color:{gold};font-weight:bold">MIRACURL <span style="letter-spacing:.3em">SUITE</span></div>
+      <div style="font-size:10px;letter-spacing:.3em;color:#a69c8c;text-transform:uppercase;margin-top:4px">Salon &amp; Restaurant Management Software</div>
+    </div>
+    <div style="padding:30px 32px 10px">
+      <div style="display:inline-block;background:#fff4e0;color:{gold};font-size:10px;letter-spacing:.25em;text-transform:uppercase;padding:6px 12px;border-radius:999px;font-family:Arial,sans-serif;font-weight:bold">Password reset</div>
+      <h1 style="font-size:28px;line-height:1.2;margin:14px 0 10px;font-weight:normal">Let's get you back in ✦</h1>
+      <p style="font-size:15px;line-height:1.65;margin:0 0 6px;color:#3f3a34;font-family:Arial,sans-serif">
+        We received a request to reset the password for <b style="color:{ink}">{login_email}</b>.
+        Tap the button below to choose a new one.</p>
+      <p style="font-size:13px;color:{muted};margin:0 0 22px;font-family:Arial,sans-serif">This link works once and expires in <b>1 hour</b>.</p>
+      <div style="text-align:center;margin:8px 0 22px">
+        <a href="{reset_link}" style="display:inline-block;background:linear-gradient(135deg,#f0d9a5,#c89b52);color:#1c160c;text-decoration:none;padding:15px 36px;border-radius:999px;font-size:15px;font-weight:bold;font-family:Arial,sans-serif;letter-spacing:.02em;box-shadow:0 12px 30px -12px rgba(200,155,82,.8)">Set new password →</a>
+      </div>
+      <div style="background:#fbf7ef;border:1px solid #f0e4c8;border-radius:14px;padding:14px 16px;font-family:Arial,sans-serif">
+        <div style="font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:{gold};font-weight:bold;margin-bottom:6px">Make it strong</div>
+        <div style="font-size:12.5px;color:#55504a;line-height:1.7">8+ characters · an uppercase &amp; a lowercase letter · a number · a symbol.<br>Any login lock on your account is cleared automatically once you reset.</div>
+      </div>
+      <p style="font-size:12px;color:{muted};line-height:1.6;margin:22px 0 6px;font-family:Arial,sans-serif">
+        Button not working? Copy this link into your browser:<br>
+        <a href="{reset_link}" style="color:{gold};word-break:break-all">{reset_link}</a></p>
+      <p style="font-size:12px;color:#8d867c;line-height:1.6;margin:14px 0 20px;font-family:Arial,sans-serif;border-top:1px solid #f3eadb;padding-top:14px">
+        Didn't ask for this? You can safely ignore this email — your password stays exactly as it is. If you're worried, reply and our team will help.</p>
+    </div>
+  </div>
+</div>"""
+    await _send_email([recipient], "Reset your Miracurl password", html,
+                      book_url=f"{base}/login", book_label="Sign in to Miracurl ✦")
 
 
 @router.post("/auth/forgot-password")
@@ -883,8 +904,24 @@ async def forgot(body: ForgotIn, request: Request):
         logging.info("[Miracurl] Password reset requested for user %s", user["id"])
     return {"message": "If that email exists, a reset link was sent."}
 
+_PW_RULES = (
+    (lambda p: len(p) >= 8, "at least 8 characters"),
+    (lambda p: any(c.isupper() for c in p), "an uppercase letter"),
+    (lambda p: any(c.islower() for c in p), "a lowercase letter"),
+    (lambda p: any(c.isdigit() for c in p), "a number"),
+    (lambda p: any(not c.isalnum() for c in p), "a symbol"),
+)
+
+
+def password_policy_errors(pw: str) -> list[str]:
+    return [label for ok, label in _PW_RULES if not ok(pw)]
+
+
 @router.post("/auth/reset-password")
 async def reset(body: ResetIn):
+    missing = password_policy_errors(body.new_password)
+    if missing:
+        raise HTTPException(400, "Password needs " + ", ".join(missing))
     rec = await db.password_reset_tokens.find_one({"token": body.token})
     if not rec or rec.get("used"):
         raise HTTPException(400, "Invalid or used token")
