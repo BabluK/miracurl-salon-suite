@@ -10,7 +10,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 
 from fastapi import FastAPI, APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 
@@ -563,6 +563,36 @@ app.add_middleware(
 # Gzip large JSON responses — 8-10x smaller payloads = much faster on mobile networks
 from starlette.middleware.gzip import GZipMiddleware  # noqa: E402
 app.add_middleware(GZipMiddleware, minimum_size=1500)
+
+
+# ---------------- Public-page caching ----------------
+# Booking pages, QR menus and marketing data are the same for every visitor, so browsers (and any CDN in
+# front) may keep them briefly: 60 s fresh, 10 min stale-while-revalidate, ETag → 304 on repeat opens.
+# Only slug-addressed / global public reads are listed — anything per-guest (orders, wallet, loyalty) is not.
+_PUBLIC_CACHE_PREFIXES = (
+    "/api/public/salon-page/", "/api/public/salon/", "/api/public/services/", "/api/public/staff/",
+    "/api/public/category-specials/", "/api/public/day-offer/", "/api/public/menu-stats/", "/api/public/color/",
+    "/api/public/salons", "/api/public/plans", "/api/public/site-info", "/api/public/testimonials",
+    "/api/public/partners", "/api/public/platform-stats",
+)
+_PUBLIC_CACHE_CONTROL = "public, max-age=60, s-maxage=300, stale-while-revalidate=600"
+
+
+@app.middleware("http")
+async def _public_cache(request: Request, call_next):
+    if request.method != "GET" or not request.url.path.startswith(_PUBLIC_CACHE_PREFIXES):
+        return await call_next(request)
+    response = await call_next(request)
+    if response.status_code != 200 or "application/json" not in (response.headers.get("content-type") or ""):
+        return response
+    body = b"".join([chunk async for chunk in response.body_iterator])
+    import hashlib  # noqa: PLC0415
+    etag = 'W/"' + hashlib.md5(body).hexdigest()[:20] + '"'  # noqa: S324 — cache validator, not security
+    headers = {k: v for k, v in response.headers.items() if k.lower() not in ("content-length", "cache-control", "etag")}
+    headers.update({"Cache-Control": _PUBLIC_CACHE_CONTROL, "CDN-Cache-Control": "max-age=300", "ETag": etag, "Vary": "Accept-Encoding"})
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    return Response(content=body, status_code=200, headers=headers, media_type=response.media_type)
 
 
 # ---------------- Security Headers (SEC-P3) ----------------

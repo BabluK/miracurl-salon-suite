@@ -4,7 +4,10 @@
  * - Cache-first for static assets (fonts, icons, JS bundles)
  * - Never caches HTML — always fresh from network to avoid stale-app trap
  */
-const CACHE = "miracurl-v37";
+const CACHE = "miracurl-v38";
+const PUBLIC_SWR = ["/api/public/salon-page/", "/api/public/salon/", "/api/public/services/", "/api/public/staff/",
+  "/api/public/category-specials/", "/api/public/day-offer/", "/api/public/menu-stats/", "/api/public/color/",
+  "/api/public/salons", "/api/public/plans", "/api/public/site-info", "/api/public/testimonials", "/api/public/partners", "/api/public/platform-stats"];
 const STATIC = [
   "/manifest.json", "/manifest-admin.json", "/favicon.svg",
   "/icon-192.png", "/icon-512.png",
@@ -58,7 +61,21 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Never cache API responses (booking availability must be live)
+  // Public salon/menu/marketing reads are identical for every visitor → stale-while-revalidate:
+  // repeat opens paint instantly from the device, then refresh in the background. Per-guest
+  // endpoints (orders, wallet, loyalty, slots) are NOT listed and stay live.
+  if (PUBLIC_SWR.some((p) => url.pathname.startsWith(p)) && !url.search.includes("nocache")) {
+    event.respondWith(
+      caches.open(CACHE).then(async (c) => {
+        const cached = await c.match(req);
+        const fresh = fetch(req).then((resp) => { if (resp && resp.ok) c.put(req, resp.clone()); return resp; }).catch(() => cached);
+        return cached || fresh;
+      })
+    );
+    return;
+  }
+
+  // Never cache other API responses (booking availability must be live)
   if (url.pathname.startsWith("/api/")) return;
 
   // HTML → always network (bypassing the HTTP cache) so users get the latest deploy immediately

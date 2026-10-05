@@ -30,13 +30,15 @@ const T = {
 
 export const SuiteLogo = ({ variant = "dark", size = "md", subtitle = "Smart Salon Management Software" }) => (
   <Link to="/" className="flex items-center gap-3 group shrink-0" data-testid="suite-logo">
-    <img src={variant === "light" ? "/assets/ms-logo-gold.png" : "/assets/ms-logo-emblem.png"} alt="Miracurl Suite"
-      className={`${size === "lg" ? "w-24 h-24" : "w-10 h-10 sm:w-14 sm:h-14 xl:w-[72px] xl:h-[72px]"} gold-shine-img group-hover:scale-105 transition-transform`} />
+    <span className={`brand-orb relative flex items-center justify-center shrink-0 ${size === "lg" ? "w-24 h-24" : "w-12 h-12 sm:w-16 sm:h-16 xl:w-[92px] xl:h-[92px]"}`}>
+      <img src="/assets/ms-logo-ring.png" alt="Miracurl Suite" draggable="false"
+        className="w-full h-full object-contain drop-shadow-[0_6px_18px_rgba(212,175,55,0.45)] group-hover:scale-105 transition-transform" />
+    </span>
     <span className="leading-tight">
-      <span className={`block font-playfair ${size === "lg" ? "text-2xl" : "text-sm sm:text-lg"} tracking-[0.08em] gold-shine-text font-semibold whitespace-nowrap`}>
+      <span className={`block font-playfair ${size === "lg" ? "text-2xl" : "text-base sm:text-xl xl:text-2xl"} tracking-[0.08em] gold-shine-text font-semibold whitespace-nowrap`}>
         MIRACURL <span className="tracking-[0.3em]">SUITE</span>
       </span>
-      <span className={`hidden sm:block text-[9px] uppercase tracking-[0.3em] ${T[variant].sub}`}>{subtitle}</span>
+      <span className={`hidden sm:block text-[9px] xl:text-[10px] uppercase tracking-[0.3em] mt-0.5 ${T[variant].sub}`}>{subtitle}</span>
     </span>
   </Link>
 );
@@ -46,9 +48,9 @@ export const SiteHeader = ({ variant = "light", site = null, subtitle = "Smart S
   const [open, setOpen] = useState(false);
   return (
     <header className={`sticky top-0 z-40 backdrop-blur-xl ${t.header}`} data-testid="site-header">
-      <div className="max-w-7xl mx-auto px-4 xl:px-10 py-2 flex items-center justify-between">
+      <div className="max-w-[1500px] mx-auto px-4 xl:px-10 py-3 xl:py-4 flex items-center justify-between">
         <SuiteLogo variant={variant} subtitle={subtitle} />
-        <div className="hidden xl:flex items-center gap-3 2xl:gap-5 text-sm">
+        <div className="hidden xl:flex items-center gap-3 2xl:gap-5 text-sm nav-lg">
           <Link to="/" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className={`nav-cap ${t.link} transition-colors`} data-testid="header-home-link">Home</Link>
           <Link to="/about-us" className={`nav-cap ${t.link} transition-colors`} data-testid="header-about-link">About Us</Link>
           {peekHref && (

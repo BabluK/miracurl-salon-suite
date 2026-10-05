@@ -3,8 +3,8 @@ import { Check, ArrowRight, Scissors, UtensilsCrossed, Bell, CalendarCheck, QrCo
 import { track, trackCta } from "@/lib/analytics";
 import { signupHref } from "@/lib/region";
 
-const SALON_IMG = "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/98878cd0ea553bd4df7cc6ca3c05eaea3bd83533c44c0b7b2785932491d9d440.jpeg";
-const RESTO_IMG = "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/ad3e4226d2d8cc2e72aaed1a5d03aec5a372f32668c561f2ec3f11a02fb237c7.jpeg";
+const SALON_IMG = "/landing/salon-door.jpg";
+const RESTO_IMG = "/landing/restaurant-door.jpg";
 
 const pick = (vertical, region) => {
   track("hero_vertical_pick", { vertical, region });
@@ -28,7 +28,7 @@ export function TwoDoorHero({ region, trialDays, fromPrice }) {
   ];
   return (
     <header className="max-w-7xl mx-auto px-5 sm:px-8 pt-12 sm:pt-16 pb-10 relative" data-testid="two-door-hero">
-      <div className="text-center max-w-3xl mx-auto">
+      <div className="text-center max-w-4xl mx-auto">
         <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-100 to-rose-100 border border-amber-200 text-[10px] tracking-[0.25em] uppercase font-bold text-[#8a6420]" data-testid="hero-badge">
           <Sparkles className="w-3.5 h-3.5" /> {trialDays}-day free trial · No credit card · Cancel anytime
         </span>

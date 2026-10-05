@@ -42,6 +42,54 @@ const fmtINR = (n) => "₹" + Number(n).toLocaleString("en-IN");
 const kINR = (n) => "₹" + Math.round(n / 1000) + "k";
 const fmtUSD = (n) => (n == null ? "…" : "$" + Number(n).toLocaleString("en-US"));
 
+// Restaurant plans straight from the HQ catalog (vertical === "restaurant"), filtered by currency.
+function restoPlans(catalog, currency) {
+  return Object.entries(catalog || {})
+    .filter(([, v]) => v && typeof v === "object" && v.vertical === "restaurant" && (v.currency || "INR") === currency)
+    .sort((a, b) => (a[1].duration_days || 0) - (b[1].duration_days || 0))
+    .map(([k, v]) => ({
+      key: k, label: v.custom ? v.label : (v.duration_days <= 31 ? "Monthly" : v.duration_days >= 365 ? "1 Year" : `${Math.round(v.duration_days / 30.4)} Months`),
+      price: currency === "USD" ? fmtUSD(v.price) : fmtINR(v.price), popular: !!v.highlight,
+      sub: v.duration_days <= 31 ? "Flexible — cancel anytime" : v.duration_days >= 365 ? "Best value — one payment a year" : "Perfect to try everything",
+    }));
+}
+
+function RestaurantPlans({ catalog, currency, region }) {
+  const list = restoPlans(catalog, currency);
+  if (!list.length) return null;
+  return (
+    <div className="mt-14" data-testid="resto-pricing">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
+        <div>
+          <div className="text-[10px] tracking-[0.35em] uppercase font-bold text-amber-600">🍽️ Restaurant plans</div>
+          <h3 className="font-playfair text-2xl sm:text-3xl text-slate-900 mt-2">First month free — then pick what suits you</h3>
+        </div>
+        <Link to={signupHref("restaurant", region)} onClick={() => trackCta("pricing-resto-cta", { region })} data-testid="resto-pricing-cta"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white text-sm font-bold bg-gradient-to-r from-amber-500 to-rose-500 hover:brightness-110 hover:-translate-y-0.5 transition-transform">
+          Start your free month <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
+      <div className="grid sm:grid-cols-3 gap-4">
+        {list.map(p => (
+          <div key={p.key} data-testid={`resto-plan-${p.key}`}
+            className={`rounded-3xl border p-6 bg-white ${p.popular ? "border-amber-400 ring-2 ring-amber-200 shadow-lg" : "border-[#e9d9ae]"}`}>
+            {p.popular && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white">MOST POPULAR</span>}
+            <p className={`text-sm font-bold text-slate-500 ${p.popular ? "mt-3" : ""}`}>{p.label}</p>
+            <p className="font-playfair text-3xl mt-1 text-amber-600">{p.price}</p>
+            <p className="text-slate-400 text-xs mt-1">{p.sub}</p>
+            <ul className="mt-4 space-y-1.5">
+              {["All features included", "Unlimited orders & tables", "Mira AI included"].map(f => (
+                <li key={f} className="flex items-center gap-2 text-xs text-slate-500"><Check className="w-3 h-3 text-emerald-500" /> {f}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+      <p className="text-[11px] text-slate-400 mt-4">Annual = 10 × monthly — 2 months free. {currency === "INR" ? "Billed in INR, GST extra." : "Billed in USD."}</p>
+    </div>
+  );
+}
+
 const INTL_TIERS = [
   { tier: "starter", title: "Starter", tagline: "For independent & small salons", primary: false,
     items: ["Online booking & CRM", "POS billing", "Email & WhatsApp reminders", "Email support"] },
@@ -125,7 +173,7 @@ export const WHO_CAN_USE = [
 
 export const LogoLockup = ({ size = "md" }) => (
   <Link to="/" className="flex items-center gap-3 group shrink-0" data-testid="landing-logo">
-    <img src="/assets/ms-logo-gold.png" alt="Miracurl Suite"
+    <img src="/assets/ms-logo-ring.png" alt="Miracurl Suite"
       className={`${size === "lg" ? "w-24 h-24" : "w-10 h-10 sm:w-14 sm:h-14 xl:w-[72px] xl:h-[72px]"} gold-shine-img group-hover:scale-105 transition-transform`} />
     <span className="leading-tight">
       <span className={`block font-playfair ${size === "lg" ? "text-2xl" : "text-sm sm:text-lg"} tracking-[0.08em] gold-shine-text font-semibold whitespace-nowrap`}>
@@ -402,7 +450,7 @@ export default function Landing({ scrollTo }) {
         <div className="text-center mb-14">
           <Label className="text-[#E35A89]">Pricing</Label>
           <h2 className="font-playfair text-4xl sm:text-5xl font-light mt-4">Simple pricing — salons & restaurants</h2>
-          <p className="text-slate-500 mt-4 max-w-xl mx-auto text-sm">No per-booking fees, no commissions on your sales. Salon plans below — restaurant plans on the <Link to="/restaurant#pricing" className="underline text-[#8a6420]" data-testid="pricing-resto-link">restaurant page</Link>.</p>
+          <p className="text-slate-500 mt-4 max-w-xl mx-auto text-sm">No per-booking fees, no commissions on your sales. Salon plans first, restaurant plans right below — same toggle.</p>
           <div className="inline-flex items-center gap-1 mt-7 p-1 rounded-full bg-amber-50/60 border border-[#e9d9ae]" data-testid="pricing-region-toggle">
             {[["in", "🇮🇳 India · ₹"], ["intl", "🌍 International · $"]].map(([k, l]) => (
               <button key={k} data-testid={`pricing-region-${k}`} onClick={() => pickRegion(k)}
@@ -415,6 +463,7 @@ export default function Landing({ scrollTo }) {
           </div>
         </div>
         {region === "in" ? (
+        <>
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-5 ${plans.length >= 5 ? "lg:grid-cols-5" : plans.length === 4 ? "lg:grid-cols-4" : plans.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
           {plans.map(p => (
             <div key={p.key} data-testid={`plan-${p.key}`}
@@ -443,6 +492,8 @@ export default function Landing({ scrollTo }) {
             </div>
           ))}
         </div>
+        <RestaurantPlans catalog={catalog} currency="INR" region={region} />
+        </>
         ) : (
         <>
         <div className={`grid grid-cols-1 md:grid-cols-3 gap-5 mx-auto ${intlPlans.length > 3 ? "lg:grid-cols-4 max-w-6xl" : "max-w-5xl"}`}>
@@ -522,6 +573,7 @@ export default function Landing({ scrollTo }) {
           </div>
         </div>
         <p className="text-center text-[11px] text-slate-400 mt-5">Prices in USD for clients outside India (US, UK, UAE, Canada, Australia & more). Billed via secure international payment link.</p>
+        <RestaurantPlans catalog={catalog} currency="USD" region={region} />
         </>
         )}
       </section>
@@ -649,7 +701,7 @@ export default function Landing({ scrollTo }) {
           </div>
           <div className="mt-6 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
           <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
-            <div className="flex items-center gap-2"><img src="/assets/ms-logo-gold.png" alt="MS" className="w-6 h-6 object-contain" /> © {new Date().getFullYear()} Miracurl Suite · Manage. Automate. Grow.</div>
+            <div className="flex items-center gap-2"><img src="/assets/ms-logo-ring.png" alt="MS" className="w-6 h-6 object-contain" /> © {new Date().getFullYear()} Miracurl Suite · Manage. Automate. Grow.</div>
             <div className="flex items-center gap-5 flex-wrap justify-center">
               <Link to="/terms-of-service" className="hover:text-slate-900 transition-colors" data-testid="footer-terms-link">Terms</Link>
               <Link to="/privacy-policy" className="hover:text-slate-900 transition-colors" data-testid="footer-privacy-link">Privacy</Link>

@@ -3943,3 +3943,9 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Tracking: GA4 user_properties region/device/vertical_interest; events landing_view, hero_vertical_pick, demo_cta_click, signup_switch; visit beacon sends `device`; `/super-admin/traffic-conversion.segments` (US vs India: visitors, mobile %, signup reach, top paths) shown in HQ TrafficConversionCard (`traffic-segments`).
 - Perf: below-fold sections lazy-loaded, hero `fetchPriority=high` + preload, below-fold imgs lazy.
 - Tests: iteration_224 (backend 8/8 + frontend), iteration_225 (frontend 100%). Known noise: Emergent preview overlay inline-script CSP warnings.
+
+## 2026-10-05 — Landing polish + public-page caching
+- Header: bigger bar/logo; `SuiteLogo` now uses the login ring logo (`/assets/ms-logo-ring.png` in `.brand-orb`), footer too. Nav text bumped via `.nav-lg .nav-cap`.
+- Door photos served locally: `/public/landing/salon-door.jpg` (new bright AI-generated salon photo, 141 KB) + `/public/landing/restaurant-door.jpg` (154 KB); hero preload points at salon-door.
+- Pricing: `RestaurantPlans` block (Landing.jsx) renders `vertical==="restaurant"` catalog plans under the salon plans for BOTH toggle states (INR/USD), CTA → region-aware restaurant signup.
+- Public caching: `server.py` `_public_cache` middleware — GET on allowlisted public reads (salon-page/salon/services/staff/category-specials/day-offer/menu-stats/color by slug + salons/plans/site-info/testimonials/partners/platform-stats) → `Cache-Control: public, max-age=60, s-maxage=300, stale-while-revalidate=600`, `CDN-Cache-Control`, weak ETag + 304. NOTE: preview ingress overwrites Cache-Control with no-store (prod ingress passes origin headers through — verified on miracurl-suite.com). `sw.js` v38: same prefixes use stale-while-revalidate in the service worker (`?nocache` bypasses). Per-guest endpoints untouched.
