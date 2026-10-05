@@ -24,6 +24,11 @@ function persistTenant(t) {
   }
 }
 
+// The Boss's own browser must never count as a prospect in HQ traffic stats (see analytics.logVisit).
+function markHqDevice() {
+  try { localStorage.setItem("miracurl_hq_device", "1"); } catch { /* private mode */ }
+}
+
 function clearTenantStorage() {
   setTenantSlug(null);
   localStorage.removeItem("miracurl_tenant");
@@ -61,11 +66,15 @@ export function AuthProvider({ children }) {
         // Perf: fetch the session and the tenant in one parallel wave (was two sequential round-trips).
         // On guest pages (QR menu, gift, loyalty…) the tenant call waits for a real session so it never 401s.
         const tenantP = guestPage ? null : fetchCurrentTenant().catch(() => null);
+        // Returning owner (slug remembered on this device, landing on the dashboard): the dashboard payload
+        // rides in the same wave as the session probe instead of waiting one extra round-trip behind it.
+        const returning = !!localStorage.getItem("miracurl_tenant") && /^\/(dashboard)?$/.test(window.location.pathname);
+        if (returning) prefetchDashboard();
         const { data } = await api.get("/auth/me");
         if (cancelled) return;
         if (data.role === "manager" && data.branch) setSelectedBranch(data.branch);
-        if (data.role === "super_admin") { setUser(data); return; }
-        prefetchDashboard();
+        if (data.role === "super_admin") { markHqDevice(); setUser(data); return; }
+        if (!returning) prefetchDashboard();
         const t = await (tenantP || fetchCurrentTenant().catch(() => null));
         if (cancelled) return;
         // Tenant + user land in one batch → the shell paints once with full context.
@@ -91,6 +100,7 @@ export function AuthProvider({ children }) {
     try { sessionStorage.removeItem("ms_logo_played"); } catch { /* private mode */ }
     if ((data.user.role === "manager" || data.user.role === "staff") && data.user.branch) setSelectedBranch(data.user.branch);
     if (data.user.role === "super_admin") {
+      markHqDevice();
       setTenant(null);
       clearTenantStorage();
       setUser(data.user);

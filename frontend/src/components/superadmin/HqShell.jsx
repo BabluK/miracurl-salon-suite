@@ -112,7 +112,7 @@ export function HqShell({ items, tab, onTab, title, user, tenants, onOpenTenant,
             </div>
           </div>
         </header>
-        <main className="hq-l relative z-10 flex-1 px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-24" data-testid="hq-main">{children}</main>
+        <main className={`${tab === "mira-home" ? "" : "hq-l "}relative z-10 flex-1 px-4 sm:px-6 lg:px-8 py-6 space-y-6 pb-24`} data-testid="hq-main">{children}</main>
       </div>
     </div>
   );

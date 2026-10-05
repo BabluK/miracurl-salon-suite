@@ -416,8 +416,8 @@ export default function SuperAdmin() {
           onGoTenant={(id) => { setTab("tenants"); setStatusFilter("all"); setVertFilter("all"); setTrialFilter("all"); setTimeout(() => document.querySelector(`[data-testid="tenant-row-${id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 150); }} />
         <MiraVoiceAssistant onGoTab={setTab} />
       </>}>
-        <DeployBanner />
-        {tab === "mira-home" && <SuperProfileCard />}
+        <div className="hq-l empty:hidden"><DeployBanner /></div>
+        {tab === "mira-home" && <div className="hq-l"><SuperProfileCard /></div>}
         <div className="flex-1 min-w-0 w-full space-y-6">
 
         {(() => {

@@ -96,6 +96,7 @@ export default function Dashboard() {
   const [data, setData] = useState(() => readDashCache(dashCacheKey(tenant?.id, getSelectedBranch())));
   const [loadMs, setLoadMs] = useState(0);
   const [serverMs, setServerMs] = useState(0);
+  const [wireMs, setWireMs] = useState(0);
   const [settled, setSettled] = useState(false);
   const [showMonth, setShowMonth] = useState(false);
   const [blastOpen, setBlastOpen] = useState(false);
@@ -121,6 +122,12 @@ export default function Dashboard() {
           setLoadMs(Math.max(50, Math.round(performance.now() - t0)));
           const st = /dur=([\d.]+)/.exec(r.headers?.["server-timing"] || "");
           setServerMs(st ? Math.round(Number(st[1])) : 0);
+          // Browser-measured wire time for this exact request — separates the network from time the device
+          // spent busy (chunk parsing, rendering) before the response could be handled.
+          try {
+            const res = performance.getEntriesByType("resource").filter(e => e.name.includes("/api/reports/dashboard")).pop();
+            setWireMs(res ? Math.round(res.duration) : 0);
+          } catch { setWireMs(0); }
           try { sessionStorage.setItem(key, JSON.stringify(r.data)); } catch { /* quota */ }
         })
         .catch(e => {
@@ -205,7 +212,7 @@ export default function Dashboard() {
   return (
     <div className="gold-night-canvas relative isolate overflow-hidden -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-4rem)] text-slate-800 space-y-6" data-vertical={tenant?.business_type === "restaurant" ? "restaurant" : "salon"} data-testid="dashboard-page">
       <DashboardAurora />
-      <DashboardHero user={user} tenant={tenant} slug={slug} data={data} bookingUrl={bookingUrl} onCopy={copyLink} inr={inr} loadMs={isOwner ? loadMs : 0} serverMs={serverMs} />
+      <DashboardHero user={user} tenant={tenant} slug={slug} data={data} bookingUrl={bookingUrl} onCopy={copyLink} inr={inr} loadMs={isOwner ? loadMs : 0} serverMs={serverMs} wireMs={wireMs} />
       {isOwner && <WaCreditsBanner />}
 
       {/* KPIs */}

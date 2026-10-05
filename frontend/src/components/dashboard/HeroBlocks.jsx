@@ -26,7 +26,7 @@ const RESTO_QUOTES = [
   ["Serve with heart and the reviews write themselves.", "Mira AI"],
 ];
 
-export function DashboardHero({ user, tenant, slug, data, bookingUrl, onCopy, inr, loadMs, serverMs }) {
+export function DashboardHero({ user, tenant, slug, data, bookingUrl, onCopy, inr, loadMs, serverMs, wireMs }) {
   const resto = tenant?.business_type === "restaurant";
   const salonUrl = slug ? `${window.location.origin}/salon/${slug}` : "";
   const pageLabel = resto ? "Restaurant page" : "Salon page";
@@ -43,7 +43,7 @@ export function DashboardHero({ user, tenant, slug, data, bookingUrl, onCopy, in
       <div className="absolute inset-0 rounded-3xl ring-1 ring-inset ring-[#d4af37]/35 pointer-events-none" />
       <div className="relative p-6 sm:p-8 grid lg:grid-cols-[1.4fr_.8fr] gap-6 items-end">
         <div>
-          <div className="font-playfair text-2xl sm:text-3xl text-[#f3e5ab]/90">{greeting()},<SpeedPulse ms={loadMs} serverMs={serverMs} /></div>
+          <div className="font-playfair text-2xl sm:text-3xl text-[#f3e5ab]/90">{greeting()},<SpeedPulse ms={loadMs} serverMs={serverMs} wireMs={wireMs} /></div>
           <h1 className="font-playfair text-4xl sm:text-5xl lg:text-6xl leading-[1.02] mt-1" data-testid="dashboard-welcome-heading">
             {(user?.name || "Salon Admin").split(" ").slice(0, 2).join(" ")} <span className="text-[#e8c56a]">✦</span>
           </h1>

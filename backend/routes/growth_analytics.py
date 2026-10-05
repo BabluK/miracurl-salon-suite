@@ -42,12 +42,23 @@ class VisitIn(BaseModel):
     utm_medium: str | None = Field(None, max_length=40)
 
 
+_SELF_REFS = ("app.emergent.sh", "emergent.sh", "emergentagent.com")
+
+
+_NOT_SELF = {"ref": {"$nin": list(_SELF_REFS)}}  # rows logged before the beacon learned to skip the builder's own traffic
+
+
+def _is_self_ref(ref: str) -> bool:
+    ref = (ref or "").lower()
+    return any(ref == d or ref.endswith("." + d) for d in _SELF_REFS)
+
+
 @router.post("/public/visit", status_code=204)
 async def log_visit(body: VisitIn, request: Request):
     """Lightweight beacon from marketing pages. Returns 204 even for ignored paths so the client never retries."""
     await public_rate_limit(request, key_suffix="visit", limit=240, window_sec=600)
     path = body.path.split("?")[0][:200]
-    if not _VID_RE.match(body.vid) or not _is_marketing(path):
+    if not _VID_RE.match(body.vid) or not _is_marketing(path) or _is_self_ref(body.ref):
         return Response(status_code=204)
     try:
         await global_daily_cap("visit_beacon", 50000)
@@ -64,7 +75,7 @@ async def log_visit(body: VisitIn, request: Request):
 
 async def _window_stats(start: datetime, end: datetime) -> dict:
     s, e = start.isoformat(), end.isoformat()
-    match = {"created_at": {"$gte": s, "$lt": e}}
+    match = {"created_at": {"$gte": s, "$lt": e}, **_NOT_SELF}
     pipeline = [{"$match": match}, {"$group": {"_id": None, "views": {"$sum": 1}, "visitors": {"$addToSet": "$vid"},
                                              "signup_visitors": {"$addToSet": {"$cond": ["$signup_page", "$vid", None]}}}}]
     agg = await _raw_db.site_visits.aggregate(pipeline).to_list(1)
@@ -102,11 +113,11 @@ async def traffic_conversion(user=Depends(require_super_admin)):
     projected = round(cur["visitors"] / elapsed * days_in_month)
     since = (now - timedelta(days=30)).date().isoformat()
     daily = await _raw_db.site_visits.aggregate([
-        {"$match": {"day": {"$gte": since}}},
+        {"$match": {"day": {"$gte": since}, **_NOT_SELF}},
         {"$group": {"_id": "$day", "visitors": {"$addToSet": "$vid"}}},
         {"$project": {"_id": 0, "day": "$_id", "visitors": {"$size": "$visitors"}}}, {"$sort": {"day": 1}}]).to_list(40)
     refs = await _raw_db.site_visits.aggregate([
-        {"$match": {"created_at": {"$gte": month_start.isoformat()}, "ref": {"$nin": ["", None]}}},
+        {"$match": {"created_at": {"$gte": month_start.isoformat()}, "ref": {"$nin": ["", None, *_SELF_REFS]}}},
         {"$group": {"_id": "$ref", "n": {"$sum": 1}}}, {"$sort": {"n": -1}}, {"$limit": 5}]).to_list(5)
     sources = await _raw_db.site_visits.aggregate([
         {"$match": {"created_at": {"$gte": month_start.isoformat()}, "utm_source": {"$nin": ["", None]}}},

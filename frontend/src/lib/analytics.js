@@ -41,14 +41,18 @@ function visitorId() {
   return v;
 }
 
-// First-party page visit (HQ "Traffic vs Conversion" card). Existing customers (tenant slug stored) are not prospects — skipped.
+// First-party page visit (HQ "Traffic vs Conversion" card). Not prospects, so skipped: existing customers (tenant slug stored),
+// the Boss's own device (HQ login seen), automation browsers, and anyone arriving from the Emergent builder.
+const SELF_REFS = ["app.emergent.sh", "emergent.sh", "emergentagent.com"];
 export function logVisit(pathname) {
   try {
-    if (!isMarketing(pathname) || localStorage.getItem("miracurl_tenant")) return;
+    if (!isMarketing(pathname) || localStorage.getItem("miracurl_tenant") || localStorage.getItem("miracurl_hq_device")) return;
+    if (navigator.webdriver) return;
     const q = new URLSearchParams(window.location.search);
     let ref = "";
     try { ref = document.referrer ? new URL(document.referrer).host : ""; } catch { ref = ""; }
     if (ref === window.location.host) ref = "";
+    if (SELF_REFS.some(d => ref === d || ref.endsWith(`.${d}`))) return;
     const body = JSON.stringify({
       vid: visitorId(), path: pathname, ref, region: localStorage.getItem("miracurl_region") || detectRegion(),
       utm_source: q.get("utm_source") || undefined, utm_medium: q.get("utm_medium") || undefined,
