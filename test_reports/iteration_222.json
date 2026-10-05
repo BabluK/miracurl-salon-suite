@@ -1,0 +1,36 @@
+{
+  "summary": "Iter 222 — (1) Mira Memory Panel inline CRUD, (2) Mira Home dark deck re-skin, (3) /public/visit self-ref filter, (4) tenant dashboard SpeedPulse breakdown. All 8 backend pytest cases passed (test_iter222_mira_memory_and_self_ref.py) and all Playwright UI assertions passed. Backend: GET/POST/PUT/DELETE /api/super-admin/mira/memory full CRUD validated with persistence re-reads; PUT invalid id returns 404; POST /api/public/visit with ref='app.emergent.sh' AND with 'hair-hub-system.preview.emergentagent.com' (subdomain of emergentagent.com) returned 204 and did NOT increment /super-admin/traffic-conversion current.visitors, while ref='google.com' with /pricing + fresh 12-char vid DID increment visitors by exactly 1. UI (Super admin → /super-admin Mira Home): face-skip clicked, [data-testid=mira-home] has class 'mira-deck', [data-testid=mira-memory-panel] visible in right column with memory-count=5→6 after add. Added memory via memory-cat-select='goals' + memory-add-input + memory-add-btn; new row rendered with memory-source-{id} badge text 'BOSS' (uppercased via CSS tracking) and memory-cat-{id}='goals'. memory-filter-auto hid Boss memory; memory-filter-boss showed it; memory-filter-all restored. Inline edit via memory-edit-{id}→memory-edit-input-{id}→memory-save-{id} updated memory-text-{id}; cancel path via memory-cancel-{id} preserved prior text (did NOT save 'SHOULD_NOT_SAVE'). memory-del-{id} removed row and memory-count reverted 6→5. [data-testid=open-memory-vault] button (label '🧠 Memory') in Current Task panel scrolled to the panel and focused memory-add-input (document.activeElement data-testid confirmed), no face-enroll-modal opened. Visual: computed color of [data-testid=mira-status-panel] = rgb(244,246,255) (sum 745, well above 400 light threshold) — confirms deck text is light, not dark #1f2937. main.className on Mira Home does NOT contain 'hq-l'; after switching to Tenants tab main.className DOES contain 'hq-l' (light cream theme preserved). Tenant dashboard (admin@miracurl.com via ?tenant=miracurl-marathahalli, closed What's New with 'Got it'): [data-testid=dashboard-speed-pulse] text = 'Loaded in 191ms · server 23ms · network 62ms · device 106ms' — all three segments present (device shown because 106ms ≥ 80ms threshold). After full reload as returning owner, final URL = /dashboard (no redirect loop); SpeedPulse re-rendered correctly.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Tenant Dashboard", "issues": ["React hydration warning in console: '<span> cannot be a child of <option>' — some shadcn Select renders a <span> inside <option>, causing hydration mismatch. Non-blocking but should be cleaned up.", "Recharts warning 'width(-1) and height(-1) of chart should be greater than 0' fires on initial mount — likely a chart container measured before layout; harmless but noisy."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter222_mira_memory_and_self_ref.py",
+    "/app/test_reports/pytest/iter222.xml"
+  ],
+  "action_items": [
+    "(Minor) Silence React hydration warning on tenant dashboard: find the shadcn <Select>/<option> that wraps a <span> child and swap to text or move the span outside <option>.",
+    "(Minor) Guard Recharts ResponsiveContainer with minWidth/minHeight to kill the width(-1)/height(-1) console warning on first mount."
+  ],
+  "critical_code_review_comments": [
+    "MiraMemoryPanel.jsx line 97 — counts.boss is computed as all.filter(m => !isAuto(m)).length; if a boss memory has source===undefined this works, but any future source value other than 'auto' falls into Boss. Consider explicit source==='boss' or default classification.",
+    "MiraMemoryPanel.jsx line 48 — Escape key only resets inside the input (keyDown); the dedicated cancel button also works, but the save button Enter path triggers save() even when text is whitespace — guard already present (text.trim().length<2) but trimmed version is not stored into state so hitting Enter twice re-sends the same request.",
+    "growth_analytics.py _is_self_ref — case-insensitive but does not strip ports or path from ref; refs like 'app.emergent.sh:443' or 'app.emergent.sh/foo' would slip through. Low risk since browsers send host-only Referer host, but worth tightening with urlparse.",
+    "mira_hq.py mira_memory_add line 713 — doc.pop('_id', None) is called AFTER insert_one on {**doc}, so the local 'doc' never carried _id in the first place; the pop is dead code (harmless)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter222_mira_memory_and_self_ref.py (NEW)",
+    "/app/test_reports/iteration_222.json (NEW)"
+  ],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% (all Mira memory CRUD + deck theme + SpeedPulse assertions)"},
+  "test_credentials": "Super admin admin@miracurl-suite.com / og9T@41Es#OQb6; Salon admin admin@miracurl.com / q6QY@tn3p#9DtL (used via ?tenant=miracurl-marathahalli query param since preview is single-host). CSRF via X-CSRF-Token header echoing csrf_token cookie.",
+  "seed_data_creation": "Backend tests created 1 mira_memory doc (TEST_iter222…) and deleted it via DELETE endpoint; also inserted 1 legitimate site_visits row (ref=google.com, path=/pricing) that will auto-roll off at month boundary — not cleaned (harmless, 1 row). UI test created 1 memory (TEST_ui222b note) and deleted it via UI. No lingering tenants.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Mira Memory Panel source badge is uppercased by CSS tracking (class 'uppercase'); innerText returns 'BOSS'/'LEARNED' — always compare case-insensitively. Preview deploy is single-host so tenant subdomains don't resolve — use ?tenant={slug} query param or go through app subdomain middleware. Dashboard SpeedPulse 'device' segment only renders when device≥80ms (test env regularly exceeds 80ms, so segment reliably present). Timeline log at /super-admin/mira/home will keep showing 'Boss saved a memory …' events for deleted memories — that's intentional (timeline is immutable; mira_memory and mira_timeline are separate collections).",
+  "rca of the issue": "N/A — no bugs found in iteration 222 scope."
+}
