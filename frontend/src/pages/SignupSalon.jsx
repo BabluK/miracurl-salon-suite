@@ -12,7 +12,7 @@ import { SignupSidePanel } from "@/components/signup/SignupSidePanel";
 import ChatButton from "@/components/ChatButton";
 import { useAuth } from "@/context/AuthContext";
 import { setTenantSlug } from "@/lib/api";
-import { detectRegion, currentRegion, rememberRegion } from "@/lib/region";
+import { detectRegion, currentRegion, rememberRegion, resolveGeoRegion } from "@/lib/region";
 import { PasswordStrength, isStrongPassword } from "@/components/auth/PasswordStrength";
 import { trackSignup, trackFunnel } from "@/lib/analytics";
 
@@ -48,7 +48,8 @@ export default function SignupSalon() {
     return parsed;
   });
   const locked = !!pathRegion;
-  const detectedRegion = detectRegion();
+  const [detectedRegion, setDetectedRegion] = useState(detectRegion);
+  useEffect(() => { resolveGeoRegion().then(r => { if (r) setDetectedRegion(r); }); }, []);
   const [regionHintDismissed, setRegionHintDismissed] = useState(() => sessionStorage.getItem("miracurl_region_hint") === "1");
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -226,7 +227,7 @@ export default function SignupSalon() {
       <div className="h-[72px] sm:h-20" aria-hidden="true" />
 
       <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10 pb-20 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-12 xl:gap-16 items-start">
-        <div className="hidden lg:block"><SignupSidePanel resto={isRestoTheme} isIntl={isIntl} /></div>
+        <div className="hidden lg:block"><SignupSidePanel resto={isRestoTheme} isIntl={isIntl} catalog={catalog} /></div>
         <div className="min-w-0">
         <div className="mb-4 flex flex-col items-center gap-2" data-testid="signup-page-label">
           <div className="inline-flex flex-wrap justify-center gap-1 p-1 rounded-full bg-white border border-[#D9B878]/40 shadow-sm" data-testid="signup-switch-links">

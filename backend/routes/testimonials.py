@@ -2,7 +2,8 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+import httpx
 from pydantic import BaseModel, Field
 
 from database import _raw_db
@@ -92,3 +93,51 @@ async def public_platform_stats():
     data = {"salons": salons, "cities": max(cities, 1), "bookings": bookings, "invoices": invoices}
     _stats_cache.update(at=time.time(), data=data)
     return data
+
+
+_GEO_HEADERS = ("cf-ipcountry", "x-vercel-ip-country", "cloudfront-viewer-country", "x-country-code", "x-geo-country")
+_geo_cache: dict = {}
+
+
+def _client_ip(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for", "")
+    return (fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "")) or ""
+
+
+def _is_private_ip(ip: str) -> bool:
+    import ipaddress
+    try:
+        return ipaddress.ip_address(ip).is_private or ipaddress.ip_address(ip).is_loopback
+    except ValueError:
+        return True
+
+
+async def _lookup_country(ip: str) -> str:
+    if ip in _geo_cache:
+        return _geo_cache[ip]
+    country = ""
+    async with httpx.AsyncClient(timeout=2.5, headers={"User-Agent": "miracurl-suite/1.0"}) as cx:
+        for url, pick in ((f"https://ipapi.co/{ip}/country/", lambda r: r.text.strip()),
+                          (f"https://ipwho.is/{ip}", lambda r: (r.json().get("country_code") or ""))):
+            try:
+                r = await cx.get(url)
+                val = pick(r).upper() if r.status_code == 200 else ""
+                if len(val) == 2 and val.isalpha():
+                    country = val
+                    break
+            except Exception:  # noqa: BLE001 — geo is best-effort
+                continue
+    if len(_geo_cache) > 5000:
+        _geo_cache.clear()
+    _geo_cache[ip] = country
+    return country
+
+
+@router.get("/public/geo")
+async def public_geo(request: Request):
+    """Visitor country (edge header → IP lookup) so the landing/signup pages show ₹ or $ pricing automatically."""
+    country = next((request.headers[h].upper() for h in _GEO_HEADERS if request.headers.get(h)), "")
+    ip = _client_ip(request)
+    if not country and ip and not _is_private_ip(ip):
+        country = await _lookup_country(ip)
+    return {"country": country or None, "region": "in" if country == "IN" else ("intl" if country else None)}

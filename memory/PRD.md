@@ -3972,3 +3972,12 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - `PartnerGrid.jsx`: removed deprecated dark variant (Landing was rendering white-on-cream). Single cream/gold card style, uniform heights, 5-star rating row, footer row only when trusted/owner-review exists. Used by Landing + /partners.
 - `MiracurlProductsStrip.jsx`: added `light` prop (Landing uses light; public booking page keeps dark).
 - `UsLanding.jsx`: "Why owners switch" cards + mobile sticky CTA converted from black to cream.
+
+## 2026-10-05 — Premium landing redesign + signup side panel + geo pricing
+- Hero (`TwoDoorHero.jsx`): left headline column + two photo "door" cards (badge, live chip, CSS phone/tablet mock, 9 feature chips, "Starts from" price from catalog, gradient CTA) + live trust row (platform-stats).
+- `VerticalSection.jsx` (new): Salon/Restaurant suite sections with photo showcase + 8/6 feature tiles containing CSS mini-mockups (`MiniMocks.jsx`). Old stats strip removed.
+- `PartnerGrid.jsx`: featured-partner hover spotlight (quote + Book here → /book/{slug}); gold monogram stays until logo paints.
+- Backend: `_fold_lead/_rank_buckets`, `_outreach_counts`, `_own_identity/_is_own_name/_is_own_contact` refactors (iteration_226 passed).
+- `GET /api/public/geo`: edge header → ipapi.co/ipwho.is IP country (cached). `lib/region.js` `resolveGeoRegion()` refines timezone guess; Landing + Signup use it unless the visitor made an explicit ₹/$ choice.
+- `SignupSidePanel.jsx` redesigned to match landing (photo showcase, gradient icon features, "Starts from" price via `startingPrice(catalog)`).
+- Images: /landing/hero-salon.jpg, hero-restaurant.jpg, salon-suite.jpg, restaurant-suite.jpg (Gemini generated, compressed).

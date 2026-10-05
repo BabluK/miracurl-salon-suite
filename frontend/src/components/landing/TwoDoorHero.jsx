@@ -42,15 +42,15 @@ function DoorCard({ d, region, cur }) {
         </div>
       </div>
       <div className="p-5 sm:p-6 flex flex-col flex-1">
-        <ul className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-2.5" data-testid={`${d.testid}-features`}>
+        <ul className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-2.5 mb-6" data-testid={`${d.testid}-features`}>
           {d.features.map(([I, t]) => (
             <li key={t} className="flex items-center gap-2 text-[11.5px] font-medium text-slate-700 leading-tight min-w-0">
               <span className={`w-6 h-6 rounded-md ${d.chipTone} flex items-center justify-center shrink-0`}><I className="w-3.5 h-3.5" /></span><span>{t}</span>
             </li>
           ))}
         </ul>
-        <div className="mt-6 pt-5 border-t border-[#f3ead8] flex items-end justify-between gap-4">
-          <div className="leading-none">
+        <div className="mt-auto pt-5 border-t border-[#f3ead8] flex items-end justify-between gap-4">
+          <div className="leading-none pt-1">
             <div className="text-[12px] text-slate-500 font-medium">Starts from</div>
             <div className="mt-1.5 flex items-baseline gap-0.5"><span className="font-outfit text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight" data-testid={`${d.testid}-price`}>{d.from || "—"}</span><span className="text-sm font-bold text-slate-600">/mo</span></div>
           </div>

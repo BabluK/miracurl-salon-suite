@@ -1,0 +1,42 @@
+{
+  "summary": "iter-226 full-stack regression for the landing redesign (TwoDoorHero + VerticalSection), Trusted Partners spotlight/logo fallback, and the refactored backend endpoints (lead_history, wa_outreach_history, _own_business_filter). Backend: 7/7 pytest cases pass. Frontend: all data-testids present and correct, mobile 390 scrollWidth==390 (no horizontal overflow), desktop door feature chips wrap cleanly. Spotlight-reveal on hover could not be functionally validated because /api/public/partners currently returns featured:false for ALL 7 partners (data gap, not a code bug) — but the inverse requirement (non-featured cards do NOT render partner-spotlight-{id}) is confirmed for every card.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Mobile 390 landing", "issues": ["Four decorative absolutely-positioned elements extend past viewport right edge (gold monogram ::after span, header pill `Start free trial`, decorative blur -right-20) but documentElement.scrollWidth still equals 390 because they are clipped by overflow-x containment. No functional impact. Flag only if visual bleed is reported."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter226_landing_and_refactor.py",
+    "/app/test_reports/pytest/iter226.xml"
+  ],
+  "action_items": [
+    "Seed/mark at least one partner as featured=true in /api/public/partners so the group-hover spotlight (partner-spotlight-{id}) UX can be fully exercised. Currently all 7 partners come back featured:false, so the spotlight panel is never rendered in the DOM. Code path in PartnerGrid.jsx looks correct (non-featured correctly skip spotlight), but the end-to-end hover reveal is dormant in preview."
+  ],
+  "critical_code_review_comments": [
+    "routes/lead_history.py & lead_wa_outreach.py refactor is behavior-preserving: all contract keys (stale_days, verticals.{salon,restaurant}.{label,total,countries[].cities[[city,count]]}, stale sorted desc days_silent, total; items + counts {meta,manual,not_on_wa,replied}) returned exactly as specified. channel=meta filter correctly scopes items.",
+    "routes/lead_gen._own_business_filter() still returns a closure that correctly matches tenant display name (Miracurl Unisex Family Salon -> True) and rejects random names (Zzz Unknown Salon XYZ -> False).",
+    "Landing.jsx is 668 lines (per iter-225 note); after this redesign it still works but is approaching the 700-line soft limit — recommend extracting TrustedPartnersSection/CeoSection/VideoLightbox before next major landing feature.",
+    "TwoDoorHero: hero-h1 text already matches new copy exactly ('One Suite.\\nTwo Businesses.\\nSalon or Restaurant — Pick Yours.'). 4 benefits, 9 feature chips per door, prices wired from /api/public/plans ($19 salon / $45 restaurant in US), CTAs route correctly to /signup-salon-us & /signup-restaurant-us.",
+    "hero-trust-row correctly reflects live platform-stats ('Trusted by 9 Businesses' matches API).",
+    "Non-functional (pre-existing): CSP violations for inline scripts (Emergent injectors) and anonymous 401s on protected APIs — unchanged from iter-225; NOT introduced by this iteration."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter226_landing_and_refactor.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (7/7 pytest cases)",
+    "frontend": "100% on in-scope data-testid + layout checks; spotlight hover reveal untestable due to data (no featured partner)"
+  },
+  "test_credentials": "Super-Admin: admin@miracurl-suite.com / og9T@41Es#OQb6 (from /app/memory/test_credentials.md — note: request's 'Super@Miracurl123' is stale; actual password used from memory file).",
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend auth is httpOnly-cookie JWT; /api/auth/login does NOT return a token field — use a requests.Session() so cookies auto-persist (see test file auth_session fixture). routes.lead_gen._own_business_filter is async and returns a sync lambda(candidate_dict). The test file loads /app/backend/.env via python-dotenv at module top so MONGO_URL is available for the own-business-filter test. All 7 partners currently returned by /api/public/partners have featured:false so partner-spotlight-{id} / partner-book-{id} elements are never rendered — ask main agent to mark at least one partner featured=true in Mongo if the hover-reveal UX needs E2E verification.",
+  "rca of the issue": "N/A — no bugs. Only action item is a seed-data gap preventing full E2E of the featured-partner spotlight."
+}

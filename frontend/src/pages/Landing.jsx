@@ -4,7 +4,7 @@ import { Star, ArrowRight, Check, Sparkles, Gift, Zap, Play, X, Mail, Instagram,
 import SalesChatWidget from "@/components/SalesChatWidget";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
 import api from "@/lib/api";
-import { currentRegion, rememberRegion, signupHref } from "@/lib/region";
+import { currentRegion, rememberRegion, signupHref, hasRegionChoice, resolveGeoRegion } from "@/lib/region";
 import { track, trackCta } from "@/lib/analytics";
 import { COPY } from "@/components/landing/landingCopy";
 import { UsWhySwitch, UsStickyCta } from "@/components/landing/UsLanding";
@@ -344,6 +344,8 @@ export default function Landing({ scrollTo }) {
     api.get("/public/testimonials").then(r => setLiveTestimonials(r.data.testimonials || [])).catch(() => {});
     api.get("/public/site-info").then(r => setSite(r.data)).catch(() => {});
     api.get("/public/platform-stats").then(r => setStats(r.data)).catch(() => {});
+    // No explicit ₹/$ choice yet → refine the timezone guess with the visitor's IP country.
+    if (!hasRegionChoice()) resolveGeoRegion().then(r => { if (r) setRegion(r); });
   }, []);
   useEffect(() => {
     const device = window.matchMedia("(max-width: 640px)").matches ? "mobile" : "desktop";
