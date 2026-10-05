@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { LeadSheet } from "./LeadSheet";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Bot, Search, Loader2, Send, X, ChevronDown, ChevronUp, Star, Globe, Trash2, MessageCircle, Video, Phone, BellRing, FileText, Target, BadgeCheck, Mail, CalendarCheck, Trophy, Sparkles } from "lucide-react";
@@ -447,6 +448,9 @@ export function MiraLeadAgent() {
   const [scope, setScope] = useState("all");
   const [filter, setFilter] = useState("all");
   const [intent, setIntent] = useState("all");      // all | HOT | WARM | COLD
+  const [sheet, setSheet] = useState(false);        // cards | spreadsheet
+  const [autoOn, setAutoOn] = useState(null);
+  useEffect(() => { api.get("/super-admin/mira/outreach/summary").then(r => setAutoOn(!!r.data?.settings?.enabled)).catch(() => {}); }, []);
   const [software, setSoftware] = useState("all");  // all | none | <software name>
   const [section, setSection] = useState("search");
   const [blastOpen, setBlastOpen] = useState(false);
@@ -603,7 +607,11 @@ export function MiraLeadAgent() {
                   {l} <span className={`ml-1 ${intent === k ? "opacity-70" : "text-slate-400"}`}>{intentCounts[k]}</span>
                 </button>
               ))}
-              <label className="ml-auto flex items-center gap-2 text-[11px] text-slate-500">
+              <button onClick={() => setSheet(v => !v)} data-testid="lead-view-toggle"
+                className={`ml-auto px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${sheet ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"}`}>
+                {sheet ? "🗂 Cards view" : "📊 Sheet view"}
+              </button>
+              <label className="flex items-center gap-2 text-[11px] text-slate-500">
                 Software
                 <select value={software} onChange={e => setSoftware(e.target.value)} data-testid="lead-software-filter"
                   className="text-xs border border-slate-200 rounded-full px-3 py-1.5 bg-white text-slate-700 focus:outline-none focus:border-fuchsia-300">
@@ -613,12 +621,14 @@ export function MiraLeadAgent() {
                 </select>
               </label>
             </div>
+            {sheet ? <LeadSheet leads={shownLeads} autopilotOn={autoOn} /> : (
             <div className="space-y-2 pt-1">
               {leads.length === 0 && <p className="text-sm text-slate-400 text-center py-8">No leads yet — run Mira above to find your first salons or restaurants.</p>}
               {leads.length > 0 && shownLeads.length === 0 && <p className="text-sm text-slate-400 text-center py-8" data-testid="lead-filter-empty">No leads match this view{scope === "recent" ? " — the latest search found no leads yet" : ""}.</p>}
               {shownLeads.slice(0, 150).map(l => <LeadRow key={l.id} lead={l} waStatus={wa?.template_status} onRefresh={() => refresh().catch(() => {})} />)}
               {shownLeads.length > 150 && <p className="text-xs text-slate-400 text-center py-2">Showing the first 150 — narrow the view to see the rest.</p>}
             </div>
+            )}
           </div>
         </>
       )}

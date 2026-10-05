@@ -395,6 +395,17 @@ async def _draft_email(lead: dict, notes: str | None = None) -> dict:
     user_prompt += ('\n\nA/B TEST: besides "subject", also return "subject_b" — a second subject line for the SAME email with a '
                     'DIFFERENT angle (if A compliments their rating/name, B uses a money/time/FOMO angle, or vice versa). '
                     'Same rules: personalized, ONE emoji, max 60 chars. Final JSON keys: subject, subject_b, body.')
+    if _lead_intl(lead.get("city")):
+        user_prompt += ("\n\nREGION: this business is OUTSIDE India. Never mention GST, ₹, Aadhaar, UPI or Hindi. "
+                        "Say 'tax-ready billing', quote prices in their currency from the plans above, and use email/WhatsApp reminders wording.")
+    sw = lead.get("current_software") or lead.get("competitor") or ""
+    if sw:
+        from services.lead_intent import SWITCH_ANGLES
+        user_prompt += (f"\n\nSOFTWARE SWITCH PITCH: this {vertical} currently uses {sw}. Open by acknowledging that (e.g. 'Moving from {sw}?' / "
+                        f"'Still on {sw}?') and position Miracurl as the upgrade. Angle: {SWITCH_ANGLES.get(sw, '0% commission, everything in one plan, Mira AI receptionist')}. "
+                        "Be respectful of their current tool, no invented figures about it, keep it to 1-2 sentences, mention we migrate their client list for free.")
+    elif lead.get("outreach_angle"):
+        user_prompt += f"\n\nSUGGESTED ANGLE: {lead['outreach_angle']}"
     if notes:
         user_prompt += f"\n\nBOSS'S WORDING INSTRUCTIONS (follow these strictly, they override the style rules above): {notes}"
     from services.mira_brain import brain_prompt
@@ -1009,7 +1020,7 @@ async def rescore_intent(user=Depends(require_super_admin)):
         n[enriched["intent"]] += 1
         await _raw_db.mira_leads.update_one({"id": ld["id"]}, {"$set": {k: enriched[k] for k in (
             "country", "current_software", "locations_count", "team_size", "booking_link", "public_email", "whatsapp",
-            "intent", "intent_reasons", "intent_score")}})
+            "intent", "intent_reasons", "intent_score", "outreach_angle", "fit_reason", "platform_signal")}})
     return {"ok": True, "counts": n}
 
 
