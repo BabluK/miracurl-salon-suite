@@ -3960,3 +3960,6 @@ This drives Super Admin → Deployments history, the footer tag, the "What's New
 - Welcome emails (salon + restaurant) rebranded to the cream/gold shell (ring logo header, gold CTA). /success-stories re-skinned light with SiteHeader.
 - CRM: POST /customers/bulk-delete {ids} (tenant-scoped) + "Delete selected (N)" button on /customers (uses in-app askConfirm modal, not window.confirm).
 - Tests: iteration_100.json (backend 6/7 → the 1 failure fixed; frontend all selectors pass).
+
+## 2026-10-05 — Intent filter tabs
+- MiraLeadAgent: new "Intent" row (All / 🔥 HOT / 🟠 WARM / 🔵 COLD with counts, `lead-intent-{all|hot|warm|cold}`) + "Software" select (`lead-software-filter`: All / No software detected / each detected tool with counts); list sorted by intent_score. `lead_intent.intent_for`: `new_business` with ≤5 reviews → HOT "newly opened"; 6–15 reviews → WARM "young business · no system yet".

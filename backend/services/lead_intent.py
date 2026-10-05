@@ -43,7 +43,8 @@ def intent_for(lead: dict) -> tuple[str, list[str]]:
     locations = int(lead.get("locations_count") or lead.get("branches") or 1)
     followers = int(lead.get("instagram_followers") or 0)
     hot = False
-    if lead.get("newly_opened") or any(w in text for w in _NEW_WORDS):
+    reviews = int(lead.get("reviews") or 0)
+    if lead.get("newly_opened") or any(w in text for w in _NEW_WORDS) or (lead.get("new_business") and reviews <= 5):
         hot = True
         reasons.append("newly opened")
     if lead.get("looking_to_switch") or any(w in text for w in _SWITCH_WORDS):
@@ -56,6 +57,8 @@ def intent_for(lead: dict) -> tuple[str, list[str]]:
         return "HOT", reasons
     if software:
         reasons.append(f"already uses {software}")
+    if lead.get("new_business"):
+        reasons.append(f"young business ({reviews} reviews) · no system yet")
     if team >= 5:
         reasons.append(f"team of {team}")
     if locations >= 2:

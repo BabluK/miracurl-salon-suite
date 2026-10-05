@@ -446,6 +446,8 @@ export function MiraLeadAgent() {
   const [starting, setStarting] = useState(false);
   const [scope, setScope] = useState("all");
   const [filter, setFilter] = useState("all");
+  const [intent, setIntent] = useState("all");      // all | HOT | WARM | COLD
+  const [software, setSoftware] = useState("all");  // all | none | <software name>
   const [section, setSection] = useState("search");
   const [blastOpen, setBlastOpen] = useState(false);
   const [wa, setWa] = useState(null);
@@ -530,7 +532,15 @@ export function MiraLeadAgent() {
   const scoped = leads.filter(scopeTest);
   const scopeCounts = Object.fromEntries(SCOPES.map(s => [s.key, leads.filter(s.test).length]));
   const counts = Object.fromEntries(FILTERS.map(f => [f.key, scoped.filter(f.test).length]));
-  const shownLeads = scoped.filter(FILTERS.find(f => f.key === filter)?.test || (() => true));
+  const statusLeads = scoped.filter(FILTERS.find(f => f.key === filter)?.test || (() => true));
+  const swOf = (l) => (l.current_software || l.competitor || "").trim();
+  const INTENTS = [["all", "All"], ["HOT", "🔥 HOT"], ["WARM", "🟠 WARM"], ["COLD", "🔵 COLD"]];
+  const intentCounts = Object.fromEntries(INTENTS.map(([k]) => [k, k === "all" ? statusLeads.length : statusLeads.filter(l => (l.intent || "COLD") === k).length]));
+  const intentLeads = statusLeads.filter(l => intent === "all" || (l.intent || "COLD") === intent);
+  const softwareOptions = Object.entries(intentLeads.reduce((m, l) => { const k = swOf(l); if (k) m[k] = (m[k] || 0) + 1; return m; }, {})).sort((a, b) => b[1] - a[1]);
+  const noSoftware = intentLeads.filter(l => !swOf(l)).length;
+  const shownLeads = intentLeads.filter(l => software === "all" || (software === "none" ? !swOf(l) : swOf(l) === software))
+    .sort((a, b) => (b.intent_score || 0) - (a.intent_score || 0));
 
   const Chip = ({ on, onClick, children, count, testid, tone = "fuchsia" }) => (
     <button onClick={onClick} data-testid={testid}
@@ -582,6 +592,26 @@ export function MiraLeadAgent() {
             <div className="flex flex-wrap items-center gap-2" data-testid="lead-filter-tabs">
               <span className="text-[10px] uppercase tracking-wide text-slate-400 w-14">Status</span>
               {FILTERS.map(f => <Chip key={f.key} on={filter === f.key} onClick={() => setFilter(f.key)} count={counts[f.key]} testid={`lead-filter-${f.key}`}>{f.label}</Chip>)}
+            </div>
+            <div className="flex flex-wrap items-center gap-2" data-testid="lead-intent-tabs">
+              <span className="text-[10px] uppercase tracking-wide text-slate-400 w-14">Intent</span>
+              {INTENTS.map(([k, l]) => (
+                <button key={k} onClick={() => setIntent(k)} data-testid={`lead-intent-${k.toLowerCase()}`}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${intent === k
+                    ? (k === "HOT" ? "bg-rose-600 text-white border-rose-600" : k === "WARM" ? "bg-orange-500 text-white border-orange-500" : k === "COLD" ? "bg-sky-600 text-white border-sky-600" : "bg-slate-800 text-white border-slate-800")
+                    : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"}`}>
+                  {l} <span className={`ml-1 ${intent === k ? "opacity-70" : "text-slate-400"}`}>{intentCounts[k]}</span>
+                </button>
+              ))}
+              <label className="ml-auto flex items-center gap-2 text-[11px] text-slate-500">
+                Software
+                <select value={software} onChange={e => setSoftware(e.target.value)} data-testid="lead-software-filter"
+                  className="text-xs border border-slate-200 rounded-full px-3 py-1.5 bg-white text-slate-700 focus:outline-none focus:border-fuchsia-300">
+                  <option value="all">All ({intentLeads.length})</option>
+                  <option value="none">No software detected ({noSoftware})</option>
+                  {softwareOptions.map(([k, n]) => <option key={k} value={k}>{k} ({n})</option>)}
+                </select>
+              </label>
             </div>
             <div className="space-y-2 pt-1">
               {leads.length === 0 && <p className="text-sm text-slate-400 text-center py-8">No leads yet — run Mira above to find your first salons or restaurants.</p>}
