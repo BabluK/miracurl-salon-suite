@@ -13,7 +13,7 @@ from security import global_daily_cap, public_rate_limit, require_super_admin
 router = APIRouter()
 
 MARKETING_PREFIXES = ("/", "/pricing", "/features", "/restaurant", "/signup-", "/blog", "/about-us", "/who-can-use",
-                      "/mira.ai", "/contact-us", "/success-stories", "/products", "/ceo", "/demo", "/partner")
+                      "/contact-us", "/success-stories", "/products", "/ceo", "/demo", "/partner")
 SIGNUP_PAGES = {
     "salon-india": ("Salon · India", "/signup-salon-india", "₹ INR pricing · 30-day free trial"),
     "salon-us": ("Salon · US / International", "/signup-salon-us", "$ USD pricing · 30-day free trial"),
@@ -38,6 +38,7 @@ class VisitIn(BaseModel):
     path: str = Field(..., max_length=200)
     ref: str | None = Field(None, max_length=120)
     region: str | None = Field(None, pattern="^(in|intl)$")
+    device: str | None = Field(None, pattern="^(mobile|desktop)$")
     utm_source: str | None = Field(None, max_length=40)
     utm_medium: str | None = Field(None, max_length=40)
 
@@ -66,7 +67,7 @@ async def log_visit(body: VisitIn, request: Request):
         return Response(status_code=204)
     now = datetime.now(timezone.utc)
     await _raw_db.site_visits.insert_one({
-        "vid": body.vid, "path": path, "ref": (body.ref or "")[:120], "region": body.region,
+        "vid": body.vid, "path": path, "ref": (body.ref or "")[:120], "region": body.region, "device": body.device,
         "utm_source": (body.utm_source or "")[:40], "utm_medium": (body.utm_medium or "")[:40],
         "signup_page": path.startswith("/signup-"), "day": now.date().isoformat(), "created_at": now.isoformat(), "created_ts": now,
     })
@@ -101,6 +102,29 @@ def _verdict(cur: dict, projected: int) -> dict:
     return {"kind": "healthy", "title": "Healthy funnel", "text": f"{cur['conversion_pct']}% of {cur['visitors']} visitors signed up — keep feeding the top of the funnel."}
 
 
+async def _region_segments(month_start: datetime) -> list[dict]:
+    """US/International vs India this month: visitors, mobile share, signup-page reach, top landing pages."""
+    match = {"created_at": {"$gte": month_start.isoformat()}, **_NOT_SELF}
+    rows = await _raw_db.site_visits.aggregate([
+        {"$match": match},
+        {"$group": {"_id": {"$ifNull": ["$region", "unknown"]}, "views": {"$sum": 1}, "visitors": {"$addToSet": "$vid"},
+                    "mobile": {"$addToSet": {"$cond": [{"$eq": ["$device", "mobile"]}, "$vid", None]}},
+                    "signup": {"$addToSet": {"$cond": ["$signup_page", "$vid", None]}}}}]).to_list(5)
+    paths = await _raw_db.site_visits.aggregate([
+        {"$match": match}, {"$group": {"_id": {"r": {"$ifNull": ["$region", "unknown"]}, "p": "$path"}, "n": {"$sum": 1}}},
+        {"$sort": {"n": -1}}]).to_list(200)
+    out = []
+    for r in rows:
+        visitors = len(r["visitors"])
+        mobile = len([v for v in r["mobile"] if v])
+        signup = len([v for v in r["signup"] if v])
+        top = [{"path": p["_id"]["p"], "n": p["n"]} for p in paths if p["_id"]["r"] == r["_id"]][:4]
+        out.append({"region": r["_id"], "label": {"intl": "US / International", "in": "India"}.get(r["_id"], "Unknown"),
+                    "views": r["views"], "visitors": visitors, "mobile_pct": round(mobile / visitors * 100) if visitors else 0,
+                    "signup_page_rate_pct": round(signup / visitors * 100, 1) if visitors else 0.0, "top_paths": top})
+    return sorted(out, key=lambda x: -x["visitors"])
+
+
 @router.get("/super-admin/traffic-conversion")
 async def traffic_conversion(user=Depends(require_super_admin)):
     now = datetime.now(timezone.utc)
@@ -124,7 +148,7 @@ async def traffic_conversion(user=Depends(require_super_admin)):
         {"$group": {"_id": "$utm_source", "n": {"$sum": 1}}}, {"$sort": {"n": -1}}, {"$limit": 5}]).to_list(5)
     return {"month": month_start.strftime("%B %Y"), "current": cur, "previous": prev, "projected_visitors": projected,
             "traffic_floor": TRAFFIC_FLOOR, "healthy_conversion_pct": HEALTHY_CONVERSION, "verdict": _verdict(cur, projected),
-            "daily": daily, "top_referrers": [{"ref": r["_id"], "n": r["n"]} for r in refs],
+            "daily": daily, "segments": await _region_segments(month_start), "top_referrers": [{"ref": r["_id"], "n": r["n"]} for r in refs],
             "top_sources": [{"source": r["_id"], "n": r["n"]} for r in sources],
             "ga4_url": "https://analytics.google.com/", "clarity_url": f"https://clarity.microsoft.com/projects/view/{os.environ.get('CLARITY_PROJECT_ID', '')}/dashboard"}
 

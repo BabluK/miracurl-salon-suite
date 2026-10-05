@@ -12,7 +12,7 @@ import { SignupSidePanel } from "@/components/signup/SignupSidePanel";
 import ChatButton from "@/components/ChatButton";
 import { useAuth } from "@/context/AuthContext";
 import { setTenantSlug } from "@/lib/api";
-import { detectRegion } from "@/lib/region";
+import { detectRegion, currentRegion, rememberRegion } from "@/lib/region";
 import { trackSignup, trackFunnel } from "@/lib/analytics";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -40,7 +40,7 @@ export default function SignupSalon() {
     const parsed = parseSignupPath(window.location.pathname);
     if (!parsed.pathRegion) {
       // Generic /signup-salon → land straight on the visitor's country page (timezone-detected)
-      const detected = (() => { try { return localStorage.getItem("miracurl_region") || detectRegion(); } catch { return detectRegion(); } })();
+      const detected = currentRegion();
       window.location.replace(signupPath(parsed.business_type, detected, true) + window.location.search);
       return { ...parsed, pathRegion: detected };
     }
@@ -56,15 +56,18 @@ export default function SignupSalon() {
   const [catalog, setCatalog] = useState(null);
   const trialDays = Number(catalog?.trial_days) || 30;
   const [region, setRegion] = useState(() => {
-    try {
-      if (pathRegion) { localStorage.setItem("miracurl_region", pathRegion); return pathRegion; }
-      const p = new URLSearchParams(window.location.search).get("region");
-      if (p === "in" || p === "intl") { localStorage.setItem("miracurl_region", p); return p; }
-      return localStorage.getItem("miracurl_region") || detectRegion();
-    } catch { return "in"; }
+    if (pathRegion) return pathRegion;
+    const p = new URLSearchParams(window.location.search).get("region");
+    return p === "in" || p === "intl" ? p : currentRegion();
   });
   const isIntl = region === "intl";
-  const pickRegion = (k) => { setRegion(k); try { localStorage.setItem("miracurl_region", k); } catch { /* private mode */ } };
+  const pickRegion = (k) => { setRegion(k); rememberRegion(k); };
+  // In-place switch between the 4 signup pages — no reload, typed form data survives; URL is synced by the effect below.
+  const switchTo = (t, r) => {
+    setForm(f => ({ ...f, business_type: t }));
+    pickRegion(r);
+    trackFunnel("signup_switch", { business_type: t, region: r, locked });
+  };
   useEffect(() => {
     axios.get(`${BACKEND_URL}/api/public/plans`).then(r => setCatalog(r.data)).catch(() => {});
   }, []);
@@ -229,7 +232,8 @@ export default function SignupSalon() {
             {SIGNUP_LINKS.map(([t, r, l]) => {
               const active = t === form.business_type && r === region;
               return (
-                <a key={t + r} href={signupPath(t, r, true)} data-testid={`signup-switch-${t}-${r}`} aria-current={active ? "page" : undefined}
+                <a key={t + r} href={signupPath(t, r, true)} onClick={(e) => { e.preventDefault(); switchTo(t, r); }}
+                  data-testid={`signup-switch-${t}-${r}`} aria-current={active ? "page" : undefined}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${active ? "bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#1a1408] shadow" : "text-[#8a7048] hover:bg-[#FBF6EC]"}`}>
                   {t === "restaurant" ? "🍴" : "💇"} {l.replace("India", "🇮🇳 India").replace("US", "🇺🇸 US")}
                 </a>
@@ -239,7 +243,7 @@ export default function SignupSalon() {
           {detectedRegion !== region && !regionHintDismissed && (
             <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800" data-testid="signup-region-hint">
               <span>📍 Looks like you're {detectedRegion === "in" ? "in India" : "outside India"} — want {detectedRegion === "in" ? "₹ India" : "$ US / International"} pricing?</span>
-              <a href={signupPath(form.business_type, detectedRegion, true)} data-testid="signup-region-hint-switch" className="font-bold underline">Switch</a>
+              <a href={signupPath(form.business_type, detectedRegion, true)} onClick={(e) => { e.preventDefault(); switchTo(form.business_type, detectedRegion); }} data-testid="signup-region-hint-switch" className="font-bold underline">Switch</a>
               <button type="button" onClick={() => { sessionStorage.setItem("miracurl_region_hint", "1"); setRegionHintDismissed(true); }} data-testid="signup-region-hint-dismiss" className="text-amber-500 hover:text-amber-700" aria-label="Dismiss">✕</button>
             </div>
           )}

@@ -48,6 +48,19 @@ export function TrafficConversionCard() {
         ))}
       </div>
       <Spark daily={d.daily} />
+      {d.segments?.length > 0 && (
+        <div className="mt-3 space-y-1.5" data-testid="traffic-segments">
+          {d.segments.map(s => (
+            <div key={s.region} className="rounded-lg bg-black/20 border border-white/10 px-2.5 py-1.5" data-testid={`traffic-segment-${s.region}`}>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-semibold text-white/85">{s.region === "intl" ? "🇺🇸" : s.region === "in" ? "🇮🇳" : "🌐"} {s.label}</span>
+                <span className="text-white/60">{s.visitors} visitors · {s.mobile_pct}% mobile · {s.signup_page_rate_pct}% reach signup</span>
+              </div>
+              {s.top_paths?.length > 0 && <div className="text-[10px] text-white/40 mt-0.5 truncate">lands on {s.top_paths.map(p => `${p.path} ${p.n}`).join(" · ")}</div>}
+            </div>
+          ))}
+        </div>
+      )}
       <div className="text-[10px] text-white/40 mt-2 flex flex-wrap gap-x-3" data-testid="traffic-footnote">
         <span>projected ~{d.projected_visitors}/mo · floor {d.traffic_floor}</span>
         <span>{c.signup_page_rate_pct}% reach signup page</span>

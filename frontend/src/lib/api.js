@@ -96,7 +96,7 @@ api.interceptors.request.use((config) => {
 
 // Guest-facing routes: a 401 here must never bounce the visitor to /login.
 const PUBLIC_PREFIXES = ["/book", "/rewards/", "/color/", "/order/", "/gift", "/membership/", "/member/", "/pay/", "/feedback/",
-  "/salon/", "/products", "/employee", "/demo", "/partner", "/success-stories", "/blog", "/mira.ai", "/mira-ai", "/reset-password",
+  "/salon/", "/products", "/employee", "/demo", "/partner", "/success-stories", "/blog", "/reset-password",
   "/staff-registry", "/terms", "/privacy", "/refund-policy", "/review/", "/loyalty/", "/rate/", "/login", "/signup-salon",
   "/signup-restaurant", "/restaurant", "/features", "/pricing", "/about-us", "/contact-us", "/who-can-use", "/ceo", "/jobs", "/candidate/", "/connect-whatsapp/"];
 export const isPublicPath = (p) => p === "/" || PUBLIC_PREFIXES.some((x) => p.startsWith(x));

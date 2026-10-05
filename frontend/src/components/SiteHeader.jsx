@@ -51,10 +51,6 @@ export const SiteHeader = ({ variant = "light", site = null, subtitle = "Smart S
         <div className="hidden xl:flex items-center gap-3 2xl:gap-5 text-sm">
           <Link to="/" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className={`nav-cap ${t.link} transition-colors`} data-testid="header-home-link">Home</Link>
           <Link to="/about-us" className={`nav-cap ${t.link} transition-colors`} data-testid="header-about-link">About Us</Link>
-          <Link to="/mira.ai" data-testid="header-mira-link"
-            className={`nav-cap flex items-center gap-1.5 px-3 py-1.5 rounded-full border font-medium transition-colors ${t.pill}`}>
-            ✦ Mira AI Studio
-          </Link>
           <Link to="/features" className={`nav-cap ${t.link} transition-colors`} data-testid="header-features-link">Features</Link>
           <Link to="/pricing" className={`nav-cap ${t.link} transition-colors`} data-testid="header-pricing-link">Pricing</Link>
           <a href="/products" className="nav-cap text-[#C89B52] hover:text-[#8a6420] font-medium transition-colors" data-testid="header-products-link">🧴 Our Products</a>

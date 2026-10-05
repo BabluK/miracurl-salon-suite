@@ -570,34 +570,6 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 .tilt-3d { transform-style: preserve-3d; transition: transform 0.35s ease, box-shadow 0.35s ease; }
 .tilt-3d:hover { transform: perspective(800px) rotateX(3deg) rotateY(-4deg) translateY(-4px); box-shadow: 0 24px 48px -18px rgba(79, 70, 229, 0.35); }
 
-/* ── Neon software-flow timeline (landing) ─────────────────────── */
-.flow-timeline { perspective: 1000px; }
-.flow-spine {
-  position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%);
-  background: linear-gradient(180deg, rgba(34,211,238,.5), rgba(232,121,249,.5), rgba(251,191,36,.5), rgba(52,211,153,.5), rgba(212,175,55,.6));
-  filter: drop-shadow(0 0 6px rgba(167,139,250,.5));
-}
-.flow-spine-dot {
-  position: absolute; left: 50%; top: -14px; width: 8px; height: 8px; border-radius: 999px;
-  transform: translateX(-50%); z-index: 2; animation: flowDotPulse 2.4s ease-in-out infinite;
-}
-.flow-card {
-  position: relative; z-index: 1; background: rgba(13, 13, 19, 0.92);
-  backdrop-filter: blur(8px);
-  transition: transform .35s ease, box-shadow .35s ease;
-  transform-style: preserve-3d;
-}
-.flow-card:hover { transform: translateY(-4px) rotateX(4deg) scale(1.015); }
-.flow-in { animation: flowRise .7s cubic-bezier(.2,.7,.2,1) both; }
-@keyframes flowRise {
-  from { opacity: 0; transform: translateY(34px) rotateX(-14deg); }
-  to   { opacity: 1; transform: translateY(0) rotateX(0); }
-}
-@keyframes flowDotPulse {
-  0%, 100% { opacity: .55; transform: translateX(-50%) scale(1); }
-  50%      { opacity: 1;  transform: translateX(-50%) scale(1.5); }
-}
-
 /* ── Super Admin: orbiting platform map ─────────────────────── */
 .orbit-stage { position: relative; width: min(560px, 92vw); height: min(560px, 92vw); }
 .orbit-hub {

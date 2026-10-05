@@ -42,7 +42,6 @@ import { VerifiedStaffPanel } from "@/components/superadmin/VerifiedStaffPanel";
 import { MiracurlTeamPanel } from "@/components/superadmin/MiracurlTeamPanel";
 import { DeploymentHistoryPanel } from "@/components/superadmin/DeploymentHistoryPanel";
 import { DemoCalendar } from "@/components/superadmin/DemoCalendar";
-import { MiraStudioPanel } from "@/components/superadmin/MiraStudioPanel";
 import { MiraLeadAgent } from "@/components/superadmin/MiraLeadAgent";
 import { ReferralsPanel } from "@/components/superadmin/ReferralsPanel";
 import { MiraHome } from "@/components/superadmin/MiraHome";
@@ -401,7 +400,6 @@ export default function SuperAdmin() {
       { id: "demo-calendar", label: "Demo Calendar", icon: Bell },
       { id: "ai", label: "AI Insights", icon: Sparkles },
       { id: "inquiries", label: "Leads & Inquiries", icon: Users, badge: inquiryNew },
-      { id: "mira-studio", label: "Mira Studio Users", icon: Sparkles },
       { id: "hiring", label: "Hiring & Staff Verification", icon: Briefcase, badge: hiringNew },
       { id: "studio", label: "Feedback, AI Engineer & Brand Studio", icon: Palette },
       { id: "team", label: "HQ, Team, Website & CEO", icon: Crown },
@@ -449,7 +447,6 @@ export default function SuperAdmin() {
             inbox: <><LoginCheckCard /><HqInbox onUnreadChange={setHqUnread} /></>,
             studio: <div className="space-y-10"><FeedbackPanel /><EngineerPanel /><OnboardingStudio tenants={tenants} /><BrandKitPanel /><PromoVideoStudio /></div>,
             inquiries: <InquiriesPanel onNewCount={setInquiryNew} onConvert={convertLead} />,
-            "mira-studio": <MiraStudioPanel />,
             hiring: <div className="space-y-10"><HiringPanel onNewCount={setHiringNew} /><VerifiedStaffPanel /></div>,
             "verify-staff": <div className="space-y-10"><HiringPanel onNewCount={setHiringNew} /><VerifiedStaffPanel /></div>,
             promo: <div className="space-y-10"><BrandKitPanel /><PromoVideoStudio /></div>,

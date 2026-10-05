@@ -1,16 +1,18 @@
 import { Link } from "react-router-dom";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, lazy, Suspense } from "react";
 import { Calendar, Receipt, Star, ArrowRight, Check, Sparkles, MessageSquare, Scissors, Gift, ShieldCheck, Wand2, MapPin, UserCog, Mic, BadgePercent, Zap, BarChart3, Package, Play, X, ChevronDown, Mail, Instagram, Facebook, Linkedin, Crown } from "lucide-react";
 import SalesChatWidget from "@/components/SalesChatWidget";
 import InstallAppPrompt from "@/components/InstallAppPrompt";
-import { DemoCarousel } from "@/components/DemoCarousel";
-import { PartnerGrid } from "@/components/PartnerGrid";
-import { SoftwareFlowSection } from "@/components/SoftwareFlowSection";
-import { MiraStudioShowcase } from "@/components/MiraStudioShowcase";
-import { MiracurlProductsStrip } from "@/components/MiracurlProductsStrip";
 import api from "@/lib/api";
-import { detectRegion, signupHref } from "@/lib/region";
-import { trackCta } from "@/lib/analytics";
+import { currentRegion, rememberRegion, signupHref } from "@/lib/region";
+import { track, trackCta } from "@/lib/analytics";
+import { COPY, localizeFeatures } from "@/components/landing/landingCopy";
+import { UsHero, UsWhySwitch, UsStickyCta } from "@/components/landing/UsLanding";
+
+// Below-the-fold sections load after first paint — keeps the hero fast on phones.
+const DemoCarousel = lazy(() => import("@/components/DemoCarousel").then(m => ({ default: m.DemoCarousel })));
+const PartnerGrid = lazy(() => import("@/components/PartnerGrid").then(m => ({ default: m.PartnerGrid })));
+const MiracurlProductsStrip = lazy(() => import("@/components/MiracurlProductsStrip").then(m => ({ default: m.MiracurlProductsStrip })));
 
 const IMG = {
   hero: "https://static.prod-images.emergentagent.com/jobs/8d58114b-7738-444d-a4a6-c58e9aa75e05/images/98878cd0ea553bd4df7cc6ca3c05eaea3bd83533c44c0b7b2785932491d9d440.jpeg",
@@ -57,7 +59,7 @@ const fmtUSD = (n) => (n == null ? "…" : "$" + Number(n).toLocaleString("en-US
 
 const INTL_TIERS = [
   { tier: "starter", title: "Starter", tagline: "For independent & small salons", primary: false,
-    items: ["Online booking & CRM", "POS billing", "WhatsApp reminders", "Email support"] },
+    items: ["Online booking & CRM", "POS billing", "Email & WhatsApp reminders", "Email support"] },
   { tier: "professional", title: "Professional", tagline: "For growing salons", primary: true,
     items: ["Everything in Starter", "Inventory & vendors", "Staff payroll & commissions", "Analytics & reports", "Multi-staff accounts"] },
   { tier: "premium", title: "Premium AI", tagline: "For salons wanting Mira AI + automation", primary: false,
@@ -90,7 +92,7 @@ function customPlanCards(c, currency, vertical = "salon") {
       key, title: v.label, price: currency === "USD" ? fmtUSD(v.price) : fmtINR(v.price), monthly: v.price, annual: null,
       per: `${durLabel(v.duration_days)}${(v.branches || 1) > 1 ? ` · ${v.branches} branches` : ""}`, cta: "Get started", primary: !!v.highlight,
       tagline: v.branches > 1 ? "For salon chains" : "All-in-one salon suite",
-      items: v.features?.length ? v.features : ["All features included", "WhatsApp support", "Cancel anytime"],
+      items: v.features?.length ? v.features : ["All features included", currency === "USD" ? "Email & chat support" : "WhatsApp support", "Cancel anytime"],
     }));
 }
 
@@ -293,7 +295,7 @@ function CeoSection({ site }) {
 }
 
 
-function TrustNumbersStrip() {
+function TrustNumbersStrip({ label }) {
   const [stats, setStats] = useState(null);
   useEffect(() => {
     api.get("/public/platform-stats").then(r => setStats(r.data)).catch(() => {});
@@ -309,7 +311,7 @@ function TrustNumbersStrip() {
   return (
     <section className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 pb-6" data-testid="trust-numbers-strip">
       <div className="rounded-3xl border border-[#DFB78C]/25 bg-gradient-to-r from-[#151310] via-[#0F0F10] to-[#151310] px-6 sm:px-10 py-8">
-        <div className="text-center text-[10px] tracking-[0.35em] uppercase text-[#DFB78C] mb-6">Trusted by salons across India</div>
+        <div className="text-center text-[10px] tracking-[0.35em] uppercase text-[#DFB78C] mb-6">{label}</div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {items.map(it => (
             <div key={it.label} className="text-center" data-testid={`trust-stat-${it.label.toLowerCase().replace(/ /g, "-")}`}>
@@ -341,7 +343,7 @@ function TrustedPartnersSection() {
           View all partners <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
-      <PartnerGrid partners={partners} compact />
+      <Suspense fallback={null}><PartnerGrid partners={partners} compact /></Suspense>
     </section>
   );
 }
@@ -374,10 +376,16 @@ export default function Landing({ scrollTo }) {
   const [refSlug, setRefSlug] = useState(null);
   const [catalog, setCatalog] = useState(null);
   const [videoOpen, setVideoOpen] = useState(false);
-  const [region, setRegion] = useState(() => {
-    try { return localStorage.getItem("miracurl_region") || detectRegion(); } catch { return "in"; }
-  }); // in | intl
-  const pickRegion = (k) => { setRegion(k); try { localStorage.setItem("miracurl_region", k); } catch { /* private mode */ } };
+  const [region, setRegion] = useState(currentRegion); // in | intl
+  const pickRegion = (k) => { setRegion(k); rememberRegion(k); };
+  const us = region === "intl";
+  const copy = COPY[us ? "intl" : "in"];
+  const smallFeatures = localizeFeatures(SMALL_FEATURES, region);
+  useEffect(() => {
+    const device = window.matchMedia("(max-width: 640px)").matches ? "mobile" : "desktop";
+    if (typeof window.gtag === "function") window.gtag("set", "user_properties", { region, device });
+    track("landing_view", { region, device, page: window.location.pathname });
+  }, [region]);
   const [liveTestimonials, setLiveTestimonials] = useState([]);
   const [site, setSite] = useState(null);
   const plans = buildPlans(catalog);
@@ -410,7 +418,7 @@ export default function Landing({ scrollTo }) {
   return (
     <div className="relative min-h-screen bg-[#050505] text-white font-outfit overflow-x-clip" data-testid="landing-page">
       <div className="pointer-events-none fixed inset-0 z-0" aria-hidden="true" data-testid="landing-luxe-bg">
-        <img src="/brand-luxe-bg.jpg" alt="" className="w-full h-full object-cover opacity-55" />
+        <img src="/brand-luxe-bg.jpg" alt="" loading="lazy" decoding="async" className="hidden sm:block w-full h-full object-cover opacity-55" />
         <div className="absolute inset-0 bg-gradient-to-b from-[#050505]/55 via-[#0a0812]/70 to-[#050505]/95" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(223,183,140,.18),transparent_50%),radial-gradient(ellipse_at_85%_100%,rgba(122,45,78,.28),transparent_55%)]" />
       </div>
@@ -429,10 +437,10 @@ export default function Landing({ scrollTo }) {
           <div className="hidden xl:flex items-center gap-4 2xl:gap-6 text-sm pr-1">
             <Link to="/" data-testid="nav-home-link" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="nav-cap text-white/70 hover:text-white transition-colors">Home</Link>
             <a href="#about" data-testid="nav-about-link" className="nav-cap text-white/70 hover:text-white transition-colors">About Us</a>
-            <Link to="/mira.ai" data-testid="nav-mira-studio-link"
+            <a href="#peek" data-testid="nav-quick-peek-link" onClick={(e) => { e.preventDefault(); document.getElementById("peek")?.scrollIntoView({ behavior: "smooth" }); }}
               className="nav-cap flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#DFB78C]/40 bg-[#DFB78C]/10 text-[#DFB78C] hover:bg-[#DFB78C]/20 font-medium transition-colors">
-              ✦ Mira AI Studio
-            </Link>
+              ✦ Quick Peek
+            </a>
             <ExploreDropdown />
             <Link to="/restaurant" data-testid="nav-restaurant-link" className="nav-cap text-[#DFB78C] hover:text-[#F0D9A5] font-medium transition-colors">🍽️ For Restaurants</Link>
             <Link to="/staff-registry" data-testid="landing-verify-staff" className="nav-cap text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Staff Verification</Link>
@@ -440,7 +448,7 @@ export default function Landing({ scrollTo }) {
             <Link to="/login" className="nav-cap text-white/70 hover:text-white font-medium transition-colors" data-testid="landing-login">Sign In</Link>
             <Link to={signupHref("salon", region)} onClick={() => trackCta("landing-cta-nav", { region })} data-testid="landing-cta-nav"
                   className="nav-cap px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#050505] font-bold hover:brightness-110 hover:-translate-y-0.5 shadow-[0_8px_24px_-6px_rgba(223,183,140,0.5)] transition-transform">
-              Sign Up
+              {copy.navCta}
             </Link>
           </div>
           <div className="flex xl:hidden items-center gap-2 sm:gap-3 text-sm whitespace-nowrap shrink-0">
@@ -448,15 +456,18 @@ export default function Landing({ scrollTo }) {
             <Link to="/login" className="text-white/70 hover:text-white font-medium transition-colors">Sign In</Link>
             <Link to={signupHref("salon", region)} onClick={() => trackCta("landing-cta-nav-mobile", { region })} data-testid="landing-cta-nav-mobile"
                   className="px-3 sm:px-4 py-2 rounded-full bg-gradient-to-b from-[#F0D9A5] to-[#C89B52] text-[#050505] text-xs font-bold shadow-[0_8px_24px_-6px_rgba(223,183,140,0.5)]">
-              Sign Up
+              {copy.navCta}
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Hero — cinematic with smart AI background */}
+      <link rel="preload" as="image" href={IMG.hero} fetchPriority="high" />
+      {us ? (
+        <UsHero trialDays={Number(catalog?.trial_days) || 30} fromPrice={catalog?.intl_starter_monthly?.price} demoBookPath={copy.demoBookPath} heroImg={IMG.hero} />
+      ) : (
       <section className="relative overflow-hidden">
-        <img src={IMG.hero} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover" />
+        <img src={IMG.hero} alt="" aria-hidden="true" fetchPriority="high" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/70" />
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 20%, rgba(5,5,5,0.25) 0%, rgba(5,5,5,0.92) 80%)" }} />
         <div className="relative z-10 max-w-5xl mx-auto px-6 sm:px-10 pt-20 sm:pt-28 pb-44 sm:pb-56 text-center animate-fade-up">
@@ -477,18 +488,19 @@ export default function Landing({ scrollTo }) {
                   className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[#DFB78C] text-[#050505] font-bold hover:bg-[#EAD3B3] hover:-translate-y-1 shadow-[0_16px_40px_-10px_rgba(223,183,140,0.6)] transition-transform text-base">
               Start your free trial <ArrowRight className="w-4 h-4" />
             </Link>
-            <Link to="/book/miracurl-marathahalli" data-testid="landing-demo-btn"
+            <Link to={copy.demoBookPath} data-testid="landing-demo-btn"
                   className="inline-flex items-center gap-2 px-8 py-4 rounded-full border border-white/25 bg-black/30 backdrop-blur text-white/90 font-medium hover:bg-white/10 hover:-translate-y-1 transition-transform">
               See a live booking page
             </Link>
           </div>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-white/50">
-            {["Unlimited bookings", "GST billing built-in", "WhatsApp share built-in"].map(t => (
+            {copy.bullets.map(t => (
               <span key={t} className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-400" /> {t}</span>
             ))}
           </div>
         </div>
       </section>
+      )}
 
       {/* Floating tour video card — overlaps hero into the next section */}
       <section className="relative z-20 max-w-4xl mx-auto px-6 sm:px-10 -mt-32 sm:-mt-44">
@@ -496,7 +508,7 @@ export default function Landing({ scrollTo }) {
           <div className="pointer-events-none absolute -inset-10 mx-auto max-w-lg rounded-full bg-[#E35A89]/15 blur-3xl" aria-hidden="true" />
           <button onClick={() => setVideoOpen(true)} data-testid="hero-video-play"
             className="group relative block w-full aspect-video rounded-3xl overflow-hidden border border-white/15 bg-black/60 backdrop-blur-xl shadow-[0_40px_100px_-20px_rgba(0,0,0,0.9)] hover:border-[#DFB78C]/50 transition-colors">
-            <img src={IMG.videoPoster} alt="Miracurl product tour preview" className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-95 group-hover:scale-[1.02] transition-transform duration-700" />
+            <img src={IMG.videoPoster} alt="Miracurl product tour preview" loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-95 group-hover:scale-[1.02] transition-transform duration-700" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/30" />
             <span className="absolute inset-0 flex items-center justify-center">
               <span className="relative flex items-center justify-center">
@@ -520,7 +532,7 @@ export default function Landing({ scrollTo }) {
       {/* Stats strip */}
       <section className="relative z-10 max-w-5xl mx-auto px-6 sm:px-10 mt-16 pb-8">
         <div className="grid grid-cols-2 sm:grid-cols-4 rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
-          {[{ v: "₹0", l: "Setup cost" }, { v: "90 sec", l: "To go live" }, { v: "24/7", l: "AI receptionist" }, { v: "0%", l: "Booking commission" }].map((s, i) => (
+          {copy.stats.map((s, i) => (
             <div key={s.l} className={`px-4 py-6 text-center hover:bg-white/[0.04] transition-colors ${i < 3 ? "sm:border-r sm:border-white/10" : ""} ${i % 2 === 0 ? "border-r border-white/10 sm:border-r" : ""} ${i < 2 ? "border-b border-white/10 sm:border-b-0" : ""}`}>
               <div className="text-2xl sm:text-3xl font-playfair text-[#DFB78C]">{s.v}</div>
               <div className="text-[10px] uppercase tracking-[0.2em] text-white/40 mt-1.5">{s.l}</div>
@@ -529,28 +541,28 @@ export default function Landing({ scrollTo }) {
         </div>
       </section>
 
-      <DemoCarousel />
+      <div id="peek"><Suspense fallback={null}><DemoCarousel /></Suspense></div>
 
       {/* Features — bento grid */}
       <section id="features" className="relative z-10 max-w-7xl mx-auto px-6 sm:px-10 py-24">
         <div className="text-left mb-14 max-w-2xl">
           <Label className="text-[#E35A89]">Everything you need</Label>
-          <h2 className="font-playfair text-4xl sm:text-5xl font-light mt-4">Built for how Indian salons <em className="text-[#DFB78C] not-italic font-playfair">actually</em> work</h2>
+          <h2 className="font-playfair text-4xl sm:text-5xl font-light mt-4" data-testid="features-h2">{copy.featuresH2[0]}<em className="text-[#DFB78C] not-italic font-playfair">{copy.featuresH2[1]}</em>{copy.featuresH2[2]}</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
           {/* Mira AI — large card */}
           <div className="md:col-span-8 md:row-span-2 relative overflow-hidden rounded-3xl bg-[#0F0F10] border border-white/10 group hover:border-[#DFB78C]/30 transition-colors" data-testid="feature-mira-ai">
-            <img src={IMG.mira} alt="" aria-hidden="true" className="absolute right-0 bottom-0 w-2/3 md:w-1/2 object-contain opacity-80 group-hover:scale-105 transition-transform duration-700" />
+            <img src={IMG.mira} alt="" aria-hidden="true" loading="lazy" decoding="async" className="absolute right-0 bottom-0 w-2/3 md:w-1/2 object-contain opacity-80 group-hover:scale-105 transition-transform duration-700" />
             <div className="relative p-8 md:p-12 max-w-md">
               <span className="inline-flex items-center gap-1.5 text-[#DFB78C] text-[11px] uppercase tracking-[0.2em] font-semibold"><Sparkles className="w-3.5 h-3.5" /> Your AI employee</span>
               <h3 className="font-playfair text-3xl md:text-4xl mt-3">Mira AI ✦</h3>
-              <p className="text-white/60 mt-4 leading-relaxed">Voice briefings in English &amp; Hindi, AI poster studio, review replies — and a 24/7 booking agent that chats with your clients and fills your calendar.</p>
+              <p className="text-white/60 mt-4 leading-relaxed">{copy.miraDesc}</p>
               <div className="flex flex-wrap gap-2 mt-6">
                 {[[Mic, "Voice booking"], [Calendar, "Slot-aware"], [BadgePercent, "Upsells offers"]].map(([I, t]) => (
                   <span key={t} className="inline-flex items-center gap-1.5 bg-black/40 border border-white/10 rounded-full px-3 py-1.5 text-xs text-white/80"><I className="w-3.5 h-3.5 text-[#E35A89]" /> {t}</span>
                 ))}
               </div>
-              <a href="/book/miracurl-marathahalli" target="_blank" rel="noreferrer" data-testid="mira-try-live-btn"
+              <a href={copy.demoBookPath} target="_blank" rel="noreferrer" data-testid="mira-try-live-btn"
                  className="inline-flex items-center gap-2 mt-8 px-5 py-2.5 rounded-full bg-[#DFB78C] text-[#050505] font-semibold text-sm hover:bg-[#EAD3B3] hover:-translate-y-0.5 transition-transform">
                 Try Mira live <ArrowRight className="w-4 h-4" />
               </a>
@@ -558,18 +570,18 @@ export default function Landing({ scrollTo }) {
           </div>
           {/* Smart POS */}
           <div className="md:col-span-4 relative overflow-hidden rounded-3xl bg-[#0F0F10] border border-white/10 group hover:border-[#DFB78C]/30 transition-colors min-h-[220px]" data-testid="feature-smart-pos">
-            <img src={IMG.pos} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-55 transition-opacity duration-500" />
+            <img src={IMG.pos} alt="" aria-hidden="true" loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-55 transition-opacity duration-500" />
             <div className="relative p-8">
               <Receipt className="w-6 h-6 text-[#DFB78C]" />
               <h3 className="font-playfair text-2xl mt-3">Smart POS</h3>
-              <p className="text-white/60 text-sm mt-2">GST billing, thermal receipts with Google-review QR, multi-stylist invoices.</p>
+              <p className="text-white/60 text-sm mt-2">{copy.posDesc}</p>
             </div>
           </div>
           {/* Staff Registry */}
           <div className="md:col-span-4 rounded-3xl bg-[#0F0F10] border border-white/10 p-8 hover:border-[#DFB78C]/30 transition-colors" data-testid="feature-staff-registry">
             <ShieldCheck className="w-6 h-6 text-emerald-400" />
             <h3 className="font-playfair text-2xl mt-3">Staff Registry</h3>
-            <p className="text-white/60 text-sm mt-2">Aadhaar-verified cross-salon history, geo-fenced attendance, auto badges + PDF.</p>
+            <p className="text-white/60 text-sm mt-2">{copy.registryDesc}</p>
           </div>
           {/* Wide booking card */}
           <div className="md:col-span-12 rounded-3xl bg-gradient-to-r from-[#0F0F10] to-[#E35A89]/[0.08] border border-white/10 p-8 md:p-10 flex flex-col md:flex-row md:items-center gap-6 hover:border-[#E35A89]/30 transition-colors" data-testid="feature-online-booking">
@@ -582,7 +594,7 @@ export default function Landing({ scrollTo }) {
             </Link>
           </div>
           {/* Small feature tiles */}
-          {SMALL_FEATURES.map(f => {
+          {smallFeatures.map(f => {
             const I = f.icon;
             return (
               <div key={f.title} className="md:col-span-4 rounded-3xl bg-[#0F0F10] border border-white/10 p-7 hover:border-[#DFB78C]/30 hover:-translate-y-1 transition-transform duration-300" data-testid={`feature-${f.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
@@ -595,14 +607,9 @@ export default function Landing({ scrollTo }) {
         </div>
       </section>
 
-      {/* Mira AI Studio — built with AI showcase */}
-      <MiraStudioShowcase />
-
-      {/* Software flow — neon 3D timeline */}
-      <SoftwareFlowSection />
-
-      {/* Testimonials — editorial */}
-      <TrustNumbersStrip />
+      {/* Testimonials — editorial (India) · factual "why owners switch" (US — no invented quotes) */}
+      <TrustNumbersStrip label={copy.trustLabel} />
+      {us ? <UsWhySwitch /> : (
       <section className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 pb-24">
         <Label className="text-[#DFB78C]">Salon owners on Miracurl</Label>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-8">
@@ -612,7 +619,7 @@ export default function Landing({ scrollTo }) {
               <div className="flex gap-1 text-[#DFB78C]">{["s1", "s2", "s3", "s4", "s5"].map(s => <Star key={s} className="w-4 h-4 fill-[#DFB78C]" />)}</div>
               <blockquote className="font-playfair text-xl md:text-2xl leading-relaxed mt-4 text-white/90">"{t.quote}"</blockquote>
               <figcaption className="flex items-center gap-3 mt-6">
-                <img src={t.img} alt={t.name} className="w-11 h-11 rounded-full object-cover border border-white/20" />
+                <img src={t.img} alt={t.name} loading="lazy" decoding="async" className="w-11 h-11 rounded-full object-cover border border-white/20" />
                 <div>
                   <div className="text-sm font-semibold">{t.name}</div>
                   <div className="text-xs text-white/50">{t.role}</div>
@@ -622,12 +629,13 @@ export default function Landing({ scrollTo }) {
           ))}
         </div>
       </section>
+      )}
 
       {/* Trusted Partners — onboarded salons, auto-listed */}
       <TrustedPartnersSection />
 
       {/* Miracurl Products — hair science range */}
-      <MiracurlProductsStrip />
+      <Suspense fallback={null}><MiracurlProductsStrip /></Suspense>
 
       {/* Pricing */}
       <section id="pricing" className="relative z-10 max-w-7xl mx-auto px-6 sm:px-10 pb-24">
@@ -766,8 +774,8 @@ export default function Landing({ scrollTo }) {
         <div className="rounded-3xl p-10 sm:p-16 text-center relative overflow-hidden border border-[#DFB78C]/20"
              style={{ background: "linear-gradient(135deg, rgba(227,90,137,0.12) 0%, rgba(223,183,140,0.10) 100%)" }}>
           <Zap className="w-10 h-10 mx-auto text-[#DFB78C]" />
-          <h2 className="font-playfair text-3xl sm:text-5xl font-light mt-5">Ready to bring your salon online?</h2>
-          <p className="text-white/60 mt-4 max-w-xl mx-auto">Set up in 90 seconds. Cancel anytime in your trial. Pay only when it works.</p>
+          <h2 className="font-playfair text-3xl sm:text-5xl font-light mt-5">{copy.finalH2}</h2>
+          <p className="text-white/60 mt-4 max-w-xl mx-auto">{copy.finalSub}</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-9">
             <Link to={signupHref("salon", region)} onClick={() => trackCta("landing-cta-footer", { region })} data-testid="landing-cta-footer"
                   className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[#DFB78C] text-[#050505] font-bold hover:bg-[#EAD3B3] hover:-translate-y-1 transition-transform shadow-[0_16px_40px_-10px_rgba(223,183,140,0.6)]">
@@ -817,7 +825,6 @@ export default function Landing({ scrollTo }) {
                 <Link to="/" className="hover:text-white transition-colors">Home</Link>
                 <a href="#about" className="hover:text-white transition-colors">About Us</a>
                 <Link to="/contact-us" className="hover:text-white transition-colors" data-testid="footer-contact-link">Contact Us</Link>
-                <Link to="/mira.ai" className="text-[#DFB78C]/70 hover:text-[#DFB78C] transition-colors">Mira AI Studio ✦</Link>
                 <Link to="/partners" className="hover:text-white transition-colors">Our Partners</Link>
                 <Link to="/blog" className="hover:text-white transition-colors" data-testid="footer-blog-link">Blog</Link>
               </div>
@@ -887,6 +894,7 @@ export default function Landing({ scrollTo }) {
       </footer>
       <SalesChatWidget />
       <InstallAppPrompt variant="app" />
+      {us && <UsStickyCta />}
       </div>
     </div>
   );

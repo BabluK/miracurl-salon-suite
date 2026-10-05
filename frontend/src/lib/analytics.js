@@ -1,5 +1,5 @@
 // GA4 + Microsoft Clarity events and a first-party visit beacon — all safe no-ops when blocked (adblock) or not loaded.
-import { detectRegion } from "@/lib/region";
+import { currentRegion } from "@/lib/region";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -29,7 +29,7 @@ export const trackFunnel = (event, { business_type, region, locked, step, step_n
 export const trackCta = (cta, extra = {}) => track("cta_click", { cta, ...extra });
 
 const MARKETING_PREFIXES = ["/pricing", "/features", "/restaurant", "/signup-", "/blog", "/about-us", "/who-can-use",
-  "/mira.ai", "/contact-us", "/success-stories", "/products", "/ceo", "/demo", "/partner"];
+  "/contact-us", "/success-stories", "/products", "/ceo", "/demo", "/partner"];
 const isMarketing = (p) => p === "/" || MARKETING_PREFIXES.some(x => p.startsWith(x));
 
 function visitorId() {
@@ -54,7 +54,8 @@ export function logVisit(pathname) {
     if (ref === window.location.host) ref = "";
     if (SELF_REFS.some(d => ref === d || ref.endsWith(`.${d}`))) return;
     const body = JSON.stringify({
-      vid: visitorId(), path: pathname, ref, region: localStorage.getItem("miracurl_region") || detectRegion(),
+      vid: visitorId(), path: pathname, ref, region: currentRegion(),
+      device: window.matchMedia("(max-width: 640px)").matches ? "mobile" : "desktop",
       utm_source: q.get("utm_source") || undefined, utm_medium: q.get("utm_medium") || undefined,
     });
     fetch(`${BACKEND_URL}/api/public/visit`, { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => {});

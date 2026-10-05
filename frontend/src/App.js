@@ -92,7 +92,6 @@ const PartnerLanding = lazy(() => import("@/pages/PartnerLanding"));
 const SuccessStories = lazy(() => import("@/pages/SuccessStories"));
 const Blog = lazy(() => import("@/pages/Blog"));
 const BlogPost = lazy(() => import("@/pages/BlogPost"));
-const MiraAIStudio = lazy(() => import("@/pages/MiraAIStudio"));
 const StaffActivities = lazy(() => import("@/pages/StaffActivities"));
 const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 const ReviewPublic = lazy(() => import("@/pages/ReviewPublic"));
@@ -281,8 +280,6 @@ export default function App() {
             <Route path="/success-stories" element={<SuccessStories />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/blog/:slug" element={<BlogPost />} />
-            <Route path="/mira.ai" element={<MiraAIStudio />} />
-            <Route path="/mira-ai" element={<MiraAIStudio />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/staff-registry" element={<RegistryPublic />} />
             <Route path="/partners" element={<Partners />} />

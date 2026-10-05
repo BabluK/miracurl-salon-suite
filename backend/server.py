@@ -119,7 +119,6 @@ from routes.rewards_settlements import router as rewards_settlements_router  # n
 from routes.campaign_agreement import router as campaign_agreement_router  # noqa: E402
 from routes.tenant_features import router as tenant_features_router  # noqa: E402
 from routes.support_tickets import router as support_tickets_router  # noqa: E402
-from routes.mira_builder import router as mira_builder_router  # noqa: E402
 from routes.setup_wizard import router as setup_wizard_router  # noqa: E402
 from routes.lead_gen import router as lead_gen_router  # noqa: E402
 from routes.tenant_mira import router as tenant_mira_router  # noqa: E402
@@ -162,7 +161,7 @@ for _r in (
     packages_router, wallet_router, id_cards_router, releases_router, loyalty_stamps_router,
     testimonials_router, diagnostics_router, subscriptions_router, day_offers_router,
     cctv_router, hiring_router, hq_notifications_router, winback_router, payments_intl_router,
-    employee_portal_router, hq_documents_router, mira_builder_router, manager_access_router,
+    employee_portal_router, hq_documents_router, manager_access_router,
     setup_wizard_router, lead_gen_router, tenant_mira_router, feedback_router, salon_digest_router,
     pay_links_router, whatsapp_webhook_router, whatsapp_link_router, hq_credit_wallet_router, wa_coexist_router,
     passkeys_router, eod_digests_router, wallet_pass_router, site_info_router,

@@ -10,7 +10,7 @@ export const HQ_NAV_GROUPS = [
   ["Command", ["mira-home", "platform-map", "notifications", "inbox"]],
   ["Business", ["tenants", "billing", "credits", "revenue"]],
   ["Growth", ["mira-leads", "lead-email", "pipeline", "inquiries", "demo-calendar", "partners", "growth-advisory"]],
-  ["Operations", ["docs", "hiring", "mira-studio", "ai", "studio"]],
+  ["Operations", ["docs", "hiring", "ai", "studio"]],
   ["System", ["team", "security"]],
 ];
 
